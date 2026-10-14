@@ -6,11 +6,10 @@ import { isLocale, type Locale } from "@evinvest/i18n";
  *
  * It used to come from a cookie the proxy minted, on the reasoning that the
  * cabinet sits behind auth and a prefix would buy nothing. That is true of SEO
- * and false of the reader: the cabinet is mounted inside the conductor's shell at
- * `/{locale}/cabinet/…`, and someone reading evinvest.ltd in Russian who clicks
- * through to their cabinet should not have the language silently decided by a
- * cookie that may say something else. One URL shape across both, one answer to
- * "what language is this page".
+ * and false of the reader: someone who clicks through from the landing in Russian
+ * should not have the language silently decided by a cookie that may say something
+ * else. The locale is the first segment under the prefix — `/cabinet/ru/invest` —
+ * so one URL carries one answer to "what language is this page".
  *
  * `next/root-params` rather than `params`: this is called from server components
  * that are handed no props (the status pages, and anything deep in a view), and

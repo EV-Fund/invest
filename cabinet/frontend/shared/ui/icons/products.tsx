@@ -4,9 +4,8 @@
 // everywhere, which is the whole reason the icon is an operator-chosen attribute rather
 // than something each screen derives.
 //
-// Its own module with no `shared/ui/icons/index.ts` barrel, for the same reason
-// `./networks.tsx` has none: a barrel would let a future icon set ride along into every
-// route that only wanted this one.
+// Its own module with no `shared/ui/icons/index.ts` barrel: a barrel would let a future
+// icon set ride along into every route that only wanted this one.
 //
 // The mapping lives here rather than as a field on `Allocation` or on `Product`: a
 // component reference on the wire object would pull all ten glyphs into every module that
@@ -53,6 +52,14 @@ export const ALLOCATION_ICONS: readonly AllocationIcon[] = ["fund", "real_estate
 // Widened to the wire's `string` once, here, so a value from a server newer than this build
 // is an ordinary lookup miss instead of an `as` cast at every call site.
 const BY_WIRE: Record<string, LucideIcon | undefined> = PRODUCT_ICONS;
+
+/**
+ * The glyph component itself, for a consumer that renders it — the kit's rail takes an
+ * item's `icon` as a component. Same fallback as {@link ProductIcon}.
+ */
+export function productGlyph(icon: string | undefined): LucideIcon {
+  return BY_WIRE[icon ?? ""] ?? PRODUCT_ICONS.fund;
+}
 
 /**
  * A product's mark, falling back to `fund` — which is also the hub's own default, so an

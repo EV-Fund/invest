@@ -19,24 +19,19 @@ import { createSettings, bool, optional as opt, requiredIn, str, url } from "@ev
 function getSettings() {
   return createSettings({
     server: {
-      // Where next.config.ts rewrites same-origin /api/* to (the Rust BFF).
+      // Where next.config.ts rewrites same-origin /cabinet/api/* to (the invest BFF).
       // Required — always set by the Nix build env and container contract.
       CABINET_BACKEND_URL: url(),
       // `__Host-`/Secure cookies need HTTPS; explicit override, else infer from NODE_ENV.
       AUTH_COOKIE_SECURE: opt(bool()),
-      // Extra CSP/MFE allow-list origins not present in mfe-registry.json.
+      // Extra CSP script/style/connect sources beyond the platform's element
+      // directories — a staging stand's, say (shared/config/security.ts).
       MFE_ALLOWED_ORIGINS: opt(str()),
-      // The concierge auth web surface, reached server-to-server (the same value the
-      // conductor rewrites /api/auth/* to). Lets the proxy renew a lapsing access cookie
-      // before a server render reads it. Unset ⇒ no server-side renewal: the browser's
-      // SessionKeeper still rotates the cookie, the first server read just may find it stale.
-      AUTH_WEB_URL: opt(url()),
       // Next.js sets NODE_ENV during build and at runtime; unset in tests.
       NODE_ENV: opt(str()),
     },
     clientPrefix: "NEXT_PUBLIC_",
     client: {
-      NEXT_PUBLIC_MFE_ALLOWED_ORIGINS: opt(str()),
       // Host(s) the identity plane is allowed to hand back as a verification redirect,
       // comma-separated. Optional: the plane refuses a foreign host itself, and an unset
       // value here degrades to the https-only check rather than blocking verification.
@@ -50,13 +45,6 @@ function getSettings() {
       // Unset ⇒ browser error monitoring is a silent no-op: the cabinet's
       // client-side crashes reach nobody. Acceptable locally, not in a deploy.
       NEXT_PUBLIC_SENTRY_DSN: requiredIn(opt(str()), "production"),
-      // The Service-Arb panel Home links to. Unset ⇒ no card: a link to nowhere is worse
-      // than no link. Public; a build-time literal in flake.nix like the PostHog key.
-      NEXT_PUBLIC_SA_PANEL_URL: opt(url()),
-      // Cloudflare Turnstile site key for the sign-in dialog; locally Cloudflare's
-      // always-pass test key `1x00000000000000000000AA`. Unset, the dialog's credential
-      // forms stay disabled — the identity plane refuses them without a token anyway.
-      NEXT_PUBLIC_TURNSTILE_SITE_KEY: requiredIn(opt(str()), "production"),
     },
     // `requiredIn` matches against this. NODE_ENV is what Next.js already sets
     // and what every other check here reads, so it stays the single name for
@@ -73,15 +61,11 @@ function getSettings() {
       CABINET_BACKEND_URL: process.env.CABINET_BACKEND_URL,
       AUTH_COOKIE_SECURE: process.env.AUTH_COOKIE_SECURE,
       MFE_ALLOWED_ORIGINS: process.env.MFE_ALLOWED_ORIGINS,
-      AUTH_WEB_URL: process.env.AUTH_WEB_URL,
       NODE_ENV: process.env.NODE_ENV,
-      NEXT_PUBLIC_MFE_ALLOWED_ORIGINS: process.env.NEXT_PUBLIC_MFE_ALLOWED_ORIGINS,
       NEXT_PUBLIC_KYC_PROVIDER_HOST: process.env.NEXT_PUBLIC_KYC_PROVIDER_HOST,
       NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
       NEXT_PUBLIC_POSTHOG_HOST: process.env.NEXT_PUBLIC_POSTHOG_HOST,
       NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
-      NEXT_PUBLIC_SA_PANEL_URL: process.env.NEXT_PUBLIC_SA_PANEL_URL,
-      NEXT_PUBLIC_TURNSTILE_SITE_KEY: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
     },
   });
 }
@@ -115,17 +99,13 @@ export const config = ((): Readonly<{
   backendUrl: string;
   authCookieSecure: boolean;
   mfeAllowedOrigins: string | undefined;
-  authWebUrl: string | undefined;
   isProduction: boolean;
   isDevelopment: boolean;
   public: Readonly<{
-    mfeAllowedOrigins: string | undefined;
     kycProviderHost: string | undefined;
     posthogKey: string | undefined;
     posthogHost: string | undefined;
     sentryDsn: string | undefined;
-    saPanelUrl: string | undefined;
-    turnstileSiteKey: string | undefined;
   }>;
 }> => {
   return Object.freeze({
@@ -138,9 +118,6 @@ export const config = ((): Readonly<{
     get mfeAllowedOrigins(): string | undefined {
       return _isServer ? getSettings().MFE_ALLOWED_ORIGINS : undefined;
     },
-    get authWebUrl(): string | undefined {
-      return _isServer ? getSettings().AUTH_WEB_URL : undefined;
-    },
     get isProduction(): boolean {
       return _isServer ? computeIsProduction() : false;
     },
@@ -148,9 +125,6 @@ export const config = ((): Readonly<{
       return _isServer ? computeIsDevelopment() : true;
     },
     public: Object.freeze({
-      get mfeAllowedOrigins(): string | undefined {
-        return getSettings().NEXT_PUBLIC_MFE_ALLOWED_ORIGINS;
-      },
       get kycProviderHost(): string | undefined {
         return getSettings().NEXT_PUBLIC_KYC_PROVIDER_HOST;
       },
@@ -162,12 +136,6 @@ export const config = ((): Readonly<{
       },
       get sentryDsn(): string | undefined {
         return getSettings().NEXT_PUBLIC_SENTRY_DSN;
-      },
-      get saPanelUrl(): string | undefined {
-        return getSettings().NEXT_PUBLIC_SA_PANEL_URL;
-      },
-      get turnstileSiteKey(): string | undefined {
-        return getSettings().NEXT_PUBLIC_TURNSTILE_SITE_KEY;
       },
     }),
   });
@@ -187,16 +155,12 @@ export function assertConfig(): void {
   void config.backendUrl;
   void config.authCookieSecure;
   void config.mfeAllowedOrigins;
-  void config.authWebUrl;
   void config.isProduction;
   void config.isDevelopment;
-  void config.public.mfeAllowedOrigins;
   void config.public.kycProviderHost;
   void config.public.posthogKey;
   void config.public.posthogHost;
   void config.public.sentryDsn;
-  void config.public.saPanelUrl;
-  void config.public.turnstileSiteKey;
 }
 
 // Keep the old helpers for any remaining callers outside this module.

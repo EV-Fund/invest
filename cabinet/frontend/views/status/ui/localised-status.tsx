@@ -2,7 +2,7 @@ import { StatusScreen } from "@evinvest/uikit";
 import { localePath, translator, type Locale, type Translate } from "@evinvest/i18n";
 
 import { messagesFor } from "@/shared/config/i18n";
-import { cabinetPath } from "@/shared/config/base-path";
+import { documentPath } from "@/shared/config/base-path";
 
 /**
  * The 404 / 403 / 401 surfaces, in the reader's language.
@@ -61,10 +61,10 @@ export function LocalisedStatus({ kind, locale }: { kind: StatusKind; locale: Lo
   const t = translator(messagesFor(locale), locale);
   const secondary =
     kind === "unauthorized"
-      ? { label: t("status.signIn", "Sign in"), href: cabinetPath(locale, "/login") }
+      ? { label: t("status.signIn", "Sign in"), href: documentPath(locale, "/login") }
       : {
-          // The landing's contact page is a conductor route on the same origin, so
-          // `localePath`, not `cabinetPath`.
+          // The landing's contact page is a route of the landing on this host, so
+          // `localePath`, not `documentPath`.
           label: kind === "forbidden" ? t("status.requestAccess", "Request access") : t("status.contactTeam", "Contact the team"),
           href: localePath(locale, "/contact"),
         };
@@ -74,7 +74,7 @@ export function LocalisedStatus({ kind, locale }: { kind: StatusKind; locale: Lo
       code={CODE[kind]}
       {...COPY[kind](t)}
       links={[
-        { label: t("status.backHome", "Back to home"), href: cabinetPath(locale, "/"), leadingArrow: true },
+        { label: t("status.backHome", "Back to home"), href: documentPath(locale, "/"), leadingArrow: true },
         { ...secondary, variant: "outline" },
       ]}
     />

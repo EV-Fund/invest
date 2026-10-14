@@ -6,21 +6,20 @@ import type { ReactNode } from "react";
 
 import { AuthWall, Button } from "@evinvest/uikit";
 
-import { isPanelAccessRoute } from "@/entities/grant/lib/access";
-import { useSignInDialog } from "@/features/auth/model/use-sign-in-dialog";
-import { ACCOUNT, requiredPermission } from "@/shared/config/route-permissions";
+import { useSignInDialog } from "@/features/auth";
+import { meets, requirementOf } from "@/shared/config/route-permissions";
 import { useCabinetPathname } from "@/shared/lib/cabinet-route";
 import { SESSION_UNAVAILABLE, useSession } from "@/shared/lib/use-session";
 import { ForbiddenScreen } from "@/shared/ui/forbidden-screen";
 
 /**
- * What the page shows this caller: itself when the seat holds what the section needs
+ * What the page shows this caller: itself when the session meets what the section needs
  * (`shared/config/route-permissions.ts`), a sign-in wall for a guest, a 403 for an account
  * that lacks it. Cosmetic in the sense the BFF is the boundary — but it is what keeps a
  * guest's page from firing a request that could only answer 401.
  *
  * `signedIn` is the server's word on whether a session cookie came with the page: until the
- * session is read, a signed-in reader gets the page (as before the gate) and a guest the wall.
+ * session is read, a signed-in reader gets the page and a guest the wall.
  */
 export function RouteGate({ signedIn, children }: { signedIn: boolean; children: ReactNode }) {
   const t = useT();
@@ -28,12 +27,10 @@ export function RouteGate({ signedIn, children }: { signedIn: boolean; children:
   const pathname = useCabinetPathname();
   const dialog = useSignInDialog();
 
-  // The panel-access page is for a tenant's delegate, who holds no console seat: the page
-  // asks the grants itself.
-  const needed = isPanelAccessRoute(pathname) ? ACCOUNT : requiredPermission(pathname);
+  const requirement = requirementOf(pathname);
   const unknown = session === null || session === SESSION_UNAVAILABLE;
   const guest = unknown ? !signedIn : !session.authenticated;
-  const allowed = needed === null || (unknown ? signedIn : session.permissions.includes(needed));
+  const allowed = requirement === null || (unknown ? signedIn : meets(requirement, session));
 
   if (allowed) return <>{children}</>;
   if (guest) {

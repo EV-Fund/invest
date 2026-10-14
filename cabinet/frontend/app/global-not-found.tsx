@@ -7,8 +7,7 @@ import { fontInter } from "@/application/styles/fonts";
 import { BASE_PATH } from "@/shared/config/base-path";
 
 // The 404 for URLs that resolved no route at all — a bad locale segment
-// (`/xx/cabinet/wallet`, which the root layout answers with `notFound()`), or a
-// signed-in request for a path outside the zone entirely.
+// (`/cabinet/xx/invest`, which the root layout answers with `notFound()`).
 //
 // Why a *global* not-found and not `app/not-found.tsx`: this app has no
 // `app/layout.tsx`. The root layout is `app/[locale]/layout.tsx` (deliberately —
@@ -20,7 +19,7 @@ import { BASE_PATH } from "@/shared/config/base-path";
 // It needs `experimental.globalNotFound` in next.config.ts — without the flag
 // next-app-loader never resolves this file and the built-in page comes back.
 //
-// `app/[locale]/cabinet/not-found.tsx` still handles the other half — a
+// `app/[locale]/not-found.tsx` still handles the other half — a
 // `notFound()` from a route that *did* match, which is every unknown cabinet URL.
 //
 // English-only, and the copy comes straight from the uikit rather than the

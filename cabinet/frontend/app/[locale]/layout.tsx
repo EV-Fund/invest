@@ -5,7 +5,6 @@ import { I18nProvider } from "@evinvest/i18n/react";
 
 import "@/application/styles/globals.css";
 import { Providers } from "@/application/providers";
-import { ChipNavigation } from "@/application/chip-navigation";
 import { fontInter } from "@/application/styles/fonts";
 import { isLocale, translator } from "@evinvest/i18n";
 import { notFound } from "next/navigation";
@@ -34,9 +33,8 @@ export async function generateMetadata({
   return { title: t("meta.title", "EV Investment — Cabinet"), description: t("meta.description", "Your investor cabinet — portfolio, funds and wallet.") };
 }
 
-// Root layout: html/body + cross-cutting providers only. The visible chrome belongs to
-// the route groups — the signed-in app shell (sidebar) lives in `(app)`, the centered
-// auth framing in `(auth)`.
+// Root layout: html/body + cross-cutting providers only. The visible chrome — the kit's
+// app shell — belongs to the `(app)` route group.
 //
 // This is the ROOT layout despite sitting under `[locale]`, and deliberately so:
 // `[locale]` has to be a *root* param for `next/root-params` to expose it to the
@@ -63,9 +61,6 @@ export default async function RootLayout({
         {/* Only the keys the layouts and boundary files render; each page's
             `<I18nScope>` adds its own (`shellMessages`, `routeMessages`). */}
         <I18nProvider locale={locale} messages={shellMessages(locale)}>
-          {/* Every cabinet page: the account chip in the conductor's shell asks the page's
-              router to take its menu links (`ev:navigate`), which only a client listener can. */}
-          <ChipNavigation />
           <Providers nonce={nonce}>{children}</Providers>
         </I18nProvider>
       </body>

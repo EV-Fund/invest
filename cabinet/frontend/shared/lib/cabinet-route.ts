@@ -1,14 +1,12 @@
 "use client";
 
-// Reading the current route, with the zone prefix off.
+// Reading the current route, with the locale segment off.
 //
 // `shared/ui/cabinet-link.tsx` covers the writing half — every in-cabinet href goes
-// through it so nothing has to remember that pages live under `/{locale}/cabinet`.
-// This is the same rule pointed the other way: `usePathname()` returns the real
-// request path, so anything comparing it against a plain `/wallet` needs the prefix
-// taken off first. Both halves exist because `basePath` used to do this for free and
-// no longer can (it would have prefixed the locale too — see
-// `docs/i18n-cabinet-routing-spike.md`).
+// through it so nothing has to remember that pages live under `/{locale}`. This is the
+// same rule pointed the other way: `usePathname()` returns `/ru/invest` (basePath
+// already off), so anything comparing it against a plain `/invest` needs the locale
+// taken off first.
 //
 // The locale resolution is shared with the Link rather than written twice: English is
 // the floor, because a row highlighted in the wrong language is recoverable and a hook
@@ -27,7 +25,7 @@ export function useLocale(): Locale {
   return isLocale(raw) ? raw : "en";
 }
 
-/** The current path with `/{locale}/cabinet` removed — what the nav compares against. */
+/** The current path with `/{locale}` removed — what the nav compares against. */
 export function useCabinetPathname(): `/${string}` {
   return zonePathname(usePathname() ?? "/");
 }

@@ -3,7 +3,7 @@
  *
  * Here rather than read from `@/config` inside the slice: every other reader of the env
  * funnel sits in `shared/` or at the root (`shared/config/security.ts`,
- * `shared/config/cookies.ts`, `shared/mfe/validate.ts`, `proxy.ts`), and the eslint
+ * `shared/config/cookies.ts`, `proxy.ts`), and the eslint
  * `no-restricted-properties` rule that centralises env access is only as strong as that
  * habit. `shared/config/support.ts` already holds a KYC-specific constant for the same
  * reason.

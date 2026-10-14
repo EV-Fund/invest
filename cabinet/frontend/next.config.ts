@@ -13,34 +13,25 @@ import { BASE_PATH } from "./shared/config/base-path";
 // `next build` with ERR_PACKAGE_PATH_NOT_EXPORTED. Same class of problem as
 // the Sentry note below, same resolution: forgo full integration here.
 function requiredEnv(name: string): string {
+  // eslint-disable-next-line no-restricted-properties -- see the note above: ./config cannot be imported here
   const value = process.env[name];
   if (!value) throw new Error(`missing required env var ${name}`);
   return value;
 }
-// Where next dev/production proxies same-origin /api/* to the Rust BFF —
-// baked into routes-manifest.json at build time, so it must resolve
-// synchronously here (see shared/config/base-path.ts for the analogous
-// basePath note).
+// Where same-origin /cabinet/api/* is rewritten to — the invest BFF. Baked into
+// routes-manifest.json at build time, so it must resolve synchronously here.
 const BACKEND = requiredEnv("CABINET_BACKEND_URL");
+// eslint-disable-next-line no-restricted-properties -- see the note above: ./config cannot be imported here
 const IN_PRODUCTION = process.env.NODE_ENV === "production";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   // Self-contained production server (.next/standalone) — the container runs
-  // `node server.js` without an `npm install` (mirrors the conductor's setup).
+  // `node server.js` without an `npm install`.
   output: "standalone",
-  // Multi-zone mount: the cabinet lives under the conductor's domain at
-  // /cabinet. basePath prefixes every page AND /_next asset with it, so nothing
-  // collides with the conductor's own routes/assets; the conductor rewrites
-  // /cabinet/* to this deployment. The rewrite source below is basePath-aware
-  // (externally it matches /cabinet/api/*); hand-built browser URLs go through
-  // shared/config/base-path.ts.
-  // Pages carry the locale, assets do not. `basePath` cannot express that: it is
-  // static, and Next prepends it to every `<Link>` href — so a locale-prefixed
-  // `/ru/cabinet/wallet` would come out as `/cabinet/ru/cabinet/wallet`. Trading
-  // it for `assetPrefix` keeps `/_next/*` isolated under /cabinet (so the
-  // conductor's beforeFiles rewrite is untouched) while letting the route tree
-  // own the whole public path. Measured both ways in docs/i18n-cabinet-routing-spike.md.
+  // invest.evinvest.ltd/cabinet: the landing owns the rest of the host, so every page,
+  // asset, rewrite and header lives under the prefix (shared/config/base-path.ts).
+  basePath: BASE_PATH,
   experimental: {
     // No `rootParams` flag: since Next 16.4 `next/root-params` is on by default and
     // the option is gone from the config type. `currentLocale()` still depends on
@@ -52,34 +43,14 @@ const nextConfig: NextConfig = {
     authInterrupts: true,
     // Enables `app/global-not-found.tsx` — the 404 for URLs that matched no route
     // at all. Required for the same reason: the root layout is
-    // `app/[locale]/layout.tsx`, so a URL that resolved no `[locale]` (a bad locale
-    // segment, a path outside the zone) has no layout to render a nested
-    // `not-found.tsx` inside, and Next serves its built-in black 404 instead.
+    // `app/[locale]/layout.tsx`, so a URL that resolved no `[locale]` has no layout
+    // to render a nested `not-found.tsx` inside, and Next serves its built-in black
+    // 404 instead.
     globalNotFound: true,
-    // Off because the conductor already runs this check for every `/{locale}/cabinet/*`
-    // request, and the two checks cannot agree. The `_rsc` hash the router appends
-    // covers `Next-Url`; the conductor validates it with that header present, then
-    // drops the header before its zone proxy forwards the request (site_conductor#229),
-    // so a second validation here expects a different hash — each side 307s to the
-    // other's value until the browser gives up and reloads the document (banking#491).
-    // The check guards CDN caches that ignore `Vary`; every cabinet page is private,
-    // no-store and never cached, so nothing is lost by leaving it to the conductor.
-    validateRSCRequestHeaders: false,
   },
-  assetPrefix: BASE_PATH,
   async rewrites() {
-    // Explicit /cabinet now that basePath no longer prefixes this for us. Getting
-    // this wrong does not 404 — a bare `/api/*` collides with the conductor's own
-    // shell-owned auth routes on the same origin.
-    return [
-      { source: "/cabinet/api/:path*", destination: `${BACKEND}/api/:path*` },
-      // `public/` is served from the origin root, so the element-remote bundles
-      // land on `/mfe/*` — but both MFE registries, and therefore the conductor's
-      // injected shell, ask for `/cabinet/mfe/*`. `basePath` used to add that
-      // prefix for free; without it the account chip 404s on every page of the
-      // site. `assetPrefix` does not cover this: it rewrites `/_next/*` only.
-      { source: "/cabinet/mfe/:path*", destination: "/mfe/:path*" },
-    ];
+    // basePath-relative: externally this matches /cabinet/api/*.
+    return [{ source: "/api/:path*", destination: `${BACKEND}/api/:path*` }];
   },
   // Request-invariant hardening on every response, mirroring
   // shared/config/security.ts's staticSecurityHeaders() (kept in sync by
@@ -92,6 +63,10 @@ const nextConfig: NextConfig = {
       { key: "X-Frame-Options", value: "DENY" },
       { key: "X-Content-Type-Options", value: "nosniff" },
       { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+      // Wallet money actions run in a popup on evinvest.ltd that posts its result back to
+      // this page; `same-origin` would sever the opener link and every action would end
+      // as `closed` (@evinvest/wallet README). This is the strictest value that works.
+      { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
     ];
     if (IN_PRODUCTION) {
       headers.push({
@@ -99,34 +74,7 @@ const nextConfig: NextConfig = {
         value: "max-age=63072000; includeSubDomains; preload",
       });
     }
-    // The two token approval pages need `no-referrer`, not the site-wide
-    // `strict-origin-when-cross-origin`: their URL contains a single-use approval
-    // credential, and the default still sends the whole URL to same-origin destinations
-    // (docs/CONSILIUM.md, policy 6). `proxy.ts` sets the same header per-request; stating
-    // it here as well makes the outcome deterministic rather than depending on which of
-    // the two writers Next lets win. A more specific `source` is listed first so it is not
-    // shadowed by the catch-all below.
-    //
-    // `:locale` matches the one segment, so this covers `/en/cabinet/approve/<token>` and
-    // its four siblings without matching anything deeper.
-    const tokenPageHeaders = headers
-      .filter((h) => h.key !== "Referrer-Policy")
-      .concat({ key: "Referrer-Policy", value: "no-referrer" });
-    // The element-remote bundles keep fixed names (`account-chip.js`/`.css`: a content hash
-    // would make the conductor read a manifest to find them), so they cannot be immutable.
-    // Without any Cache-Control every page of the site revalidated them; five minutes fresh
-    // plus ten minutes of stale-while-revalidate bounds how long a release — or a security
-    // fix — takes to reach a returning visitor (15 min) while sparing the header a round trip
-    // on every navigation. A day of SWR kept a revoked bundle alive far too long. Both
-    // spellings: the conductor asks for `/cabinet/mfe/*`, a direct run of the zone for `/mfe/*`.
-    const mfeHeaders = [{ key: "Cache-Control", value: "public, max-age=300, stale-while-revalidate=600" }];
-    return [
-      { source: "/mfe/:path*", headers: mfeHeaders },
-      { source: "/cabinet/mfe/:path*", headers: mfeHeaders },
-      { source: "/:locale/cabinet/approve/:token", headers: tokenPageHeaders },
-      { source: "/:locale/cabinet/owner-removal/:token", headers: tokenPageHeaders },
-      { source: "/:path*", headers },
-    ];
+    return [{ source: "/:path*", headers }];
   },
 };
 

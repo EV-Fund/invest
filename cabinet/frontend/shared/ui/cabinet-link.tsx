@@ -6,18 +6,12 @@ import type { ComponentProps } from "react";
 import { useCabinetHref } from "@/shared/lib/cabinet-route";
 
 /**
- * `next/link` for in-cabinet navigation, with the zone prefix applied.
+ * `next/link` for in-cabinet navigation, with the locale segment applied.
  *
- * This exists because `basePath` is gone. It used to add `/cabinet` to every
- * href for free, but it also would have added it to the locale — turning
- * `/ru/cabinet/wallet` into `/cabinet/ru/cabinet/wallet` — so pages moved to a
- * `[locale]/cabinet` route tree and the prefix became this component's job.
- * (`docs/i18n-cabinet-routing-spike.md` has the measurements.)
- *
- * A bare `next/link` still compiles and still type-checks; it just points at the
- * conductor's origin root, which is a 404 on someone else's page. That is a
- * failure no tool in this repo catches, which is the argument for routing every
- * link through one component rather than 23 call sites remembering a rule.
+ * `basePath` puts `/cabinet` on for free, but not the locale: a bare
+ * `<Link href="/invest">` points at `/cabinet/invest`, which the proxy then has to
+ * redirect into the reader's locale. Routing every link through one component keeps
+ * every href a real page rather than 23 call sites remembering a rule.
  *
  * The locale comes from the route rather than a prop so a link does not have to be
  * handed something every caller would forward identically. That resolution now lives in
@@ -33,9 +27,9 @@ import { useCabinetHref } from "@/shared/lib/cabinet-route";
  * page load for the rail. The data the click does need is warmed by
  * `application/prefetch.ts` on intent, which is where the head start actually comes from.
  *
- * `shared/ui/cabinet-link.test.ts` pins the premise: the day a route gains a loading
- * boundary, a prefetch starts carrying a real skeleton and this default is due for
- * a rethink. A caller with a reason can still pass `prefetch` explicitly.
+ * The day a route gains a loading boundary, a prefetch starts carrying a real skeleton
+ * and this default is due for a rethink. A caller with a reason can still pass
+ * `prefetch` explicitly.
  */
 export function Link({
   href,

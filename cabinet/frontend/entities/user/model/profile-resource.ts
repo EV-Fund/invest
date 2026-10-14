@@ -1,7 +1,7 @@
 "use client";
 
-// The caller's profile: one read shared by the sidebar account chip, the Profile page and
-// Settings, and the one mutation that moves it.
+// The caller's profile: one read shared by the KYC gate, the status chip and the panel
+// access viewer, and the one mutation that moves it.
 //
 // `saveProfile` publishes its own response rather than invalidating: a PATCH answers with
 // the profile it just wrote, so a refetch would ask the BFF a question it has already been

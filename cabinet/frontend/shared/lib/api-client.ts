@@ -3,22 +3,22 @@
 // The one browser→BFF JSON transport. Every entity client goes through it, so session
 // handling and error wording live HERE instead of in six copies of `fetch`-and-throw.
 //
-// Why it does more than fetch: the shared access cookie lapses on a short TTL while the
-// page still looks signed in (see `shared/lib/session.ts`). Left alone, a tab that idled
+// Why it does more than fetch: the tokens behind the session lapse on a short TTL while
+// the page still looks signed in (see `shared/lib/session.ts`). Left alone, a tab that idled
 // past that TTL renders fine and then fails every call with a bare `unauthenticated` —
 // which is what the user saw, and why "click around a few times or reload" appeared to
 // fix it. Two layers close that:
 //
 //   · pre-flight — a request issued after the session went unconfirmed for STALE_MS
-//     rotates the cookie FIRST (coalesced with the session fetch the shell chrome is
+//     refreshes the session FIRST (coalesced with the session fetch the shell chrome is
 //     already making), so coming back to an idle tab never produces a 401 at all;
-//   · heal — a 401 that slips through anyway (the cookie lapsed mid-page, or a request
+//   · heal — a 401 that slips through anyway (a token lapsed mid-page, or a request
 //     raced the pre-flight) refreshes the session and replays the request ONCE. Replaying
 //     is safe for mutations too: a 401 is only ever an auth verdict, raised by the BFF's
 //     gate before any upstream call (see backend/src/routes) or by the owning plane's own
 //     gate before it applies anything — never by a request that half-executed.
 //
-// Only a shell that answers "genuinely signed out" ends as SessionExpiredError (the
+// Only a BFF that answers "genuinely signed out" ends as SessionExpiredError (the
 // keeper picks the same answer up and moves to /login). An unreachable session endpoint
 // is left as an ordinary failure, so a blip never bounces anyone out of the cabinet.
 
@@ -136,8 +136,6 @@ type Method = "GET" | "POST" | "PATCH" | "DELETE";
 interface JsonRequest {
   method?: Method;
   body?: unknown;
-  /** `zone` = this cabinet's BFF (basePath-prefixed); `shell` = the site-root auth surface. */
-  scope?: "zone" | "shell";
 }
 
 // The BFF's fixed error strings, mapped to catalogue keys and their English text.
@@ -230,8 +228,8 @@ function statusMessage(status: number): { code: ErrorCode; en: string } {
 }
 
 export async function requestJson<T>(path: `/${string}`, req: JsonRequest = {}): Promise<T> {
-  const { method = "GET", body, scope = "zone" } = req;
-  const url = scope === "zone" ? apiPath(path) : path;
+  const { method = "GET", body } = req;
+  const url = apiPath(path);
   const init: RequestInit = {
     method,
     headers:
@@ -251,7 +249,7 @@ export async function requestJson<T>(path: `/${string}`, req: JsonRequest = {}):
   const replayable = method === "GET";
   let res = await replaying(() => send(url, init), replayable);
   if (res.status === 401) {
-    // Heal: if the shell already answered while this request was in flight, the replay
+    // Heal: if the BFF already answered while this request was in flight, the replay
     // just uses the cookie that answer re-set; otherwise refresh first.
     const session = sessionGeneration() > generation ? cachedSession() : await refreshSession();
     if (session && !session.authenticated) throw new SessionExpiredError();

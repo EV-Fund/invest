@@ -41,7 +41,7 @@ export function useTimeZone(): string | undefined {
 export function rememberTimeZone(): void {
   const zone = deviceTimeZone();
   if (!zone) return;
-  // Same naming rule as the locale cookie (`./locale-cookie.ts`): `__Host-` needs Secure,
+  // Same naming rule as the locale cookie (`shared/config/cookies.ts`): `__Host-` needs Secure,
   // Secure needs https, so the protocol decides which name the browser will keep.
   const secure = location.protocol === "https:";
   const name = (secure ? "__Host-" : "") + TIME_ZONE_COOKIE;

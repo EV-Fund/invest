@@ -1,7 +1,6 @@
-// Browser-side CSRF double-submit helper: read the readable `ev_csrf` cookie and
-// build the header for mutating BFF requests. Standalone (no server imports) so it
-// lives in `shared` — both the auth feature and other slices depend on it without
-// crossing layers. The server counterpart is `features/auth/lib/csrf.ts` (verifyCsrf).
+// Browser-side CSRF double-submit helper: read the readable `invest_csrf` cookie the
+// invest BFF mints and build the header for mutating BFF requests. Standalone (no server
+// imports, so no `COOKIES` and its config) so every slice can depend on it.
 
 const CSRF_HEADER = "x-ev-csrf";
 
@@ -20,7 +19,7 @@ function readCookie(name: string): string | null {
 
 export function csrfHeader(): Record<string, string> {
   // Prefer the `__Host-` (host-locked) cookie so a subdomain-injected plain
-  // `ev_csrf` can't shadow it; fall back to the dev (unprefixed) name.
-  const token = readCookie("__Host-ev_csrf") ?? readCookie("ev_csrf");
+  // `invest_csrf` can't shadow it; fall back to the dev (unprefixed) name.
+  const token = readCookie("__Host-invest_csrf") ?? readCookie("invest_csrf");
   return token ? { [CSRF_HEADER]: token } : {};
 }

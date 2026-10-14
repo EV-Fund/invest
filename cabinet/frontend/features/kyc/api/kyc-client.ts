@@ -1,8 +1,9 @@
 "use client";
 
-// Browser → shell KYC client (site-root `/api/kyc/start`, `/api/kyc/status`). Verification is
-// identity-plane work and the identity plane is shell-owned, exactly like `/api/auth/sessions`
-// — hence `scope: "shell"`, no zone prefix. Transport, CSRF and the session pre-flight/replay
+// Browser → BFF KYC client (`/cabinet/api/kyc/start`, `/cabinet/api/kyc/status`). Verification
+// is identity-plane work, but on invest.evinvest.ltd the plane's session cookie never reaches
+// this origin, so the invest BFF relays both routes to concierge with the RP session's
+// credential. Transport, CSRF and the session pre-flight/replay
 // belong to `@/shared/lib/api-client`; the wire shapes belong to ./kyc-contract; which refusal
 // is which outcome belongs to ./start-outcome. What is left here is the I/O those three share.
 
@@ -38,7 +39,7 @@ export async function startVerification(): Promise<KycStart> {
   try {
     // No body on purpose: absent `tier` means the entry tier, and that policy is the
     // identity plane's. Restating `{ tier: 1 }` here would be a second place to change it.
-    const data = await requestJson<unknown>("/api/kyc/start", { method: "POST", scope: "shell" });
+    const data = await requestJson<unknown>("/api/kyc/start", { method: "POST" });
     const started = parseStartResponse(data);
     const url = providerUrl(started?.redirectUrl ?? null, extraProviderHosts(), selfHost());
     if (url !== null) return { kind: "started", redirectUrl: url };
@@ -67,7 +68,7 @@ export async function startVerification(): Promise<KycStart> {
  */
 export async function fetchKycStatus(): Promise<KycStatus | null> {
   // A GET: no CSRF token, and nothing is spent by asking.
-  const data = await requestJson<unknown>("/api/kyc/status", { scope: "shell" }).catch((error: unknown) => {
+  const data = await requestJson<unknown>("/api/kyc/status").catch((error: unknown) => {
     if (error instanceof RequestError && error.status === 404) return null;
     throw error;
   });
