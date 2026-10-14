@@ -88,9 +88,6 @@ export const TAG = {
   adminAllocations: "admin.allocations",
   /** Per-service investor access grants — who is raised above a product's default. */
   adminAllocationGrants: "admin.allocations.grants",
-  /** Per-tenant panel access — the holders of grants in a tenant's namespace, kept by the
-   *  identity plane. Separate from the grants above, which gate money, not the panel. */
-  grantHolders: "admin.tenants.grants",
   /** Per-service cap table (holders and supply). An in-kind issuance moves this AND `nav`
    *  (the mark's `units_outstanding` is the same ledger fact), so
    *  the mutation names both rather than this one alone. */

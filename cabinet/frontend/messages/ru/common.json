@@ -391,6 +391,10 @@
     "en": "Issue units",
     "t": "Выпуск паёв"
   },
+  "admin.alloc.manageAccess": {
+    "en": "Manage access",
+    "t": "Управлять доступом"
+  },
   "admin.alloc.open": {
     "en": "Open",
     "t": "Открыть"
@@ -2226,86 +2230,6 @@
   "nav.wallet": {
     "en": "Wallet",
     "t": "Кошелёк"
-  },
-  "panelAccess.action": {
-    "en": "Panel access",
-    "t": "Доступ к панели"
-  },
-  "panelAccess.col.person": {
-    "en": "Person",
-    "t": "Кто"
-  },
-  "panelAccess.col.target": {
-    "en": "Access",
-    "t": "Доступ"
-  },
-  "panelAccess.empty": {
-    "en": "No one has panel access",
-    "t": "Доступа к панели пока нет ни у кого"
-  },
-  "panelAccess.emptyHint": {
-    "en": "Grant access by email. The person must have signed in to the cabinet at least once.",
-    "t": "Выдайте доступ по email. Человек должен хотя бы раз войти в кабинет."
-  },
-  "panelAccess.err.cannotGrant": {
-    "en": "Access can't be granted to this address.",
-    "t": "Этому адресу нельзя выдать доступ."
-  },
-  "panelAccess.err.forbidden": {
-    "en": "You can't make this change. You can grant and revoke only what your own access lets you hand on.",
-    "t": "Вы не можете внести это изменение. Выдавать и отзывать можно только то, что ваш собственный доступ позволяет передать."
-  },
-  "panelAccess.err.forbiddenList": {
-    "en": "You don't have permission to manage access to this panel.",
-    "t": "У вас нет прав управлять доступом к этой панели."
-  },
-  "panelAccess.err.invalid": {
-    "en": "Check the email address and what you're granting, then try again.",
-    "t": "Проверьте адрес почты и то, что выдаёте, и попробуйте снова."
-  },
-  "panelAccess.err.notHolder": {
-    "en": "This person no longer holds this access.",
-    "t": "У этого человека больше нет этого доступа."
-  },
-  "panelAccess.err.tooMany": {
-    "en": "Too many attempts. Try again later.",
-    "t": "Слишком много попыток, попробуйте позже."
-  },
-  "panelAccess.field.email": {
-    "en": "Email",
-    "t": "Эл. почта"
-  },
-  "panelAccess.field.target": {
-    "en": "What to grant",
-    "t": "Что выдать"
-  },
-  "panelAccess.grant": {
-    "en": "Grant access",
-    "t": "Выдать доступ"
-  },
-  "panelAccess.orphaned": {
-    "en": "Grants nothing",
-    "t": "Ничего не даёт"
-  },
-  "panelAccess.orphanedHint": {
-    "en": "The panel no longer defines this, so it grants nothing until the panel defines it again.",
-    "t": "Панель больше не определяет этот доступ, поэтому он ничего не даёт, пока панель не определит его снова."
-  },
-  "panelAccess.revoke": {
-    "en": "Revoke",
-    "t": "Отозвать"
-  },
-  "panelAccess.revokeBody": {
-    "en": "{who} will lose {target}. You can grant it again later.",
-    "t": "{who} потеряет {target}. Позже доступ можно выдать снова."
-  },
-  "panelAccess.revokeTitle": {
-    "en": "Revoke panel access?",
-    "t": "Отозвать доступ к панели?"
-  },
-  "panelAccess.roster": {
-    "en": "Who has access",
-    "t": "У кого есть доступ"
   },
   "profile.kyc.casePill": {
     "en": "In review",

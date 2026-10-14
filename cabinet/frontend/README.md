@@ -21,7 +21,7 @@ All under `/cabinet/{locale}`; a request without a locale is redirected into one
 | `/invest/[service]/trade` | The order book terminal for one product |
 | `/wallet` | Banking's wallet element, `scope="invest"` (`@evinvest/wallet`) |
 | `/account` | Concierge's account element (`@evinvest/concierge`) |
-| `/admin/allocations`, `/admin/allocations/[service]` | Allocation registry; panel access per allocation |
+| `/admin/allocations` | Allocation registry; "Manage access" leads to `evinvest.ltd/admin/scopes`, where scope and panel grants live (§7) |
 | `/admin/valuation`, `/admin/fees`, `/admin/revenue` | Valuation and redemptions, fee terms, fund revenue |
 | `/login` | Not a page: redirects to the `returnTo` page with `?login`, which opens sign-in |
 
@@ -66,7 +66,6 @@ in the shapes the banking cabinet BFF uses today:
 | `/api/kyc/status`, `/api/kyc/start` | concierge (site-root) | relayed with the RP session's credential |
 | `/api/users` | banking BFF | the profile the KYC gate reads |
 | `/api/admin/users` | banking BFF | the user picker in issue/grant forms |
-| `/api/admin/tenants/{ns}/grants` | banking BFF → concierge | panel access per allocation |
 | `/api/consilium/holder-grant`, `/api/owners*` | banking BFF | to concierge approvals (§4.4) |
 | `/api/platform` | banking BFF | maintenance / read-only / announcement banner |
 

@@ -391,6 +391,10 @@
     "en": "Issue units",
     "t": "Phát hành đơn vị quỹ"
   },
+  "admin.alloc.manageAccess": {
+    "en": "Manage access",
+    "t": "Quản lý quyền truy cập"
+  },
   "admin.alloc.open": {
     "en": "Open",
     "t": "Mở"
@@ -2226,86 +2230,6 @@
   "nav.wallet": {
     "en": "Wallet",
     "t": "Ví"
-  },
-  "panelAccess.action": {
-    "en": "Panel access",
-    "t": "Quyền vào bảng"
-  },
-  "panelAccess.col.person": {
-    "en": "Person",
-    "t": "Người dùng"
-  },
-  "panelAccess.col.target": {
-    "en": "Access",
-    "t": "Quyền"
-  },
-  "panelAccess.empty": {
-    "en": "No one has panel access",
-    "t": "Chưa ai có quyền vào bảng"
-  },
-  "panelAccess.emptyHint": {
-    "en": "Grant access by email. The person must have signed in to the cabinet at least once.",
-    "t": "Cấp quyền qua email. Người đó phải đã đăng nhập vào tài khoản ít nhất một lần."
-  },
-  "panelAccess.err.cannotGrant": {
-    "en": "Access can't be granted to this address.",
-    "t": "Không thể cấp quyền cho địa chỉ này."
-  },
-  "panelAccess.err.forbidden": {
-    "en": "You can't make this change. You can grant and revoke only what your own access lets you hand on.",
-    "t": "Bạn không thể thực hiện thay đổi này. Bạn chỉ có thể cấp và thu hồi những gì quyền của chính bạn cho phép chuyển giao."
-  },
-  "panelAccess.err.forbiddenList": {
-    "en": "You don't have permission to manage access to this panel.",
-    "t": "Bạn không có quyền quản lý quyền truy cập bảng này."
-  },
-  "panelAccess.err.invalid": {
-    "en": "Check the email address and what you're granting, then try again.",
-    "t": "Kiểm tra địa chỉ email và quyền bạn đang cấp, rồi thử lại."
-  },
-  "panelAccess.err.notHolder": {
-    "en": "This person no longer holds this access.",
-    "t": "Người này không còn giữ quyền này."
-  },
-  "panelAccess.err.tooMany": {
-    "en": "Too many attempts. Try again later.",
-    "t": "Quá nhiều lần thử. Vui lòng thử lại sau."
-  },
-  "panelAccess.field.email": {
-    "en": "Email",
-    "t": "Địa chỉ email"
-  },
-  "panelAccess.field.target": {
-    "en": "What to grant",
-    "t": "Quyền cấp"
-  },
-  "panelAccess.grant": {
-    "en": "Grant access",
-    "t": "Cấp quyền"
-  },
-  "panelAccess.orphaned": {
-    "en": "Grants nothing",
-    "t": "Không cấp gì"
-  },
-  "panelAccess.orphanedHint": {
-    "en": "The panel no longer defines this, so it grants nothing until the panel defines it again.",
-    "t": "Bảng điều khiển không còn định nghĩa quyền này, nên nó không cấp gì cho đến khi được định nghĩa lại."
-  },
-  "panelAccess.revoke": {
-    "en": "Revoke",
-    "t": "Thu hồi"
-  },
-  "panelAccess.revokeBody": {
-    "en": "{who} will lose {target}. You can grant it again later.",
-    "t": "{who} sẽ mất {target}. Bạn có thể cấp lại sau."
-  },
-  "panelAccess.revokeTitle": {
-    "en": "Revoke panel access?",
-    "t": "Thu hồi quyền vào bảng?"
-  },
-  "panelAccess.roster": {
-    "en": "Who has access",
-    "t": "Ai có quyền"
   },
   "profile.kyc.casePill": {
     "en": "In review",

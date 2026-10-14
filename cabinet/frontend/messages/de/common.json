@@ -391,6 +391,10 @@
     "en": "Issue units",
     "t": "Anteile ausgeben"
   },
+  "admin.alloc.manageAccess": {
+    "en": "Manage access",
+    "t": "Zugriff verwalten"
+  },
   "admin.alloc.open": {
     "en": "Open",
     "t": "Öffnen"
@@ -2226,86 +2230,6 @@
   "nav.wallet": {
     "en": "Wallet",
     "t": "Wallet"
-  },
-  "panelAccess.action": {
-    "en": "Panel access",
-    "t": "Panel-Zugang"
-  },
-  "panelAccess.col.person": {
-    "en": "Person",
-    "t": "Person"
-  },
-  "panelAccess.col.target": {
-    "en": "Access",
-    "t": "Zugriff"
-  },
-  "panelAccess.empty": {
-    "en": "No one has panel access",
-    "t": "Noch niemand hat Panel-Zugang"
-  },
-  "panelAccess.emptyHint": {
-    "en": "Grant access by email. The person must have signed in to the cabinet at least once.",
-    "t": "Gewähren Sie den Zugang per E-Mail. Die Person muss sich mindestens einmal im Kabinett angemeldet haben."
-  },
-  "panelAccess.err.cannotGrant": {
-    "en": "Access can't be granted to this address.",
-    "t": "Dieser Adresse kann kein Zugang gewährt werden."
-  },
-  "panelAccess.err.forbidden": {
-    "en": "You can't make this change. You can grant and revoke only what your own access lets you hand on.",
-    "t": "Diese Änderung können Sie nicht vornehmen. Sie können nur gewähren und entziehen, was Ihr eigener Zugriff weiterzugeben erlaubt."
-  },
-  "panelAccess.err.forbiddenList": {
-    "en": "You don't have permission to manage access to this panel.",
-    "t": "Sie dürfen den Zugang zu diesem Panel nicht verwalten."
-  },
-  "panelAccess.err.invalid": {
-    "en": "Check the email address and what you're granting, then try again.",
-    "t": "Prüfen Sie die E-Mail-Adresse und was Sie gewähren, und versuchen Sie es erneut."
-  },
-  "panelAccess.err.notHolder": {
-    "en": "This person no longer holds this access.",
-    "t": "Diese Person hat diesen Zugriff nicht mehr."
-  },
-  "panelAccess.err.tooMany": {
-    "en": "Too many attempts. Try again later.",
-    "t": "Zu viele Versuche. Bitte versuchen Sie es später erneut."
-  },
-  "panelAccess.field.email": {
-    "en": "Email",
-    "t": "E-Mail"
-  },
-  "panelAccess.field.target": {
-    "en": "What to grant",
-    "t": "Was gewährt wird"
-  },
-  "panelAccess.grant": {
-    "en": "Grant access",
-    "t": "Zugang gewähren"
-  },
-  "panelAccess.orphaned": {
-    "en": "Grants nothing",
-    "t": "Gewährt nichts"
-  },
-  "panelAccess.orphanedHint": {
-    "en": "The panel no longer defines this, so it grants nothing until the panel defines it again.",
-    "t": "Das Panel definiert dies nicht mehr, daher gewährt es nichts, bis das Panel es wieder definiert."
-  },
-  "panelAccess.revoke": {
-    "en": "Revoke",
-    "t": "Widerrufen"
-  },
-  "panelAccess.revokeBody": {
-    "en": "{who} will lose {target}. You can grant it again later.",
-    "t": "{who} verliert {target}. Sie können es später erneut gewähren."
-  },
-  "panelAccess.revokeTitle": {
-    "en": "Revoke panel access?",
-    "t": "Panel-Zugang widerrufen?"
-  },
-  "panelAccess.roster": {
-    "en": "Who has access",
-    "t": "Wer Zugang hat"
   },
   "profile.kyc.casePill": {
     "en": "In review",
