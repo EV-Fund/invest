@@ -95,7 +95,7 @@ function SubscribeHint({ id, check, nav }: { id: string; check: SubscribeCheck; 
     return (
       <FieldError id={id} className="flex flex-wrap items-center gap-x-2 text-xs">
         {t("invest.insufficientHint", "That is more than your available balance.")}
-        <Link href="/wallet/deposit" className="rounded-sm font-medium text-primary-ink underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Link href="/wallet" className="rounded-sm font-medium text-primary-ink underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-ring">
           {t("invest.topUp", "Top up")}
         </Link>
       </FieldError>

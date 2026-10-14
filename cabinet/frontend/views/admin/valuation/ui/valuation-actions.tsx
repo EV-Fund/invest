@@ -17,8 +17,8 @@ import type { FundNav } from "@/shared/contracts/admin";
 import { errorMessage } from "@/shared/lib/api-client";
 import { formatExactUsdt } from "@/shared/lib/money";
 import { TipAnchor } from "@/shared/tips";
-import { Link } from "@/shared/ui/cabinet-link";
 import { PostedMark } from "@/views/admin/valuation/ui/posted-mark";
+import { PLATFORM_ADMIN_URL } from "@/shared/config/platform-admin";
 
 const TEAL_CTA = "bg-primary text-on-primary hover:bg-primary/90";
 
@@ -88,7 +88,7 @@ export function ValuationActions({
             </p>
             <div className="flex flex-wrap gap-2">
               <Button asChild size="sm" variant="outline">
-                <Link href="/consilium">{t("admin.valuation.openConsilium", "Open the consilium")}</Link>
+                <a href={PLATFORM_ADMIN_URL}>{t("admin.valuation.openConsilium", "Open the consilium")}</a>
               </Button>
               <Button type="button" size="sm" variant="ghost" onClick={() => setProposed(null)}>
                 {t("ui.close", "Close")}

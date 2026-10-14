@@ -59,14 +59,14 @@ export function ProductCta({ cta, service, title }: { cta: CardCta; service: str
 /**
  * The muted way to unlock investing for a tier-0 caller — the card's `verify` state and the
  * product page's Subscribe slot (#395) say it in the same words and lead to the same place.
- * The profile's identity card is where a start is offered — the same dialog the wallet opens,
- * reached through its own surface rather than a fourth copy of it.
+ * Verification is concierge's, so the account page — its element — is where a start is
+ * offered, rather than a copy of that flow here.
  */
 export function VerifyToInvestCta({ className }: { className?: string }) {
   const t = useT();
   return (
     <Button asChild className={className} variant="outline">
-      <Link href="/profile">
+      <Link href="/account">
         <ShieldCheck className="size-4" />
         {t("invest.cta.verify", "Verify to invest")}
       </Link>

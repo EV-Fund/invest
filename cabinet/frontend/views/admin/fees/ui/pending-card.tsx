@@ -20,11 +20,11 @@ import { cn } from "@/shared/lib/cn";
 import { formatMoment } from "@/shared/lib/datetime";
 import { stripTransportPrefix } from "@/shared/lib/hub-refusal";
 import { revalidateTag } from "@/shared/lib/resource";
-import { Link } from "@/shared/ui/cabinet-link";
 import { changeStateLabel, changeStateTone, termsSummary } from "@/views/admin/fees/lib/format";
 import { receiptKind } from "@/views/admin/fees/lib/receipt";
 import { NoticeWaiver } from "@/views/admin/fees/ui/notice-waiver";
 import { ago } from "@/views/admin/lib/format";
+import { PLATFORM_ADMIN_URL } from "@/shared/config/platform-admin";
 
 export function PendingCard({ change, onCancelled }: { change: FeePolicyChange; onCancelled: () => void }) {
   const t = useT();
@@ -111,7 +111,7 @@ export function PendingCard({ change, onCancelled }: { change: FeePolicyChange; 
           <div className="flex flex-wrap gap-2">
             {awaiting && (
               <Button asChild size="sm" variant="outline">
-                <Link href="/consilium">{t("admin.payments.openConsilium", "Open the consilium")}</Link>
+                <a href={PLATFORM_ADMIN_URL}>{t("admin.payments.openConsilium", "Open the consilium")}</a>
               </Button>
             )}
             <Button variant="ghost" size="sm" onClick={() => setConfirming(true)}>

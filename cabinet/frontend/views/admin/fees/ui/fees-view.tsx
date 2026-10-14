@@ -25,7 +25,6 @@ import { adminAllocationsResource, feePoliciesResource } from "@/entities/admin/
 import type { FeePolicyChange } from "@/shared/contracts/admin";
 import { RequestError } from "@/shared/lib/api-client";
 import { useResource } from "@/shared/lib/resource";
-import { Link } from "@/shared/ui/cabinet-link";
 import { StaggerItem } from "@/shared/ui/motion";
 import { ResourceError } from "@/shared/ui/resource-error";
 import { isPendingChange } from "@/views/admin/fees/lib/format";
@@ -37,6 +36,7 @@ import { PendingCard } from "@/views/admin/fees/ui/pending-card";
 import { PolicyCard } from "@/views/admin/fees/ui/policy-card";
 import { ScheduledReceipt } from "@/views/admin/fees/ui/scheduled-receipt";
 import { AdminHeader, AdminScreen } from "@/views/admin/ui/shell";
+import { PLATFORM_ADMIN_URL } from "@/shared/config/platform-admin";
 
 const isForbidden = (error: unknown): boolean => error instanceof RequestError && error.status === 403;
 
@@ -92,7 +92,7 @@ export function FeesView() {
           </EmptyHeader>
           <EmptyContent>
             <Button asChild variant="outline">
-              <Link href="/admin/users">{t("nav.users", "Users")}</Link>
+              <a href={`${PLATFORM_ADMIN_URL}/users`}>{t("nav.users", "Users")}</a>
             </Button>
           </EmptyContent>
         </StaggerItem>

@@ -16,7 +16,6 @@ import type {
   AllocationList,
   AllocationTreasury,
   AdminUserList,
-  AdminUserProfile,
   CancelFeePolicyChangeRequest,
   FeeAssessmentList,
   FeePolicyChange,
@@ -25,31 +24,15 @@ import type {
   FeeSettlement,
   FeeShares,
   ScheduleFeePolicyRequest,
-  CabinetConfig,
   FundNav,
-  OperationsMode,
-  Rail,
-  ParkedEventList,
-  PlatformConfig,
   Redemption,
   RedemptionQueue,
   RetireUnitsBody,
-  SeedCapitalBody,
-  SeedCapitalProposal,
-  Treasury,
   UnitHolders,
   UnitIssuance,
-  UserBalance,
-  WithdrawalQueue,
 } from "@/shared/contracts/admin";
 import type { BookPolicy, SetBookPolicyBody } from "@/shared/contracts/book";
 import type { Consilium } from "@/shared/contracts/governance";
-import type { MfeEntry } from "@/shared/mfe/types";
-
-// ── outbox ────────────────────────────────────────────────────────────────────
-export const fetchParkedEvents = (): Promise<ParkedEventList> => getJson("/api/admin/outbox/parked");
-
-export const unparkEvent = (seq: string): Promise<{ ok: boolean }> => postJson("/api/admin/outbox/unpark", { seq });
 
 // ── users ─────────────────────────────────────────────────────────────────────
 export interface UserFilters {
@@ -70,60 +53,6 @@ export function fetchUsers(filters: UserFilters = {}): Promise<AdminUserList> {
   const qs = params.toString();
   return getJson(`/api/admin/users${qs ? `?${qs}` : ""}`);
 }
-
-export const fetchUser = (userId: string): Promise<AdminUserProfile> => getJson(`/api/admin/users/detail?user_id=${encodeURIComponent(userId)}`);
-
-export const fetchUserBalance = (userId: string): Promise<UserBalance> => getJson(`/api/admin/users/balance?user_id=${encodeURIComponent(userId)}`);
-
-export const setUserRole = (userId: string, role: string): Promise<{ role: string }> => postJson("/api/admin/users/role", { user_id: userId, role });
-
-/**
- * The emergency brake: freeze the account NOW. It lapses on its own after 24h unless the
- * owners ratify it, and the answer is WHEN — `hold_expires_at`, unix seconds as a string.
- *
- * This replaces `suspendUser`, which posted to `DisableUser`: the identity plane now always
- * refuses that verb, because it was both this instant freeze and a permanent verdict one
- * person made with no record of why. Making an account stay blocked is the separate
- * {@link openUserSuspension} in `entities/governance`.
- *
- * `reason` is required, and not by this console's choice — it is what the owners asked to
- * ratify the hold are reading, and the plane refuses a hold without one.
- */
-export const holdUser = (userId: string, reason: string): Promise<{ hold_expires_at: string }> => postJson("/api/admin/users/hold", { user_id: userId, reason });
-
-/**
- * Lift a HOLD, in one act.
- *
- * Deliberately takes no reason: this is the undo of a recorded action, and an undo that
- * demands a sentence first is friction on the path that makes someone's money work again.
- * The plane refuses this outright when the suspension was the owners' verdict — the console
- * reads `suspended_by` and offers {@link openUserReinstatement} instead of this.
- */
-export const reinstateUser = (userId: string): Promise<{ ok: boolean }> => postJson("/api/admin/users/reinstate", { user_id: userId });
-
-export const revokeSessions = (userId: string): Promise<{ token_version: string }> => postJson("/api/admin/users/revoke", { user_id: userId });
-
-export const setKycLevel = (userId: string, kycLevel: number): Promise<{ kyc_level: number }> => postJson("/api/admin/users/kyc", { user_id: userId, kyc_level: kycLevel });
-
-// ── treasury ──────────────────────────────────────────────────────────────────
-export const fetchTreasury = (): Promise<Treasury> => getJson("/api/admin/treasury");
-
-/** Record USDT that reached a rail out of band (an operator top-up of the treasury hot
- *  wallet), which otherwise moves real money without ever touching the ledger.
- *
- *  The amount and the credited party are read off the CHAIN, not sent — this cannot mint a
- *  balance. `expected_amount` is an optional assertion the chain must match. Idempotent by
- *  `tx_ref`: `recorded: false` means that reference was already credited. */
-export const recordTreasuryDeposit = (body: { tx_ref: string; network: string; expected_amount?: string }): Promise<RecordedArrival> =>
-  postJson("/api/admin/treasury/record-deposit", body);
-
-export type RecordedArrival = { recorded: boolean; amount: string; party_kind: string; party_id: string };
-
-/** Propose a seed of the platform's capital (#245): a transfer that reached a rail's
- *  treasury address, proven against the chain, attributed to a person as their deposit
- *  and subscription into `fund`. Books nothing — the answer is the consilium the owners'
- *  room then shows; the plane refuses a proposer who holds no owner seat. */
-export const proposeSeedCapital = (body: SeedCapitalBody): Promise<SeedCapitalProposal> => postJson("/api/admin/treasury/seed-capital", body);
 
 // ── allocations (the registry — the only way a fund comes into existence) ────────
 // The admin listing includes drafts and closed products; the investor-facing
@@ -224,17 +153,6 @@ export const settleRedemption = (redemptionId: string): Promise<Redemption> => p
 
 export const failRedemption = (redemptionId: string): Promise<Redemption> => postJson("/api/admin/valuation/fail", { redemption_id: redemptionId });
 
-// ── withdrawals (operator queue + actions) ───────────────────────────────────────
-export const fetchWithdrawalQueue = (): Promise<WithdrawalQueue> => getJson("/api/admin/withdrawals/queue");
-
-export const dispatchWithdrawal = (withdrawalId: string): Promise<{ ok: boolean }> => postJson("/api/admin/withdrawals/dispatch", { withdrawal_id: withdrawalId });
-
-export const settleWithdrawal = (withdrawalId: string, txRef: string): Promise<{ ok: boolean }> =>
-  postJson("/api/admin/withdrawals/settle", { withdrawal_id: withdrawalId, tx_ref: txRef });
-
-export const failWithdrawal = (withdrawalId: string, reason: string): Promise<{ ok: boolean }> =>
-  postJson("/api/admin/withdrawals/fail", { withdrawal_id: withdrawalId, reason });
-
 // ── revenue (the reserved `fee` allocation) ──────────────────────────────────────
 // What the platform has earned, in the treasury's own shape (#245): the `fee`
 // allocation's claim, supply, price and holders. Paying it OUT is a payment order
@@ -266,25 +184,3 @@ export const fetchFeePolicyChanges = (service: string): Promise<FeePolicyChangeL
 // Empty `units` settles the whole accumulated balance — the ordinary end-of-period call.
 export const settleFeeShares = (body: { service: string; units: string }): Promise<FeeSettlement> => postJson("/api/admin/fees/settle", body);
 
-// ── cabinet (platform config + read-only kill-switch) ───────────────────────────
-export const fetchCabinet = (): Promise<CabinetConfig> => getJson("/api/admin/cabinet");
-
-// Deployment config, not account data: the same list every client resolves its remotes
-// from. A non-array answer is treated as an empty registry rather than a failure — the
-// console's other panels must stay useful when the registry file is missing.
-export const fetchMfeRegistry = async (): Promise<MfeEntry[]> => {
-  const entries = await getJson<MfeEntry[]>("/api/mfe-registry");
-  return Array.isArray(entries) ? entries : [];
-};
-
-export const setMaintenance = (enabled: boolean): Promise<PlatformConfig> => postJson("/api/admin/cabinet/maintenance", { enabled });
-
-export const setReadOnly = (readOnly: boolean): Promise<OperationsMode> => postJson("/api/admin/cabinet/read-only", { read_only: readOnly });
-
-export const fetchRails = (): Promise<Rail[]> => getJson("/api/admin/rails");
-
-export const setRailFrozen = (network: string, frozen: boolean): Promise<Rail[]> => postJson("/api/admin/rails/frozen", { network, frozen });
-
-export const setAnnouncement = (body: { title: string; body: string; active: boolean }): Promise<PlatformConfig> => postJson("/api/admin/cabinet/announcement", body);
-
-export const setFeatureFlag = (body: { key: string; description: string; enabled: boolean; rollout: number }): Promise<PlatformConfig> => postJson("/api/admin/cabinet/flag", body);

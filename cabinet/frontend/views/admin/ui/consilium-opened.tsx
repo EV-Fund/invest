@@ -13,7 +13,7 @@ import { CheckCircle2 } from "lucide-react";
 import { useT } from "@evinvest/i18n/react";
 import { Alert, AlertDescription, AlertTitle, Button } from "@evinvest/uikit";
 
-import { Link } from "@/shared/ui/cabinet-link";
+import { PLATFORM_ADMIN_URL } from "@/shared/config/platform-admin";
 
 export function ConsiliumOpened({ consiliumId, body, onDismiss }: { consiliumId: string; body: string; onDismiss: () => void }) {
   const t = useT();
@@ -29,7 +29,7 @@ export function ConsiliumOpened({ consiliumId, body, onDismiss }: { consiliumId:
         </p>
         <div className="flex flex-wrap gap-2 text-ink">
           <Button asChild size="sm" variant="outline">
-            <Link href="/consilium">{t("admin.consilium.open", "Open the consilium")}</Link>
+            <a href={PLATFORM_ADMIN_URL}>{t("admin.consilium.open", "Open the consilium")}</a>
           </Button>
           <Button type="button" size="sm" variant="ghost" onClick={onDismiss}>
             {t("ui.close", "Close")}

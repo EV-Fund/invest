@@ -1,7 +1,7 @@
 "use client";
 
-// The operator console's reads, cached the same way the investor screens' are, so moving
-// between Users, Treasury, Outbox and the queues doesn't re-fetch each one from scratch.
+// The allocation console's reads, cached the same way the investor screens' are, so moving
+// between the registry, valuation, fees and revenue doesn't re-fetch each one from scratch.
 //
 // Shorter windows than the investor side: these are operational screens, and an operator
 // looking at a queue is looking at it *now*. Cached data still paints first — the refresh
@@ -9,30 +9,20 @@
 // rather than one that opens empty.
 //
 // Mutations stay where they are, in the views: each admin action already owns a deliberate
-// refetch-and-reconcile (unpark marks a row before re-reading, a failed dispatch must not
-// clear the queue). Those flows call `refresh()` or `invalidate()` on the resource instead
+// refetch-and-reconcile. Those flows call `refresh()` or `invalidate()` on the resource instead
 // of re-fetching by hand, which keeps every other open surface in step for free.
 
 import {
   fetchAllocationAccessGrants,
   fetchAllocations as fetchAdminAllocations,
-  fetchCabinet,
-  fetchRails,
   fetchFundRevenue,
-  fetchMfeRegistry,
-  fetchParkedEvents,
   fetchFeeAssessments,
   fetchFeePolicies,
   fetchFeePolicyChanges,
   fetchFeeShares,
   fetchRedemptionQueue,
-  fetchTreasury,
   fetchUnitHolders,
-  fetchUser,
-  fetchUserBalance,
   fetchUsers,
-  fetchWithdrawalQueue,
-  type UserFilters,
 } from "@/entities/admin/api/admin-client";
 import type { AdminUserSummary } from "@/shared/contracts/admin";
 import { TAG } from "@/shared/lib/cache-tags";
@@ -47,51 +37,6 @@ const OPERATIONAL = 10;
 // `poll`). Polled only while one is on its way, so a fund whose terms are settled costs
 // nothing; the card and the history row are read by the two resources below, both on it.
 const PENDING_CHANGE_POLL = { startMs: 15_000, maxMs: 60_000 };
-
-export const parkedEventsResource = defineResource({
-  name: "admin.parked",
-  fetch: fetchParkedEvents,
-  revalidate: OPERATIONAL,
-  tags: [TAG.adminOutbox],
-});
-
-export const treasuryResource = defineResource({
-  name: "admin.treasury",
-  fetch: fetchTreasury,
-  revalidate: OPERATIONAL,
-  tags: [TAG.adminTreasury],
-});
-
-export const cabinetConfigResource = defineResource({
-  name: "admin.cabinet",
-  fetch: fetchCabinet,
-  revalidate: 60,
-  tags: [TAG.adminCabinet],
-});
-
-export const railsResource = defineResource({
-  name: "admin.rails",
-  fetch: fetchRails,
-  revalidate: 60,
-  tags: [TAG.adminRails],
-});
-
-// Deployment config, not account data — safe to mirror into sessionStorage, and it changes
-// only when a remote is redeployed.
-export const mfeRegistryResource = defineResource({
-  name: "admin.mfeRegistry",
-  fetch: fetchMfeRegistry,
-  revalidate: 300,
-  tags: [TAG.adminCabinet],
-  persist: true,
-});
-
-export const withdrawalQueueResource = defineResource({
-  name: "admin.withdrawalQueue",
-  fetch: fetchWithdrawalQueue,
-  revalidate: OPERATIONAL,
-  tags: [TAG.adminQueue],
-});
 
 // The `fee` allocation — what the platform earned, in the treasury's shape (#245).
 // Operational cadence like the queues: a settling fee or an executed payment out of the
@@ -188,14 +133,6 @@ export const unitHoldersResource = defineResource({
 
 // Keyed on the whole filter set: a search is a different question, not a refinement of the
 // last one, and the hub applies `query`/`role`/`status` server-side.
-export const usersResource = defineResource({
-  name: "admin.users",
-  fetch: fetchUsers,
-  key: (filters: UserFilters = {}) => JSON.stringify([filters.query ?? "", filters.role ?? "", filters.status ?? "", filters.limit ?? 0, filters.offset ?? 0]),
-  revalidate: OPERATIONAL,
-  tags: [TAG.adminUsers],
-});
-
 // Every account at once, for pickers that fuzzy-match client-side: the hub's query only
 // narrows by substring. Pages at the plane's 200-row ceiling.
 export const userDirectoryResource = defineResource({
@@ -212,20 +149,3 @@ export const userDirectoryResource = defineResource({
   tags: [TAG.adminUsers],
 });
 
-export const adminUserResource = defineResource({
-  name: "admin.user",
-  fetch: fetchUser,
-  key: (userId) => userId,
-  revalidate: OPERATIONAL,
-  tags: [TAG.adminUsers],
-  enabled: (userId) => userId.length > 0,
-});
-
-export const adminUserBalanceResource = defineResource({
-  name: "admin.userBalance",
-  fetch: fetchUserBalance,
-  key: (userId) => userId,
-  revalidate: OPERATIONAL,
-  tags: [TAG.adminUsers],
-  enabled: (userId) => userId.length > 0,
-});

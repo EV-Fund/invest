@@ -17,63 +17,15 @@
 //   · idle — once the shell is up, warm the handful of reads shared by most screens, at
 //     idle priority so they never race the reads the current screen is making for itself.
 
-import {
-  adminAllocationsResource,
-  cabinetConfigResource,
-  fundRevenueResource,
-  mfeRegistryResource,
-  parkedEventsResource,
-  redemptionQueueResource,
-  treasuryResource,
-  usersResource,
-  withdrawalQueueResource,
-} from "@/entities/admin/model/admin-resource";
+import { adminAllocationsResource, fundRevenueResource, redemptionQueueResource } from "@/entities/admin/model/admin-resource";
 import { bookPolicyResource, bookSnapshotResource, bookTradesResource, openOrdersResource } from "@/entities/book/model/book-resource";
 import { allocationsResource, fundNavResource, positionsResource, redemptionsResource } from "@/entities/fund/model/fund-resource";
-import { notificationSettingsResource, notificationsResource } from "@/entities/notification/model/notification-resource";
-import { RECENT_OPS, operationsResource } from "@/entities/operation/model/operation-resource";
-import { paymentsResource } from "@/entities/payment/model/payment-resource";
-import { isServiceId, tenantOf } from "@/entities/grant/lib/access";
-import { grantHoldersResource } from "@/entities/grant/model/grant-resource";
-import { sessionsResource } from "@/entities/session/model/session-resource";
-import { profileResource } from "@/entities/user/model/profile-resource";
-import { depositsResource, walletResource, withdrawalsResource } from "@/entities/wallet/model/wallet-resource";
+import { walletResource } from "@/entities/wallet/model/wallet-resource";
 
 // Zone-relative paths, exactly as the rail writes them (basePath is not part of these).
-// Ordered longest-prefix-first so `/wallet/activity` isn't answered by `/wallet`.
+// Ordered longest-prefix-first so `/invest/<service>` isn't answered by `/invest`.
 const ROUTES: ReadonlyArray<{ prefix: string; warm: (path: string) => void }> = [
-  { prefix: "/admin/users", warm: () => usersResource.prefetch({}) },
-  {
-    prefix: "/admin/cabinet",
-    warm: () => {
-      cabinetConfigResource.prefetch();
-      mfeRegistryResource.prefetch();
-    },
-  },
-  { prefix: "/admin/treasury", warm: () => treasuryResource.prefetch() },
-  { prefix: "/admin/withdrawals", warm: () => withdrawalQueueResource.prefetch() },
-  { prefix: "/admin/outbox", warm: () => parkedEventsResource.prefetch() },
-  {
-    prefix: "/admin/payments",
-    warm: () => {
-      // The unfiltered list, plus what the form's pickers read: the product list and the
-      // configured rails (the treasury read carries them).
-      paymentsResource.prefetch();
-      adminAllocationsResource.prefetch();
-      treasuryResource.prefetch();
-    },
-  },
   { prefix: "/admin/revenue", warm: () => fundRevenueResource.prefetch() },
-  // `/admin/allocations/<service>` is the panel-access page, open to a delegate who cannot
-  // read the registry — warming that would only buy them a 403.
-  {
-    prefix: "/admin/allocations/",
-    warm: (path) => {
-      const service = path.slice("/admin/allocations/".length).split("/")[0] ?? "";
-      const namespace = isServiceId(service) ? tenantOf(service) : null;
-      if (namespace !== null) grantHoldersResource.prefetch(namespace);
-    },
-  },
   { prefix: "/admin/allocations", warm: () => adminAllocationsResource.prefetch() },
   {
     prefix: "/admin/valuation",
@@ -82,14 +34,6 @@ const ROUTES: ReadonlyArray<{ prefix: string; warm: (path: string) => void }> = 
       redemptionQueueResource.prefetch();
     },
   },
-  {
-    prefix: "/wallet/activity",
-    warm: () => {
-      withdrawalsResource.prefetch();
-      depositsResource.prefetch();
-    },
-  },
-  { prefix: "/wallet", warm: () => walletResource.prefetch() },
   {
     prefix: "/invest/",
     warm: (path) => {
@@ -123,44 +67,9 @@ const ROUTES: ReadonlyArray<{ prefix: string; warm: (path: string) => void }> = 
     },
   },
   {
-    prefix: "/operations",
-    warm: () => {
-      operationsResource.prefetch(undefined);
-      allocationsResource.prefetch();
-    },
-  },
-  {
-    prefix: "/notifications",
-    warm: () => notificationsResource.prefetch("all"),
-  },
-  {
-    prefix: "/profile",
-    warm: () => {
-      // The profile is read-only and summarises the account: the identity record, the
-      // holdings and balance behind its stat strip, the full timeline behind its activity
-      // counts (the same read `/operations` makes, so one cache entry serves both), and the
-      // session list its Access card counts.
-      profileResource.prefetch();
-      positionsResource.prefetch();
-      walletResource.prefetch();
-      operationsResource.prefetch(undefined);
-      sessionsResource.prefetch();
-    },
-  },
-  {
-    prefix: "/settings",
-    warm: () => {
-      profileResource.prefetch();
-      sessionsResource.prefetch();
-      notificationSettingsResource.prefetch();
-    },
-  },
-  {
     prefix: "/",
     warm: () => {
-      walletResource.prefetch();
       positionsResource.prefetch();
-      operationsResource.prefetch(RECENT_OPS);
       allocationsResource.prefetch();
     },
   },

@@ -56,7 +56,7 @@ export function StartVerificationRow() {
         <Hairline />
         <div className="flex min-w-0 items-center justify-between gap-3 py-3.5">
           <RowLabel title={t("profile.kyc.verifyEmailTitle", "Verify your email first")} sub={t("profile.kyc.verifyEmailSub", "Identity checks open once your address is confirmed")} />
-          <Link href="/settings?section=security" className="shrink-0 text-sm font-semibold text-primary-ink">
+          <Link href="/account" className="shrink-0 text-sm font-semibold text-primary-ink">
             {t("auth.email.verify", "Verify")}
           </Link>
         </div>
