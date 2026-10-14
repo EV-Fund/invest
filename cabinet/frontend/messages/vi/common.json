@@ -1,4 +1,12 @@
 {
+  "account.title": {
+    "en": "Account",
+    "t": "Tài khoản"
+  },
+  "account.unavailable": {
+    "en": "Your account settings could not be loaded. Reload the page to try again.",
+    "t": "Không thể tải cài đặt tài khoản. Hãy tải lại trang để thử lại."
+  },
   "admin.ago.days": {
     "en": "{n, plural, one {#d ago} other {#d ago}}",
     "t": "{n, plural, other {# ngày trước}}"
@@ -319,6 +327,10 @@
     "en": "Yield",
     "t": "Lợi suất"
   },
+  "admin.alloc.issuance.source.mint": {
+    "en": "minted",
+    "t": "đã phát hành"
+  },
   "admin.alloc.issuance.source.retire": {
     "en": "retired",
     "t": "đã thu hồi"
@@ -379,6 +391,10 @@
     "en": "Issue units",
     "t": "Phát hành đơn vị quỹ"
   },
+  "admin.alloc.open": {
+    "en": "Open",
+    "t": "Mở"
+  },
   "admin.alloc.pinCap.action": {
     "en": "Pin cap to issued",
     "t": "Ghim trần theo đã phát hành"
@@ -403,9 +419,25 @@
     "en": "Pin cap",
     "t": "Ghim trần"
   },
-  "admin.alloc.issuance.source.mint": {
-    "en": "minted",
-    "t": "đã phát hành"
+  "admin.alloc.placeholder.summary": {
+    "en": "One line for the catalog card",
+    "t": "Một dòng cho thẻ danh mục"
+  },
+  "admin.alloc.register": {
+    "en": "Register allocation",
+    "t": "Đăng ký khoản phân bổ"
+  },
+  "admin.alloc.registerHint": {
+    "en": "Registers in draft — open it when the product is ready to take money.",
+    "t": "Đăng ký ở trạng thái nháp — hãy mở khi sản phẩm sẵn sàng nhận tiền."
+  },
+  "admin.alloc.registerSubmit": {
+    "en": "Register",
+    "t": "Đăng ký"
+  },
+  "admin.alloc.registry": {
+    "en": "Registry",
+    "t": "Sổ đăng ký"
   },
   "admin.alloc.retire.action": {
     "en": "Retire units",
@@ -455,30 +487,6 @@
     "en": "Retire",
     "t": "Thu hồi"
   },
-  "admin.alloc.open": {
-    "en": "Open",
-    "t": "Mở"
-  },
-  "admin.alloc.placeholder.summary": {
-    "en": "One line for the catalog card",
-    "t": "Một dòng cho thẻ danh mục"
-  },
-  "admin.alloc.register": {
-    "en": "Register allocation",
-    "t": "Đăng ký khoản phân bổ"
-  },
-  "admin.alloc.registerHint": {
-    "en": "Registers in draft — open it when the product is ready to take money.",
-    "t": "Đăng ký ở trạng thái nháp — hãy mở khi sản phẩm sẵn sàng nhận tiền."
-  },
-  "admin.alloc.registerSubmit": {
-    "en": "Register",
-    "t": "Đăng ký"
-  },
-  "admin.alloc.registry": {
-    "en": "Registry",
-    "t": "Sổ đăng ký"
-  },
   "admin.alloc.slugHint": {
     "en": "Permanent — every fund RPC keys on it",
     "t": "Vĩnh viễn — mọi lệnh RPC của quỹ đều dựa vào mã này"
@@ -491,114 +499,6 @@
     "en": "The registry of investable products — a fund exists only once it is registered here",
     "t": "Sổ đăng ký các sản phẩm đầu tư — một quỹ chỉ tồn tại khi đã được đăng ký ở đây"
   },
-  "admin.cabinet.announcement": {
-    "en": "Announcement",
-    "t": "Thông báo chung"
-  },
-  "admin.cabinet.announcementSub": {
-    "en": "The live banner across the cabinet",
-    "t": "Biểu ngữ đang hiển thị trên toàn bộ cabinet"
-  },
-  "admin.cabinet.featureFlags": {
-    "en": "Feature flags",
-    "t": "Cờ tính năng"
-  },
-  "admin.cabinet.featureFlagsSub": {
-    "en": "Gating cabinet features & MFE mounts",
-    "t": "Kiểm soát tính năng cabinet & việc nạp MFE"
-  },
-  "admin.cabinet.flagRollout": {
-    "en": "{pct}%",
-    "t": "{pct}%"
-  },
-  "admin.cabinet.live": {
-    "en": "Live",
-    "t": "Đang chạy"
-  },
-  "admin.cabinet.liveHint": {
-    "en": "Show the banner now",
-    "t": "Hiển thị biểu ngữ ngay bây giờ"
-  },
-  "admin.cabinet.maintenanceMode": {
-    "en": "Maintenance mode",
-    "t": "Chế độ bảo trì"
-  },
-  "admin.cabinet.maintenanceModeHint": {
-    "en": "Holding page on the cabinet (identity plane)",
-    "t": "Trang chờ trên cabinet (lớp danh tính)"
-  },
-  "admin.cabinet.maintenanceOps": {
-    "en": "Maintenance & operations",
-    "t": "Bảo trì & vận hành"
-  },
-  "admin.cabinet.maintenanceOpsSub": {
-    "en": "Cabinet holding page + money-plane kill-switch",
-    "t": "Trang chờ cabinet + công tắc ngắt lớp tiền tệ"
-  },
-  "admin.cabinet.mfeRegistry": {
-    "en": "Microfrontend registry",
-    "t": "Sổ đăng ký microfrontend"
-  },
-  "admin.cabinet.mfeRegistrySub": {
-    "en": "Resolved by clients/core · /api/mfe-registry",
-    "t": "Được phân giải bởi clients/core · /api/mfe-registry"
-  },
-  "admin.cabinet.noFlags": {
-    "en": "No flags yet. PostHog experiments render here when configured.",
-    "t": "Chưa có cờ nào. Các thử nghiệm PostHog sẽ hiển thị ở đây khi được cấu hình."
-  },
-  "admin.cabinet.noMfes": {
-    "en": "No microfrontends registered.",
-    "t": "Chưa có microfrontend nào được đăng ký."
-  },
-  "admin.cabinet.placeholder.announcementBody": {
-    "en": "Body",
-    "t": "Nội dung"
-  },
-  "admin.cabinet.placeholder.announcementTitle": {
-    "en": "Announcement title",
-    "t": "Tiêu đề thông báo"
-  },
-  "admin.cabinet.readOnlyMode": {
-    "en": "Read-only mode",
-    "t": "Chế độ chỉ đọc"
-  },
-  "admin.cabinet.readOnlyModeHint": {
-    "en": "Pause deposits & withdrawals (money plane)",
-    "t": "Tạm dừng nạp & rút tiền (lớp tiền tệ)"
-  },
-  "admin.cabinet.registered": {
-    "en": "Registered",
-    "t": "Đã đăng ký"
-  },
-  "admin.cabinet.saveAnnouncement": {
-    "en": "Save announcement",
-    "t": "Lưu thông báo"
-  },
-  "admin.cabinet.subtitle": {
-    "en": "Host shell — microfrontend registry, feature flags and content",
-    "t": "Vỏ ứng dụng chủ — sổ đăng ký microfrontend, cờ tính năng và nội dung"
-  },
-  "admin.coins.frozen": {
-    "en": "Frozen — hidden from users, queued withdrawals held, no gas alerts",
-    "t": "Đã đóng băng — ẩn với người dùng, lệnh rút đang chờ bị giữ lại, không cảnh báo gas"
-  },
-  "admin.coins.gas": {
-    "en": "gas in {coin}",
-    "t": "phí gas bằng {coin}"
-  },
-  "admin.coins.live": {
-    "en": "Live — deposits and withdrawals open",
-    "t": "Đang hoạt động — nạp và rút đang mở"
-  },
-  "admin.coins.subtitle": {
-    "en": "Rails users can deposit and withdraw on",
-    "t": "Các mạng người dùng có thể nạp và rút tiền"
-  },
-  "admin.coins.unconfigured": {
-    "en": "Not run by this deployment",
-    "t": "Không chạy trong bản triển khai này"
-  },
   "admin.col.actions": {
     "en": "Actions",
     "t": "Thao tác"
@@ -609,10 +509,6 @@
   },
   "admin.col.state": {
     "en": "State",
-    "t": "Trạng thái"
-  },
-  "admin.col.status": {
-    "en": "Status",
     "t": "Trạng thái"
   },
   "admin.col.user": {
@@ -634,10 +530,6 @@
   "admin.consilium.openedTitle": {
     "en": "Opened — nothing has moved",
     "t": "Đã mở — chưa có gì thay đổi"
-  },
-  "admin.dispatch": {
-    "en": "Dispatch",
-    "t": "Gửi lệnh"
   },
   "admin.env.dev": {
     "en": "DEV",
@@ -903,6 +795,54 @@
     "en": "Nothing to settle — no fee has been charged in this fund yet.",
     "t": "Không có gì để tất toán — quỹ này chưa thu khoản phí nào."
   },
+  "admin.fees.notices.acknowledge": {
+    "en": "Take responsibility and bind anyway",
+    "t": "Nhận trách nhiệm và vẫn áp dụng"
+  },
+  "admin.fees.notices.acknowledgeBack": {
+    "en": "Keep waiting",
+    "t": "Tiếp tục chờ"
+  },
+  "admin.fees.notices.acknowledgeConfirm": {
+    "en": "Take responsibility",
+    "t": "Nhận trách nhiệm"
+  },
+  "admin.fees.notices.acknowledgeWarning": {
+    "en": "The terms will bind over {n, plural, one {this holder} other {these # holders}} without their notice — tighter terms they were never told about. Your name, the moment, and exactly which holders it covers are recorded on the change and stay in its history.",
+    "t": "Điều khoản sẽ có hiệu lực với {n, plural, other {# người nắm giữ này}} mà không có thông báo — những điều khoản chặt hơn mà họ chưa từng được biết. Tên của bạn, thời điểm và chính xác những người nắm giữ liên quan sẽ được ghi vào thay đổi và lưu trong lịch sử của nó."
+  },
+  "admin.fees.notices.acknowledgeWarningExtend": {
+    "en": "The terms will bind over {n, plural, one {this holder} other {these # holders}} without their notice — tighter terms they were never told about. Your name and the moment replace the earlier acknowledgement's on the change, which will then cover {total, plural, one {# holder} other {all # holders}}, and stay in its history.",
+    "t": "Điều khoản sẽ có hiệu lực với {n, plural, other {# người nắm giữ này}} mà không có thông báo — những điều khoản chặt hơn mà họ chưa từng được biết. Tên của bạn và thời điểm sẽ thay thế xác nhận trước đó trên thay đổi, khi đó nó bao trùm {total, plural, other {tất cả # người nắm giữ}}, và được lưu trong lịch sử của nó."
+  },
+  "admin.fees.notices.alreadyWaived": {
+    "en": "{by} already took responsibility on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.",
+    "t": "{by} đã nhận trách nhiệm vào {at} cho {n, plural, other {# người nắm giữ}} mà việc gửi thư đã bỏ cuộc tính đến lúc đó. Từ đó nó đã bỏ cuộc thêm với những người khác; hành động này thêm họ vào cùng bản ghi đó."
+  },
+  "admin.fees.notices.alreadyWaivedAnon": {
+    "en": "Responsibility was already taken on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.",
+    "t": "Trách nhiệm đã được nhận vào {at} cho {n, plural, other {# người nắm giữ}} mà việc gửi thư đã bỏ cuộc tính đến lúc đó. Từ đó nó đã bỏ cuộc thêm với những người khác; hành động này thêm họ vào cùng bản ghi đó."
+  },
+  "admin.fees.notices.err.forbidden": {
+    "en": "Only the requester of this change or an owner can take responsibility for it.",
+    "t": "Chỉ người yêu cầu thay đổi này hoặc chủ sở hữu mới có thể nhận trách nhiệm."
+  },
+  "admin.fees.notices.givenUpBody": {
+    "en": "The mailer has given up on {n, plural, one {this holder's notice} other {these # notices}}. A change that tightens the terms does not bind over a holder who was never told, so it is held up until somebody takes responsibility for them.",
+    "t": "Hệ thống gửi thư đã bỏ cuộc với {n, plural, other {# thông báo này}}. Thay đổi siết chặt điều khoản không có hiệu lực với người nắm giữ chưa từng được thông báo, nên nó bị giữ lại cho đến khi có người nhận trách nhiệm về họ."
+  },
+  "admin.fees.notices.givenUpTitle": {
+    "en": "{n, plural, one {# holder} other {# holders}} could not be told",
+    "t": "{n, plural, other {# người nắm giữ}} không thể được thông báo"
+  },
+  "admin.fees.notices.moreQueued": {
+    "en": "{n, plural, one {# more notice is still being delivered and is not covered by this act.} other {# more notices are still being delivered and are not covered by this act.}}",
+    "t": "{n, plural, other {# thông báo khác}} vẫn đang được gửi và không thuộc phạm vi này."
+  },
+  "admin.fees.notices.queued": {
+    "en": "{n, plural, one {# notice is} other {# notices are}} still being delivered. A change that tightens the terms waits for every holder to be told; there is nothing to do unless the mailer gives up on one.",
+    "t": "{n, plural, other {# thông báo}} vẫn đang được gửi. Thay đổi siết chặt điều khoản chờ đến khi mọi người nắm giữ được thông báo; không cần làm gì trừ khi hệ thống gửi thư bỏ cuộc với một người."
+  },
   "admin.fees.pending.awaiting": {
     "en": "Version {version} awaits the owners' approval. It binds 24 hours after they carry it, while anyone holds units.",
     "t": "Phiên bản {version} đang chờ các chủ sở hữu chấp thuận. Nó có hiệu lực 24 giờ sau khi họ thông qua, khi còn người nắm giữ đơn vị."
@@ -1047,62 +987,6 @@
     "en": "Fee units held",
     "t": "Đơn vị phí đang nắm giữ"
   },
-  "admin.fees.withdrawableFrom": {
-    "en": "It is withdrawable on-chain from {screen}.",
-    "t": "Có thể rút on-chain từ {screen}."
-  },
-  "admin.fees.worthAtNav": {
-    "en": "Worth at current NAV",
-    "t": "Giá trị theo NAV hiện tại"
-  },
-  "admin.fees.notices.acknowledge": {
-    "en": "Take responsibility and bind anyway",
-    "t": "Nhận trách nhiệm và vẫn áp dụng"
-  },
-  "admin.fees.notices.acknowledgeBack": {
-    "en": "Keep waiting",
-    "t": "Tiếp tục chờ"
-  },
-  "admin.fees.notices.acknowledgeConfirm": {
-    "en": "Take responsibility",
-    "t": "Nhận trách nhiệm"
-  },
-  "admin.fees.notices.acknowledgeWarning": {
-    "en": "The terms will bind over {n, plural, one {this holder} other {these # holders}} without their notice — tighter terms they were never told about. Your name, the moment, and exactly which holders it covers are recorded on the change and stay in its history.",
-    "t": "Điều khoản sẽ có hiệu lực với {n, plural, other {# người nắm giữ này}} mà không có thông báo — những điều khoản chặt hơn mà họ chưa từng được biết. Tên của bạn, thời điểm và chính xác những người nắm giữ liên quan sẽ được ghi vào thay đổi và lưu trong lịch sử của nó."
-  },
-  "admin.fees.notices.acknowledgeWarningExtend": {
-    "en": "The terms will bind over {n, plural, one {this holder} other {these # holders}} without their notice — tighter terms they were never told about. Your name and the moment replace the earlier acknowledgement's on the change, which will then cover {total, plural, one {# holder} other {all # holders}}, and stay in its history.",
-    "t": "Điều khoản sẽ có hiệu lực với {n, plural, other {# người nắm giữ này}} mà không có thông báo — những điều khoản chặt hơn mà họ chưa từng được biết. Tên của bạn và thời điểm sẽ thay thế xác nhận trước đó trên thay đổi, khi đó nó bao trùm {total, plural, other {tất cả # người nắm giữ}}, và được lưu trong lịch sử của nó."
-  },
-  "admin.fees.notices.alreadyWaived": {
-    "en": "{by} already took responsibility on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.",
-    "t": "{by} đã nhận trách nhiệm vào {at} cho {n, plural, other {# người nắm giữ}} mà việc gửi thư đã bỏ cuộc tính đến lúc đó. Từ đó nó đã bỏ cuộc thêm với những người khác; hành động này thêm họ vào cùng bản ghi đó."
-  },
-  "admin.fees.notices.alreadyWaivedAnon": {
-    "en": "Responsibility was already taken on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.",
-    "t": "Trách nhiệm đã được nhận vào {at} cho {n, plural, other {# người nắm giữ}} mà việc gửi thư đã bỏ cuộc tính đến lúc đó. Từ đó nó đã bỏ cuộc thêm với những người khác; hành động này thêm họ vào cùng bản ghi đó."
-  },
-  "admin.fees.notices.err.forbidden": {
-    "en": "Only the requester of this change or an owner can take responsibility for it.",
-    "t": "Chỉ người yêu cầu thay đổi này hoặc chủ sở hữu mới có thể nhận trách nhiệm."
-  },
-  "admin.fees.notices.givenUpBody": {
-    "en": "The mailer has given up on {n, plural, one {this holder's notice} other {these # notices}}. A change that tightens the terms does not bind over a holder who was never told, so it is held up until somebody takes responsibility for them.",
-    "t": "Hệ thống gửi thư đã bỏ cuộc với {n, plural, other {# thông báo này}}. Thay đổi siết chặt điều khoản không có hiệu lực với người nắm giữ chưa từng được thông báo, nên nó bị giữ lại cho đến khi có người nhận trách nhiệm về họ."
-  },
-  "admin.fees.notices.givenUpTitle": {
-    "en": "{n, plural, one {# holder} other {# holders}} could not be told",
-    "t": "{n, plural, other {# người nắm giữ}} không thể được thông báo"
-  },
-  "admin.fees.notices.moreQueued": {
-    "en": "{n, plural, one {# more notice is still being delivered and is not covered by this act.} other {# more notices are still being delivered and are not covered by this act.}}",
-    "t": "{n, plural, other {# thông báo khác}} vẫn đang được gửi và không thuộc phạm vi này."
-  },
-  "admin.fees.notices.queued": {
-    "en": "{n, plural, one {# notice is} other {# notices are}} still being delivered. A change that tightens the terms waits for every holder to be told; there is nothing to do unless the mailer gives up on one.",
-    "t": "{n, plural, other {# thông báo}} vẫn đang được gửi. Thay đổi siết chặt điều khoản chờ đến khi mọi người nắm giữ được thông báo; không cần làm gì trừ khi hệ thống gửi thư bỏ cuộc với một người."
-  },
   "admin.fees.waiver.acknowledged": {
     "en": "Notices waived by {by} on {at}, over {n, plural, one {# holder} other {# holders}} who could not be told.",
     "t": "Thông báo được miễn bởi {by} vào {at}, cho {n, plural, other {# người nắm giữ}} không thể được thông báo."
@@ -1118,6 +1002,14 @@
   "admin.fees.waiver.rowAnon": {
     "en": "Notices waived · {n, plural, one {# holder} other {# holders}}",
     "t": "Thông báo được miễn · {n, plural, other {# người nắm giữ}}"
+  },
+  "admin.fees.withdrawableFrom": {
+    "en": "It is withdrawable on-chain from {screen}.",
+    "t": "Có thể rút on-chain từ {screen}."
+  },
+  "admin.fees.worthAtNav": {
+    "en": "Worth at current NAV",
+    "t": "Giá trị theo NAV hiện tại"
   },
   "admin.holder.allocation": {
     "en": "Allocation",
@@ -1151,245 +1043,9 @@
     "en": "Verified",
     "t": "Đã xác minh"
   },
-  "admin.outbox.col.event": {
-    "en": "Event",
-    "t": "Sự kiện"
-  },
-  "admin.outbox.col.parked": {
-    "en": "Parked",
-    "t": "Bị treo"
-  },
-  "admin.outbox.col.reason": {
-    "en": "Reason",
-    "t": "Nguyên nhân"
-  },
-  "admin.outbox.col.seq": {
-    "en": "Seq",
-    "t": "Seq"
-  },
-  "admin.outbox.compensated": {
-    "en": "compensated",
-    "t": "đã bù trừ"
-  },
-  "admin.outbox.deadKey": {
-    "en": "Signing key unavailable — engineering has been alerted; unparking will fail until the key is rotated",
-    "t": "Khóa ký không khả dụng — đội kỹ thuật đã được cảnh báo; gỡ treo sẽ thất bại cho đến khi khóa được thay mới"
-  },
-  "admin.outbox.noParkedEvents": {
-    "en": "No parked events",
-    "t": "Không có sự kiện bị treo"
-  },
-  "admin.outbox.noParkedEventsHint": {
-    "en": "The relay is clean.",
-    "t": "Bộ chuyển tiếp sạch."
-  },
-  "admin.outbox.parkedEvents": {
-    "en": "Parked events",
-    "t": "Sự kiện bị treo"
-  },
-  "admin.outbox.parkedEventsSub": {
-    "en": "Outbox rows the relay couldn't apply — fix the cause, then unpark to re-drive",
-    "t": "Các bản ghi outbox mà bộ chuyển tiếp không áp dụng được — khắc phục nguyên nhân, rồi gỡ treo để chạy lại"
-  },
-  "admin.outbox.subtitle": {
-    "en": "Stuck outbox rows — what the relay couldn't apply, and the action that re-drives them",
-    "t": "Các bản ghi outbox bị kẹt — những gì bộ chuyển tiếp không áp dụng được, và thao tác chạy lại chúng"
-  },
-  "admin.outbox.unpark": {
-    "en": "Unpark",
-    "t": "Gỡ treo"
-  },
-  "admin.outbox.unparkRefetchFailed": {
-    "en": "Unparked, but refreshing the list failed: {error} — press Refresh to resync.",
-    "t": "Đã gỡ treo, nhưng làm mới danh sách thất bại: {error} — hãy nhấn Làm mới để đồng bộ lại."
-  },
-  "admin.outbox.unparked": {
-    "en": "unparked",
-    "t": "đã gỡ treo"
-  },
-  "admin.payments.address": {
-    "en": "Destination address",
-    "t": "Địa chỉ nhận"
-  },
-  "admin.payments.amountUsdt": {
-    "en": "Amount (USDT)",
-    "t": "Số tiền (USDT)"
-  },
-  "admin.payments.col.amountUsdt": {
-    "en": "Amount, USDT",
-    "t": "Số tiền, USDT"
-  },
-  "admin.payments.col.approval": {
-    "en": "Approval",
-    "t": "Phê duyệt"
-  },
-  "admin.payments.col.ends": {
-    "en": "From → to",
-    "t": "Từ → tới"
-  },
-  "admin.payments.col.opened": {
-    "en": "Opened",
-    "t": "Đã mở"
-  },
-  "admin.payments.confirmOpen": {
-    "en": "Open payment",
-    "t": "Mở thanh toán"
-  },
-  "admin.payments.err.enterAmount": {
-    "en": "Enter an amount.",
-    "t": "Nhập số tiền."
-  },
-  "admin.payments.err.enterReason": {
-    "en": "A reason is required — it is what the approvers read.",
-    "t": "Lý do là bắt buộc — đó là nội dung người phê duyệt đọc."
-  },
-  "admin.payments.err.noRailFromPooled": {
-    "en": "An allocation's pooled claim — a product's, or the platform's fee and fund — cannot ship to an address. A holder redeems onto their own claim and withdraws from there.",
-    "t": "Quyền gộp của một phân bổ — của sản phẩm, hoặc phí và vốn của nền tảng — không thể gửi đến một địa chỉ. Người nắm giữ rút vốn về quyền của mình rồi rút từ đó."
-  },
-  "admin.payments.err.pickDestination": {
-    "en": "Complete the destination.",
-    "t": "Hoàn tất điểm đến."
-  },
-  "admin.payments.err.pickSource": {
-    "en": "Choose which product or investor the money comes from.",
-    "t": "Chọn sản phẩm hoặc nhà đầu tư mà tiền được lấy từ đó."
-  },
-  "admin.payments.err.reasonTooLong": {
-    "en": "The reason is over 500 bytes.",
-    "t": "Lý do dài hơn 500 byte."
-  },
-  "admin.payments.err.sameEnds": {
-    "en": "The source and the destination are the same claim.",
-    "t": "Nguồn và điểm đến là cùng một tài khoản."
-  },
-  "admin.payments.formNote": {
-    "en": "Opening a payment moves no money. Fund-owned money is proposed to the owners' consilium; an investor's own money is put to that investor by email. Only once they agree does anything move.",
-    "t": "Mở một khoản thanh toán không chuyển tiền. Tiền của quỹ được đề xuất lên hội đồng chủ sở hữu; tiền riêng của nhà đầu tư được gửi tới chính nhà đầu tư đó qua email. Chỉ khi họ đồng ý thì tiền mới được chuyển."
-  },
-  "admin.payments.kind.external": {
-    "en": "An external address",
-    "t": "Một địa chỉ bên ngoài"
-  },
-  "admin.payments.kind.service": {
-    "en": "A product",
-    "t": "Một sản phẩm"
-  },
-  "admin.payments.kind.user": {
-    "en": "An investor",
-    "t": "Một nhà đầu tư"
-  },
-  "admin.payments.list": {
-    "en": "Payments",
-    "t": "Các khoản thanh toán"
-  },
-  "admin.payments.noProducts": {
-    "en": "No product is registered yet.",
-    "t": "Chưa có sản phẩm nào được đăng ký."
-  },
-  "admin.payments.noProductsHint": {
-    "en": "A product appears here once it is registered as an allocation.",
-    "t": "Sản phẩm sẽ xuất hiện ở đây sau khi được đăng ký làm allocation."
-  },
-  "admin.payments.noRail": {
-    "en": "No rail is configured",
-    "t": "Chưa cấu hình rail"
-  },
-  "admin.payments.noRailHint": {
-    "en": "Rails are configured on the treasury; a payment ships only on a chain with a running watcher.",
-    "t": "Rail được cấu hình ở kho bạc; thanh toán chỉ được gửi trên chuỗi có watcher đang chạy."
-  },
-  "admin.payments.none": {
-    "en": "No payments yet",
-    "t": "Chưa có khoản thanh toán nào"
-  },
-  "admin.payments.noneHint": {
-    "en": "Every order opened here appears with who has to agree and where that stands. An order executes once they have, and shows what it became.",
-    "t": "Mỗi lệnh được mở ở đây sẽ hiện ra cùng với người phải đồng ý và tiến độ. Sau khi họ đồng ý, lệnh được thực hiện và hiển thị kết quả."
-  },
-  "admin.payments.noneInState": {
-    "en": "No payments in this state",
-    "t": "Không có khoản thanh toán nào ở trạng thái này"
-  },
-  "admin.payments.open": {
-    "en": "Open a payment",
-    "t": "Mở một khoản thanh toán"
-  },
   "admin.payments.openConsilium": {
     "en": "Open the consilium",
     "t": "Mở hội đồng"
-  },
-  "admin.payments.openedConsentBody": {
-    "en": "{email} has been emailed a link and a code. Nothing moves until they agree — this is their money, and only they can say so.",
-    "t": "{email} đã được gửi một liên kết và một mã qua email. Không có gì di chuyển cho đến khi họ đồng ý — đây là tiền của họ, và chỉ họ mới có thể quyết định."
-  },
-  "admin.payments.openedConsiliumBody": {
-    "en": "The owners have each been emailed a link. Nothing moves until more than half of them confirm from their own mailboxes; the live tally is in the consilium.",
-    "t": "Mỗi chủ sở hữu đã được gửi một liên kết qua email. Không có gì di chuyển cho đến khi hơn một nửa xác nhận từ hộp thư của họ; số phiếu hiện tại nằm trong hội đồng."
-  },
-  "admin.payments.openedExpires": {
-    "en": "Expires {at} · {left}",
-    "t": "Hết hạn {at} · {left}"
-  },
-  "admin.payments.openedTitle": {
-    "en": "Opened — no money has moved",
-    "t": "Đã mở — chưa có tiền nào được chuyển"
-  },
-  "admin.payments.pickProduct": {
-    "en": "Choose a product",
-    "t": "Chọn một sản phẩm"
-  },
-  "admin.payments.placeholder.address": {
-    "en": "The wallet that receives the payment",
-    "t": "Ví nhận khoản thanh toán"
-  },
-  "admin.payments.placeholder.reason": {
-    "en": "Why this money moves — the approvers read exactly this",
-    "t": "Vì sao chuyển khoản này — người phê duyệt đọc chính xác nội dung này"
-  },
-  "admin.payments.reason": {
-    "en": "Reason",
-    "t": "Lý do"
-  },
-  "admin.payments.reasonHint": {
-    "en": "Required. {used} of {max} bytes. Part of what is approved, and covered by the request fingerprint — it cannot be changed afterwards.",
-    "t": "Bắt buộc. {used} trên {max} byte. Là một phần của nội dung được phê duyệt và nằm trong dấu vân tay của yêu cầu — không thể thay đổi sau đó."
-  },
-  "admin.payments.requirement": {
-    "en": "Who must agree",
-    "t": "Ai phải đồng ý"
-  },
-  "admin.payments.review": {
-    "en": "Review payment",
-    "t": "Xem lại thanh toán"
-  },
-  "admin.payments.reviewNote.owner_consilium": {
-    "en": "The terms are fixed once opened. Every owner is emailed exactly these and they are checked again before any money moves — changing anything means cancelling and starting over, and votes are not carried across.",
-    "t": "Các điều khoản được cố định sau khi mở. Mỗi chủ sở hữu nhận email đúng các điều khoản này và chúng được kiểm tra lại trước khi tiền được chuyển — thay đổi bất cứ điều gì nghĩa là huỷ và bắt đầu lại, phiếu bầu không được giữ."
-  },
-  "admin.payments.reviewNote.subject_consent": {
-    "en": "The terms are fixed once opened. This is the investor's own money: they alone are emailed exactly these and must agree with the code from that message. Changing anything means cancelling and starting over.",
-    "t": "Các điều khoản được cố định sau khi mở. Đây là tiền riêng của nhà đầu tư: chỉ họ nhận email đúng các điều khoản này và phải đồng ý bằng mã trong thư đó. Thay đổi bất cứ điều gì nghĩa là huỷ và bắt đầu lại."
-  },
-  "admin.payments.reviewSentence": {
-    "en": "Pay {amount} from {source} to {destination}?",
-    "t": "Chuyển {amount} từ {source} tới {destination}?"
-  },
-  "admin.payments.source": {
-    "en": "Source",
-    "t": "Nguồn"
-  },
-  "admin.payments.subtitle": {
-    "en": "Money between two named ends of the platform — inside the fund, into a product, or out to an address — each authorised by whoever the money belongs to",
-    "t": "Tiền giữa hai đầu được đặt tên của nền tảng — trong quỹ, vào một sản phẩm, hoặc ra ngoài tới một địa chỉ — mỗi khoản đều do chủ sở hữu của số tiền đó cho phép"
-  },
-  "admin.payments.tier": {
-    "en": "Tier",
-    "t": "Cấp"
-  },
-  "admin.rail": {
-    "en": "Rail",
-    "t": "Kênh"
   },
   "admin.rail.bep20": {
     "en": "BEP20 · BNB Chain",
@@ -1467,6 +1123,10 @@
     "en": "Governance mail is not configured",
     "t": "Email quản trị chưa được cấu hình"
   },
+  "admin.revenue.bankingTreasuryNote": {
+    "en": "Withdrawal fees land here, not in the fee allocation: banking's own cash, held by no one through units. Nothing is paid out of it until scope approvals cover treasury spending.",
+    "t": "Phí rút tiền được chuyển về đây, không vào phân bổ phí: đây là tiền riêng của banking, không ai nắm giữ qua đơn vị. Chưa chi khoản nào từ đây cho đến khi phê duyệt của scope bao quát chi tiêu ngân quỹ."
+  },
   "admin.revenue.cashAvailable": {
     "en": "Cash · available",
     "t": "Tiền mặt · khả dụng"
@@ -1518,6 +1178,10 @@
   "admin.revenue.toTreasury": {
     "en": "The fee allocation beside the platform's other balances: custody per rail, user claims, every allocation and its holders.",
     "t": "Phân bổ phí bên cạnh các số dư khác của nền tảng: lưu ký theo mạng, quyền của người dùng, mọi phân bổ và người nắm giữ."
+  },
+  "admin.revenue.treasuryPostedHint": {
+    "en": "retained withdrawal fees, reserved included",
+    "t": "phí rút tiền đã giữ lại, gồm cả phần đã đặt trước"
   },
   "admin.revenue.unitsHint": {
     "en": "units of the fee allocation, held by people",
@@ -1619,373 +1283,21 @@
     "en": "Staged",
     "t": "Thử nghiệm"
   },
-  "admin.treasury.a11y.copy": {
-    "en": "Copy {what}",
-    "t": "Sao chép {what}"
-  },
-  "admin.treasury.allocations.claimDetail": {
-    "en": "posted {posted} · reserved {reserved}",
-    "t": "đã ghi sổ {posted} · dự trữ {reserved}"
-  },
-  "admin.treasury.allocations.col.allocation": {
-    "en": "Allocation",
-    "t": "Phân bổ"
-  },
-  "admin.treasury.allocations.col.claim": {
-    "en": "Cash claim",
-    "t": "Quyền tiền mặt"
-  },
-  "admin.treasury.allocations.empty": {
-    "en": "No allocations yet",
-    "t": "Chưa có phân bổ nào"
-  },
-  "admin.treasury.allocations.emptyHint": {
-    "en": "Every allocation the hub knows appears here with its claim, supply and holders — the products, and the hidden fee and fund allocations once they exist.",
-    "t": "Mọi phân bổ mà hub biết sẽ hiện ở đây cùng quyền, lượng lưu hành và người nắm giữ — các sản phẩm, và các phân bổ phí và vốn ẩn khi chúng tồn tại."
-  },
-  "admin.treasury.allocations.moreHolders": {
-    "en": "+{n} more",
-    "t": "+{n} nữa"
-  },
-  "admin.treasury.allocations.noHolders": {
-    "en": "no holders",
-    "t": "chưa có người nắm giữ"
-  },
-  "admin.treasury.allocations.title": {
-    "en": "Held through allocations",
-    "t": "Nắm giữ qua các phân bổ"
-  },
   "admin.treasury.allocations.unmarked": {
     "en": "not yet marked",
     "t": "chưa định giá"
   },
-  "admin.treasury.alreadyRecorded": {
-    "en": "Already recorded — that reference was credited before, nothing changed.",
-    "t": "Đã ghi nhận trước đó — tham chiếu này đã được ghi có, không có gì thay đổi."
-  },
-  "admin.treasury.bank": {
-    "en": "Bank · USD",
-    "t": "Ngân hàng · USD"
-  },
-  "admin.treasury.bankHint": {
-    "en": "off-ramp · FX",
-    "t": "rút về fiat · ngoại hối"
-  },
-  "admin.treasury.claimsTotal": {
-    "en": "Claims · total (USDT)",
-    "t": "Quyền đòi · tổng (USDT)"
-  },
-  "admin.treasury.claimsTotalHint": {
-    "en": "= on-chain custody · backed",
-    "t": "= lưu ký on-chain · được bảo chứng"
-  },
-  "admin.treasury.custodyUnconfigured": {
-    "en": "— · custody unconfigured",
-    "t": "— · chưa cấu hình lưu ký"
-  },
-  "admin.treasury.expectedAmount": {
-    "en": "Expected amount (USDT) · optional",
-    "t": "Số tiền dự kiến (USDT) · không bắt buộc"
-  },
-  "admin.treasury.gas": {
-    "en": "Gas",
-    "t": "Gas"
-  },
-  "admin.treasury.gasStation": {
-    "en": "Gas station",
-    "t": "Trạm gas"
-  },
-  "admin.treasury.gasStationBalance": {
-    "en": "Gas station balance",
-    "t": "Số dư trạm gas"
-  },
-  "admin.treasury.gasStationHint": {
-    "en": "(fund {symbol} here — pays sweep gas drops)",
-    "t": "(nạp {symbol} vào đây — chi trả gas cho các lần gom tiền)"
-  },
-  "admin.treasury.gasWord": {
-    "en": "gas",
-    "t": "gas"
-  },
-  "admin.treasury.heldByUsers": {
-    "en": "Held by users",
-    "t": "Người dùng nắm giữ"
-  },
-  "admin.treasury.heldByUsersHint": {
-    "en": "user claims · held directly",
-    "t": "quyền của người dùng · nắm giữ trực tiếp"
-  },
-  "admin.treasury.invariantNote": {
-    "en": "Per-rail backing is the treasury's job, not the ledger's: a shortfall on one rail is accept-and-queue, then rebalanced via CEX / alt-rail / top-up. The global invariant is {invariant}.",
-    "t": "Bảo chứng theo từng kênh là việc của ngân quỹ, không phải của sổ cái: thiếu hụt trên một kênh sẽ được nhận-và-xếp-hàng, sau đó cân đối lại qua CEX / kênh khác / nạp thêm. Bất biến toàn cục là {invariant}."
-  },
-  "admin.treasury.layer1": {
-    "en": "Layer 1 · Ledger — claims by holder (USDT)",
-    "t": "Lớp 1 · Sổ cái — quyền theo người nắm giữ (USDT)"
-  },
-  "admin.treasury.layer2": {
-    "en": "Layer 2 · Treasury — liquidity by rail",
-    "t": "Lớp 2 · Ngân quỹ — thanh khoản theo từng kênh"
-  },
-  "admin.treasury.noRailWithTreasury": {
-    "en": "No rail with a treasury",
-    "t": "Không có kênh nào có ngân quỹ"
-  },
-  "admin.treasury.onchainRef": {
-    "en": "On-chain reference",
-    "t": "Tham chiếu on-chain"
-  },
-  "admin.treasury.onchainUsdt": {
-    "en": "On-chain USDT",
-    "t": "USDT on-chain"
-  },
-  "admin.treasury.party.generic": {
-    "en": "{kind} {id}",
-    "t": "{kind} {id}"
-  },
-  "admin.treasury.placeholder.any": {
-    "en": "any",
-    "t": "bất kỳ"
-  },
-  "admin.treasury.recordArrival": {
-    "en": "Record an out-of-band arrival",
-    "t": "Ghi nhận một khoản tiền về ngoài luồng"
-  },
-  "admin.treasury.recordArrivalIntro": {
-    "en": "USDT sent straight to a treasury hot wallet is real money the ledger never saw. Give its on-chain reference and the hub reads the transfer back off the chain — the amount and the party credited come from there, so this records an arrival rather than asserting one.",
-    "t": "USDT gửi thẳng vào ví nóng của ngân quỹ là tiền thật mà sổ cái chưa từng nhìn thấy. Hãy nhập tham chiếu on-chain và hub sẽ đọc lại giao dịch từ blockchain — số tiền và bên được ghi có đều lấy từ đó, nên đây là việc ghi nhận một khoản tiền về chứ không phải khai báo một khoản tiền về."
-  },
-  "admin.treasury.recordArrivalSubmit": {
-    "en": "Record arrival",
-    "t": "Ghi nhận"
-  },
-  "admin.treasury.recorded": {
-    "en": "Recorded — the chain reported {amount}, credited to {party}.",
-    "t": "Đã ghi nhận — blockchain báo {amount}, ghi có cho {party}."
-  },
-  "admin.treasury.recordedTitle": {
-    "en": "Recorded",
-    "t": "Đã ghi nhận"
-  },
-  "admin.treasury.refNote": {
-    "en": "The reference is both what gets verified and the idempotency key — {evmRef} on an EVM rail, {tonRef} on TON. A reference that names no confirmed transfer to one of our addresses is refused, and a re-submission of one already recorded is a no-op. Fill the amount only to assert what you expect; a mismatch is then an error instead of a surprise.",
-    "t": "Tham chiếu vừa là thứ được đối chiếu vừa là khóa chống trùng — {evmRef} trên kênh EVM, {tonRef} trên TON. Một tham chiếu không trỏ tới giao dịch đã xác nhận vào một trong các địa chỉ của chúng ta sẽ bị từ chối, và việc gửi lại một tham chiếu đã ghi nhận sẽ không có tác dụng gì. Chỉ điền số tiền khi muốn khẳng định con số bạn kỳ vọng; khi đó sai lệch sẽ thành lỗi thay vì một bất ngờ."
-  },
-  "admin.treasury.reservedWithdrawals": {
-    "en": "Reserved · withdrawals",
-    "t": "Đã giữ · lệnh rút"
-  },
-  "admin.treasury.reservedWithdrawalsHint": {
-    "en": "queued + in-flight (clearing)",
-    "t": "đang chờ + đang thực hiện (tài khoản bù trừ)"
-  },
-  "admin.treasury.seed.amount": {
-    "en": "Amount (USDT)",
-    "t": "Số tiền (USDT)"
-  },
-  "admin.treasury.seed.amountProblem": {
-    "en": "A positive decimal, e.g. 10000 or 2500.50",
-    "t": "Một số thập phân dương, ví dụ 10000 hoặc 2500.50"
-  },
-  "admin.treasury.seed.depositor": {
-    "en": "Depositor · optional",
-    "t": "Người nạp · tùy chọn"
-  },
-  "admin.treasury.seed.depositorHint": {
-    "en": "Leave empty to attribute the seed to yourself.",
-    "t": "Để trống để ghi nhận vốn hạt giống cho chính bạn."
-  },
-  "admin.treasury.seed.intro": {
-    "en": "USDT sent to a treasury address as the platform's own capital is nobody's until the owners say whose. Name the transfer, the amount the chain must report and the person it is attributed to; when the owners carry it, the hub books their deposit and their subscription into the fund allocation in one step.",
-    "t": "USDT gửi đến địa chỉ kho quỹ như vốn riêng của nền tảng chưa thuộc về ai cho đến khi các chủ sở hữu quyết định. Hãy nêu giao dịch, số tiền mà chuỗi phải báo cáo và người được ghi nhận; khi các chủ sở hữu thông qua, hub ghi sổ khoản nạp và đăng ký của người đó vào phân bổ vốn trong một bước."
-  },
-  "admin.treasury.seed.opened": {
-    "en": "The owners have each been emailed a link. Nothing is booked until more than half of them confirm from their own mailboxes; the treasury follows once the chain-proven deposit and the fund subscription post.",
-    "t": "Mỗi chủ sở hữu đã nhận một liên kết qua email. Không có gì được ghi sổ cho đến khi hơn một nửa xác nhận từ hộp thư của họ; kho quỹ sẽ cập nhật khi khoản nạp đã xác minh trên chuỗi và đăng ký vốn được ghi sổ."
-  },
-  "admin.treasury.seed.submit": {
-    "en": "Propose seed",
-    "t": "Đề xuất"
-  },
-  "admin.treasury.seed.title": {
-    "en": "Propose seed capital",
-    "t": "Đề xuất vốn hạt giống"
-  },
-  "admin.treasury.selectRail": {
-    "en": "Select a rail…",
-    "t": "Chọn một kênh…"
-  },
-  "admin.treasury.subtitle": {
-    "en": "Two layers — ledger claims (USDT) by holder vs on-chain liquidity by rail",
-    "t": "Hai lớp — quyền trên sổ cái (USDT) theo người nắm giữ so với thanh khoản on-chain theo mạng"
-  },
-  "admin.users.accessSecurity": {
-    "en": "Access & security",
-    "t": "Truy cập & bảo mật"
-  },
-  "admin.users.adminViaProposal": {
-    "en": "Admin is not on this list — granting it is a proposal the owners vote through. Taking it away is still one step here. Open one in",
-    "t": "Quản trị viên không có trong danh sách này — cấp quyền đó là một đề xuất do các chủ sở hữu bỏ phiếu. Thu hồi vẫn là một bước tại đây. Mở đề xuất trong"
-  },
-  "admin.users.balance": {
-    "en": "Balance",
-    "t": "Số dư"
-  },
-  "admin.users.breakGlassExplainer": {
-    "en": "This role came from the OWNER_SUBJECTS allowlist, not from the register. It is real access and it seats nobody — the consilium does not count it, and it lapses as soon as the fund has its first owner.",
-    "t": "Vai trò này lấy từ danh sách OWNER_SUBJECTS chứ không phải từ sổ đăng ký. Quyền truy cập là thật nhưng không trao ghế — hội đồng không tính nó, và nó sẽ mất hiệu lực ngay khi quỹ có chủ sở hữu đầu tiên."
-  },
-  "admin.users.breakGlassRole": {
-    "en": "Emergency access",
-    "t": "Truy cập khẩn cấp"
-  },
-  "admin.users.count": {
-    "en": "{n, plural, one {# user} other {# users}}",
-    "t": "{n, plural, other {# người dùng}}"
-  },
-  "admin.users.hold": {
-    "en": "Hold for 24h",
-    "t": "Tạm giữ 24 giờ"
-  },
-  "admin.users.holdHint": {
-    "en": "Freezes the account now. It lapses by itself after 24 hours unless the owners vote to make it permanent.",
-    "t": "Đóng băng tài khoản ngay lập tức. Tự hết hiệu lực sau 24 giờ trừ khi các chủ sở hữu biến nó thành vĩnh viễn."
-  },
-  "admin.users.identity": {
-    "en": "Identity",
-    "t": "Danh tính"
-  },
-  "admin.users.joined": {
-    "en": "Joined",
-    "t": "Tham gia"
-  },
-  "admin.users.kyc": {
-    "en": "KYC",
-    "t": "KYC"
-  },
-  "admin.users.kycBadge": {
-    "en": "KYC L{n}",
-    "t": "KYC L{n}"
+  "admin.treasury.bankingTreasury": {
+    "en": "Banking treasury",
+    "t": "Ngân quỹ của banking"
   },
   "admin.users.kycLevelShort": {
     "en": "L{n}",
     "t": "L{n}"
   },
-  "admin.users.kycSelf": {
-    "en": "Your own verification tier is not set from here. Another holder of KycManage has to change it.",
-    "t": "Cấp xác minh của chính bạn không được đặt từ đây. Một người khác nắm quyền KycManage phải thay đổi nó."
-  },
-  "admin.users.liftHold": {
-    "en": "Lift hold",
-    "t": "Gỡ tạm giữ"
-  },
-  "admin.users.liftSuspension": {
-    "en": "Lift suspension",
-    "t": "Gỡ đình chỉ"
-  },
-  "admin.users.noMatch": {
-    "en": "No users match these filters",
-    "t": "Không có người dùng nào khớp bộ lọc này"
-  },
-  "admin.users.noMatchHint": {
-    "en": "Loosen the search, role or status filter to see more accounts.",
-    "t": "Nới lỏng tìm kiếm, bộ lọc vai trò hoặc trạng thái để thấy thêm tài khoản."
-  },
-  "admin.users.ownerSeatHeld": {
-    "en": "This account holds an owner's seat, so its role cannot be changed here. A seat is given up by resigning, or taken by a removal the other owners vote through, in",
-    "t": "Tài khoản này đang giữ một ghế chủ sở hữu nên không đổi được vai trò ở đây. Ghế chỉ trống khi người đó từ nhiệm, hoặc bị bãi nhiệm qua bỏ phiếu của các chủ sở hữu còn lại, trong"
-  },
-  "admin.users.proposeAdmin": {
-    "en": "Propose admin",
-    "t": "Đề xuất quản trị viên"
-  },
-  "admin.users.proposeAdminHint": {
-    "en": "Granting admin is the owners' decision. Taking it away is still one step, right here.",
-    "t": "Cấp quyền quản trị là quyết định của các chủ sở hữu. Thu hồi vẫn là một bước, ngay tại đây."
-  },
-  "admin.users.proposeReinstatement": {
-    "en": "Propose reinstatement",
-    "t": "Đề xuất khôi phục"
-  },
-  "admin.users.proposeReinstatementHint": {
-    "en": "Only the owners can undo their own verdict. A simple majority of them carries it.",
-    "t": "Chỉ các chủ sở hữu mới đảo ngược được phán quyết của chính họ. Đa số quá bán quyết định."
-  },
-  "admin.users.proposeSuspension": {
-    "en": "Propose permanent",
-    "t": "Đề xuất vĩnh viễn"
-  },
-  "admin.users.proposeSuspensionHint": {
-    "en": "Asks the owners to make this block permanent. A simple majority of them carries it.",
-    "t": "Đề nghị các chủ sở hữu biến lệnh chặn này thành vĩnh viễn. Đa số quá bán quyết định."
-  },
-  "admin.users.reasonHint": {
-    "en": "Recorded on the audit row, and read by every owner who votes.",
-    "t": "Được ghi vào nhật ký kiểm toán và mọi chủ sở hữu bỏ phiếu đều đọc."
-  },
-  "admin.users.reasonLabel": {
-    "en": "Reason",
-    "t": "Lý do"
-  },
-  "admin.users.reasonPlaceholder": {
-    "en": "Why this account, in one line",
-    "t": "Vì sao là tài khoản này, trong một dòng"
-  },
-  "admin.users.revokeAllSessions": {
-    "en": "Revoke all sessions",
-    "t": "Thu hồi mọi phiên"
-  },
-  "admin.users.revokeNote": {
-    "en": "Bumps token_version — invalidates every JWT issued to this user.",
-    "t": "Tăng token_version — vô hiệu hóa mọi JWT đã cấp cho người dùng này."
-  },
-  "admin.users.role": {
-    "en": "Role",
-    "t": "Vai trò"
-  },
   "admin.users.searchPlaceholder": {
     "en": "Search email or user id…",
     "t": "Tìm theo email hoặc mã người dùng…"
-  },
-  "admin.users.standing": {
-    "en": "Account standing",
-    "t": "Tình trạng tài khoản"
-  },
-  "admin.users.standingActive": {
-    "en": "Active. This account can sign in and move money.",
-    "t": "Đang hoạt động. Tài khoản này có thể đăng nhập và chuyển tiền."
-  },
-  "admin.users.standingGovernance": {
-    "en": "Suspended by the owners' vote. It does not lapse, and one admin cannot lift it.",
-    "t": "Bị đình chỉ theo phiếu bầu của các chủ sở hữu. Không tự hết hiệu lực, và một quản trị viên không thể gỡ."
-  },
-  "admin.users.standingHold": {
-    "en": "Held by one operator. It lapses on its own unless the owners vote to make it permanent.",
-    "t": "Bị một quản trị viên tạm giữ. Sẽ tự hết hiệu lực trừ khi các chủ sở hữu bỏ phiếu biến nó thành vĩnh viễn."
-  },
-  "admin.users.standingHoldLapses": {
-    "en": "Lapses {when}",
-    "t": "Hết hiệu lực {when}"
-  },
-  "admin.users.standingLegacy": {
-    "en": "Suspended before holds and owners' verdicts were told apart. It does not lapse, and one admin can lift it.",
-    "t": "Bị đình chỉ trước khi tạm giữ và phán quyết của chủ sở hữu được phân biệt. Không tự hết hiệu lực, và một quản trị viên có thể gỡ."
-  },
-  "admin.users.standingOpened": {
-    "en": "Proposal opened. The owners vote in",
-    "t": "Đã mở đề xuất. Các chủ sở hữu bỏ phiếu trong"
-  },
-  "admin.users.subtitle": {
-    "en": "Investors and operators — identities, KYC, roles and sessions",
-    "t": "Nhà đầu tư và nhân sự vận hành — danh tính, KYC, vai trò và phiên"
-  },
-  "admin.users.tokenVersion": {
-    "en": "Token version",
-    "t": "Phiên bản token"
-  },
-  "admin.users.tokenVersionValue": {
-    "en": "v{n}",
-    "t": "v{n}"
   },
   "admin.valuation.allocationLabel": {
     "en": "{title} ({service})",
@@ -2135,114 +1447,6 @@
     "en": "Units issued in {service}",
     "t": "Đơn vị quỹ đã phát hành trong {service}"
   },
-  "admin.withdrawals.awaitingAction": {
-    "en": "Awaiting action",
-    "t": "Chờ xử lý"
-  },
-  "admin.withdrawals.col.grossNet": {
-    "en": "Gross / net",
-    "t": "Gộp / ròng"
-  },
-  "admin.withdrawals.confirmFail": {
-    "en": "Confirm fail",
-    "t": "Xác nhận báo lỗi"
-  },
-  "admin.withdrawals.confirmSettle": {
-    "en": "Confirm settle",
-    "t": "Xác nhận tất toán"
-  },
-  "admin.withdrawals.empty": {
-    "en": "No withdrawals awaiting action",
-    "t": "Không có lệnh rút nào đang chờ xử lý"
-  },
-  "admin.withdrawals.emptyHint": {
-    "en": "A withdrawal appears here once an investor asks for one.",
-    "t": "Lệnh rút sẽ xuất hiện ở đây khi nhà đầu tư yêu cầu."
-  },
-  "admin.withdrawals.failWarning": {
-    "en": "Failing refunds the user. If the broadcast reached the chain this would double-pay — the hub refuses while a broadcast record exists, but verify on-chain first.",
-    "t": "Báo lỗi sẽ hoàn tiền cho người dùng. Nếu giao dịch đã được phát lên blockchain thì việc này gây trả trùng — hub sẽ từ chối khi còn bản ghi phát sóng, nhưng hãy kiểm tra on-chain trước."
-  },
-  "admin.withdrawals.footnote": {
-    "en": "Dispatch broadcasts a queued withdrawal once its rail has liquidity. Settle records the mined transaction and releases the reservation. Fail voids and refunds — ONLY safe when nothing reached the chain; the hub refuses it while a broadcast record exists.",
-    "t": "Gửi lệnh sẽ phát một lệnh rút đang chờ lên mạng khi kênh của nó có thanh khoản. Tất toán ghi nhận giao dịch đã được đào và giải phóng phần đã giữ. Báo lỗi hủy bỏ và hoàn tiền — CHỈ an toàn khi chưa có gì lên blockchain; hub từ chối thao tác này khi còn bản ghi phát sóng."
-  },
-  "admin.withdrawals.netSuffix": {
-    "en": "{amount} net",
-    "t": "{amount} ròng"
-  },
-  "admin.withdrawals.openCount": {
-    "en": "{n, plural, one {# open} other {# open}}",
-    "t": "{n, plural, other {# đang mở}}"
-  },
-  "admin.withdrawals.placeholder.reason": {
-    "en": "Reason (audit note, optional)",
-    "t": "Lý do (ghi chú kiểm toán, không bắt buộc)"
-  },
-  "admin.withdrawals.placeholder.txHash": {
-    "en": "Mined transaction hash (0x…)",
-    "t": "Hash giao dịch đã đào (0x…)"
-  },
-  "admin.withdrawals.subtitle": {
-    "en": "Dispatch, settle, or fail withdrawals — investors' and payouts from banking's treasury",
-    "t": "Gửi lệnh, tất toán hoặc báo lỗi các lệnh rút — của nhà đầu tư và các khoản chi từ ngân quỹ của banking"
-  },
-  "approval.amount": {
-    "en": "Amount",
-    "t": "Số tiền"
-  },
-  "approval.burned.body": {
-    "en": "The code was entered incorrectly too many times, so the link was closed and every owner has been told. Nothing was approved and no money has moved. Ask whoever opened the request to send a new one.",
-    "t": "Mã đã bị nhập sai quá nhiều lần, nên liên kết đã bị đóng và mọi chủ sở hữu đã được thông báo. Không có gì được chấp thuận và không có khoản tiền nào được chuyển. Hãy đề nghị người đã mở yêu cầu gửi một yêu cầu mới."
-  },
-  "approval.burned.title": {
-    "en": "This link has been closed",
-    "t": "Liên kết này đã bị đóng"
-  },
-  "approval.codeHint": {
-    "en": "Ten characters, printed in the message that brought you here. It is what tells us a person opened this, and not an automatic link checker.",
-    "t": "Mười ký tự, in trong thư đã đưa bạn đến đây. Đó là cách chúng tôi biết một người thật đã mở trang này, chứ không phải một công cụ kiểm tra liên kết tự động."
-  },
-  "approval.codeLabel": {
-    "en": "Code from your email",
-    "t": "Mã từ email của bạn"
-  },
-  "approval.codePlaceholder": {
-    "en": "e.g. K3M9XR2Q7T",
-    "t": "ví dụ K3M9XR2Q7T"
-  },
-  "approval.codeWrong": {
-    "en": "That code didn't match. {n, plural, one {# attempt remains} other {# attempts remain}} before this link closes for good.",
-    "t": "Mã đó không khớp. {n, plural, one {Còn # lần thử} other {Còn # lần thử}} trước khi liên kết này đóng vĩnh viễn."
-  },
-  "approval.decided.body": {
-    "en": "You answered this earlier, and that answer stands. An answer cannot be changed once it is given.",
-    "t": "Bạn đã trả lời trước đó, và câu trả lời đó vẫn giữ nguyên. Một câu trả lời không thể thay đổi sau khi đã đưa ra."
-  },
-  "approval.decisionLead": {
-    "en": "Both answers need the code from your email. Enter it once, then choose.",
-    "t": "Cả hai câu trả lời đều cần mã từ email của bạn. Nhập mã một lần, rồi chọn."
-  },
-  "approval.decisionTitle": {
-    "en": "Your decision",
-    "t": "Quyết định của bạn"
-  },
-  "approval.expired.title": {
-    "en": "The deadline for this request has passed",
-    "t": "Hạn chót của yêu cầu này đã qua"
-  },
-  "approval.expiredNote": {
-    "en": "The deadline for this request has passed, so it can no longer be answered. Nothing was decided.",
-    "t": "Hạn chót của yêu cầu này đã qua, nên không thể trả lời nữa. Không có gì được quyết định."
-  },
-  "approval.expires": {
-    "en": "Expires",
-    "t": "Hết hạn"
-  },
-  "approval.expiresValue": {
-    "en": "{at} · {left}",
-    "t": "{at} · {left}"
-  },
   "approval.expiry.days": {
     "en": "{n, plural, one {# day left} other {# days left}}",
     "t": "{n, plural, one {Còn # ngày} other {Còn # ngày}}"
@@ -2259,1277 +1463,25 @@
     "en": "The deadline has passed",
     "t": "Hạn chót đã qua"
   },
-  "approval.feePolicy.approve": {
-    "en": "Approve this change",
-    "t": "Phê duyệt thay đổi này"
-  },
-  "approval.feePolicy.burned.body": {
-    "en": "The code was entered incorrectly too many times, so the link was closed and every owner has been told. Nothing was approved and the product's terms are unchanged. Ask whoever opened the request to send a new one.",
-    "t": "Mã đã bị nhập sai quá nhiều lần nên liên kết đã bị đóng và mọi chủ sở hữu đã được thông báo. Không có gì được chấp thuận và các điều khoản của sản phẩm không thay đổi. Hãy đề nghị người đã mở yêu cầu gửi một yêu cầu mới."
-  },
-  "approval.feePolicy.decided.approvedTitle": {
-    "en": "You approved this change",
-    "t": "Bạn đã phê duyệt thay đổi này"
-  },
-  "approval.feePolicy.decided.freshBody": {
-    "en": "Your answer has been recorded. There is nothing further to do here — the change is scheduled once enough owners have agreed, and binds 24 hours after that while anyone holds units.",
-    "t": "Câu trả lời của bạn đã được ghi nhận. Không còn gì phải làm ở đây — thay đổi được lên lịch khi đủ chủ sở hữu đồng ý, và có hiệu lực 24 giờ sau đó khi còn người nắm giữ đơn vị."
-  },
-  "approval.feePolicy.decided.rejectedTitle": {
-    "en": "You rejected this change",
-    "t": "Bạn đã từ chối thay đổi này"
-  },
-  "approval.feePolicy.lead": {
-    "en": "{initiator} has asked to change what a product charges its investors, as set out below. Tightening the terms beyond what the prospectus promised is never one person's decision, so it needs the owners to agree.",
-    "t": "{initiator} đã yêu cầu thay đổi mức phí một sản phẩm thu từ nhà đầu tư, như nêu dưới đây. Siết chặt điều khoản vượt quá những gì bản cáo bạch đã hứa không bao giờ là quyết định của một người, nên cần các chủ sở hữu đồng ý."
-  },
-  "approval.feePolicy.payloadHashHint": {
-    "en": "The fingerprint is taken over the product, the terms now and proposed, the reason and the requested moment above. It is checked again before the change is scheduled, so a request cannot be edited after you have agreed to it.",
-    "t": "Dấu vân tay được tính trên sản phẩm, điều khoản hiện tại và đề xuất, lý do và thời điểm yêu cầu ở trên. Nó được kiểm tra lại trước khi thay đổi được lên lịch, nên yêu cầu không thể bị sửa sau khi bạn đã đồng ý."
-  },
-  "approval.feePolicy.tallyHint": {
-    "en": "More than half of the owners must approve before the terms change. You are one of them.",
-    "t": "Hơn một nửa số chủ sở hữu phải chấp thuận trước khi các điều khoản thay đổi. Bạn là một trong số họ."
-  },
-  "approval.feePolicy.title": {
-    "en": "Approve a change of fee terms",
-    "t": "Phê duyệt thay đổi điều khoản phí"
-  },
-  "approval.footnote": {
-    "en": "This link was made for you alone. It works once, expires 72 hours after it was sent, and should not be forwarded.",
-    "t": "Liên kết này được tạo riêng cho bạn. Nó chỉ dùng được một lần, hết hạn 72 giờ sau khi gửi, và không nên được chuyển tiếp."
-  },
-  "approval.gone.body": {
-    "en": "Approval links work once and expire after 72 hours. This one may have been used already, run out of time, or been closed — which of those it was cannot be told from here. Ask whoever opened the request to send a new one.",
-    "t": "Liên kết chấp thuận chỉ dùng được một lần và hết hạn sau 72 giờ. Liên kết này có thể đã được dùng, đã hết thời gian hoặc đã bị đóng — không thể biết là trường hợp nào từ đây. Hãy đề nghị người đã mở yêu cầu gửi một yêu cầu mới."
-  },
-  "approval.gone.title": {
-    "en": "This link can no longer be used",
-    "t": "Liên kết này không còn dùng được"
-  },
-  "approval.holderGrant.allocation.fee": {
-    "en": "of the fee allocation",
-    "t": "của phân bổ phí"
-  },
-  "approval.holderGrant.allocation.fund": {
-    "en": "of the fund allocation",
-    "t": "của phân bổ vốn"
-  },
-  "approval.holderGrant.approve": {
-    "en": "Approve this grant",
-    "t": "Phê duyệt cấp quyền này"
-  },
-  "approval.holderGrant.decided.approvedTitle": {
-    "en": "You approved this grant",
-    "t": "Bạn đã phê duyệt cấp quyền này"
-  },
-  "approval.holderGrant.decided.freshBody": {
-    "en": "Your answer has been recorded. There is nothing further to do here — the units are minted once enough owners have agreed.",
-    "t": "Câu trả lời của bạn đã được ghi nhận. Không cần làm gì thêm ở đây — đơn vị sẽ được phát hành khi đủ chủ sở hữu đồng ý."
-  },
-  "approval.holderGrant.decided.rejectedTitle": {
-    "en": "You rejected this grant",
-    "t": "Bạn đã từ chối cấp quyền này"
-  },
-  "approval.holderGrant.executes": {
-    "en": "If it passes, the units are minted to this person in kind, and they hold that share of the allocation from then on.",
-    "t": "Nếu được thông qua, đơn vị được phát hành hiện vật cho người này, và người đó nắm giữ phần đó của phân bổ từ đó."
-  },
-  "approval.holderGrant.holder": {
-    "en": "Holder",
-    "t": "Người nắm giữ"
-  },
-  "approval.holderGrant.lead": {
-    "en": "{initiator} has asked to seat a person on one of the platform's own allocations, as set out below. Who holds the platform's money is never one person's decision, so it needs the owners to agree.",
-    "t": "{initiator} đã yêu cầu đưa một người vào một trong các phân bổ riêng của nền tảng, như nêu bên dưới. Ai nắm giữ tiền của nền tảng không bao giờ là quyết định của một người, nên cần các chủ sở hữu đồng ý."
-  },
-  "approval.holderGrant.payloadHashHint": {
-    "en": "The fingerprint is taken over the allocation, the person and the units above. It is checked again before anything is minted, so a request cannot be edited after you have agreed to it.",
-    "t": "Dấu vân tay được tính trên phân bổ, người và số đơn vị ở trên. Nó được kiểm tra lại trước khi phát hành, nên yêu cầu không thể bị sửa sau khi bạn đã đồng ý."
-  },
-  "approval.holderGrant.title": {
-    "en": "Approve a holder grant",
-    "t": "Phê duyệt cấp quyền nắm giữ"
-  },
-  "approval.holderGrant.units": {
-    "en": "Units to mint",
-    "t": "Đơn vị sẽ phát hành"
-  },
-  "approval.loadFailed": {
-    "en": "We couldn't load this request",
-    "t": "Chúng tôi không tải được yêu cầu này"
-  },
-  "approval.loadFailedHint": {
-    "en": "The link itself may be perfectly fine — this looks like a problem reaching us. Try again in a moment.",
-    "t": "Bản thân liên kết có thể hoàn toàn bình thường — đây có vẻ là sự cố khi kết nối tới chúng tôi. Hãy thử lại sau một lát."
-  },
-  "approval.network": {
-    "en": "Network",
-    "t": "Mạng"
-  },
-  "approval.openedAt": {
-    "en": "Opened",
-    "t": "Mở lúc"
-  },
-  "approval.openedBy": {
-    "en": "Opened by",
-    "t": "Người mở"
-  },
-  "approval.payloadHash": {
-    "en": "Request fingerprint",
-    "t": "Dấu vân tay của yêu cầu"
-  },
-  "approval.payment.approve": {
-    "en": "Approve this payment",
-    "t": "Phê duyệt khoản thanh toán này"
-  },
-  "approval.payment.decided.approvedTitle": {
-    "en": "You approved this payment",
-    "t": "Bạn đã phê duyệt khoản thanh toán này"
-  },
-  "approval.payment.decided.freshBody": {
-    "en": "Your answer has been recorded. There is nothing further to do here — the payment goes ahead once enough owners have agreed.",
-    "t": "Câu trả lời của bạn đã được ghi nhận. Không cần làm gì thêm ở đây — khoản thanh toán sẽ được thực hiện khi đủ chủ sở hữu đồng ý."
-  },
-  "approval.payment.decided.rejectedTitle": {
-    "en": "You rejected this payment",
-    "t": "Bạn đã từ chối khoản thanh toán này"
-  },
-  "approval.payment.from": {
-    "en": "From",
-    "t": "Từ"
-  },
-  "approval.payment.lead": {
-    "en": "{initiator} has asked to move money the fund owns, as set out below. Moving the fund's own money is never one person's decision, so it needs the owners to agree.",
-    "t": "{initiator} yêu cầu chuyển tiền thuộc sở hữu của quỹ như mô tả bên dưới. Việc chuyển tiền của quỹ không bao giờ là quyết định của một người, nên cần các chủ sở hữu đồng ý."
-  },
-  "approval.payment.payloadHashHint": {
-    "en": "The fingerprint is taken over the amount, both ends and the reason above. It is checked again before any money moves, so a request cannot be edited after you have agreed to it.",
-    "t": "Dấu vân tay được tính trên số tiền, hai đầu và lý do ở trên. Nó được kiểm tra lại trước khi tiền được chuyển, nên yêu cầu không thể bị chỉnh sửa sau khi bạn đã đồng ý."
-  },
-  "approval.payment.reasonLabel": {
-    "en": "Reason given",
-    "t": "Lý do đưa ra"
-  },
-  "approval.payment.tier": {
-    "en": "Tier",
-    "t": "Cấp"
-  },
-  "approval.payment.title": {
-    "en": "Approve a fund payment",
-    "t": "Phê duyệt một khoản thanh toán của quỹ"
-  },
-  "approval.payment.to": {
-    "en": "To",
-    "t": "Tới"
-  },
-  "approval.reject": {
-    "en": "Reject",
-    "t": "Từ chối"
-  },
-  "approval.removal.about": {
-    "en": "About",
-    "t": "Về"
-  },
-  "approval.removal.accept": {
-    "en": "Accept and give up my seat",
-    "t": "Chấp nhận và từ bỏ ghế của tôi"
-  },
-  "approval.removal.accepted.body": {
-    "en": "You accepted this earlier. Your ownership has ended.",
-    "t": "Bạn đã chấp nhận trước đó. Quyền sở hữu của bạn đã kết thúc."
-  },
-  "approval.removal.accepted.freshBody": {
-    "en": "Your ownership has ended and the other owners have been told. Nothing else about your account has changed.",
-    "t": "Quyền sở hữu của bạn đã kết thúc và các chủ sở hữu khác đã được thông báo. Không có gì khác trong tài khoản của bạn thay đổi."
-  },
-  "approval.removal.accepted.title": {
-    "en": "You gave up your seat",
-    "t": "Bạn đã từ bỏ ghế của mình"
-  },
-  "approval.removal.confirmAction": {
-    "en": "Give up my seat",
-    "t": "Từ bỏ ghế của tôi"
-  },
-  "approval.removal.confirmBody": {
-    "en": "Your owner seat ends immediately and cannot be restored from here. You would need the remaining owners to make you an owner again. Nothing else about your account changes.",
-    "t": "Ghế chủ sở hữu của bạn kết thúc ngay lập tức và không thể khôi phục từ đây. Bạn sẽ cần các chủ sở hữu còn lại đưa bạn trở lại làm chủ sở hữu. Không có gì khác trong tài khoản của bạn thay đổi."
-  },
-  "approval.removal.confirmTitle": {
-    "en": "This ends your ownership",
-    "t": "Điều này kết thúc quyền sở hữu của bạn"
-  },
-  "approval.removal.decisionLead": {
-    "en": "You can accept this or refuse it, and either answer needs the code from your email. Refusing does not end the matter: the other owners can still decide it between them, and that takes all of them agreeing.",
-    "t": "Bạn có thể chấp nhận hoặc từ chối, và câu trả lời nào cũng cần mã từ email của bạn. Từ chối không kết thúc vấn đề: các chủ sở hữu khác vẫn có thể tự quyết định với nhau, và điều đó đòi hỏi tất cả họ đồng ý."
-  },
-  "approval.removal.decisionTitle": {
-    "en": "Your answer",
-    "t": "Câu trả lời của bạn"
-  },
-  "approval.removal.irreversible": {
-    "en": "Accepting is final. Your ownership ends as soon as it is recorded, and it cannot be undone from this page or any other.",
-    "t": "Chấp nhận là quyết định cuối cùng. Quyền sở hữu của bạn kết thúc ngay khi được ghi nhận, và không thể hoàn tác từ trang này hay bất kỳ trang nào khác."
-  },
-  "approval.removal.lead": {
-    "en": "{initiator} has proposed that you stop being an owner of the fund. You have a say in it, and there is a deadline.",
-    "t": "{initiator} đã đề xuất rằng bạn không còn là chủ sở hữu của quỹ. Bạn có tiếng nói trong việc này, và có một hạn chót."
-  },
-  "approval.removal.noReason": {
-    "en": "No reason was given.",
-    "t": "Không có lý do nào được đưa ra."
-  },
-  "approval.removal.proposedBy": {
-    "en": "Proposed by",
-    "t": "Người đề xuất"
-  },
-  "approval.removal.reasonLabel": {
-    "en": "Reason given",
-    "t": "Lý do đưa ra"
-  },
-  "approval.removal.refuse": {
-    "en": "Refuse — keep my seat",
-    "t": "Từ chối — giữ ghế của tôi"
-  },
-  "approval.removal.refused.body": {
-    "en": "Your answer has been recorded. You keep your seat unless every other eligible owner agrees to end it, and you will be told either way.",
-    "t": "Câu trả lời của bạn đã được ghi nhận. Bạn giữ ghế của mình trừ khi mọi chủ sở hữu đủ điều kiện khác đều đồng ý kết thúc nó, và bạn sẽ được thông báo dù kết quả thế nào."
-  },
-  "approval.removal.refused.title": {
-    "en": "You refused this",
-    "t": "Bạn đã từ chối"
-  },
-  "approval.removal.title": {
-    "en": "A request to end your ownership",
-    "t": "Một yêu cầu kết thúc quyền sở hữu của bạn"
-  },
-  "approval.seedCapital.amount": {
-    "en": "Amount",
-    "t": "Số tiền"
-  },
-  "approval.seedCapital.approve": {
-    "en": "Approve this seed",
-    "t": "Phê duyệt vốn này"
-  },
-  "approval.seedCapital.decided.approvedTitle": {
-    "en": "You approved this seed",
-    "t": "Bạn đã phê duyệt vốn này"
-  },
-  "approval.seedCapital.decided.freshBody": {
-    "en": "Your answer has been recorded. There is nothing further to do here — the deposit is booked once enough owners have agreed.",
-    "t": "Câu trả lời của bạn đã được ghi nhận. Không cần làm gì thêm ở đây — khoản nạp sẽ được ghi sổ khi đủ chủ sở hữu đồng ý."
-  },
-  "approval.seedCapital.decided.rejectedTitle": {
-    "en": "You rejected this seed",
-    "t": "Bạn đã từ chối vốn này"
-  },
-  "approval.seedCapital.depositor": {
-    "en": "Depositor",
-    "t": "Người nạp"
-  },
-  "approval.seedCapital.executes": {
-    "en": "If it passes, the transfer is verified on chain and booked as this person's deposit and subscription into the fund allocation — in one step, or not at all.",
-    "t": "Nếu được thông qua, giao dịch được xác minh trên chuỗi và ghi sổ là khoản nạp của người này cùng đăng ký vào phân bổ vốn — trong một bước, hoặc không gì cả."
-  },
-  "approval.seedCapital.lead": {
-    "en": "{initiator} has asked to attribute a transfer to the treasury as a person's seed of the platform's capital, as set out below. Whose capital it is is never one person's decision, so it needs the owners to agree.",
-    "t": "{initiator} đã yêu cầu ghi nhận một giao dịch chuyển vào kho quỹ là vốn hạt giống của một người cho nền tảng, như nêu bên dưới. Vốn đó của ai không bao giờ là quyết định của một người, nên cần các chủ sở hữu đồng ý."
-  },
-  "approval.seedCapital.payloadHashHint": {
-    "en": "The fingerprint is taken over the reference, the rail, the amount and the depositor above. It is checked again before anything is booked, so a request cannot be edited after you have agreed to it.",
-    "t": "Dấu vân tay được tính trên tham chiếu, mạng, số tiền và người nạp ở trên. Nó được kiểm tra lại trước khi ghi sổ, nên yêu cầu không thể bị sửa sau khi bạn đã đồng ý."
-  },
-  "approval.seedCapital.reference": {
-    "en": "On-chain reference",
-    "t": "Tham chiếu trên chuỗi"
-  },
-  "approval.seedCapital.title": {
-    "en": "Approve seed capital",
-    "t": "Phê duyệt vốn hạt giống"
-  },
-  "approval.tally": {
-    "en": "{approvals} of {threshold, plural, one {# approval} other {# approvals}} so far",
-    "t": "{approvals} trên {threshold, plural, one {# chấp thuận} other {# chấp thuận}} cho đến nay"
-  },
-  "approval.tallyHint": {
-    "en": "More than half of the owners must approve before any money moves. You are one of them.",
-    "t": "Hơn một nửa số chủ sở hữu phải chấp thuận trước khi bất kỳ khoản tiền nào được chuyển. Bạn là một trong số họ."
-  },
-  "approval.tallyOwners": {
-    "en": "{owners, plural, one {# owner} other {# owners}} in total",
-    "t": "Tổng cộng {owners, plural, one {# chủ sở hữu} other {# chủ sở hữu}}"
-  },
-  "approval.unavailableBody": {
-    "en": "The terms of this payout didn't arrive, so there is nothing here to agree to and no decision is offered. This is a problem on our side, not with your link. Try again in a moment.",
-    "t": "Các điều khoản của khoản chi trả này chưa tới, nên ở đây không có gì để đồng ý và không có quyết định nào được đưa ra. Đây là sự cố phía chúng tôi, không phải liên kết của bạn. Hãy thử lại sau một lát."
-  },
-  "approval.unavailableTitle": {
-    "en": "We can't show this request",
-    "t": "Chúng tôi không thể hiển thị yêu cầu này"
-  },
-  "approval.valuation.approve": {
-    "en": "Approve this mark",
-    "t": "Phê duyệt mức định giá này"
-  },
-  "approval.valuation.aum": {
-    "en": "Proposed AUM",
-    "t": "AUM đề xuất"
-  },
-  "approval.valuation.burned.body": {
-    "en": "The code was entered incorrectly too many times, so the link was closed and every owner has been told. Nothing was approved and the fund's NAV mark is unchanged. Ask whoever opened the request to send a new one.",
-    "t": "Mã đã bị nhập sai quá nhiều lần nên liên kết đã bị đóng và mọi chủ sở hữu đã được thông báo. Không có gì được chấp thuận và mức định giá NAV của quỹ không thay đổi. Hãy đề nghị người đã mở yêu cầu gửi một yêu cầu mới."
-  },
-  "approval.valuation.decided.approvedTitle": {
-    "en": "You approved this mark",
-    "t": "Bạn đã phê duyệt mức định giá này"
-  },
-  "approval.valuation.decided.freshBody": {
-    "en": "Your answer has been recorded. There is nothing further to do here — the fund is marked once enough owners have agreed.",
-    "t": "Câu trả lời của bạn đã được ghi nhận. Không còn gì phải làm ở đây — quỹ sẽ được định giá khi có đủ chủ sở hữu đồng ý."
-  },
-  "approval.valuation.decided.rejectedTitle": {
-    "en": "You rejected this mark",
-    "t": "Bạn đã từ chối mức định giá này"
-  },
-  "approval.valuation.executes": {
-    "en": "If it passes, the fund is marked at this AUM whatever the NAV-move guard would have said, and its queued redemptions settle at the NAV that follows.",
-    "t": "Nếu được thông qua, quỹ sẽ được định giá ở mức AUM này bất kể chốt chặn biến động NAV, và các lệnh hoàn vốn đang chờ sẽ được tất toán theo NAV tương ứng."
-  },
-  "approval.valuation.lead": {
-    "en": "{initiator} has asked to mark a fund at a value the NAV-move guard refuses. A mark past the guard is never one person's decision, so it needs the owners to agree.",
-    "t": "{initiator} đề nghị định giá một quỹ ở mức mà chốt chặn biến động NAV từ chối. Định giá vượt chốt chặn không bao giờ là quyết định của một người, nên cần các chủ sở hữu đồng ý."
-  },
-  "approval.valuation.payloadHashHint": {
-    "en": "The fingerprint is taken over the product and the AUM above. It is checked again before the mark is recorded, so a request cannot be edited after you have agreed to it.",
-    "t": "Dấu vân tay được tính trên sản phẩm và AUM ở trên. Nó được kiểm tra lại trước khi mức định giá được ghi nhận, nên yêu cầu không thể bị chỉnh sửa sau khi bạn đã đồng ý."
-  },
-  "approval.valuation.product": {
-    "en": "Product",
-    "t": "Sản phẩm"
-  },
-  "approval.valuation.tallyHint": {
-    "en": "More than half of the owners must approve before the fund is marked. You are one of them.",
-    "t": "Hơn một nửa số chủ sở hữu phải chấp thuận trước khi quỹ được định giá. Bạn là một trong số họ."
-  },
-  "approval.valuation.title": {
-    "en": "Approve a NAV mark",
-    "t": "Phê duyệt một mức định giá NAV"
-  },
-  "approval.votingAs": {
-    "en": "You are answering as {email}.",
-    "t": "Bạn đang trả lời với tư cách {email}."
-  },
-  "auth.cabinet": {
-    "en": "Cabinet",
-    "t": "Cabinet"
-  },
-  "auth.err.denied": {
-    "en": "Sign-in was cancelled.",
-    "t": "Lượt đăng nhập đã bị hủy."
-  },
-  "auth.err.exchange": {
-    "en": "We couldn't complete sign-in. Please try again.",
-    "t": "Chúng tôi không thể hoàn tất đăng nhập. Vui lòng thử lại."
-  },
-  "auth.err.generic": {
-    "en": "Sign-in failed. Please try again.",
-    "t": "Đăng nhập thất bại. Vui lòng thử lại."
-  },
-  "auth.err.invalid": {
-    "en": "That sign-in attempt expired. Please try again.",
-    "t": "Lượt đăng nhập đó đã hết hạn. Vui lòng thử lại."
-  },
-  "auth.notSignedIn": {
-    "en": "Not signed in",
-    "t": "Chưa đăng nhập"
-  },
-  "auth.signInAgain": {
-    "en": "Sign in again",
-    "t": "Đăng nhập lại"
-  },
-  "auth.signOut": {
-    "en": "Sign out",
-    "t": "Đăng xuất"
-  },
-  "auth.manageAccount": {
-    "en": "Manage account",
-    "t": "Quản lý tài khoản"
-  },
-  "auth.switchAccount": {
-    "en": "Switch account",
-    "t": "Chuyển tài khoản"
-  },
-  "auth.signedOut": {
-    "en": "Signed out",
-    "t": "Đã đăng xuất"
-  },
-  "auth.signedOutSub": {
-    "en": "You've been signed out of your cabinet.",
-    "t": "Bạn đã đăng xuất khỏi tài khoản của mình."
-  },
-  "auth.stat.risk": {
-    "en": "Capital at risk. A target is not a forecast, and returns are not guaranteed.",
-    "t": "Vốn có rủi ro. Mục tiêu không phải dự báo, và lợi nhuận không được đảm bảo."
-  },
-  "consent.approve": {
-    "en": "Approve — move my money",
-    "t": "Đồng ý — chuyển tiền của tôi"
-  },
-  "consent.askedBy": {
-    "en": "Asked by",
-    "t": "Yêu cầu bởi"
-  },
-  "consent.burned.body": {
-    "en": "The code was entered incorrectly too many times, so the link was closed. Nothing was approved and your money has not moved. Whoever asked can open a new request.",
-    "t": "Mã đã bị nhập sai quá nhiều lần nên liên kết đã bị đóng. Không có gì được phê duyệt và tiền của bạn chưa được chuyển. Người yêu cầu có thể mở một yêu cầu mới."
-  },
-  "consent.decided.approvedFresh": {
-    "en": "Your answer has been recorded and the payment goes ahead. There is nothing further to do here.",
-    "t": "Câu trả lời của bạn đã được ghi nhận và khoản thanh toán sẽ được thực hiện. Không cần làm gì thêm ở đây."
-  },
-  "consent.decided.approvedTitle": {
-    "en": "You approved this payment",
-    "t": "Bạn đã đồng ý khoản thanh toán này"
-  },
-  "consent.decided.rejectedFresh": {
-    "en": "Your answer has been recorded. Your money stays exactly where it is, and whoever asked has been told.",
-    "t": "Câu trả lời của bạn đã được ghi nhận. Tiền của bạn vẫn ở nguyên chỗ cũ, và người yêu cầu đã được thông báo."
-  },
-  "consent.decided.rejectedTitle": {
-    "en": "You rejected this payment",
-    "t": "Bạn đã từ chối khoản thanh toán này"
-  },
-  "consent.decisionLead": {
-    "en": "Both answers need the code from your email. Enter it once, then choose. Rejecting keeps your money exactly where it is.",
-    "t": "Cả hai câu trả lời đều cần mã trong email của bạn. Nhập một lần rồi chọn. Từ chối sẽ giữ nguyên tiền của bạn ở nơi hiện tại."
-  },
-  "consent.decisionTitle": {
-    "en": "Your decision",
-    "t": "Quyết định của bạn"
-  },
-  "consent.lead": {
-    "en": "{initiator} is asking for it to be moved as set out below. Nothing happens unless you agree — nobody else is asked, and nobody else can answer for you.",
-    "t": "{initiator} yêu cầu chuyển số tiền này như mô tả bên dưới. Không có gì xảy ra nếu bạn không đồng ý — không ai khác được hỏi, và không ai có thể trả lời thay bạn."
-  },
-  "consent.leadOwn": {
-    "en": "This is your money.",
-    "t": "Đây là tiền của bạn."
-  },
-  "consent.reasonLabel": {
-    "en": "Reason given by {initiator}",
-    "t": "Lý do do {initiator} đưa ra"
-  },
-  "consent.reject": {
-    "en": "Reject — keep my money",
-    "t": "Từ chối — giữ lại tiền của tôi"
-  },
-  "consent.title": {
-    "en": "Your money is asked to move",
-    "t": "Có yêu cầu chuyển tiền của bạn"
-  },
-  "consent.unavailableBody": {
-    "en": "The terms of this payment didn't arrive, so there is nothing here to agree to and no decision is offered. This is a problem on our side, not with your link. Try again in a moment.",
-    "t": "Các điều khoản của khoản thanh toán này chưa tải được, nên ở đây không có gì để đồng ý và không có quyết định nào được đưa ra. Đây là sự cố phía chúng tôi, không phải do liên kết của bạn. Hãy thử lại sau giây lát."
-  },
-  "consent.yourMoney": {
-    "en": "Whose money",
-    "t": "Tiền của ai"
-  },
-  "consilium.admission.cancel": {
-    "en": "Withdraw this proposal",
-    "t": "Rút lại đề xuất này"
-  },
-  "consilium.admission.expires": {
-    "en": "Expires {at} · {left}",
-    "t": "Hết hạn {at} · {left}"
-  },
-  "consilium.admission.heading": {
-    "en": "Admit {candidate}",
-    "t": "Tiếp nhận {candidate}"
-  },
-  "consilium.admission.noPeers": {
-    "en": "There is no owner left to agree, so this admission can no longer pass. Unlike a removal, it has no second route.",
-    "t": "Không còn chủ sở hữu nào để đồng ý, nên đợt tiếp nhận này không thể được thông qua nữa. Khác với việc bãi nhiệm, nó không có lối thứ hai."
-  },
-  "consilium.admission.noReason": {
-    "en": "No reason was given.",
-    "t": "Không có lý do nào được đưa ra."
-  },
-  "consilium.admission.notAVoter": {
-    "en": "The owners who may vote were fixed when this was proposed, and you were not among them. An owner seated since cannot be added to that set — otherwise new owners could be created to carry a vote.",
-    "t": "Danh sách chủ sở hữu được bỏ phiếu đã được chốt khi đề xuất này được mở, và bạn không nằm trong đó. Một chủ sở hữu nhận ghế sau đó không thể được thêm vào danh sách này — nếu không, người ta có thể tạo ra chủ sở hữu mới để thắng một cuộc bỏ phiếu."
-  },
-  "consilium.admission.oneRejectEnds": {
-    "en": "One refusal ends an admission — this one can no longer pass.",
-    "t": "Một lần từ chối kết thúc một đợt tiếp nhận — đợt này không thể được thông qua nữa."
-  },
-  "consilium.admission.openedBy": {
-    "en": "Proposed by {initiator} · {at}",
-    "t": "Đề xuất bởi {initiator} · {at}"
-  },
-  "consilium.admission.peerTally": {
-    "en": "{admitted} of {total} owners have agreed",
-    "t": "{admitted} trên {total} chủ sở hữu đã đồng ý"
-  },
-  "consilium.admission.reason": {
-    "en": "Reason",
-    "t": "Lý do"
-  },
-  "consilium.admission.unanimityNote": {
-    "en": "All of them must agree",
-    "t": "Tất cả đều phải đồng ý"
-  },
-  "consilium.admission.voteAdmit": {
-    "en": "Admit as an owner",
-    "t": "Tiếp nhận làm chủ sở hữu"
-  },
-  "consilium.admission.voteReject": {
-    "en": "Refuse",
-    "t": "Từ chối"
-  },
-  "consilium.admission.youAreCandidate": {
-    "en": "This admission is about your own seat, so you take no part in deciding it.",
-    "t": "Đợt tiếp nhận này là về chính ghế của bạn, nên bạn không tham gia quyết định."
-  },
-  "consilium.admission.youOpened": {
-    "en": "You proposed admitting {candidate}, so you have no vote on it — the bar you have to clear is every other owner agreeing, and opening a proposal must not be a way to lower it.",
-    "t": "Bạn đã đề xuất tiếp nhận {candidate}, nên bạn không có phiếu — ngưỡng bạn phải vượt qua là mọi chủ sở hữu khác đều đồng ý, và việc mở một đề xuất không được trở thành cách hạ thấp ngưỡng đó."
-  },
-  "consilium.admission.youVoted": {
-    "en": "You answered: {vote}.",
-    "t": "Bạn đã trả lời: {vote}."
-  },
-  "consilium.admissionVote.admit": {
-    "en": "Admit",
-    "t": "Tiếp nhận"
-  },
-  "consilium.admissionVote.reject": {
-    "en": "Refuse",
-    "t": "Từ chối"
-  },
-  "consilium.admissions.emptyBody": {
-    "en": "No admission is open. Proposing one is what starts it, and every other owner then has to agree.",
-    "t": "Không có đợt tiếp nhận nào đang mở. Một đề xuất là điểm khởi đầu, và sau đó mọi chủ sở hữu khác đều phải đồng ý."
-  },
-  "consilium.admissions.emptyTitle": {
-    "en": "Nobody is being admitted",
-    "t": "Không có ai đang được tiếp nhận"
-  },
-  "consilium.admissions.failedBody": {
-    "en": "Until it loads, the page cannot say whether anyone is being let into the fund, so it says nothing rather than guessing at it. The rest of the page is unaffected.",
-    "t": "Cho đến khi tải xong, trang không thể nói liệu có ai đang được đưa vào quỹ hay không, nên nó không nói gì thay vì đoán. Phần còn lại của trang không bị ảnh hưởng."
-  },
-  "consilium.admissions.failedTitle": {
-    "en": "Admissions did not load",
-    "t": "Không tải được các đợt tiếp nhận"
-  },
-  "consilium.admissions.sub": {
-    "en": "Granting a seat is the only way to become an owner, and it is decided here.",
-    "t": "Trao một ghế là cách duy nhất để trở thành chủ sở hữu, và điều đó được quyết định tại đây."
-  },
-  "consilium.admissions.title": {
-    "en": "Admissions",
-    "t": "Tiếp nhận"
-  },
-  "consilium.admit.candidateHint": {
-    "en": "A candidate is not an owner yet, so the roster cannot list them. Their user ID is on their row in Users.",
-    "t": "Ứng viên chưa phải là chủ sở hữu, nên danh sách chủ sở hữu không thể liệt kê họ. ID người dùng của họ nằm trên dòng của họ trong mục Người dùng."
-  },
-  "consilium.admit.candidateLabel": {
-    "en": "Account",
-    "t": "Tài khoản"
-  },
-  "consilium.admit.candidatePlaceholder": {
-    "en": "User ID",
-    "t": "ID người dùng"
-  },
-  "consilium.admit.genesis": {
-    "en": "This fund has {n, plural, =0 {no seated owners} one {# seated owner} other {# seated owners}}. An admission needs at least one owner besides whoever proposes it, so it cannot seat the founders: they are written by the service itself at start-up, from the genesis list, and only while the register is empty. That boot closes the window for good, and from then on this form is the only way in.",
-    "t": "Quỹ này có {n, plural, other {# chủ sở hữu có ghế}}. Một đề nghị kết nạp cần ít nhất một chủ sở hữu ngoài người đề xuất, nên nó không thể đưa những người sáng lập vào ghế: những ghế đó do chính dịch vụ ghi lại lúc khởi động, từ danh sách khởi thủy, và chỉ khi sổ đăng ký còn trống. Lần khởi động đó đóng cửa sổ này vĩnh viễn, và từ đó biểu mẫu này là lối vào duy nhất."
-  },
-  "consilium.admit.opened": {
-    "en": "Proposed. Every other owner has been asked to answer.",
-    "t": "Đã đề xuất. Mọi chủ sở hữu khác đã được yêu cầu trả lời."
-  },
-  "consilium.admit.reasonHint": {
-    "en": "Every owner reads this before answering, in these words.",
-    "t": "Mọi chủ sở hữu đều đọc nội dung này trước khi trả lời, đúng từng chữ."
-  },
-  "consilium.admit.reasonLabel": {
-    "en": "Reason",
-    "t": "Lý do"
-  },
-  "consilium.admit.reasonPlaceholder": {
-    "en": "Why this person should hold a seat",
-    "t": "Vì sao người này nên giữ một ghế"
-  },
-  "consilium.admit.sub": {
-    "en": "The only way a seat is granted. Every other owner has to agree.",
-    "t": "Cách duy nhất để trao một ghế. Mọi chủ sở hữu khác đều phải đồng ý."
-  },
-  "consilium.admit.submit": {
-    "en": "Propose admission",
-    "t": "Đề xuất tiếp nhận"
-  },
-  "consilium.admit.title": {
-    "en": "Admit an owner",
-    "t": "Tiếp nhận một chủ sở hữu"
-  },
-  "consilium.admit.unanimityWarning": {
-    "en": "An admission passes only if every owner except you agrees, and there has to be at least one of them. This is stricter than a removal: a majority is not enough, and a single refusal ends it. A minority must never be able to grow itself into a majority.",
-    "t": "Một đợt tiếp nhận chỉ được thông qua nếu mọi chủ sở hữu ngoài bạn đều đồng ý, và phải có ít nhất một người như vậy. Điều này nghiêm ngặt hơn bãi nhiệm: đa số là chưa đủ, và một lần từ chối duy nhất sẽ kết thúc nó. Một thiểu số không bao giờ được phép tự nuôi mình thành đa số."
-  },
-  "consilium.admit.unknownBody": {
-    "en": "Without it the page cannot say how many owners would have to agree, so it is not offering the form rather than offering one it cannot explain.",
-    "t": "Không có danh sách đó, trang không thể nói bao nhiêu chủ sở hữu sẽ phải đồng ý, nên nó không đưa ra biểu mẫu thay vì đưa ra một biểu mẫu mà nó không giải thích được."
-  },
-  "consilium.admit.unknownTitle": {
-    "en": "The owner list did not load",
-    "t": "Không tải được danh sách chủ sở hữu"
-  },
-  "consilium.feePolicy.asSoonAsAllowed": {
-    "en": "As soon as allowed — 24 hours after the owners carry it, while anyone holds units",
-    "t": "Sớm nhất có thể — 24 giờ sau khi các chủ sở hữu thông qua, khi còn người nắm giữ đơn vị"
-  },
-  "consilium.feePolicy.carried": {
-    "en": "Carried",
-    "t": "Đã thông qua"
-  },
-  "consilium.feePolicy.effectiveFrom": {
-    "en": "Takes effect · {at}",
-    "t": "Có hiệu lực · {at}"
-  },
-  "consilium.feePolicy.effectiveFromLabel": {
-    "en": "Takes effect",
-    "t": "Có hiệu lực"
-  },
-  "consilium.feePolicy.fund": {
-    "en": "Product",
-    "t": "Sản phẩm"
-  },
-  "consilium.feePolicy.holders": {
-    "en": "{n, plural, one {# holder will be notified} other {# holders will be notified}}",
-    "t": "{n, plural, other {# người nắm giữ sẽ được thông báo}}"
-  },
-  "consilium.feePolicy.holdersLabel": {
-    "en": "Holders to notify",
-    "t": "Người nắm giữ cần thông báo"
-  },
-  "consilium.feePolicy.nothingCharged": {
-    "en": "Nothing charged",
-    "t": "Không thu phí"
-  },
-  "consilium.feePolicy.now": {
-    "en": "Now",
-    "t": "Hiện tại"
-  },
-  "consilium.feePolicy.proposed": {
-    "en": "Proposed",
-    "t": "Đề xuất"
-  },
-  "consilium.feePolicy.reason": {
-    "en": "Reason given",
-    "t": "Lý do đưa ra"
-  },
-  "consilium.floor.body": {
-    "en": "A payout needs more than half of the owners to agree, and with {n, plural, one {# owner} other {# owners}} that bar can no longer be cleared. Adding owners restores it.",
-    "t": "Một khoản chi trả cần hơn một nửa số chủ sở hữu đồng ý, và với {n, plural, one {# chủ sở hữu} other {# chủ sở hữu}} thì ngưỡng đó không còn vượt qua được. Thêm chủ sở hữu sẽ khôi phục lại."
-  },
-  "consilium.floor.title": {
-    "en": "The fund cannot authorise a payout",
-    "t": "Quỹ không thể ủy quyền chi trả"
-  },
-  "consilium.forbidden.body": {
-    "en": "Only owners can see and take part in what is decided here. If that should include you, ask an existing owner.",
-    "t": "Chỉ chủ sở hữu mới có thể xem và tham gia vào những gì được quyết định tại đây. Nếu điều đó nên bao gồm bạn, hãy hỏi một chủ sở hữu hiện tại."
-  },
-  "consilium.forbidden.title": {
-    "en": "This room is for the fund's owners",
-    "t": "Phòng này dành cho các chủ sở hữu của quỹ"
-  },
-  "consilium.holderGrant.allocation": {
-    "en": "Allocation",
-    "t": "Phân bổ"
-  },
-  "consilium.holderGrant.carried": {
-    "en": "Minted",
-    "t": "Đã phát hành"
-  },
-  "consilium.holderGrant.executes": {
-    "en": "If it passes, the units are minted to this person in kind — the allocation's supply grows by them, and they hold that share from then on.",
-    "t": "Nếu được thông qua, đơn vị được phát hành hiện vật cho người này — lượng lưu hành của phân bổ tăng tương ứng, và người đó nắm giữ phần này từ đó."
-  },
-  "consilium.holderGrant.holder": {
-    "en": "Holder",
-    "t": "Người nắm giữ"
-  },
-  "consilium.holderGrant.unitsWord": {
-    "en": "units",
-    "t": "đơn vị"
-  },
-  "consilium.kind.fee_policy": {
-    "en": "Fee terms",
-    "t": "Điều khoản phí"
-  },
-  "consilium.kind.holder_grant": {
-    "en": "Holder grant",
-    "t": "Cấp quyền nắm giữ"
-  },
-  "consilium.kind.payment": {
-    "en": "Payment",
-    "t": "Thanh toán"
-  },
-  "consilium.kind.seed_capital": {
-    "en": "Seed capital",
-    "t": "Vốn hạt giống"
-  },
-  "consilium.kind.valuation_override": {
-    "en": "NAV mark",
-    "t": "Định giá NAV"
-  },
-  "consilium.payment.from": {
-    "en": "From",
-    "t": "Từ"
-  },
-  "consilium.payment.reason": {
-    "en": "Reason given",
-    "t": "Lý do đưa ra"
-  },
-  "consilium.payment.tier": {
-    "en": "Tier · {tier}",
-    "t": "Cấp · {tier}"
-  },
-  "consilium.payment.to": {
-    "en": "To",
-    "t": "Tới"
-  },
-  "consilium.payout.cancel": {
-    "en": "Cancel this request",
-    "t": "Hủy yêu cầu này"
-  },
-  "consilium.payout.cancelConfirm": {
-    "en": "Cancel and void the votes",
-    "t": "Hủy và vô hiệu các phiếu bầu"
-  },
-  "consilium.payout.cancelWarning": {
-    "en": "Cancelling voids every approval collected so far. Votes are not carried over if the request is reopened, so the owners who have already answered would each have to answer again.",
-    "t": "Hủy sẽ vô hiệu mọi chấp thuận đã thu được cho đến nay. Phiếu bầu không được chuyển sang nếu yêu cầu được mở lại, nên các chủ sở hữu đã trả lời sẽ phải trả lời lại từng người."
-  },
-  "consilium.payout.emptyAction": {
-    "en": "Go to payments",
-    "t": "Đi tới thanh toán"
-  },
-  "consilium.payout.emptyBody": {
-    "en": "When someone opens a payment of the fund's money, it appears here with its running tally, and every owner is emailed a link to answer from.",
-    "t": "Khi ai đó mở một khoản thanh toán bằng tiền của quỹ, nó sẽ xuất hiện ở đây cùng số phiếu hiện tại, và mỗi chủ sở hữu nhận email chứa liên kết để trả lời."
-  },
-  "consilium.payout.emptyTitle": {
-    "en": "No request is open",
-    "t": "Không có yêu cầu nào đang mở"
-  },
-  "consilium.payout.expires": {
-    "en": "Expires {at} · {left}",
-    "t": "Hết hạn {at} · {left}"
-  },
-  "consilium.payout.failedBody": {
-    "en": "Until it loads, the page cannot tell you whether a payout is open and waiting on the other owners — so do not read this as there being none. The rest of the page is unaffected.",
-    "t": "Cho đến khi tải xong, trang không thể cho bạn biết liệu có khoản chi trả nào đang mở và chờ các chủ sở hữu khác hay không — nên đừng hiểu điều này là không có khoản nào. Phần còn lại của trang không bị ảnh hưởng."
-  },
-  "consilium.payout.failedTitle": {
-    "en": "Fund payouts did not load",
-    "t": "Không tải được các khoản chi trả của quỹ"
-  },
-  "consilium.payout.fingerprint": {
-    "en": "Fingerprint · {hash}",
-    "t": "Dấu vân tay · {hash}"
-  },
-  "consilium.payout.network": {
-    "en": "Network · {network}",
-    "t": "Mạng · {network}"
-  },
-  "consilium.payout.openedBy": {
-    "en": "Opened by {initiator}",
-    "t": "Mở bởi {initiator}"
-  },
-  "consilium.payout.owners": {
-    "en": "{n, plural, one {# owner} other {# owners}}",
-    "t": "{n, plural, one {# chủ sở hữu} other {# chủ sở hữu}}"
-  },
-  "consilium.payout.past": {
-    "en": "Earlier requests",
-    "t": "Các yêu cầu trước đây"
-  },
-  "consilium.payout.sub": {
-    "en": "Moving money the fund owns by a payment order, marking a fund past the NAV-move guard, and changing what a product charges. One request at a time, and never one person's decision.",
-    "t": "Chuyển tiền thuộc quỹ bằng lệnh thanh toán, định giá một quỹ vượt chốt chặn biến động NAV và thay đổi mức phí một sản phẩm thu. Mỗi lần một yêu cầu, và không bao giờ là quyết định của một người."
-  },
-  "consilium.payout.tally": {
-    "en": "{approvals} of {threshold, plural, one {# approval} other {# approvals}}",
-    "t": "{approvals} trên {threshold, plural, one {# chấp thuận} other {# chấp thuận}}"
-  },
-  "consilium.payout.title": {
-    "en": "Fund payouts and payments",
-    "t": "Chi trả và thanh toán của quỹ"
-  },
-  "consilium.payout.voteByEmail": {
-    "en": "Owners answer from the link emailed to them, not from this page — the code in that message is what makes an answer deliberate.",
-    "t": "Chủ sở hữu trả lời từ liên kết được gửi qua email cho họ, không phải từ trang này — mã trong thư đó là điều khiến một câu trả lời trở thành có chủ ý."
-  },
-  "consilium.proposalKind.admin_admission": {
-    "en": "Admin seat",
-    "t": "Ghế quản trị"
-  },
-  "consilium.proposalKind.reinstatement": {
-    "en": "Letting back in",
-    "t": "Cho phép trở lại"
-  },
-  "consilium.proposalKind.suspension": {
-    "en": "Permanent block",
-    "t": "Chặn vĩnh viễn"
-  },
-  "consilium.proposalVerb.admin_admission.against": {
-    "en": "Refuse",
-    "t": "Từ chối"
-  },
-  "consilium.proposalVerb.admin_admission.for": {
-    "en": "Grant admin",
-    "t": "Trao quyền quản trị"
-  },
-  "consilium.proposalVerb.reinstatement.against": {
-    "en": "Keep blocked",
-    "t": "Giữ nguyên chặn"
-  },
-  "consilium.proposalVerb.reinstatement.for": {
-    "en": "Let back in",
-    "t": "Cho phép trở lại"
-  },
-  "consilium.proposalVerb.suspension.against": {
-    "en": "Do not block",
-    "t": "Không chặn"
-  },
-  "consilium.proposalVerb.suspension.for": {
-    "en": "Block permanently",
-    "t": "Chặn vĩnh viễn"
-  },
-  "consilium.proposalVote.against": {
-    "en": "Against",
-    "t": "Phản đối"
-  },
-  "consilium.proposalVote.for": {
-    "en": "For",
-    "t": "Tán thành"
-  },
-  "consilium.proposals.bystander": {
-    "en": "You were not seated when this opened, so you are not among its voters.",
-    "t": "Bạn chưa có ghế khi đề xuất này được mở, nên bạn không nằm trong số người bỏ phiếu."
-  },
-  "consilium.proposals.emptyBody": {
-    "en": "A hold an operator wants made permanent, a block to undo, or an admin seat to grant would appear here for you to vote on. Operators open these from the user console.",
-    "t": "Một lệnh tạm giữ mà người vận hành muốn biến thành vĩnh viễn, một lệnh chặn cần gỡ bỏ, hoặc một ghế quản trị cần trao sẽ xuất hiện ở đây để bạn bỏ phiếu. Người vận hành mở các đề xuất này từ bảng điều khiển người dùng."
-  },
-  "consilium.proposals.emptyTitle": {
-    "en": "Nobody's standing is in question",
-    "t": "Không có tư cách của ai đang bị xem xét"
-  },
-  "consilium.proposals.expires": {
-    "en": "Closes {at} · {left}",
-    "t": "Đóng {at} · {left}"
-  },
-  "consilium.proposals.failedBody": {
-    "en": "Until they do, this page cannot say whether anyone's standing is being decided — including a 24-hour hold that lapses if nobody ratifies it.",
-    "t": "Cho đến khi tải xong, trang này không thể nói liệu tư cách của ai đó đang được quyết định hay không — kể cả một lệnh tạm giữ 24 giờ sẽ tự hết hiệu lực nếu không ai phê chuẩn."
-  },
-  "consilium.proposals.failedTitle": {
-    "en": "The people proposals did not load",
-    "t": "Không tải được các đề xuất về nhân sự"
-  },
-  "consilium.proposals.majorityNote": {
-    "en": "A simple majority of the owners who were seated when this opened carries it. The bar was frozen then and does not move with the roster.",
-    "t": "Đa số đơn giản của các chủ sở hữu đang có ghế khi đề xuất được mở sẽ quyết định. Ngưỡng đã được chốt tại thời điểm đó và không thay đổi theo danh sách chủ sở hữu."
-  },
-  "consilium.proposals.openedBy": {
-    "en": "Opened by {initiator} on {at}",
-    "t": "Mở bởi {initiator} vào {at}"
-  },
-  "consilium.proposals.sub": {
-    "en": "What the owners are deciding about one person's standing — a permanent block, letting someone back in, or the admin seat.",
-    "t": "Những gì các chủ sở hữu đang quyết định về tư cách của một người — chặn vĩnh viễn, cho phép ai đó trở lại, hoặc ghế quản trị."
-  },
-  "consilium.proposals.subject": {
-    "en": "Subject",
-    "t": "Đối tượng"
-  },
-  "consilium.proposals.tally": {
-    "en": "{n} of {threshold} needed",
-    "t": "{n} trên {threshold} cần thiết"
-  },
-  "consilium.proposals.tallyDetail": {
-    "en": "{against} against · {waiting} yet to answer",
-    "t": "{against} phản đối · {waiting} chưa trả lời"
-  },
-  "consilium.proposals.title": {
-    "en": "People",
-    "t": "Nhân sự"
-  },
-  "consilium.proposals.unreachable": {
-    "en": "Enough owners have voted against that the threshold can no longer be reached.",
-    "t": "Đã có đủ chủ sở hữu bỏ phiếu phản đối khiến ngưỡng không thể đạt được nữa."
-  },
-  "consilium.proposals.withdraw": {
-    "en": "Withdraw",
-    "t": "Rút lại"
-  },
-  "consilium.proposals.youAreSubject": {
-    "en": "This is about you. You are not among its voters.",
-    "t": "Đề xuất này là về bạn. Bạn không nằm trong số người bỏ phiếu."
-  },
-  "consilium.proposals.youInitiated": {
-    "en": "You opened this. The initiator does not vote — proposing is not agreeing.",
-    "t": "Bạn đã mở đề xuất này. Người khởi xướng không bỏ phiếu — đề xuất không có nghĩa là đồng ý."
-  },
-  "consilium.proposals.youVoted": {
-    "en": "You voted {vote}.",
-    "t": "Bạn đã bỏ phiếu {vote}."
-  },
-  "consilium.propose.floorWarning": {
-    "en": "A fund needs at least three owners to authorise a payout, so a removal that would leave fewer than three is refused.",
-    "t": "Một quỹ cần ít nhất ba chủ sở hữu để ủy quyền chi trả, nên một đề xuất bãi nhiệm khiến số chủ sở hữu còn dưới ba sẽ bị từ chối."
-  },
-  "consilium.propose.noneBody": {
-    "en": "You are the only owner listed. A removal is always about someone else — to stand down yourself, use Stand down as an owner.",
-    "t": "Bạn là chủ sở hữu duy nhất được liệt kê. Bãi nhiệm luôn là về người khác — để tự rút lui, hãy dùng Rút lui khỏi vai trò chủ sở hữu."
-  },
-  "consilium.propose.noneTitle": {
-    "en": "There is nobody to propose",
-    "t": "Không có ai để đề xuất"
-  },
-  "consilium.propose.opened": {
-    "en": "Proposed. Everyone who can vote has been emailed, and so has the person it concerns.",
-    "t": "Đã đề xuất. Mọi người có quyền bỏ phiếu đã nhận được email, và người liên quan cũng vậy."
-  },
-  "consilium.propose.reasonHint": {
-    "en": "This is emailed to them, in these words, and stays on the record. Write it as though they are reading it, because they are.",
-    "t": "Nội dung này được gửi qua email cho họ, đúng từng chữ, và được lưu lại. Hãy viết như thể họ đang đọc, vì đúng là họ sẽ đọc."
-  },
-  "consilium.propose.reasonLabel": {
-    "en": "Reason",
-    "t": "Lý do"
-  },
-  "consilium.propose.reasonPlaceholder": {
-    "en": "Why this seat should end",
-    "t": "Vì sao ghế này nên kết thúc"
-  },
-  "consilium.propose.sub": {
-    "en": "Ends someone's ownership if it carries. They are told at once, in your words.",
-    "t": "Kết thúc quyền sở hữu của ai đó nếu được thông qua. Họ được thông báo ngay lập tức, bằng lời của bạn."
-  },
-  "consilium.propose.submit": {
-    "en": "Propose removal",
-    "t": "Đề xuất bãi nhiệm"
-  },
-  "consilium.propose.targetLabel": {
-    "en": "Owner",
-    "t": "Chủ sở hữu"
-  },
-  "consilium.propose.targetPlaceholder": {
-    "en": "Choose an owner",
-    "t": "Chọn một chủ sở hữu"
-  },
-  "consilium.propose.title": {
-    "en": "Propose a removal",
-    "t": "Đề xuất bãi nhiệm"
-  },
-  "consilium.propose.unknownBody": {
-    "en": "Proposing a removal means choosing an owner, and the owner list did not load — so the page does not know who could be proposed, or whether there is anyone here but you. Load it and this form comes back.",
-    "t": "Đề xuất bãi nhiệm đồng nghĩa với chọn một chủ sở hữu, và danh sách chủ sở hữu chưa tải được — nên trang không biết ai có thể được đề xuất, hay liệu ở đây có ai ngoài bạn không. Tải lại danh sách và biểu mẫu này sẽ trở lại."
-  },
-  "consilium.propose.unknownTitle": {
-    "en": "This cannot be offered right now",
-    "t": "Hiện không thể thực hiện việc này"
-  },
-  "consilium.removal.cancel": {
-    "en": "Withdraw this proposal",
-    "t": "Rút lại đề xuất này"
-  },
-  "consilium.removal.expires": {
-    "en": "Expires {at} · {left}",
-    "t": "Hết hạn {at} · {left}"
-  },
-  "consilium.removal.heading": {
-    "en": "Removing {target}",
-    "t": "Bãi nhiệm {target}"
-  },
-  "consilium.removal.noPeers": {
-    "en": "With this few owners there is nobody eligible to vote, so this can only carry if the person it concerns accepts it themselves. That is deliberate: otherwise either of two owners could remove the other unopposed.",
-    "t": "Với số chủ sở hữu ít như vậy, không có ai đủ điều kiện bỏ phiếu, nên đề xuất này chỉ có thể được thông qua nếu chính người liên quan chấp nhận. Đó là có chủ ý: nếu không, một trong hai chủ sở hữu có thể bãi nhiệm người kia mà không ai phản đối."
-  },
-  "consilium.removal.noReason": {
-    "en": "No reason was given.",
-    "t": "Không có lý do nào được đưa ra."
-  },
-  "consilium.removal.notAVoter": {
-    "en": "The owners who may vote on this were fixed when it was opened, so it is not yours to answer. That is what stops new owners being added to reach a result. Nothing is hidden from you — everything about it is on this page.",
-    "t": "Danh sách chủ sở hữu được bỏ phiếu đã được chốt khi đề xuất được mở, nên việc trả lời không thuộc về bạn. Đó chính là điều ngăn việc thêm chủ sở hữu mới để đạt được kết quả. Không có gì bị che giấu với bạn — mọi thứ về đề xuất này đều có trên trang."
-  },
-  "consilium.removal.openedBy": {
-    "en": "Opened by {initiator} on {at}",
-    "t": "Mở bởi {initiator} vào {at}"
-  },
-  "consilium.removal.peerTally": {
-    "en": "{removed} of {total, plural, one {# owner} other {# owners}} voted to remove",
-    "t": "{removed} trên {total, plural, one {# chủ sở hữu} other {# chủ sở hữu}} đã bỏ phiếu bãi nhiệm"
-  },
-  "consilium.removal.reason": {
-    "en": "Reason given",
-    "t": "Lý do đưa ra"
-  },
-  "consilium.removal.targetAccepted": {
-    "en": "{target} accepted this on {at}.",
-    "t": "{target} đã chấp nhận vào {at}."
-  },
-  "consilium.removal.targetNotYetTold": {
-    "en": "{target} has not been notified yet.",
-    "t": "{target} chưa được thông báo."
-  },
-  "consilium.removal.targetPending": {
-    "en": "{target} has been emailed and has not answered yet.",
-    "t": "{target} đã nhận được email và chưa trả lời."
-  },
-  "consilium.removal.targetRefused": {
-    "en": "{target} has refused this.",
-    "t": "{target} đã từ chối."
-  },
-  "consilium.removal.unanimityNote": {
-    "en": "All of them must agree",
-    "t": "Tất cả đều phải đồng ý"
-  },
-  "consilium.removal.voteKeep": {
-    "en": "Keep the seat",
-    "t": "Giữ ghế"
-  },
-  "consilium.removal.voteRemove": {
-    "en": "Vote to remove",
-    "t": "Bỏ phiếu bãi nhiệm"
-  },
-  "consilium.removal.youAreTarget": {
-    "en": "This is about your seat. Your answer is not given here — it is in the message sent to your own mailbox, so it stays yours alone to give.",
-    "t": "Đề xuất này là về ghế của bạn. Câu trả lời của bạn không được đưa ra ở đây — nó nằm trong thư gửi tới hộp thư riêng của bạn, để nó chỉ thuộc về riêng bạn."
-  },
-  "consilium.removal.youOpened": {
-    "en": "You opened this, so you have no vote on removing {target}. You are still counted in the number it has to clear: if opening a request took you out of that count, opening one would be a way to lower the bar.",
-    "t": "Bạn đã mở đề xuất này, nên bạn không có phiếu về việc bãi nhiệm {target}. Bạn vẫn được tính vào con số cần đạt: nếu mở một yêu cầu loại bạn ra khỏi con số đó, mở yêu cầu sẽ trở thành cách hạ thấp ngưỡng."
-  },
-  "consilium.removal.youVoted": {
-    "en": "You voted: {vote}. A vote cannot be changed once it is cast.",
-    "t": "Bạn đã bỏ phiếu: {vote}. Phiếu đã bỏ không thể thay đổi."
-  },
-  "consilium.removals.emptyBody": {
-    "en": "No removal has been proposed. If one is, it appears here with every vote on it, and the person it concerns is told at the same time as everyone else.",
-    "t": "Không có đề xuất bãi nhiệm nào. Nếu có, nó sẽ xuất hiện ở đây cùng mọi phiếu bầu, và người liên quan được thông báo cùng lúc với mọi người khác."
-  },
-  "consilium.removals.emptyTitle": {
-    "en": "Nothing is being decided",
-    "t": "Không có gì đang được quyết định"
-  },
-  "consilium.removals.failedBody": {
-    "en": "Until it loads, the page cannot tell you whether anyone's ownership is being decided right now — so do not read this as nothing being underway. The rest of the page is unaffected.",
-    "t": "Cho đến khi tải xong, trang không thể cho bạn biết liệu quyền sở hữu của ai đó đang được quyết định lúc này hay không — nên đừng hiểu điều này là không có gì đang diễn ra. Phần còn lại của trang không bị ảnh hưởng."
-  },
-  "consilium.removals.failedTitle": {
-    "en": "Owner removals did not load",
-    "t": "Không tải được các đề xuất bãi nhiệm chủ sở hữu"
-  },
-  "consilium.removals.sub": {
-    "en": "Proposals to end someone's ownership.",
-    "t": "Các đề xuất kết thúc quyền sở hữu của ai đó."
-  },
-  "consilium.removals.title": {
-    "en": "Owner removals",
-    "t": "Bãi nhiệm chủ sở hữu"
-  },
-  "consilium.resign.confirm": {
-    "en": "Stand down as an owner",
-    "t": "Rút lui khỏi vai trò chủ sở hữu"
-  },
-  "consilium.resign.confirmLabel": {
-    "en": "Type {email} to confirm",
-    "t": "Nhập {email} để xác nhận"
-  },
-  "consilium.resign.done": {
-    "en": "You are no longer an owner.",
-    "t": "Bạn không còn là chủ sở hữu."
-  },
-  "consilium.resign.floorWarning": {
-    "en": "A fund needs at least three owners to authorise a payout. If standing down would leave fewer than three, it is refused.",
-    "t": "Một quỹ cần ít nhất ba chủ sở hữu để ủy quyền chi trả. Nếu việc rút lui khiến số chủ sở hữu còn dưới ba, nó sẽ bị từ chối."
-  },
-  "consilium.resign.start": {
-    "en": "Stand down",
-    "t": "Rút lui"
-  },
-  "consilium.resign.sub": {
-    "en": "Give up your own seat. Nobody has to agree to let you leave.",
-    "t": "Từ bỏ ghế của chính bạn. Không ai cần đồng ý để bạn rời đi."
-  },
-  "consilium.resign.title": {
-    "en": "Stand down as an owner",
-    "t": "Rút lui khỏi vai trò chủ sở hữu"
-  },
-  "consilium.resign.unavailable": {
-    "en": "We couldn't load your account, so this can't be confirmed right now. Reload the page and try again.",
-    "t": "Chúng tôi không tải được tài khoản của bạn, nên hiện chưa thể xác nhận việc này. Tải lại trang và thử lại."
-  },
-  "consilium.resign.warning": {
-    "en": "Your ownership ends as soon as this is recorded. You would need the remaining owners to make you an owner again. Nothing else about your account changes.",
-    "t": "Quyền sở hữu của bạn kết thúc ngay khi việc này được ghi nhận. Bạn sẽ cần các chủ sở hữu còn lại đưa bạn trở lại làm chủ sở hữu. Không có gì khác trong tài khoản của bạn thay đổi."
-  },
-  "consilium.roster.count": {
-    "en": "{n, plural, one {# owner} other {# owners}}",
-    "t": "{n, plural, one {# chủ sở hữu} other {# chủ sở hữu}}"
-  },
-  "consilium.roster.emptyBody": {
-    "en": "Genesis has not run yet. At start-up the service seats everyone on the OWNER_SUBJECTS list who already has an account — but only if at least two of them resolve. A sole owner could never admit the second, so seating one is refused outright rather than left as a dead end.",
-    "t": "Khởi thủy chưa diễn ra. Khi khởi động, dịch vụ trao ghế cho mọi người trong danh sách OWNER_SUBJECTS đã có tài khoản — nhưng chỉ khi có ít nhất hai người được phân giải. Một chủ sở hữu duy nhất sẽ không bao giờ kết nạp được người thứ hai, nên việc trao ghế cho một người bị từ chối thẳng thay vì để lại một ngõ cụt."
-  },
-  "consilium.roster.emptyNext": {
-    "en": "Add the missing people to OWNER_SUBJECTS, have each of them sign in once so the account exists, and restart the service. Until the first seat is written, the operators on that list are working under emergency access — temporary by construction: the first successful seeding closes it permanently, and from then on a seat is only ever granted by a consilium of the existing owners.",
-    "t": "Hãy bổ sung những người còn thiếu vào OWNER_SUBJECTS, để mỗi người đăng nhập một lần cho tài khoản tồn tại, rồi khởi động lại dịch vụ. Cho đến khi ghế đầu tiên được ghi, các vận hành viên trong danh sách đó làm việc bằng truy cập khẩn cấp — tạm thời theo thiết kế: lần gieo mầm thành công đầu tiên đóng nó lại vĩnh viễn, và từ đó một ghế chỉ được trao bởi hội đồng các chủ sở hữu đương nhiệm."
-  },
-  "consilium.roster.emptyTitle": {
-    "en": "No owner holds a seat yet",
-    "t": "Chưa có chủ sở hữu nào giữ ghế"
-  },
-  "consilium.roster.failedBody": {
-    "en": "Until it loads, the page cannot say who owns this fund or how many owners it has, so it says nothing rather than guessing at it. The rest of the page is unaffected.",
-    "t": "Cho đến khi tải xong, trang không thể nói ai sở hữu quỹ này hay quỹ có bao nhiêu chủ sở hữu, nên nó không nói gì thay vì đoán. Phần còn lại của trang không bị ảnh hưởng."
-  },
-  "consilium.roster.failedTitle": {
-    "en": "The owner list did not load",
-    "t": "Không tải được danh sách chủ sở hữu"
-  },
-  "consilium.roster.since": {
-    "en": "Owner since {at}",
-    "t": "Chủ sở hữu từ {at}"
-  },
-  "consilium.roster.title": {
-    "en": "Owners",
-    "t": "Chủ sở hữu"
-  },
-  "consilium.roster.you": {
-    "en": "(you)",
-    "t": "(bạn)"
-  },
-  "consilium.seedCapital.carried": {
-    "en": "Booked",
-    "t": "Đã ghi sổ"
-  },
-  "consilium.seedCapital.depositor": {
-    "en": "Depositor · {id}",
-    "t": "Người nạp · {id}"
-  },
-  "consilium.seedCapital.executes": {
-    "en": "If it passes, the transfer is verified on chain, booked as this person's deposit and subscribed into the fund allocation — one chain, or nothing.",
-    "t": "Nếu được thông qua, giao dịch được xác minh trên chuỗi, ghi sổ là khoản nạp của người này và đăng ký vào phân bổ vốn — trong một chuỗi, hoặc không gì cả."
-  },
-  "consilium.state.approved": {
-    "en": "Approved",
-    "t": "Đã chấp thuận"
-  },
-  "consilium.state.cancelled": {
-    "en": "Cancelled",
-    "t": "Đã hủy"
-  },
-  "consilium.state.executed": {
-    "en": "Paid out",
-    "t": "Đã chi trả"
-  },
-  "consilium.state.executionfailed": {
-    "en": "Payout failed",
-    "t": "Chi trả thất bại"
-  },
-  "consilium.state.expired": {
-    "en": "Expired",
-    "t": "Đã hết hạn"
-  },
-  "consilium.state.failed": {
-    "en": "Failed",
-    "t": "Thất bại"
-  },
-  "consilium.state.kept": {
-    "en": "Seat kept",
-    "t": "Giữ ghế"
-  },
-  "consilium.state.open": {
-    "en": "Open",
-    "t": "Đang mở"
-  },
-  "consilium.state.pending": {
-    "en": "Pending",
-    "t": "Đang chờ"
-  },
-  "consilium.state.rejected": {
-    "en": "Rejected",
-    "t": "Đã từ chối"
-  },
-  "consilium.state.removed": {
-    "en": "Removed",
-    "t": "Đã bãi nhiệm"
-  },
-  "consilium.state.void": {
-    "en": "Void",
-    "t": "Vô hiệu"
-  },
-  "consilium.stream.live": {
-    "en": "Live",
-    "t": "Trực tiếp"
-  },
-  "consilium.stream.paused": {
-    "en": "Paused",
-    "t": "Tạm dừng"
-  },
-  "consilium.stream.reconnecting": {
-    "en": "Reconnecting",
-    "t": "Đang kết nối lại"
-  },
-  "consilium.sub": {
-    "en": "The owners' room — who the owners are, and what is being decided.",
-    "t": "Phòng của các chủ sở hữu — ai là chủ sở hữu, và điều gì đang được quyết định."
-  },
-  "consilium.title": {
-    "en": "Consilium",
-    "t": "Consilium"
-  },
-  "consilium.unavailable.body": {
-    "en": "Every one of the reads this room is built from failed, so the page cannot show who owns the fund, what is being decided, or where any vote stands. Nothing here should be trusted until it loads. Try again — and if it keeps failing, this data is unreachable rather than empty, which is worth raising.",
-    "t": "Mọi lượt đọc dữ liệu tạo nên phòng này đều thất bại, nên trang không thể hiển thị ai sở hữu quỹ, điều gì đang được quyết định, hay một cuộc bỏ phiếu đang ở đâu. Không nên tin vào bất kỳ điều gì ở đây cho đến khi tải xong. Hãy thử lại — và nếu vẫn tiếp tục thất bại, dữ liệu này là không thể truy cập chứ không phải trống, điều đáng để báo cáo."
-  },
-  "consilium.unavailable.title": {
-    "en": "The owners' room could not be loaded",
-    "t": "Không tải được phòng của các chủ sở hữu"
-  },
-  "consilium.valuation.executes": {
-    "en": "If it passes, the fund is marked at this AUM whatever the NAV-move guard would have said, and its queued redemptions settle at the NAV that follows.",
-    "t": "Nếu được thông qua, quỹ sẽ được định giá ở mức AUM này bất kể chốt chặn biến động NAV, và các lệnh hoàn vốn đang chờ sẽ được tất toán theo NAV tương ứng."
-  },
-  "consilium.valuation.mark": {
-    "en": "NAV mark",
-    "t": "Định giá NAV"
-  },
-  "consilium.valuation.product": {
-    "en": "Product",
-    "t": "Sản phẩm"
-  },
-  "consilium.vote.keep": {
-    "en": "To keep",
-    "t": "Giữ lại"
-  },
-  "consilium.vote.remove": {
-    "en": "To remove",
-    "t": "Bãi nhiệm"
-  },
-  "consilium.vote.waiting": {
-    "en": "Not answered",
-    "t": "Chưa trả lời"
+  "auth.continue": {
+    "en": "Continue to sign in",
+    "t": "Tiếp tục đăng nhập"
+  },
+  "auth.email.verify": {
+    "en": "Verify",
+    "t": "Xác minh"
+  },
+  "auth.wall.action": {
+    "en": "Sign in",
+    "t": "Đăng nhập"
+  },
+  "auth.wall.desc": {
+    "en": "This part of the cabinet belongs to your account. Sign in or create one — it takes a minute.",
+    "t": "Phần này của cabinet thuộc về tài khoản của bạn. Hãy đăng nhập hoặc tạo tài khoản — chỉ mất một phút."
+  },
+  "auth.wall.title": {
+    "en": "Sign in to see this",
+    "t": "Đăng nhập để xem nội dung này"
   },
   "dash.activeStrategies": {
     "en": "Active strategies",
@@ -3538,10 +1490,6 @@
   "dash.allTimeSuffix": {
     "en": "{pct} all-time",
     "t": "{pct} từ trước đến nay"
-  },
-  "dash.available": {
-    "en": "Available",
-    "t": "Khả dụng"
   },
   "dash.browseStrategies": {
     "en": "Browse strategies",
@@ -3563,10 +1511,6 @@
     "en": "at cost basis",
     "t": "theo giá gốc"
   },
-  "dash.hintAutoDeploysEod": {
-    "en": "auto-deploys at EOD",
-    "t": "tự động phân bổ cuối ngày"
-  },
   "dash.hintFundPositions": {
     "en": "fund positions",
     "t": "vị thế trong quỹ"
@@ -3578,10 +1522,6 @@
   "dash.investedWhatIOwn": {
     "en": "Invested · what I own",
     "t": "Đã đầu tư · những gì tôi sở hữu"
-  },
-  "dash.moveMoney": {
-    "en": "Move money",
-    "t": "Chuyển tiền"
   },
   "dash.netContributed": {
     "en": "Net contributed",
@@ -3595,10 +1535,6 @@
     "en": "The fund curve and your participation appear here once there is activity to plot.",
     "t": "Đường cong của quỹ và phần tham gia của bạn sẽ hiện ở đây khi có dữ liệu để vẽ."
   },
-  "dash.noOperationsHint": {
-    "en": "Deposits, subscriptions, redemptions and withdrawals land here the moment you make them.",
-    "t": "Các khoản nạp, đăng ký, hoàn vốn và rút tiền sẽ xuất hiện ở đây ngay khi bạn thực hiện."
-  },
   "dash.nothingInvested": {
     "en": "Nothing invested yet",
     "t": "Chưa đầu tư khoản nào"
@@ -3606,26 +1542,6 @@
   "dash.nothingInvestedHint": {
     "en": "Subscribe to a strategy and the split of what you own shows up here.",
     "t": "Đăng ký một chiến lược và cơ cấu khoản đầu tư của bạn sẽ hiện ở đây."
-  },
-  "dash.op.deposit": {
-    "en": "Deposit · {network}",
-    "t": "Nạp tiền · {network}"
-  },
-  "dash.op.redeemed": {
-    "en": "{fund} — redeemed",
-    "t": "{fund} — đã hoàn vốn"
-  },
-  "dash.op.sub": {
-    "en": "{ref} · {state}",
-    "t": "{ref} · {state}"
-  },
-  "dash.op.subscribed": {
-    "en": "{fund} — subscribed",
-    "t": "{fund} — đã đăng ký mua"
-  },
-  "dash.op.withdrawal": {
-    "en": "Withdrawal · {network}",
-    "t": "Rút tiền · {network}"
   },
   "dash.portfolio": {
     "en": "Portfolio",
@@ -3659,14 +1575,6 @@
     "en": "Chart range",
     "t": "Khoảng thời gian biểu đồ"
   },
-  "dash.recentOperations": {
-    "en": "Recent activity",
-    "t": "Hoạt động gần đây"
-  },
-  "dash.servicePanel": {
-    "en": "Service-Arb panel",
-    "t": "Bảng điều khiển Service-Arb"
-  },
   "dash.strategyCount": {
     "en": "{n, plural, one {# strategy} other {# strategies}}",
     "t": "{n, plural, other {# chiến lược}}"
@@ -3683,14 +1591,6 @@
     "en": "Your participation",
     "t": "Phần tham gia của bạn"
   },
-  "err.address.controlChars": {
-    "en": "Residential address must not contain control characters",
-    "t": "Địa chỉ thường trú không được chứa ký tự điều khiển"
-  },
-  "err.address.maxLength": {
-    "en": "Residential address must be at most 256 characters",
-    "t": "Địa chỉ thường trú tối đa 256 ký tự"
-  },
   "err.authNotConfigured": {
     "en": "Sign-in is unavailable right now. Please try again shortly.",
     "t": "Hiện chưa thể đăng nhập. Vui lòng thử lại sau ít phút."
@@ -3703,26 +1603,6 @@
     "en": "This page went stale. Reload it and try again.",
     "t": "Trang này đã cũ. Hãy tải lại và thử lần nữa."
   },
-  "err.currency.format": {
-    "en": "Base currency must be a 3-letter code such as 'USD'",
-    "t": "Tiền tệ cơ sở phải là mã 3 chữ cái, ví dụ 'USD'"
-  },
-  "err.dob.format": {
-    "en": "Date of birth must be a valid YYYY-MM-DD date",
-    "t": "Ngày sinh phải là ngày hợp lệ theo dạng YYYY-MM-DD"
-  },
-  "err.dob.range": {
-    "en": "Date of birth must be a real date between 1900 and 2100",
-    "t": "Ngày sinh phải là một ngày có thật trong khoảng 1900 đến 2100"
-  },
-  "err.email.invalid": {
-    "en": "Enter a valid email address",
-    "t": "Hãy nhập địa chỉ email hợp lệ"
-  },
-  "err.email.maxLength": {
-    "en": "Email address must be at most 320 characters",
-    "t": "Địa chỉ email tối đa 320 ký tự"
-  },
   "err.feePolicySave": {
     "en": "Could not save these terms.",
     "t": "Không thể lưu các điều khoản này."
@@ -3730,18 +1610,6 @@
   "err.feeSettle": {
     "en": "Could not settle these units.",
     "t": "Không thể tất toán các đơn vị quỹ này."
-  },
-  "err.field.maxLength": {
-    "en": "{field} must be at most {n, plural, one {# character} other {# characters}}",
-    "t": "{field} tối đa {n, plural, other {# ký tự}}"
-  },
-  "err.field.minLetters": {
-    "en": "{field} must contain at least 2 letters",
-    "t": "{field} phải chứa ít nhất 2 chữ cái"
-  },
-  "err.field.nameChars": {
-    "en": "{field} may only contain letters, spaces, hyphens, apostrophes, and periods",
-    "t": "{field} chỉ được chứa chữ cái, dấu cách, dấu gạch nối, dấu nháy đơn và dấu chấm"
   },
   "err.forbidden": {
     "en": "You don't have access to this.",
@@ -3755,13 +1623,13 @@
     "en": "Select a fund to continue.",
     "t": "Hãy chọn một quỹ để tiếp tục."
   },
-  "err.kycStartFailed": {
-    "en": "We couldn't start verification. Please try again.",
-    "t": "Không thể bắt đầu xác minh. Vui lòng thử lại."
-  },
   "err.kycSelf": {
     "en": "You can't set your own verification tier — another holder of KycManage has to.",
     "t": "Bạn không thể tự đặt cấp xác minh của mình — một người khác nắm quyền KycManage phải làm việc đó."
+  },
+  "err.kycStartFailed": {
+    "en": "We couldn't start verification. Please try again.",
+    "t": "Không thể bắt đầu xác minh. Vui lòng thử lại."
   },
   "err.kycThrottled": {
     "en": "You've started verification too many times today. Try again tomorrow.",
@@ -3771,14 +1639,6 @@
     "en": "Verification is unavailable right now. Please contact support.",
     "t": "Hiện chưa thể xác minh. Vui lòng liên hệ bộ phận hỗ trợ."
   },
-  "err.language.format": {
-    "en": "Language must be a BCP 47 code such as 'en' or 'en-US'",
-    "t": "Ngôn ngữ phải là mã BCP 47, ví dụ 'en' hoặc 'en-US'"
-  },
-  "err.language.maxLength": {
-    "en": "Language must be at most 16 characters",
-    "t": "Ngôn ngữ tối đa 16 ký tự"
-  },
   "err.network": {
     "en": "Can't reach the server. Check your connection and try again.",
     "t": "Không kết nối được máy chủ. Hãy kiểm tra kết nối và thử lại."
@@ -3786,18 +1646,6 @@
   "err.notFound": {
     "en": "Not found.",
     "t": "Không tìm thấy."
-  },
-  "err.opsLoad": {
-    "en": "Couldn't load your activity",
-    "t": "Không tải được hoạt động của bạn"
-  },
-  "err.phone.invalid": {
-    "en": "Enter a valid phone number starting with + or country code",
-    "t": "Hãy nhập số điện thoại hợp lệ, bắt đầu bằng + hoặc mã quốc gia"
-  },
-  "err.phone.maxLength": {
-    "en": "Phone number must be at most 32 characters",
-    "t": "Số điện thoại tối đa 32 ký tự"
   },
   "err.positionsLoad": {
     "en": "Couldn't load your positions",
@@ -3819,14 +1667,6 @@
     "en": "Your session has ended. Sign in again to continue.",
     "t": "Phiên của bạn đã kết thúc. Hãy đăng nhập lại để tiếp tục."
   },
-  "err.timezone.format": {
-    "en": "Time zone must be 'UTC', 'GMT', or an IANA name such as 'Asia/Ho_Chi_Minh'",
-    "t": "Múi giờ phải là 'UTC', 'GMT', hoặc một tên IANA như 'Asia/Ho_Chi_Minh'"
-  },
-  "err.timezone.maxLength": {
-    "en": "Time zone must be at most 64 characters",
-    "t": "Múi giờ tối đa 64 ký tự"
-  },
   "err.unauthenticated": {
     "en": "We couldn't confirm your session. Reload the page or sign in again.",
     "t": "Chúng tôi không xác nhận được phiên của bạn. Hãy tải lại trang hoặc đăng nhập lại."
@@ -3838,10 +1678,6 @@
   "err.verificationRequired": {
     "en": "Verify your identity to continue.",
     "t": "Xác minh danh tính để tiếp tục."
-  },
-  "err.walletLoad": {
-    "en": "Couldn't load your wallet",
-    "t": "Không tải được ví của bạn"
   },
   "invest.about.risk": {
     "en": "Units can fall in value as well as rise. The NAV is set by a posted valuation, not by a market price, and past marks are no guide to future ones. Cash comes back only when a redemption settles or a buyer takes your units on the book. Invest only what you can afford to leave in.",
@@ -4279,49 +2115,45 @@
     "en": "Deposits are held in Turnkey custody under your identity verified by Didit; nothing moves without it.",
     "t": "Tiền nạp được lưu ký tại Turnkey dưới danh tính đã được Didit xác minh của bạn; không có nó, không gì được chuyển đi."
   },
-  "kyc.verifyNow": {
-    "en": "Verify now",
-    "t": "Xác minh ngay"
-  },
-  "kyc.dialog.title": {
-    "en": "Verify your identity",
-    "t": "Xác minh danh tính"
-  },
-  "kyc.dialog.intro": {
-    "en": "A short identity check by our verification provider. Your deposit address and withdrawals open once it is done.",
-    "t": "Một bước kiểm tra danh tính ngắn tại nhà cung cấp của chúng tôi. Sau đó địa chỉ nạp tiền và rút tiền sẽ mở."
-  },
-  "kyc.dialog.needTitle": {
-    "en": "What you'll need",
-    "t": "Bạn cần chuẩn bị"
-  },
-  "kyc.dialog.needBody": {
-    "en": "A government-issued ID, and a phone or webcam for a selfie.",
-    "t": "Giấy tờ tùy thân do nhà nước cấp, cùng điện thoại hoặc webcam để chụp ảnh chân dung."
-  },
-  "kyc.dialog.timeTitle": {
-    "en": "How long it takes",
-    "t": "Mất bao lâu"
-  },
-  "kyc.dialog.timeBody": {
-    "en": "A few minutes to submit. Most checks are decided within the hour.",
-    "t": "Vài phút để gửi hồ sơ. Phần lớn được xét xong trong vòng một giờ."
-  },
-  "kyc.dialog.afterTitle": {
-    "en": "What happens next",
-    "t": "Tiếp theo là gì"
+  "kyc.dialog.action": {
+    "en": "Start verification",
+    "t": "Bắt đầu xác minh"
   },
   "kyc.dialog.afterBody": {
     "en": "We'll email you the result. You can close the tab — the check keeps running without it.",
     "t": "Chúng tôi sẽ gửi kết quả qua email. Bạn có thể đóng tab — việc kiểm tra vẫn tiếp tục."
   },
-  "kyc.dialog.action": {
-    "en": "Start verification",
-    "t": "Bắt đầu xác minh"
+  "kyc.dialog.afterTitle": {
+    "en": "What happens next",
+    "t": "Tiếp theo là gì"
   },
-  "lang.switch": {
-    "en": "Language",
-    "t": "Ngôn ngữ"
+  "kyc.dialog.intro": {
+    "en": "A short identity check by our verification provider. Your deposit address and withdrawals open once it is done.",
+    "t": "Một bước kiểm tra danh tính ngắn tại nhà cung cấp của chúng tôi. Sau đó địa chỉ nạp tiền và rút tiền sẽ mở."
+  },
+  "kyc.dialog.needBody": {
+    "en": "A government-issued ID, and a phone or webcam for a selfie.",
+    "t": "Giấy tờ tùy thân do nhà nước cấp, cùng điện thoại hoặc webcam để chụp ảnh chân dung."
+  },
+  "kyc.dialog.needTitle": {
+    "en": "What you'll need",
+    "t": "Bạn cần chuẩn bị"
+  },
+  "kyc.dialog.timeBody": {
+    "en": "A few minutes to submit. Most checks are decided within the hour.",
+    "t": "Vài phút để gửi hồ sơ. Phần lớn được xét xong trong vòng một giờ."
+  },
+  "kyc.dialog.timeTitle": {
+    "en": "How long it takes",
+    "t": "Mất bao lâu"
+  },
+  "kyc.dialog.title": {
+    "en": "Verify your identity",
+    "t": "Xác minh danh tính"
+  },
+  "kyc.verifyNow": {
+    "en": "Verify now",
+    "t": "Xác minh ngay"
   },
   "meta.description": {
     "en": "Your investor cabinet — portfolio, funds and wallet.",
@@ -4330,10 +2162,6 @@
   "meta.title": {
     "en": "EV Investment — Cabinet",
     "t": "EV Investment — Cổng nhà đầu tư"
-  },
-  "mfe.loading": {
-    "en": "Loading {name}…",
-    "t": "Đang tải {name}…"
   },
   "nav.a11y.primary": {
     "en": "Primary",
@@ -4347,21 +2175,13 @@
     "en": "Account",
     "t": "Tài khoản"
   },
+  "nav.admin": {
+    "en": "Admin",
+    "t": "Quản trị"
+  },
   "nav.allocations": {
     "en": "Allocations",
     "t": "Phân bổ"
-  },
-  "nav.cabinet": {
-    "en": "Cabinet",
-    "t": "Cabinet"
-  },
-  "nav.coins": {
-    "en": "Coins",
-    "t": "Tiền mã hóa"
-  },
-  "nav.consilium": {
-    "en": "Consilium",
-    "t": "Consilium"
   },
   "nav.fees": {
     "en": "Fees",
@@ -4371,41 +2191,21 @@
     "en": "Your account",
     "t": "Tài khoản của bạn"
   },
-  "nav.home": {
-    "en": "Home",
-    "t": "Trang chủ"
-  },
   "nav.invest": {
     "en": "Invest",
     "t": "Đầu tư"
-  },
-  "nav.notifications": {
-    "en": "Notifications",
-    "t": "Thông báo"
-  },
-  "nav.operations": {
-    "en": "Activity",
-    "t": "Hoạt động"
-  },
-  "nav.outbox": {
-    "en": "Outbox",
-    "t": "Hàng đợi outbox"
   },
   "nav.payments": {
     "en": "Payments",
     "t": "Thanh toán"
   },
-  "nav.profile": {
-    "en": "Profile",
-    "t": "Hồ sơ"
+  "nav.portfolio": {
+    "en": "Portfolio",
+    "t": "Danh mục"
   },
   "nav.revenue": {
     "en": "Revenue stats",
     "t": "Thống kê doanh thu"
-  },
-  "nav.settings": {
-    "en": "Settings",
-    "t": "Cài đặt"
   },
   "nav.support": {
     "en": "Support",
@@ -4426,446 +2226,6 @@
   "nav.wallet": {
     "en": "Wallet",
     "t": "Ví"
-  },
-  "nav.withdrawals": {
-    "en": "Withdrawals",
-    "t": "Rút tiền"
-  },
-  "notif.a11y.email": {
-    "en": "Email notifications",
-    "t": "Thông báo qua email"
-  },
-  "notif.a11y.emailCopyFor": {
-    "en": "Email copy for {topic}",
-    "t": "Bản sao qua email cho {topic}"
-  },
-  "notif.a11y.inApp": {
-    "en": "In-app notifications",
-    "t": "Thông báo trong ứng dụng"
-  },
-  "notif.allCaughtUp": {
-    "en": "You're all caught up.",
-    "t": "Bạn đã xem hết thông báo."
-  },
-  "notif.channelsFootnote": {
-    "en": "Turn a channel off and we stop sending on it. Turn both off and we stop notifying you altogether — updates still live on the fund pages whenever you want them.",
-    "t": "Tắt một kênh và chúng tôi ngừng gửi qua kênh đó. Tắt cả hai và chúng tôi ngừng thông báo hoàn toàn — các cập nhật vẫn luôn có trên trang của từng quỹ bất cứ khi nào bạn cần."
-  },
-  "notif.delivery": {
-    "en": "Delivery",
-    "t": "Kênh gửi"
-  },
-  "notif.deliverySub": {
-    "en": "Choose where notifications reach you. Both can be off.",
-    "t": "Chọn nơi bạn nhận thông báo. Có thể tắt cả hai."
-  },
-  "notif.emailUnverified": {
-    "en": "{email} · unverified, so email is not sent",
-    "t": "{email} · chưa xác minh, nên email không được gửi"
-  },
-  "notif.emailVerified": {
-    "en": "Sent to {email} · verified",
-    "t": "Gửi tới {email} · đã xác minh"
-  },
-  "notif.emptyHint": {
-    "en": "Follow a fund and its NAV updates, distributions and research notes land here — and in your inbox too, if you want a copy.",
-    "t": "Theo dõi một quỹ và các cập nhật NAV, phân phối lợi nhuận cùng báo cáo phân tích của quỹ sẽ về đây — và cả hộp thư của bạn, nếu bạn muốn một bản sao."
-  },
-  "notif.follow": {
-    "en": "Follow",
-    "t": "Theo dõi"
-  },
-  "notif.following": {
-    "en": "Following",
-    "t": "Đã theo dõi"
-  },
-  "notif.inAppSub": {
-    "en": "On by default. Turn this off and notifications stop appearing in your cabinet.",
-    "t": "Bật mặc định. Tắt mục này và thông báo sẽ không còn hiện trong tài khoản của bạn."
-  },
-  "notif.loadOlder": {
-    "en": "Load older",
-    "t": "Tải thông báo cũ hơn"
-  },
-  "notif.markAllRead": {
-    "en": "Mark all read",
-    "t": "Đánh dấu đã đọc tất cả"
-  },
-  "notif.nothingUnread": {
-    "en": "Nothing unread",
-    "t": "Không có thông báo chưa đọc"
-  },
-  "notif.nothingYet": {
-    "en": "Nothing yet",
-    "t": "Chưa có gì"
-  },
-  "notif.settingsLink": {
-    "en": "Notification settings",
-    "t": "Cài đặt thông báo"
-  },
-  "notif.subtitle": {
-    "en": "Everything you follow — and how you hear about it",
-    "t": "Mọi thứ bạn theo dõi — và cách bạn nhận tin"
-  },
-  "notif.topicsSub": {
-    "en": "Email a copy for these. Unsubscribing is one click — no confirmation step.",
-    "t": "Gửi một bản sao qua email cho các mục này. Hủy nhận chỉ bằng một cú nhấp — không có bước xác nhận."
-  },
-  "notif.unread": {
-    "en": "Unread",
-    "t": "Chưa đọc"
-  },
-  "notif.unreadCount": {
-    "en": "Unread · {n}",
-    "t": "Chưa đọc · {n}"
-  },
-  "notif.whatYouFollow": {
-    "en": "What you follow",
-    "t": "Những gì bạn theo dõi"
-  },
-  "notif.when.days": {
-    "en": "{n}d",
-    "t": "{n} ngày"
-  },
-  "notif.when.hours": {
-    "en": "{n}h",
-    "t": "{n} giờ"
-  },
-  "notif.when.minutes": {
-    "en": "{n}m",
-    "t": "{n} phút"
-  },
-  "notif.when.now": {
-    "en": "now",
-    "t": "vừa xong"
-  },
-  "ops.a11y.rowDetails": {
-    "en": "{title} — details",
-    "t": "{title} — chi tiết"
-  },
-  "ops.context.fund": {
-    "en": "Fund · {when}",
-    "t": "Quỹ · {when}"
-  },
-  "ops.context.network": {
-    "en": "{network} · {when}",
-    "t": "{network} · {when}"
-  },
-  "ops.day.today": {
-    "en": "Today",
-    "t": "Hôm nay"
-  },
-  "ops.day.todayInline": {
-    "en": "today",
-    "t": "hôm nay"
-  },
-  "ops.day.undated": {
-    "en": "Undated",
-    "t": "Không rõ ngày"
-  },
-  "ops.day.yesterday": {
-    "en": "Yesterday",
-    "t": "Hôm qua"
-  },
-  "ops.day.yesterdayInline": {
-    "en": "yesterday",
-    "t": "hôm qua"
-  },
-  "ops.detail.amountCredited": {
-    "en": "Amount credited",
-    "t": "Số tiền ghi có"
-  },
-  "ops.detail.amountDebited": {
-    "en": "Amount debited",
-    "t": "Số tiền ghi nợ"
-  },
-  "ops.detail.cashIn": {
-    "en": "Cash in",
-    "t": "Tiền vào"
-  },
-  "ops.detail.cashOut": {
-    "en": "Cash out",
-    "t": "Tiền ra"
-  },
-  "ops.detail.feeDeferred": {
-    "en": "Taken in units — the rest is carried to the next charge",
-    "t": "Thu bằng đơn vị quỹ — phần còn lại chuyển sang lần thu kế tiếp"
-  },
-  "ops.detail.feeTaken": {
-    "en": "Taken in units, not from your wallet",
-    "t": "Thu bằng đơn vị quỹ, không trừ vào ví của bạn"
-  },
-  "ops.detail.managementFee": {
-    "en": "Management fee",
-    "t": "Phí quản lý"
-  },
-  "ops.detail.netArrives": {
-    "en": "{amount} USDT arrives after the network fee",
-    "t": "{amount} USDT về tới nơi sau khi trừ phí mạng"
-  },
-  "ops.detail.netSent": {
-    "en": "Net sent",
-    "t": "Thực gửi"
-  },
-  "ops.detail.notYetBroadcast": {
-    "en": "not yet broadcast",
-    "t": "chưa phát lên mạng"
-  },
-  "ops.detail.performanceFee": {
-    "en": "Performance fee",
-    "t": "Phí hiệu suất"
-  },
-  "ops.detail.pricePerUnit": {
-    "en": "Price per unit",
-    "t": "Giá mỗi đơn vị quỹ"
-  },
-  "ops.detail.pricedAtSettle": {
-    "en": "Priced when the fund settles it",
-    "t": "Được định giá khi quỹ tất toán"
-  },
-  "ops.detail.reference": {
-    "en": "Reference",
-    "t": "Tham chiếu"
-  },
-  "ops.detail.setAtSettle": {
-    "en": "set at settle",
-    "t": "xác định khi tất toán"
-  },
-  "ops.detail.toAddress": {
-    "en": "To address",
-    "t": "Địa chỉ nhận"
-  },
-  "ops.detail.unitsMinted": {
-    "en": "Units minted",
-    "t": "Đơn vị quỹ đã phát hành"
-  },
-  "ops.detail.unitsRedeemed": {
-    "en": "Units redeemed",
-    "t": "Đơn vị quỹ đã hoàn vốn"
-  },
-  "ops.detail.valueTaken": {
-    "en": "Value taken",
-    "t": "Giá trị đã thu"
-  },
-  "ops.empty.deposits": {
-    "en": "No deposits yet",
-    "t": "Chưa có khoản nạp nào"
-  },
-  "ops.empty.fees": {
-    "en": "No fees yet",
-    "t": "Chưa có khoản phí nào"
-  },
-  "ops.empty.redemptions": {
-    "en": "No redemptions yet",
-    "t": "Chưa có lệnh hoàn vốn nào"
-  },
-  "ops.empty.subscriptions": {
-    "en": "No subscriptions yet",
-    "t": "Chưa có lệnh đăng ký nào"
-  },
-  "ops.empty.withdrawals": {
-    "en": "No withdrawals yet",
-    "t": "Chưa có lệnh rút nào"
-  },
-  "ops.emptyHint": {
-    "en": "Add funds to your wallet, then subscribe into a fund — every movement appears here from the moment you make it, not once it settles.",
-    "t": "Hãy nạp tiền vào ví, rồi đăng ký mua một quỹ — mọi chuyển động đều hiện ở đây ngay khi bạn thực hiện, không phải chờ đến lúc tất toán."
-  },
-  "ops.filter.deposits": {
-    "en": "Deposits",
-    "t": "Nạp tiền"
-  },
-  "ops.filter.fees": {
-    "en": "Fees",
-    "t": "Phí"
-  },
-  "ops.filter.redemptions": {
-    "en": "Redemptions",
-    "t": "Hoàn vốn"
-  },
-  "ops.filter.subscriptions": {
-    "en": "Subscriptions",
-    "t": "Đăng ký mua"
-  },
-  "ops.filter.withdrawals": {
-    "en": "Withdrawals",
-    "t": "Rút tiền"
-  },
-  "ops.filterByKind": {
-    "en": "Filter activity by kind",
-    "t": "Lọc hoạt động theo loại"
-  },
-  "ops.filterEmptyHint": {
-    "en": "You have other activity — switch back to All to see it.",
-    "t": "Bạn có hoạt động khác — chuyển về Tất cả để xem."
-  },
-  "ops.kind.deposit": {
-    "en": "Deposit",
-    "t": "Nạp tiền"
-  },
-  "ops.kind.fee": {
-    "en": "Fee",
-    "t": "Phí"
-  },
-  "ops.kind.redemption": {
-    "en": "Redemption",
-    "t": "Hoàn vốn"
-  },
-  "ops.kind.subscription": {
-    "en": "Subscription",
-    "t": "Đăng ký mua"
-  },
-  "ops.kind.unknown": {
-    "en": "Operation",
-    "t": "Giao dịch"
-  },
-  "ops.kind.withdrawal": {
-    "en": "Withdrawal",
-    "t": "Rút tiền"
-  },
-  "ops.op.feeCharged": {
-    "en": "{fund} — fee charged",
-    "t": "{fund} — đã thu phí"
-  },
-  "ops.state.cancelled": {
-    "en": "Cancelled",
-    "t": "Đã hủy"
-  },
-  "ops.state.charged": {
-    "en": "Charged",
-    "t": "Đã thu phí"
-  },
-  "ops.state.completed": {
-    "en": "Completed",
-    "t": "Hoàn tất"
-  },
-  "ops.state.credited": {
-    "en": "Credited",
-    "t": "Đã ghi có"
-  },
-  "ops.state.failed": {
-    "en": "Failed",
-    "t": "Thất bại"
-  },
-  "ops.state.partlyDeferred": {
-    "en": "Partly deferred",
-    "t": "Thu một phần"
-  },
-  "ops.state.processing": {
-    "en": "Processing",
-    "t": "Đang xử lý"
-  },
-  "ops.state.queued": {
-    "en": "Queued",
-    "t": "Đang chờ"
-  },
-  "ops.step.awaitingFund": {
-    "en": "Awaiting fund liquidity",
-    "t": "Chờ thanh khoản của quỹ"
-  },
-  "ops.step.awaitingFundMeta": {
-    "en": "priced at the NAV when it settles",
-    "t": "định giá theo NAV lúc tất toán"
-  },
-  "ops.step.awaitingRail": {
-    "en": "Awaiting network liquidity",
-    "t": "Chờ thanh khoản trên mạng"
-  },
-  "ops.step.awaitingRailMeta": {
-    "en": "sent as soon as the network is topped up",
-    "t": "sẽ chuyển đi ngay khi mạng được nạp thêm"
-  },
-  "ops.step.broadcast": {
-    "en": "Broadcast to the network",
-    "t": "Đã phát lên mạng"
-  },
-  "ops.step.burnVoided": {
-    "en": "the reserved burn was voided",
-    "t": "lệnh hủy đơn vị đã giữ được bãi bỏ"
-  },
-  "ops.step.cashPaidOut": {
-    "en": "Cash paid out",
-    "t": "Đã chi trả tiền"
-  },
-  "ops.step.creditedToBalance": {
-    "en": "credited to your balance",
-    "t": "đã ghi có vào số dư của bạn"
-  },
-  "ops.step.inFlight": {
-    "en": "in flight",
-    "t": "đang thực hiện"
-  },
-  "ops.step.leftCustody": {
-    "en": "funds have left custody",
-    "t": "tiền đã rời khỏi lưu ký"
-  },
-  "ops.step.perUnit": {
-    "en": "{nav} per unit",
-    "t": "{nav} mỗi đơn vị quỹ"
-  },
-  "ops.step.pricedAtSettle": {
-    "en": "Priced at the settle NAV",
-    "t": "Định giá theo NAV lúc tất toán"
-  },
-  "ops.step.redCancelled": {
-    "en": "Cancelled — units returned",
-    "t": "Đã hủy — đơn vị quỹ được trả lại"
-  },
-  "ops.step.redFailed": {
-    "en": "Failed — units returned",
-    "t": "Thất bại — đơn vị quỹ được trả lại"
-  },
-  "ops.step.requested": {
-    "en": "Requested",
-    "t": "Đã gửi yêu cầu"
-  },
-  "ops.step.reservationVoided": {
-    "en": "the reservation was voided",
-    "t": "phần đã giữ được bãi bỏ"
-  },
-  "ops.step.settledOnChain": {
-    "en": "Settled on-chain",
-    "t": "Đã tất toán on-chain"
-  },
-  "ops.step.waiting": {
-    "en": "waiting",
-    "t": "đang chờ"
-  },
-  "ops.step.wdCancelled": {
-    "en": "Cancelled — balance returned",
-    "t": "Đã hủy — số dư được hoàn lại"
-  },
-  "ops.step.wdFailed": {
-    "en": "Failed — balance returned",
-    "t": "Thất bại — số dư được hoàn lại"
-  },
-  "ops.sub.deposit": {
-    "en": "{network} · {ref}",
-    "t": "{network} · {ref}"
-  },
-  "ops.sub.managementLeg": {
-    "en": "{amount} management",
-    "t": "{amount} phí quản lý"
-  },
-  "ops.sub.performanceLeg": {
-    "en": "{amount} performance",
-    "t": "{amount} phí hiệu suất"
-  },
-  "ops.sub.withdrawal": {
-    "en": "{network} · {destination}",
-    "t": "{network} · {destination}"
-  },
-  "ops.sub.withdrawalNet": {
-    "en": "{network} · {destination} · {amount} USDT net",
-    "t": "{network} · {destination} · {amount} USDT ròng"
-  },
-  "ops.subtitle": {
-    "en": "Every deposit, withdrawal, subscription and redemption you have made, and every fee a fund has charged — one timeline.",
-    "t": "Mọi khoản nạp, rút, đăng ký mua và hoàn vốn bạn đã thực hiện, cùng mọi khoản phí một quỹ đã thu — trên một dòng thời gian."
-  },
-  "ops.truncatedNote": {
-    "en": "Showing your most recent activity — older entries aren't listed here yet.",
-    "t": "Đang hiển thị hoạt động gần nhất — các mục cũ hơn chưa được liệt kê ở đây."
   },
   "panelAccess.action": {
     "en": "Panel access",
@@ -4947,150 +2307,6 @@
     "en": "Who has access",
     "t": "Ai có quyền"
   },
-  "payment.consent.approve": {
-    "en": "Consented",
-    "t": "Đã đồng ý"
-  },
-  "payment.consent.invalidated": {
-    "en": "Consent void",
-    "t": "Sự đồng ý đã vô hiệu"
-  },
-  "payment.consent.pending": {
-    "en": "Awaiting the investor",
-    "t": "Đang chờ nhà đầu tư"
-  },
-  "payment.consent.reject": {
-    "en": "Declined",
-    "t": "Đã từ chối"
-  },
-  "payment.consent.unsent": {
-    "en": "Email not yet sent",
-    "t": "Email chưa được gửi"
-  },
-  "payment.end.fullAddress": {
-    "en": "Show the full address",
-    "t": "Hiện địa chỉ đầy đủ"
-  },
-  "payment.requirement.hint.owner_consilium": {
-    "en": "Fund-owned money: more than half of the owners must confirm from their mailboxes.",
-    "t": "Tiền của quỹ: hơn một nửa chủ sở hữu phải xác nhận từ hộp thư của họ."
-  },
-  "payment.requirement.hint.subject_consent": {
-    "en": "An investor's own money: that investor alone is emailed and must agree.",
-    "t": "Tiền riêng của nhà đầu tư: chỉ nhà đầu tư đó nhận email và phải đồng ý."
-  },
-  "payment.requirement.owner_consilium": {
-    "en": "Owners' consilium",
-    "t": "Hội đồng chủ sở hữu"
-  },
-  "payment.requirement.subject_consent": {
-    "en": "The investor's consent",
-    "t": "Sự đồng ý của nhà đầu tư"
-  },
-  "payment.state.approved": {
-    "en": "Approved",
-    "t": "Đã duyệt"
-  },
-  "payment.state.cancelled": {
-    "en": "Cancelled",
-    "t": "Đã huỷ"
-  },
-  "payment.state.executed": {
-    "en": "Executed",
-    "t": "Đã thực hiện"
-  },
-  "payment.state.execution_failed": {
-    "en": "Execution failed",
-    "t": "Thực hiện thất bại"
-  },
-  "payment.state.expired": {
-    "en": "Expired",
-    "t": "Đã hết hạn"
-  },
-  "payment.state.pending": {
-    "en": "Pending",
-    "t": "Đang chờ"
-  },
-  "payment.state.rejected": {
-    "en": "Rejected",
-    "t": "Bị từ chối"
-  },
-  "payment.tier.external": {
-    "en": "External",
-    "t": "Bên ngoài"
-  },
-  "payment.tier.hint.external": {
-    "en": "Out to an on-chain address. Ships as a withdrawal once approved.",
-    "t": "Ra ngoài tới một địa chỉ on-chain. Được gửi như một lệnh rút sau khi duyệt."
-  },
-  "payment.tier.hint.internal": {
-    "en": "Between two claims inside the fund. No money leaves the ledger.",
-    "t": "Giữa hai tài khoản trong quỹ. Không có tiền rời khỏi sổ cái."
-  },
-  "payment.tier.hint.service": {
-    "en": "Into one of the fund's products, as its pooled claim.",
-    "t": "Vào một sản phẩm của quỹ, dưới dạng tài khoản gộp của nó."
-  },
-  "payment.tier.internal": {
-    "en": "Internal",
-    "t": "Nội bộ"
-  },
-  "payment.tier.service": {
-    "en": "To a product",
-    "t": "Vào sản phẩm"
-  },
-  "profile.activeSince": {
-    "en": "Active since {date}",
-    "t": "Hoạt động từ {date}"
-  },
-  "profile.activity": {
-    "en": "Activity",
-    "t": "Hoạt động"
-  },
-  "profile.activityCapped": {
-    "en": "Counted over your {n} most recent activity entries",
-    "t": "Tính trên {n} mục hoạt động gần nhất của bạn"
-  },
-  "profile.activitySub": {
-    "en": "Everything that has moved money on this account",
-    "t": "Mọi giao dịch đã chuyển tiền trên tài khoản này"
-  },
-  "profile.completeDetails": {
-    "en": "Complete your details in Settings — verification and compliance checks rely on them.",
-    "t": "Hoàn thiện thông tin trong Cài đặt — việc xác minh và kiểm tra tuân thủ dựa vào đó."
-  },
-  "profile.dateOfBirth": {
-    "en": "Date of birth",
-    "t": "Ngày sinh"
-  },
-  "profile.edit": {
-    "en": "Edit",
-    "t": "Sửa"
-  },
-  "profile.editInSettings": {
-    "en": "Edit in Settings",
-    "t": "Sửa trong Cài đặt"
-  },
-  "profile.hintAtNav": {
-    "en": "at current NAV",
-    "t": "theo NAV hiện tại"
-  },
-  "profile.identityAndStanding": {
-    "en": "Identity and account standing",
-    "t": "Danh tính và trạng thái tài khoản"
-  },
-  "profile.identityVerification": {
-    "en": "Identity verification",
-    "t": "Xác minh danh tính"
-  },
-  "profile.kyc.contact": {
-    "en": "Contact {contact}",
-    "t": "Liên hệ {contact}"
-  },
-  "profile.kyc.caseTitle": {
-    "en": "Verification in progress",
-    "t": "Đang xác minh"
-  },
   "profile.kyc.casePill": {
     "en": "In review",
     "t": "Đang duyệt"
@@ -5103,9 +2319,21 @@
     "en": "Your documents are with our reviewers — we'll email you the decision",
     "t": "Hồ sơ của bạn đang được xét duyệt — chúng tôi sẽ gửi kết quả qua email"
   },
+  "profile.kyc.caseTitle": {
+    "en": "Verification in progress",
+    "t": "Đang xác minh"
+  },
+  "profile.kyc.contact": {
+    "en": "Contact {contact}",
+    "t": "Liên hệ {contact}"
+  },
   "profile.kyc.continue": {
     "en": "Continue",
     "t": "Tiếp tục"
+  },
+  "profile.kyc.emailUnverified": {
+    "en": "Verify your email first — Settings → Security.",
+    "t": "Hãy xác minh email trước — Cài đặt → Bảo mật."
   },
   "profile.kyc.start": {
     "en": "Start",
@@ -5127,341 +2355,13 @@
     "en": "Automatic verification is temporarily out of service — write to us and we'll raise your level by hand.",
     "t": "Xác minh tự động tạm thời ngừng hoạt động — hãy viết cho chúng tôi và chúng tôi sẽ nâng cấp độ của bạn thủ công."
   },
-  "profile.kycLevelPill": {
-    "en": "KYC level {n}",
-    "t": "KYC cấp {n}"
-  },
-  "profile.kycRaisedBy": {
-    "en": "Raised by verification and review",
-    "t": "Được nâng sau khi xác minh và xét duyệt"
-  },
-  "profile.lastActivity": {
-    "en": "Last activity",
-    "t": "Hoạt động gần nhất"
-  },
-  "profile.legalName": {
-    "en": "Legal name",
-    "t": "Tên pháp lý"
-  },
-  "profile.nationality": {
-    "en": "Nationality",
-    "t": "Quốc tịch"
-  },
-  "profile.noActivityBody": {
-    "en": "Your first deposit will appear here.",
-    "t": "Khoản nạp đầu tiên của bạn sẽ xuất hiện ở đây."
-  },
-  "profile.noActivityTitle": {
-    "en": "No activity yet",
-    "t": "Chưa có hoạt động nào"
-  },
-  "profile.phoneNumber": {
-    "en": "Phone number",
-    "t": "Số điện thoại"
-  },
-  "profile.platformAccess": {
-    "en": "Platform access",
-    "t": "Quyền truy cập nền tảng"
-  },
-  "profile.preferredName": {
-    "en": "Preferred name",
-    "t": "Tên thường gọi"
-  },
-  "profile.residentialAddress": {
-    "en": "Residential address",
-    "t": "Địa chỉ thường trú"
-  },
-  "profile.subtitle": {
-    "en": "Who you are on the platform and how your account stands",
-    "t": "Bạn là ai trên nền tảng và tình trạng tài khoản của bạn"
-  },
-  "profile.taxResidence": {
-    "en": "Tax residence",
-    "t": "Nơi cư trú thuế"
-  },
-  "profile.unverified": {
-    "en": "Unverified",
-    "t": "Chưa xác minh"
-  },
-  "profile.viewAllActivity": {
-    "en": "View all activity",
-    "t": "Xem toàn bộ hoạt động"
-  },
-  "session.breakGlass.body": {
-    "en": "This fund has no owner in the register yet, so your role comes from the OWNER_SUBJECTS emergency allowlist and not from the register itself. It is real authority over this console, but it seats nobody: you hold no vote in the consilium. A seat is written once by the genesis seed when the service starts, or granted afterwards by a consilium of the existing owners — and this notice goes away for good the moment the first owner is seated.",
-    "t": "Quỹ này chưa có chủ sở hữu nào trong sổ đăng ký, nên vai trò của bạn lấy từ danh sách truy cập khẩn cấp OWNER_SUBJECTS chứ không phải từ sổ đăng ký. Đó là quyền thật trong bảng điều khiển này, nhưng nó không trao ghế: bạn không có phiếu bầu trong hội đồng. Một ghế chỉ được ghi bởi đợt gieo mầm khởi thủy khi dịch vụ khởi động, hoặc do hội đồng các chủ sở hữu đương nhiệm trao sau đó — và thông báo này sẽ biến mất vĩnh viễn ngay khi có chủ sở hữu đầu tiên."
-  },
-  "session.breakGlass.title": {
-    "en": "You are working under emergency access",
-    "t": "Bạn đang làm việc bằng truy cập khẩn cấp"
-  },
-  "settings.a11y.sections": {
-    "en": "Settings sections",
-    "t": "Các mục cài đặt"
-  },
-  "settings.baseCurrency": {
-    "en": "Base currency",
-    "t": "Tiền tệ cơ sở"
-  },
-  "settings.currency.eur": {
-    "en": "EUR (€)",
-    "t": "EUR (€)"
-  },
-  "settings.currency.usd": {
-    "en": "USD ($)",
-    "t": "USD ($)"
-  },
-  "settings.deliveryTopicsSub": {
-    "en": "Where we reach you and what you follow",
-    "t": "Nơi chúng tôi liên hệ và những gì bạn theo dõi"
-  },
-  "settings.device.browser": {
-    "en": "Browser",
-    "t": "Trình duyệt"
-  },
-  "settings.device.generic": {
-    "en": "device",
-    "t": "thiết bị"
-  },
-  "settings.device.label": {
-    "en": "{browser} · {os}",
-    "t": "{browser} · {os}"
-  },
-  "settings.device.unknown": {
-    "en": "Unknown device",
-    "t": "Thiết bị không xác định"
-  },
-  "settings.devicesSignedIn": {
-    "en": "{n, plural, one {# device currently signed in} other {# devices currently signed in}}",
-    "t": "{n, plural, other {# thiết bị đang đăng nhập}}"
-  },
-  "settings.documents.custody": {
-    "en": "How funds are held",
-    "t": "Tiền được giữ như thế nào"
-  },
-  "settings.documents.custodySub": {
-    "en": "Deposits are held in the fund's custody wallets at Turnkey on the network you sent them over, and booked to your identity as verified by Didit. Nothing is moved without that identity, and withdrawals go only to an address you request. You sign in with your Google account.",
-    "t": "Tiền nạp được giữ trong ví lưu ký của quỹ tại Turnkey trên mạng bạn đã gửi, và ghi nhận dưới danh tính đã được Didit xác minh của bạn. Không gì được chuyển đi nếu thiếu danh tính đó, và tiền rút chỉ đi đến địa chỉ bạn yêu cầu. Bạn đăng nhập bằng tài khoản Google của mình."
-  },
-  "settings.documents.newTab": {
-    "en": "opens in a new tab",
-    "t": "mở trong thẻ mới"
-  },
-  "settings.documents.published": {
-    "en": "Published documents",
-    "t": "Tài liệu đã công bố"
-  },
-  "settings.documents.risk": {
-    "en": "Risk",
-    "t": "Rủi ro"
-  },
-  "settings.documents.rowSub": {
-    "en": "Whitepaper, open source, how funds are held, risk",
-    "t": "Sách trắng, mã nguồn mở, lưu ký tiền, rủi ro"
-  },
-  "settings.documents.sourceCode": {
-    "en": "Open source",
-    "t": "Mã nguồn mở"
-  },
-  "settings.documents.sourceCodeSub": {
-    "en": "The fund's code, on GitHub",
-    "t": "Mã nguồn của quỹ, trên GitHub"
-  },
-  "settings.documents.sub": {
-    "en": "What the fund has published, and how your money is held",
-    "t": "Quỹ đã công bố gì và tiền của bạn được giữ ra sao"
-  },
-  "settings.documents.title": {
-    "en": "Documents and disclosures",
-    "t": "Tài liệu và công bố"
-  },
-  "settings.documents.whitepaper": {
-    "en": "Whitepaper",
-    "t": "Sách trắng"
-  },
-  "settings.documents.whitepaperSub": {
-    "en": "The fund's thesis and structure, on the public site",
-    "t": "Luận điểm và cấu trúc của quỹ, trên trang công khai"
-  },
-  "settings.fixHighlighted": {
-    "en": "Please fix the highlighted fields",
-    "t": "Vui lòng sửa các trường được đánh dấu"
-  },
-  "settings.group.cabinet": {
-    "en": "Cabinet",
-    "t": "Cabinet"
-  },
-  "settings.group.cabinetSub": {
-    "en": "How the cabinet looks and how it reaches you",
-    "t": "Cabinet trông thế nào và liên hệ với bạn ra sao"
-  },
-  "settings.group.help": {
-    "en": "Help",
-    "t": "Trợ giúp"
-  },
-  "settings.group.helpSub": {
-    "en": "What the fund has published, and how to reach a person",
-    "t": "Quỹ đã công bố gì và cách liên hệ với một người thật"
-  },
-  "settings.group.profileSub": {
-    "en": "Who you are and how your account is protected",
-    "t": "Bạn là ai và tài khoản của bạn được bảo vệ ra sao"
-  },
-  "settings.hint.address": {
-    "en": "Your current home address.",
-    "t": "Địa chỉ nhà hiện tại của bạn."
-  },
-  "settings.hint.baseCurrency": {
-    "en": "Saved to your account. Balances in the cabinet are always shown in USD.",
-    "t": "Lưu vào tài khoản của bạn. Số dư trong cabinet luôn hiển thị bằng USD."
-  },
-  "settings.hint.dateOfBirth": {
-    "en": "As on your identity document.",
-    "t": "Như trên giấy tờ tùy thân của bạn."
-  },
-  "settings.hint.email": {
-    "en": "Comes from your Google account and can't be changed here.",
-    "t": "Lấy từ tài khoản Google của bạn và không thể thay đổi tại đây."
-  },
-  "settings.hint.language": {
-    "en": "Applies as soon as you save; the whole cabinet switches.",
-    "t": "Áp dụng ngay khi bạn lưu; toàn bộ cabinet sẽ chuyển ngôn ngữ."
-  },
-  "settings.hint.phone": {
-    "en": "Used to reach you about your account.",
-    "t": "Dùng để liên hệ với bạn về tài khoản."
-  },
-  "settings.hint.preferredName": {
-    "en": "How the cabinet and our emails address you.",
-    "t": "Cách cabinet và email của chúng tôi xưng hô với bạn."
-  },
-  "settings.hint.timeZone": {
-    "en": "Saved to your account. The cabinet itself shows times in your device's time zone.",
-    "t": "Lưu vào tài khoản của bạn. Cabinet hiển thị thời gian theo múi giờ của thiết bị bạn dùng."
-  },
-  "settings.nav.documents": {
-    "en": "Documents",
-    "t": "Tài liệu"
-  },
-  "settings.inbox": {
-    "en": "Inbox",
-    "t": "Hộp thư đến"
-  },
-  "settings.nav.personal": {
-    "en": "Personal details",
-    "t": "Thông tin cá nhân"
-  },
-  "settings.nav.preferences": {
-    "en": "Preferences",
-    "t": "Tùy chọn"
-  },
-  "settings.noSessions": {
-    "en": "No active sessions.",
-    "t": "Không có phiên nào đang hoạt động."
-  },
-  "settings.notificationsSub": {
-    "en": "Which channels reach you and which events you follow",
-    "t": "Kênh nào liên hệ với bạn và sự kiện nào bạn theo dõi"
-  },
-  "settings.personalRowSub": {
-    "en": "Name, phone, address, tax residence",
-    "t": "Tên, điện thoại, địa chỉ, cư trú thuế"
-  },
-  "settings.personalSub": {
-    "en": "Your identity as the fund records it",
-    "t": "Danh tính của bạn theo hồ sơ của quỹ"
-  },
-  "settings.preferencesSub": {
-    "en": "How the cabinet is displayed to you. Saved to your account, so every device follows",
-    "t": "Cách cabinet hiển thị với bạn. Lưu vào tài khoản, nên mọi thiết bị đều áp dụng"
-  },
-  "settings.revoke": {
-    "en": "Revoke",
-    "t": "Thu hồi"
-  },
-  "settings.securitySub": {
-    "en": "How you sign in and where your account is active",
-    "t": "Cách bạn đăng nhập và nơi tài khoản của bạn đang hoạt động"
-  },
-  "settings.selectCurrency": {
-    "en": "Select currency",
-    "t": "Chọn tiền tệ"
-  },
-  "settings.selectLanguage": {
-    "en": "Select language",
-    "t": "Chọn ngôn ngữ"
-  },
-  "settings.selectTimeZone": {
-    "en": "Select time zone",
-    "t": "Chọn múi giờ"
-  },
-  "settings.session.activeNow": {
-    "en": "Active now",
-    "t": "Đang hoạt động"
-  },
-  "settings.session.activeNowLower": {
-    "en": "active now",
-    "t": "đang hoạt động"
-  },
-  "settings.session.activeRecently": {
-    "en": "active recently",
-    "t": "hoạt động gần đây"
-  },
-  "settings.session.lastActiveDays": {
-    "en": "last active {n}d ago",
-    "t": "hoạt động cuối {n} ngày trước"
-  },
-  "settings.session.lastActiveHours": {
-    "en": "last active {n}h ago",
-    "t": "hoạt động cuối {n} giờ trước"
-  },
-  "settings.session.lastActiveMinutes": {
-    "en": "last active {n}m ago",
-    "t": "hoạt động cuối {n} phút trước"
-  },
-  "settings.sessionsLoading": {
-    "en": "Loading active sessions…",
-    "t": "Đang tải các phiên hoạt động…"
-  },
-  "settings.sessionsSub": {
-    "en": "Where you're signed in — revoke anything you don't recognise",
-    "t": "Nơi bạn đang đăng nhập — thu hồi bất kỳ phiên nào bạn không nhận ra"
-  },
-  "settings.signOutOthers": {
-    "en": "Sign out all other devices",
-    "t": "Đăng xuất mọi thiết bị khác"
-  },
-  "settings.subtitle": {
-    "en": "Manage your account, security and access",
-    "t": "Quản lý tài khoản, bảo mật và quyền truy cập của bạn"
-  },
-  "settings.support.email": {
-    "en": "Email support",
-    "t": "Gửi email cho hỗ trợ"
-  },
-  "settings.support.sub": {
-    "en": "A person reads every message",
-    "t": "Mỗi tin nhắn đều có người đọc"
-  },
-  "settings.thisDevice": {
-    "en": "This device",
-    "t": "Thiết bị này"
-  },
-  "settings.timeZone": {
-    "en": "Time zone",
-    "t": "Múi giờ"
-  },
-  "settings.trustedSessionsSub": {
-    "en": "Devices signed in to your account",
-    "t": "Các thiết bị đang đăng nhập vào tài khoản của bạn"
-  },
-  "settings.tz.hoChiMinh": {
-    "en": "Asia / Ho Chi Minh",
-    "t": "Châu Á / Hồ Chí Minh"
-  },
-  "settings.viewProfile": {
-    "en": "View profile",
-    "t": "Xem hồ sơ"
+  "profile.kyc.verifyEmailSub": {
+    "en": "Identity checks open once your address is confirmed",
+    "t": "Kiểm tra danh tính sẽ mở khi địa chỉ của bạn được xác nhận"
+  },
+  "profile.kyc.verifyEmailTitle": {
+    "en": "Verify your email first",
+    "t": "Hãy xác minh email trước"
   },
   "status.backHome": {
     "en": "Back to home",
@@ -6131,6 +3031,14 @@
     "en": "Available",
     "t": "Khả dụng"
   },
+  "tips.wallet.balance.in-compartments.body": {
+    "en": "USDT you moved into a service's compartment. Still yours and counted in your total — move it back to your main balance to withdraw it.",
+    "t": "USDT bạn đã chuyển vào ngăn của một dịch vụ. Vẫn là của bạn và được tính vào tổng — hãy chuyển lại về số dư chính để rút."
+  },
+  "tips.wallet.balance.in-compartments.title": {
+    "en": "In compartments",
+    "t": "Trong ngăn"
+  },
   "tips.wallet.balance.in-orders.body": {
     "en": "USDT set aside by your resting buy orders on the book. Still yours: it comes back to available when an order is cancelled, and turns into units when it fills.",
     "t": "USDT đang được giữ cho các lệnh mua của bạn còn chờ trong sổ. Vẫn là của bạn: sẽ trở lại khả dụng khi lệnh bị hủy và chuyển thành đơn vị quỹ khi lệnh khớp."
@@ -6535,10 +3443,6 @@
     "en": "Partially filled, rest cancelled",
     "t": "Khớp một phần, phần còn lại đã hủy"
   },
-  "trade.state.unfilledCancelled": {
-    "en": "Not filled, cancelled",
-    "t": "Không khớp, đã hủy"
-  },
   "trade.state.partiallyFilled": {
     "en": "Partially filled",
     "t": "Khớp một phần"
@@ -6546,6 +3450,10 @@
   "trade.state.rejected": {
     "en": "Rejected",
     "t": "Bị từ chối"
+  },
+  "trade.state.unfilledCancelled": {
+    "en": "Not filled, cancelled",
+    "t": "Không khớp, đã hủy"
   },
   "trade.stream.live": {
     "en": "Live",
@@ -6607,37 +3515,9 @@
     "en": "Account",
     "t": "Tài khoản"
   },
-  "ui.accountStatus": {
-    "en": "Account status",
-    "t": "Trạng thái tài khoản"
-  },
-  "ui.addFunds": {
-    "en": "Add funds",
-    "t": "Nạp thêm tiền"
-  },
-  "ui.address": {
-    "en": "address",
-    "t": "địa chỉ"
-  },
-  "ui.all": {
-    "en": "All",
-    "t": "Tất cả"
-  },
-  "ui.allocate": {
-    "en": "Allocate",
-    "t": "Phân bổ"
-  },
-  "ui.amount": {
-    "en": "Amount",
-    "t": "Số tiền"
-  },
   "ui.back": {
     "en": "Back",
     "t": "Quay lại"
-  },
-  "ui.browseFunds": {
-    "en": "Browse funds",
-    "t": "Xem các quỹ"
   },
   "ui.cancel": {
     "en": "Cancel",
@@ -6646,14 +3526,6 @@
   "ui.close": {
     "en": "Close",
     "t": "Đóng"
-  },
-  "ui.copied": {
-    "en": "Copied",
-    "t": "Đã sao chép"
-  },
-  "ui.copy": {
-    "en": "Copy",
-    "t": "Sao chép"
   },
   "ui.dateTime.clear": {
     "en": "Clear",
@@ -6679,22 +3551,6 @@
     "en": "Previous month",
     "t": "Tháng trước"
   },
-  "ui.deliveryTopics": {
-    "en": "Delivery & topics",
-    "t": "Gửi thông báo & chủ đề"
-  },
-  "ui.deposit": {
-    "en": "Deposit",
-    "t": "Nạp tiền"
-  },
-  "ui.depositUsdt": {
-    "en": "Deposit USDT",
-    "t": "Nạp USDT"
-  },
-  "ui.destination": {
-    "en": "Destination",
-    "t": "Người nhận"
-  },
   "ui.details": {
     "en": "Details",
     "t": "Chi tiết"
@@ -6703,29 +3559,9 @@
     "en": "Edit",
     "t": "Sửa"
   },
-  "ui.email": {
-    "en": "Email",
-    "t": "Email"
-  },
-  "ui.emailAddress": {
-    "en": "Email address",
-    "t": "Địa chỉ email"
-  },
-  "ui.inProgress": {
-    "en": "In progress",
-    "t": "Đang xử lý"
-  },
-  "ui.inYourCabinet": {
-    "en": "In your cabinet",
-    "t": "Trong tài khoản của bạn"
-  },
   "ui.keep": {
     "en": "Keep it",
     "t": "Giữ lại"
-  },
-  "ui.kycLevel": {
-    "en": "KYC level",
-    "t": "Cấp độ KYC"
   },
   "ui.loading": {
     "en": "Loading…",
@@ -6739,41 +3575,9 @@
     "en": "Max",
     "t": "Tối đa"
   },
-  "ui.network": {
-    "en": "Network",
-    "t": "Mạng"
-  },
-  "ui.networks": {
-    "en": "Networks",
-    "t": "Mạng lưới"
-  },
-  "ui.noOperations": {
-    "en": "No activity yet",
-    "t": "Chưa có hoạt động nào"
-  },
   "ui.none": {
     "en": "None",
     "t": "Không có"
-  },
-  "ui.operations": {
-    "en": "Activity",
-    "t": "Hoạt động"
-  },
-  "ui.profile": {
-    "en": "Profile",
-    "t": "Hồ sơ"
-  },
-  "ui.progress": {
-    "en": "Progress",
-    "t": "Tiến trình"
-  },
-  "ui.receiveFunds": {
-    "en": "Receive funds into your wallet",
-    "t": "Nhận tiền vào ví của bạn"
-  },
-  "ui.refresh": {
-    "en": "Refresh",
-    "t": "Làm mới"
   },
   "ui.reloadPage": {
     "en": "Reload page",
@@ -6787,756 +3591,20 @@
     "en": "Save",
     "t": "Lưu"
   },
-  "ui.saveChanges": {
-    "en": "Save changes",
-    "t": "Lưu thay đổi"
-  },
-  "ui.saved": {
-    "en": "Saved",
-    "t": "Đã lưu"
-  },
-  "ui.security": {
-    "en": "Security",
-    "t": "Bảo mật"
-  },
-  "ui.sessionsDevices": {
-    "en": "Sessions & devices",
-    "t": "Phiên & thiết bị"
-  },
   "ui.total": {
     "en": "Total",
     "t": "Tổng"
   },
-  "ui.trustedSessions": {
-    "en": "Trusted sessions",
-    "t": "Phiên tin cậy"
+  "wallet.subtitle": {
+    "en": "Your invest balance and the main account behind it",
+    "t": "Số dư invest của bạn và tài khoản chính phía sau"
   },
-  "ui.verified": {
-    "en": "Verified",
-    "t": "Đã xác minh"
-  },
-  "ui.services": {
-    "en": "Services",
-    "t": "Dịch vụ"
-  },
-  "ui.walletHistory": {
-    "en": "History",
-    "t": "Lịch sử"
-  },
-  "ui.viewAll": {
-    "en": "View all",
-    "t": "Xem tất cả"
-  },
-  "ui.wallet": {
+  "wallet.title": {
     "en": "Wallet",
     "t": "Ví"
   },
-  "ui.withdraw": {
-    "en": "Withdraw",
-    "t": "Rút tiền"
-  },
-  "ui.withdrawUsdt": {
-    "en": "Withdraw USDT",
-    "t": "Rút USDT"
-  },
-  "wallet.acceptedInstantly": {
-    "en": "Accepted; if {network} liquidity is short right now, it queues until topped up — you'll be notified.",
-    "t": "Đã tiếp nhận; nếu thanh khoản {network} đang thiếu, lệnh sẽ xếp hàng cho tới khi được nạp đủ — bạn sẽ nhận được thông báo."
-  },
-  "wallet.activitySub": {
-    "en": "Deposits and withdrawals — queued, processing, completed",
-    "t": "Nạp và rút tiền — đang chờ, đang xử lý, hoàn tất"
-  },
-  "wallet.amountCaps": {
-    "en": "AMOUNT",
-    "t": "SỐ TIỀN"
-  },
-  "wallet.availPrefix": {
-    "en": "Avail: {amount}",
-    "t": "Khả dụng: {amount}"
-  },
-  "wallet.cancelWithdrawal": {
-    "en": "Cancel withdrawal",
-    "t": "Hủy lệnh rút"
-  },
-  "wallet.chain.bep20": {
-    "en": "BNB Smart Chain",
-    "t": "BNB Smart Chain"
-  },
-  "wallet.chain.polygon": {
-    "en": "Polygon PoS",
-    "t": "Polygon PoS"
-  },
-  "wallet.chain.ton": {
-    "en": "The Open Network",
-    "t": "The Open Network"
-  },
-  "wallet.chain.trc20": {
-    "en": "TRON",
-    "t": "TRON"
-  },
-  "wallet.chain.unknown": {
-    "en": "Network",
-    "t": "Mạng"
-  },
-  "wallet.chip.avail": {
-    "en": "AVAILABLE",
-    "t": "KHẢ DỤNG"
-  },
-  "wallet.chip.availShort": {
-    "en": "AVAIL",
-    "t": "SẴN CÓ"
-  },
-  "wallet.chip.inOrders": {
-    "en": "IN ORDERS",
-    "t": "TRONG LỆNH"
-  },
-  "wallet.chip.inOrdersShort": {
-    "en": "ORDERS",
-    "t": "LỆNH"
-  },
-  "wallet.chip.invest": {
-    "en": "INVESTED",
-    "t": "ĐÃ ĐẦU TƯ"
-  },
-  "wallet.chip.investShort": {
-    "en": "INVEST",
-    "t": "ĐẦU TƯ"
-  },
-  "wallet.chip.pendingWd": {
-    "en": "PENDING WD",
-    "t": "CHỜ RÚT TIỀN"
-  },
-  "wallet.confirmWithdrawal": {
-    "en": "Confirm withdrawal",
-    "t": "Xác nhận rút tiền"
-  },
-  "wallet.copyAddress": {
-    "en": "Copy address",
-    "t": "Sao chép địa chỉ"
-  },
-  "wallet.creditedAfterConfirmations": {
-    "en": "Credited to your one balance after {n, plural, one {# network confirmation} other {# network confirmations}}.",
-    "t": "Được ghi có vào số dư duy nhất của bạn sau {n, plural, other {# lần xác nhận mạng}}."
-  },
-  "wallet.depositAddressUnavailable": {
-    "en": "A {network} deposit address isn't available yet — this network is still being set up. Check back soon.",
-    "t": "Địa chỉ nạp {network} chưa sẵn sàng — mạng này vẫn đang được thiết lập. Vui lòng quay lại sau."
-  },
-  "wallet.depositNetwork": {
-    "en": "Deposit network",
-    "t": "Mạng nạp tiền"
-  },
-  "wallet.depositVerifyBody": {
-    "en": "Your deposit address opens once your identity is verified. It only needs doing once.",
-    "t": "Địa chỉ nạp tiền sẽ mở khi danh tính của bạn được xác minh. Việc này chỉ cần làm một lần."
-  },
-  "wallet.depositVerifyTitle": {
-    "en": "Verify your identity to deposit",
-    "t": "Xác minh danh tính để nạp tiền"
-  },
-  "wallet.destinationAddressCaps": {
-    "en": "DESTINATION ADDRESS",
-    "t": "ĐỊA CHỈ NHẬN"
-  },
-  "wallet.destinationCaps": {
-    "en": "DESTINATION",
-    "t": "NGƯỜI NHẬN"
-  },
-  "wallet.evmSiblingHazard": {
-    "en": "This {network} address is not your {siblings} address — even though both start with 0x. USDT sent on {siblingsOr} will not be credited.",
-    "t": "Địa chỉ {network} này không phải địa chỉ {siblings} của bạn — dù cả hai đều bắt đầu bằng 0x. USDT gửi trên {siblingsOr} sẽ không được ghi có."
-  },
-  "wallet.exceedsInstant": {
-    "en": "~{amount} USDT exceeds instant {network} liquidity and will be queued until the network is topped up.",
-    "t": "~{amount} USDT vượt quá thanh khoản tức thì của {network} và sẽ được xếp hàng cho tới khi mạng được nạp thêm."
-  },
-  "wallet.minInstantQueued": {
-    "en": "Min {min} USDT · instant {network} {instant} · rest queued",
-    "t": "Tối thiểu {min} USDT · {network} tức thì {instant} · phần còn lại xếp hàng"
-  },
-  "wallet.networkCaps": {
-    "en": "NETWORK",
-    "t": "MẠNG"
-  },
-  "wallet.networkFee": {
-    "en": "Network fee",
-    "t": "Phí mạng"
-  },
-  "wallet.networkWarning": {
-    "en": "Network warning",
-    "t": "Cảnh báo về mạng"
-  },
-  "wallet.newDeposit": {
-    "en": "New deposit",
-    "t": "Nạp tiền mới"
-  },
-  "wallet.noActivity": {
-    "en": "No activity yet",
-    "t": "Chưa có hoạt động nào"
-  },
-  "wallet.noActivityHint": {
-    "en": "Your deposits and withdrawals will appear here once you make your first transfer.",
-    "t": "Các khoản nạp và rút của bạn sẽ hiện ở đây sau lần chuyển đầu tiên."
-  },
-  "wallet.noDepositRails": {
-    "en": "No deposit networks are available right now — check back soon.",
-    "t": "Hiện không có mạng nạp tiền nào khả dụng — vui lòng quay lại sau."
-  },
-  "wallet.noRails": {
-    "en": "No deposit or withdrawal networks are available right now — check back soon.",
-    "t": "Hiện không có mạng nạp hoặc rút tiền nào khả dụng — vui lòng quay lại sau."
-  },
-  "wallet.noRailsTitle": {
-    "en": "No networks available yet",
-    "t": "Chưa có mạng nào khả dụng"
-  },
-  "wallet.overviewVerifyTitle": {
-    "en": "Verify your identity to use these networks",
-    "t": "Xác minh danh tính để sử dụng các mạng này"
-  },
-  "wallet.overviewVerifyBody": {
-    "en": "Deposit addresses are issued and withdrawals open once your identity is verified. Your balance above is unaffected.",
-    "t": "Địa chỉ nạp tiền được cấp và rút tiền được mở sau khi danh tính của bạn được xác minh. Số dư ở trên không thay đổi."
-  },
-  "wallet.noWithdrawRails": {
-    "en": "No withdrawal networks are available right now — check back soon.",
-    "t": "Hiện không có mạng rút tiền nào khả dụng — vui lòng quay lại sau."
-  },
-  "wallet.oneFungibleBalance": {
-    "en": "≈ ${amount} · one fungible balance",
-    "t": "≈ ${amount} · một số dư duy nhất"
-  },
-  "wallet.overviewSub": {
-    "en": "One USDT balance · networks are how you deposit and withdraw",
-    "t": "Một số dư USDT duy nhất · mạng là cách bạn nạp và rút"
-  },
-  "wallet.pendWd": {
-    "en": "PEND WD",
-    "t": "CHỜ RÚT"
-  },
-  "wallet.placeholder.railAddress": {
-    "en": "{network} address",
-    "t": "Địa chỉ {network}"
-  },
-  "wallet.qrUnavailable": {
-    "en": "QR code unavailable — use the address below.",
-    "t": "Không hiển thị được mã QR — hãy dùng địa chỉ bên dưới."
-  },
-  "wallet.railActionUnavailable": {
-    "en": "{action} is not available on this network yet",
-    "t": "{action} chưa khả dụng trên mạng này"
-  },
-  "wallet.railHazard": {
-    "en": "Only send USDT on the {network} network to this address. Funds sent on any other network will be lost permanently.",
-    "t": "Chỉ gửi USDT trên mạng {network} tới địa chỉ này. Tiền gửi trên bất kỳ mạng nào khác sẽ mất vĩnh viễn."
-  },
-  "wallet.railUsdt": {
-    "en": "{network} · USDT",
-    "t": "{network} · USDT"
-  },
-  "wallet.railsCaption": {
-    "en": "deposit & withdrawal networks",
-    "t": "mạng nạp & rút tiền"
-  },
-  "wallet.receiptQueued": {
-    "en": "{amount} USDT to {address} is queued — it is sent once {network} liquidity is topped up.",
-    "t": "{amount} USDT tới {address} đang xếp hàng — sẽ được chuyển đi khi thanh khoản {network} được nạp thêm."
-  },
-  "wallet.receiptSubmitted": {
-    "en": "{amount} USDT is on its way to {address} — pending on-chain confirmation.",
-    "t": "{amount} USDT đang trên đường tới {address} — chờ xác nhận on-chain."
-  },
-  "wallet.reviewWithdrawal": {
-    "en": "Review withdrawal",
-    "t": "Xem lại lệnh rút"
-  },
-  "wallet.selectNetwork": {
-    "en": "SELECT NETWORK",
-    "t": "CHỌN MẠNG"
-  },
-  "wallet.statusCaps": {
-    "en": "STATUS",
-    "t": "TRẠNG THÁI"
-  },
-  "wallet.toAddressLine": {
-    "en": "To {address}",
-    "t": "Tới {address}"
-  },
-  "wallet.totalBalance": {
-    "en": "TOTAL BALANCE",
-    "t": "TỔNG SỐ DƯ"
-  },
-  "wallet.txRef": {
-    "en": "tx {ref}",
-    "t": "tx {ref}"
-  },
-  "wallet.withdrawSub": {
-    "en": "Send funds to an external address — one balance, any network",
-    "t": "Gửi tiền tới địa chỉ bên ngoài — một số dư, mọi mạng"
-  },
-  "wallet.withdrawVerifyBody": {
-    "en": "Withdrawals open once your identity is verified. Your balance is untouched in the meantime.",
-    "t": "Rút tiền sẽ mở khi danh tính của bạn được xác minh. Số dư của bạn không bị ảnh hưởng."
-  },
-  "wallet.withdrawVerifyTitle": {
-    "en": "Verify your identity to withdraw",
-    "t": "Xác minh danh tính để rút tiền"
-  },
-  "wallet.withdrawalFailed": {
-    "en": "Withdrawal failed",
-    "t": "Rút tiền thất bại"
-  },
-  "wallet.withdrawalNetwork": {
-    "en": "Withdrawal network",
-    "t": "Mạng rút tiền"
-  },
-  "wallet.withdrawalQueued": {
-    "en": "Withdrawal queued",
-    "t": "Lệnh rút đang chờ"
-  },
-  "wallet.withdrawalSubmitted": {
-    "en": "Withdrawal submitted",
-    "t": "Đã gửi lệnh rút"
-  },
-  "wallet.youWillReceive": {
-    "en": "You will receive",
-    "t": "Bạn sẽ nhận được"
-  },
-  "wallet.yourDepositAddress": {
-    "en": "Your {network} deposit address",
-    "t": "Địa chỉ nạp {network} của bạn"
-  },
-  "onboarding.allSet.body": {
-    "en": "Your holdings and their split are under {own}; every movement lands in {ops}.",
-    "t": "Các vị thế và tỷ trọng của bạn nằm trong mục “{own}”; mọi giao dịch được ghi ở “{ops}”."
-  },
-  "onboarding.allSet.dismiss": {
-    "en": "Got it",
-    "t": "Đã hiểu"
-  },
-  "onboarding.allSet.title": {
-    "en": "You're all set",
-    "t": "Bạn đã sẵn sàng"
-  },
-  "onboarding.deposit.current": {
-    "en": "Send funds to your deposit address — credited once the network confirms it.",
-    "t": "Gửi tiền đến địa chỉ nạp của bạn — được ghi có ngay khi mạng xác nhận giao dịch."
-  },
-  "onboarding.deposit.done": {
-    "en": "Funds received.",
-    "t": "Đã nhận tiền."
-  },
-  "onboarding.deposit.locked": {
-    "en": "Opens once your identity is verified.",
-    "t": "Mở sau khi danh tính của bạn được xác minh."
-  },
-  "onboarding.deposit.title": {
-    "en": "Make your first deposit",
-    "t": "Nạp tiền lần đầu"
-  },
-  "onboarding.invest.current": {
-    "en": "Pick a strategy and subscribe with your available balance.",
-    "t": "Chọn một chiến lược và đăng ký bằng số dư khả dụng của bạn."
-  },
-  "onboarding.invest.done": {
-    "en": "You hold units.",
-    "t": "Bạn đang nắm giữ đơn vị quỹ."
-  },
-  "onboarding.invest.locked": {
-    "en": "Opens once a deposit is credited.",
-    "t": "Mở sau khi khoản nạp được ghi có."
-  },
-  "onboarding.invest.title": {
-    "en": "Choose a strategy",
-    "t": "Chọn chiến lược"
-  },
-  "onboarding.progress": {
-    "en": "{done} of {total} done",
-    "t": "Xong {done}/{total}"
-  },
-  "onboarding.status.complete": {
-    "en": "Verified · funded · invested",
-    "t": "Đã xác minh · đã nạp tiền · đã đầu tư"
-  },
-  "onboarding.subtitle": {
-    "en": "Three steps to your first investment.",
-    "t": "Ba bước đến khoản đầu tư đầu tiên của bạn."
-  },
-  "onboarding.title": {
-    "en": "Get started",
-    "t": "Bắt đầu"
-  },
-  "onboarding.verify.done": {
-    "en": "Your deposit address and withdrawals are open.",
-    "t": "Địa chỉ nạp tiền và rút tiền đã được mở."
-  },
-  "onboarding.verify.review": {
-    "en": "Nothing to do on your side — your documents are with our reviewers and we'll email you the decision.",
-    "t": "Bạn không cần làm gì thêm — hồ sơ đang được đội ngũ xét duyệt, quyết định sẽ được gửi qua email."
-  },
-  "onboarding.verify.title": {
-    "en": "Verify your identity",
-    "t": "Xác minh danh tính"
-  },
-  "auth.code.back": {
-    "en": "Use a different email",
-    "t": "Dùng email khác"
-  },
-  "auth.code.checkSpam": {
-    "en": "It can take a minute. Check your spam folder too.",
-    "t": "Có thể mất một phút. Hãy kiểm tra cả thư mục spam."
-  },
-  "auth.code.desc": {
-    "en": "We sent a 6 digit sign in code to {email}",
-    "t": "Chúng tôi đã gửi mã đăng nhập 6 chữ số tới {email}"
-  },
-  "auth.code.label": {
-    "en": "Code",
-    "t": "Mã"
-  },
-  "auth.code.mailMe": {
-    "en": "Email me a code",
-    "t": "Gửi mã qua email"
-  },
-  "auth.code.resend": {
-    "en": "Send a new code",
-    "t": "Gửi mã mới"
-  },
-  "auth.code.resendIn": {
-    "en": "Send a new code in {seconds}s",
-    "t": "Gửi mã mới sau {seconds} giây"
-  },
-  "auth.code.title": {
-    "en": "Check your email",
-    "t": "Kiểm tra email của bạn"
-  },
-  "auth.createAccount": {
-    "en": "Create an account",
-    "t": "Tạo tài khoản"
-  },
-  "auth.dialog.heading": {
-    "en": "Sign in or create an account",
-    "t": "Đăng nhập hoặc tạo tài khoản"
-  },
-  "auth.email.confirm": {
-    "en": "Confirm",
-    "t": "Xác nhận"
-  },
-  "auth.email.unverifiedSub": {
-    "en": "Not verified — identity checks need a verified email",
-    "t": "Chưa xác minh — kiểm tra danh tính cần email đã xác minh"
-  },
-  "auth.email.verified": {
-    "en": "Verified",
-    "t": "Đã xác minh"
-  },
-  "auth.email.verify": {
-    "en": "Verify",
-    "t": "Xác minh"
-  },
-  "auth.err.attemptsExceeded": {
-    "en": "Too many tries. Send yourself a new code.",
-    "t": "Quá nhiều lần thử. Hãy yêu cầu mã mới."
-  },
-  "auth.err.captcha": {
-    "en": "Captcha verification failed. Please try again.",
-    "t": "Xác minh captcha thất bại. Vui lòng thử lại."
-  },
-  "auth.err.captchaLoad": {
-    "en": "Captcha failed to load. Please refresh the page.",
-    "t": "Không tải được captcha. Vui lòng tải lại trang."
-  },
-  "auth.err.captchaUnavailable": {
-    "en": "We could not check the captcha just now. Please try again.",
-    "t": "Hiện không thể kiểm tra captcha. Vui lòng thử lại."
-  },
-  "auth.err.codeExpired": {
-    "en": "That code has expired. Send yourself a new code.",
-    "t": "Mã đã hết hạn. Hãy yêu cầu mã mới."
-  },
-  "auth.err.disabled": {
-    "en": "This account is suspended.",
-    "t": "Tài khoản này đã bị tạm khóa."
-  },
-  "auth.err.emailTaken": {
-    "en": "An account already exists for that address. Sign in instead — with a code if you forgot the password.",
-    "t": "Địa chỉ này đã có tài khoản. Hãy đăng nhập — bằng mã nếu bạn quên mật khẩu."
-  },
-  "auth.err.emailVerifiedElsewhere": {
-    "en": "This address is verified on another account.",
-    "t": "Địa chỉ này đã được xác minh ở tài khoản khác."
-  },
-  "auth.err.invalidCode": {
-    "en": "That code is not right. Try again.",
-    "t": "Mã không đúng. Hãy thử lại."
-  },
-  "auth.err.invalidCredentials": {
-    "en": "Wrong email, username or password.",
-    "t": "Sai email, tên người dùng hoặc mật khẩu."
-  },
-  "auth.err.invalidEmail": {
-    "en": "Enter a valid email address.",
-    "t": "Nhập một địa chỉ email hợp lệ."
-  },
-  "auth.err.invalidUsername": {
-    "en": "3–32 characters: letters, digits, '_', '.' or '-'.",
-    "t": "3–32 ký tự: chữ cái, chữ số, '_', '.' hoặc '-'."
-  },
-  "auth.err.passwordLocked": {
-    "en": "Too many wrong passwords. Sign in with a code instead.",
-    "t": "Sai mật khẩu quá nhiều lần. Hãy đăng nhập bằng mã."
-  },
-  "auth.err.signOut": {
-    "en": "We couldn't sign you out. Please try again.",
-    "t": "Không thể đăng xuất. Vui lòng thử lại."
-  },
-  "auth.err.throttled": {
-    "en": "Too many codes went to this address. Try again in a few minutes.",
-    "t": "Đã gửi quá nhiều mã tới địa chỉ này. Hãy thử lại sau vài phút."
-  },
-  "auth.err.usernameTaken": {
-    "en": "That username is taken.",
-    "t": "Tên người dùng này đã có người dùng."
-  },
-  "auth.err.verifyAttemptsExceeded": {
-    "en": "Too many wrong codes in the last 24 hours. Try again tomorrow.",
-    "t": "Quá nhiều mã sai trong 24 giờ qua. Hãy thử lại vào ngày mai."
-  },
-  "auth.err.verifyThrottled": {
-    "en": "Too many codes went to this address. Try again later — the limit is 10 a day.",
-    "t": "Đã gửi quá nhiều mã tới địa chỉ này. Hãy thử lại sau — tối đa 10 mã mỗi ngày."
-  },
-  "auth.err.weakPassword": {
-    "en": "Use at least 8 characters.",
-    "t": "Dùng ít nhất 8 ký tự."
-  },
-  "auth.field.email": {
-    "en": "Email",
-    "t": "Email"
-  },
-  "auth.field.identifier": {
-    "en": "Email or username",
-    "t": "Email hoặc tên người dùng"
-  },
-  "auth.field.newPassword": {
-    "en": "New password",
-    "t": "Mật khẩu mới"
-  },
-  "auth.field.password": {
-    "en": "Password",
-    "t": "Mật khẩu"
-  },
-  "auth.method.code": {
-    "en": "Email code",
-    "t": "Mã qua email"
-  },
-  "auth.method.password": {
-    "en": "Password",
-    "t": "Mật khẩu"
-  },
-  "auth.methods.title": {
-    "en": "Sign-in methods",
-    "t": "Phương thức đăng nhập"
-  },
-  "auth.orContinueWith": {
-    "en": "Or continue with",
-    "t": "Hoặc tiếp tục với"
-  },
-  "auth.password.change": {
-    "en": "Change password",
-    "t": "Đổi mật khẩu"
-  },
-  "auth.password.save": {
-    "en": "Save password",
-    "t": "Lưu mật khẩu"
-  },
-  "auth.password.set": {
-    "en": "Set password",
-    "t": "Đặt mật khẩu"
-  },
-  "auth.signIn": {
-    "en": "Sign in",
-    "t": "Đăng nhập"
-  },
-  "auth.signup.create": {
-    "en": "Create account",
-    "t": "Tạo tài khoản"
-  },
-  "auth.signup.desc": {
-    "en": "Your account works right away. A KYC check later needs a verified email.",
-    "t": "Tài khoản dùng được ngay. Kiểm tra KYC sau này cần email đã xác minh."
-  },
-  "auth.signup.haveAccount": {
-    "en": "Already have an account? Sign in",
-    "t": "Đã có tài khoản? Đăng nhập"
-  },
-  "auth.signup.heading": {
-    "en": "Create an account",
-    "t": "Tạo tài khoản"
-  },
-  "auth.signup.verifyNow": {
-    "en": "Verify my email now",
-    "t": "Xác minh email ngay"
-  },
-  "auth.useCodeInstead": {
-    "en": "Sign in with a code instead",
-    "t": "Đăng nhập bằng mã"
-  },
-  "auth.useLoginCode": {
-    "en": "Email me a code",
-    "t": "Gửi mã qua email"
-  },
-  "auth.usePasswordInstead": {
-    "en": "Sign in with a password instead",
-    "t": "Đăng nhập bằng mật khẩu"
-  },
-  "auth.username.change": {
-    "en": "Change",
-    "t": "Đổi"
-  },
-  "auth.username.none": {
-    "en": "None yet — once set, it signs you in like your email",
-    "t": "Chưa có — khi đặt, bạn có thể đăng nhập bằng nó như email"
-  },
-  "auth.username.save": {
-    "en": "Save",
-    "t": "Lưu"
-  },
-  "auth.username.title": {
-    "en": "Username",
-    "t": "Tên người dùng"
-  },
-  "auth.verify.desc": {
-    "en": "Your account is ready. Enter the 6 digit code we sent to {email} to verify it, or skip and verify later in Settings.",
-    "t": "Tài khoản đã sẵn sàng. Nhập mã 6 chữ số đã gửi tới {email} để xác minh, hoặc xác minh sau trong Cài đặt."
-  },
-  "auth.verify.later": {
-    "en": "Verify later",
-    "t": "Xác minh sau"
-  },
-  "auth.verify.title": {
-    "en": "Confirm your email",
-    "t": "Xác nhận email"
-  },
-  "auth.wall.action": {
-    "en": "Sign in",
-    "t": "Đăng nhập"
-  },
-  "auth.wall.desc": {
-    "en": "This part of the cabinet belongs to your account. Sign in or create one — it takes a minute.",
-    "t": "Phần này của cabinet thuộc về tài khoản của bạn. Hãy đăng nhập hoặc tạo tài khoản — chỉ mất một phút."
-  },
-  "auth.wall.title": {
-    "en": "Sign in to see this",
-    "t": "Đăng nhập để xem nội dung này"
-  },
-  "nav.guestMode": {
-    "en": "Guest Mode",
-    "t": "Chế độ khách"
-  },
-  "profile.kyc.emailUnverified": {
-    "en": "Verify your email first — Settings → Security.",
-    "t": "Hãy xác minh email trước — Cài đặt → Bảo mật."
-  },
-  "profile.kyc.verifyEmailSub": {
-    "en": "Identity checks open once your address is confirmed",
-    "t": "Kiểm tra danh tính sẽ mở khi địa chỉ của bạn được xác nhận"
-  },
-  "profile.kyc.verifyEmailTitle": {
-    "en": "Verify your email first",
-    "t": "Hãy xác minh email trước"
-  },
-  "auth.err.passkeyCancelled": {
-    "en": "Passkey sign in was cancelled.",
-    "t": "Đăng nhập bằng khóa truy cập đã bị hủy."
-  },
-  "auth.err.passkeyExpired": {
-    "en": "That took too long. Try the passkey again.",
-    "t": "Quá thời gian. Hãy thử lại khóa truy cập."
-  },
-  "auth.err.passkeyRegistered": {
-    "en": "This passkey is registered already.",
-    "t": "Khóa truy cập này đã được đăng ký."
-  },
-  "auth.err.passkeyRejected": {
-    "en": "That passkey is not registered here. Sign in with a code instead.",
-    "t": "Khóa truy cập này chưa được đăng ký ở đây. Hãy đăng nhập bằng mã."
-  },
-  "auth.passkeys.add": {
-    "en": "Add a passkey",
-    "t": "Thêm khóa truy cập"
-  },
-  "auth.passkeys.default": {
-    "en": "Passkey",
-    "t": "Khóa truy cập"
-  },
-  "auth.passkeys.remove": {
-    "en": "Remove",
-    "t": "Xóa"
-  },
-  "auth.passkeys.sub": {
-    "en": "Sign in with your fingerprint, face or screen lock — no code, no password",
-    "t": "Đăng nhập bằng vân tay, khuôn mặt hoặc khóa màn hình — không cần mã hay mật khẩu"
-  },
-  "auth.passkeys.title": {
-    "en": "Passkeys",
-    "t": "Khóa truy cập"
-  },
-  "auth.usePasskey": {
-    "en": "Use a passkey",
-    "t": "Dùng khóa truy cập"
-  },
-  "admin.revenue.bankingTreasuryNote": {
-    "en": "Withdrawal fees land here, not in the fee allocation: banking's own cash, held by no one through units. Nothing is paid out of it until scope approvals cover treasury spending.",
-    "t": "Phí rút tiền được chuyển về đây, không vào phân bổ phí: đây là tiền riêng của banking, không ai nắm giữ qua đơn vị. Chưa chi khoản nào từ đây cho đến khi phê duyệt của scope bao quát chi tiêu ngân quỹ."
-  },
-  "admin.revenue.treasuryPostedHint": {
-    "en": "retained withdrawal fees, reserved included",
-    "t": "phí rút tiền đã giữ lại, gồm cả phần đã đặt trước"
-  },
-  "admin.treasury.bankingTreasury": {
-    "en": "Banking treasury",
-    "t": "Ngân quỹ của banking"
-  },
-  "admin.treasury.bankingTreasuryAccess": {
-    "en": "banking's own",
-    "t": "của riêng banking"
-  },
-  "admin.treasury.bankingTreasuryHolders": {
-    "en": "withdrawal fees · spending closed for now",
-    "t": "phí rút tiền · tạm khóa chi tiêu"
-  },
-  "admin.treasury.heldInCompartments": {
-    "en": "Held in compartments",
-    "t": "Nắm giữ trong ngăn"
-  },
-  "admin.treasury.heldInCompartmentsHint": {
-    "en": "users' scope compartments · still theirs",
-    "t": "các ngăn theo scope của người dùng · vẫn là của họ"
-  },
-  "admin.users.balanceInCompartments": {
-    "en": "· in compartments",
-    "t": "· trong ngăn"
-  },
-  "admin.users.balanceMain": {
-    "en": "· main",
-    "t": "· chính"
-  },
-  "admin.withdrawals.source.treasury": {
-    "en": "Banking treasury",
-    "t": "Ngân quỹ của banking"
-  },
-  "tips.wallet.balance.in-compartments.body": {
-    "en": "USDT you moved into a service's compartment. Still yours and counted in your total — move it back to your main balance to withdraw it.",
-    "t": "USDT bạn đã chuyển vào ngăn của một dịch vụ. Vẫn là của bạn và được tính vào tổng — hãy chuyển lại về số dư chính để rút."
-  },
-  "tips.wallet.balance.in-compartments.title": {
-    "en": "In compartments",
-    "t": "Trong ngăn"
-  },
-  "wallet.chip.inCompartments": {
-    "en": "IN COMPARTMENTS",
-    "t": "TRONG NGĂN"
+  "wallet.unavailable": {
+    "en": "The wallet could not be loaded. Reload the page to try again.",
+    "t": "Không thể tải ví. Hãy tải lại trang để thử lại."
   }
 }

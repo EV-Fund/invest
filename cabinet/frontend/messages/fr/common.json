@@ -1,4 +1,12 @@
 {
+  "account.title": {
+    "en": "Account",
+    "t": "Compte"
+  },
+  "account.unavailable": {
+    "en": "Your account settings could not be loaded. Reload the page to try again.",
+    "t": "Impossible de charger les paramètres de votre compte. Rechargez la page pour réessayer."
+  },
   "admin.ago.days": {
     "en": "{n, plural, one {#d ago} other {#d ago}}",
     "t": "{n, plural, one {il y a # j} many {il y a # j} other {il y a # j}}"
@@ -319,6 +327,10 @@
     "en": "Yield",
     "t": "Rendement"
   },
+  "admin.alloc.issuance.source.mint": {
+    "en": "minted",
+    "t": "émis"
+  },
   "admin.alloc.issuance.source.retire": {
     "en": "retired",
     "t": "retirées"
@@ -379,6 +391,10 @@
     "en": "Issue units",
     "t": "Émettre des parts"
   },
+  "admin.alloc.open": {
+    "en": "Open",
+    "t": "Ouvrir"
+  },
   "admin.alloc.pinCap.action": {
     "en": "Pin cap to issued",
     "t": "Plafonner à l’émis"
@@ -403,9 +419,25 @@
     "en": "Pin cap",
     "t": "Plafonner"
   },
-  "admin.alloc.issuance.source.mint": {
-    "en": "minted",
-    "t": "émis"
+  "admin.alloc.placeholder.summary": {
+    "en": "One line for the catalog card",
+    "t": "Une ligne pour la fiche du catalogue"
+  },
+  "admin.alloc.register": {
+    "en": "Register allocation",
+    "t": "Inscrire une allocation"
+  },
+  "admin.alloc.registerHint": {
+    "en": "Registers in draft — open it when the product is ready to take money.",
+    "t": "Inscrit en brouillon — ouvrez-la quand le produit est prêt à recevoir des capitaux."
+  },
+  "admin.alloc.registerSubmit": {
+    "en": "Register",
+    "t": "Inscrire"
+  },
+  "admin.alloc.registry": {
+    "en": "Registry",
+    "t": "Registre"
   },
   "admin.alloc.retire.action": {
     "en": "Retire units",
@@ -455,30 +487,6 @@
     "en": "Retire",
     "t": "Retirer"
   },
-  "admin.alloc.open": {
-    "en": "Open",
-    "t": "Ouvrir"
-  },
-  "admin.alloc.placeholder.summary": {
-    "en": "One line for the catalog card",
-    "t": "Une ligne pour la fiche du catalogue"
-  },
-  "admin.alloc.register": {
-    "en": "Register allocation",
-    "t": "Inscrire une allocation"
-  },
-  "admin.alloc.registerHint": {
-    "en": "Registers in draft — open it when the product is ready to take money.",
-    "t": "Inscrit en brouillon — ouvrez-la quand le produit est prêt à recevoir des capitaux."
-  },
-  "admin.alloc.registerSubmit": {
-    "en": "Register",
-    "t": "Inscrire"
-  },
-  "admin.alloc.registry": {
-    "en": "Registry",
-    "t": "Registre"
-  },
   "admin.alloc.slugHint": {
     "en": "Permanent — every fund RPC keys on it",
     "t": "Définitif — chaque RPC du fonds s’y réfère"
@@ -491,114 +499,6 @@
     "en": "The registry of investable products — a fund exists only once it is registered here",
     "t": "Le registre des produits investissables — un fonds n’existe qu’une fois inscrit ici"
   },
-  "admin.cabinet.announcement": {
-    "en": "Announcement",
-    "t": "Annonce"
-  },
-  "admin.cabinet.announcementSub": {
-    "en": "The live banner across the cabinet",
-    "t": "La bannière affichée dans tout l’espace client"
-  },
-  "admin.cabinet.featureFlags": {
-    "en": "Feature flags",
-    "t": "Feature flags"
-  },
-  "admin.cabinet.featureFlagsSub": {
-    "en": "Gating cabinet features & MFE mounts",
-    "t": "Contrôle des fonctionnalités et des montages MFE"
-  },
-  "admin.cabinet.flagRollout": {
-    "en": "{pct}%",
-    "t": "{pct} %"
-  },
-  "admin.cabinet.live": {
-    "en": "Live",
-    "t": "En ligne"
-  },
-  "admin.cabinet.liveHint": {
-    "en": "Show the banner now",
-    "t": "Afficher la bannière maintenant"
-  },
-  "admin.cabinet.maintenanceMode": {
-    "en": "Maintenance mode",
-    "t": "Mode maintenance"
-  },
-  "admin.cabinet.maintenanceModeHint": {
-    "en": "Holding page on the cabinet (identity plane)",
-    "t": "Page d’attente sur l’espace client (plan identité)"
-  },
-  "admin.cabinet.maintenanceOps": {
-    "en": "Maintenance & operations",
-    "t": "Maintenance & exploitation"
-  },
-  "admin.cabinet.maintenanceOpsSub": {
-    "en": "Cabinet holding page + money-plane kill-switch",
-    "t": "Page d’attente + coupe-circuit du plan monétaire"
-  },
-  "admin.cabinet.mfeRegistry": {
-    "en": "Microfrontend registry",
-    "t": "Registre des microfrontends"
-  },
-  "admin.cabinet.mfeRegistrySub": {
-    "en": "Resolved by clients/core · /api/mfe-registry",
-    "t": "Résolu par clients/core · /api/mfe-registry"
-  },
-  "admin.cabinet.noFlags": {
-    "en": "No flags yet. PostHog experiments render here when configured.",
-    "t": "Aucun flag pour l’instant. Les expériences PostHog s’affichent ici une fois configurées."
-  },
-  "admin.cabinet.noMfes": {
-    "en": "No microfrontends registered.",
-    "t": "Aucun microfrontend enregistré."
-  },
-  "admin.cabinet.placeholder.announcementBody": {
-    "en": "Body",
-    "t": "Corps du message"
-  },
-  "admin.cabinet.placeholder.announcementTitle": {
-    "en": "Announcement title",
-    "t": "Titre de l’annonce"
-  },
-  "admin.cabinet.readOnlyMode": {
-    "en": "Read-only mode",
-    "t": "Mode lecture seule"
-  },
-  "admin.cabinet.readOnlyModeHint": {
-    "en": "Pause deposits & withdrawals (money plane)",
-    "t": "Suspendre dépôts & retraits (plan monétaire)"
-  },
-  "admin.cabinet.registered": {
-    "en": "Registered",
-    "t": "Enregistré"
-  },
-  "admin.cabinet.saveAnnouncement": {
-    "en": "Save announcement",
-    "t": "Enregistrer l’annonce"
-  },
-  "admin.cabinet.subtitle": {
-    "en": "Host shell — microfrontend registry, feature flags and content",
-    "t": "Shell hôte — registre des microfrontends, feature flags et contenu"
-  },
-  "admin.coins.frozen": {
-    "en": "Frozen — hidden from users, queued withdrawals held, no gas alerts",
-    "t": "Gelé — masqué aux utilisateurs, retraits en file retenus, aucune alerte de gaz"
-  },
-  "admin.coins.gas": {
-    "en": "gas in {coin}",
-    "t": "frais de gaz en {coin}"
-  },
-  "admin.coins.live": {
-    "en": "Live — deposits and withdrawals open",
-    "t": "Actif — dépôts et retraits ouverts"
-  },
-  "admin.coins.subtitle": {
-    "en": "Rails users can deposit and withdraw on",
-    "t": "Réseaux sur lesquels les utilisateurs peuvent déposer et retirer"
-  },
-  "admin.coins.unconfigured": {
-    "en": "Not run by this deployment",
-    "t": "Non exploité par ce déploiement"
-  },
   "admin.col.actions": {
     "en": "Actions",
     "t": "Actions"
@@ -610,10 +510,6 @@
   "admin.col.state": {
     "en": "State",
     "t": "État"
-  },
-  "admin.col.status": {
-    "en": "Status",
-    "t": "Statut"
   },
   "admin.col.user": {
     "en": "User",
@@ -634,10 +530,6 @@
   "admin.consilium.openedTitle": {
     "en": "Opened — nothing has moved",
     "t": "Ouvert — rien n'a bougé"
-  },
-  "admin.dispatch": {
-    "en": "Dispatch",
-    "t": "Expédier"
   },
   "admin.env.dev": {
     "en": "DEV",
@@ -903,6 +795,54 @@
     "en": "Nothing to settle — no fee has been charged in this fund yet.",
     "t": "Rien à régler — aucun frais n’a encore été prélevé dans ce fonds."
   },
+  "admin.fees.notices.acknowledge": {
+    "en": "Take responsibility and bind anyway",
+    "t": "Prendre la responsabilité et appliquer quand même"
+  },
+  "admin.fees.notices.acknowledgeBack": {
+    "en": "Keep waiting",
+    "t": "Continuer d'attendre"
+  },
+  "admin.fees.notices.acknowledgeConfirm": {
+    "en": "Take responsibility",
+    "t": "Prendre la responsabilité"
+  },
+  "admin.fees.notices.acknowledgeWarning": {
+    "en": "The terms will bind over {n, plural, one {this holder} other {these # holders}} without their notice — tighter terms they were never told about. Your name, the moment, and exactly which holders it covers are recorded on the change and stay in its history.",
+    "t": "Les conditions s'appliqueront à {n, plural, one {ce détenteur} many {ces # détenteurs} other {ces # détenteurs}} sans avis — des conditions plus strictes dont ils n'ont jamais été informés. Votre nom, le moment et la liste exacte des détenteurs concernés sont consignés sur le changement et restent dans son historique."
+  },
+  "admin.fees.notices.acknowledgeWarningExtend": {
+    "en": "The terms will bind over {n, plural, one {this holder} other {these # holders}} without their notice — tighter terms they were never told about. Your name and the moment replace the earlier acknowledgement's on the change, which will then cover {total, plural, one {# holder} other {all # holders}}, and stay in its history.",
+    "t": "Les conditions s'appliqueront à {n, plural, one {ce détenteur} many {ces # détenteurs} other {ces # détenteurs}} sans avis — des conditions plus strictes dont ils n'ont jamais été informés. Votre nom et le moment remplacent la reconnaissance précédente sur le changement, qui couvrira alors {total, plural, one {# détenteur} many {les # détenteurs} other {les # détenteurs}}, et restent dans son historique."
+  },
+  "admin.fees.notices.alreadyWaived": {
+    "en": "{by} already took responsibility on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.",
+    "t": "{by} a déjà pris la responsabilité le {at} de {n, plural, one {# détenteur} many {# détenteurs} other {# détenteurs}} que l'envoi avait abandonnés à ce moment-là. Il en a abandonné d'autres depuis ; cet acte les ajoute au même enregistrement."
+  },
+  "admin.fees.notices.alreadyWaivedAnon": {
+    "en": "Responsibility was already taken on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.",
+    "t": "La responsabilité de {n, plural, one {# détenteur} many {# détenteurs} other {# détenteurs}} que l'envoi avait abandonnés à ce moment-là a déjà été prise le {at}. Il en a abandonné d'autres depuis ; cet acte les ajoute au même enregistrement."
+  },
+  "admin.fees.notices.err.forbidden": {
+    "en": "Only the requester of this change or an owner can take responsibility for it.",
+    "t": "Seul l'auteur de la demande ou un propriétaire peut en prendre la responsabilité."
+  },
+  "admin.fees.notices.givenUpBody": {
+    "en": "The mailer has given up on {n, plural, one {this holder's notice} other {these # notices}}. A change that tightens the terms does not bind over a holder who was never told, so it is held up until somebody takes responsibility for them.",
+    "t": "L'envoi a renoncé pour {n, plural, one {l'avis de ce détenteur} many {ces # avis} other {ces # avis}}. Un changement qui durcit les conditions ne s'applique pas à un détenteur jamais prévenu ; il reste bloqué jusqu'à ce que quelqu'un en prenne la responsabilité."
+  },
+  "admin.fees.notices.givenUpTitle": {
+    "en": "{n, plural, one {# holder} other {# holders}} could not be told",
+    "t": "{n, plural, one {# détenteur n'a pas pu être prévenu} many {# détenteurs n'ont pas pu être prévenus} other {# détenteurs n'ont pas pu être prévenus}}"
+  },
+  "admin.fees.notices.moreQueued": {
+    "en": "{n, plural, one {# more notice is still being delivered and is not covered by this act.} other {# more notices are still being delivered and are not covered by this act.}}",
+    "t": "{n, plural, one {# autre avis est encore en cours de remise et n'est pas couvert par cela.} many {# autres avis sont encore en cours de remise et ne sont pas couverts par cela.} other {# autres avis sont encore en cours de remise et ne sont pas couverts par cela.}}"
+  },
+  "admin.fees.notices.queued": {
+    "en": "{n, plural, one {# notice is} other {# notices are}} still being delivered. A change that tightens the terms waits for every holder to be told; there is nothing to do unless the mailer gives up on one.",
+    "t": "{n, plural, one {# avis est} many {# avis sont} other {# avis sont}} encore en cours de remise. Un changement qui durcit les conditions attend que chaque détenteur soit prévenu ; il n'y a rien à faire tant que l'envoi n'a renoncé pour aucun."
+  },
   "admin.fees.pending.awaiting": {
     "en": "Version {version} awaits the owners' approval. It binds 24 hours after they carry it, while anyone holds units.",
     "t": "La version {version} attend l'accord des propriétaires. Elle s'applique 24 heures après leur décision, tant que quelqu'un détient des parts."
@@ -1047,62 +987,6 @@
     "en": "Fee units held",
     "t": "Parts de frais détenues"
   },
-  "admin.fees.withdrawableFrom": {
-    "en": "It is withdrawable on-chain from {screen}.",
-    "t": "Ils sont retirables on-chain depuis {screen}."
-  },
-  "admin.fees.worthAtNav": {
-    "en": "Worth at current NAV",
-    "t": "Valeur à la VL actuelle"
-  },
-  "admin.fees.notices.acknowledge": {
-    "en": "Take responsibility and bind anyway",
-    "t": "Prendre la responsabilité et appliquer quand même"
-  },
-  "admin.fees.notices.acknowledgeBack": {
-    "en": "Keep waiting",
-    "t": "Continuer d'attendre"
-  },
-  "admin.fees.notices.acknowledgeConfirm": {
-    "en": "Take responsibility",
-    "t": "Prendre la responsabilité"
-  },
-  "admin.fees.notices.acknowledgeWarning": {
-    "en": "The terms will bind over {n, plural, one {this holder} other {these # holders}} without their notice — tighter terms they were never told about. Your name, the moment, and exactly which holders it covers are recorded on the change and stay in its history.",
-    "t": "Les conditions s'appliqueront à {n, plural, one {ce détenteur} many {ces # détenteurs} other {ces # détenteurs}} sans avis — des conditions plus strictes dont ils n'ont jamais été informés. Votre nom, le moment et la liste exacte des détenteurs concernés sont consignés sur le changement et restent dans son historique."
-  },
-  "admin.fees.notices.acknowledgeWarningExtend": {
-    "en": "The terms will bind over {n, plural, one {this holder} other {these # holders}} without their notice — tighter terms they were never told about. Your name and the moment replace the earlier acknowledgement's on the change, which will then cover {total, plural, one {# holder} other {all # holders}}, and stay in its history.",
-    "t": "Les conditions s'appliqueront à {n, plural, one {ce détenteur} many {ces # détenteurs} other {ces # détenteurs}} sans avis — des conditions plus strictes dont ils n'ont jamais été informés. Votre nom et le moment remplacent la reconnaissance précédente sur le changement, qui couvrira alors {total, plural, one {# détenteur} many {les # détenteurs} other {les # détenteurs}}, et restent dans son historique."
-  },
-  "admin.fees.notices.alreadyWaived": {
-    "en": "{by} already took responsibility on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.",
-    "t": "{by} a déjà pris la responsabilité le {at} de {n, plural, one {# détenteur} many {# détenteurs} other {# détenteurs}} que l'envoi avait abandonnés à ce moment-là. Il en a abandonné d'autres depuis ; cet acte les ajoute au même enregistrement."
-  },
-  "admin.fees.notices.alreadyWaivedAnon": {
-    "en": "Responsibility was already taken on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.",
-    "t": "La responsabilité de {n, plural, one {# détenteur} many {# détenteurs} other {# détenteurs}} que l'envoi avait abandonnés à ce moment-là a déjà été prise le {at}. Il en a abandonné d'autres depuis ; cet acte les ajoute au même enregistrement."
-  },
-  "admin.fees.notices.err.forbidden": {
-    "en": "Only the requester of this change or an owner can take responsibility for it.",
-    "t": "Seul l'auteur de la demande ou un propriétaire peut en prendre la responsabilité."
-  },
-  "admin.fees.notices.givenUpBody": {
-    "en": "The mailer has given up on {n, plural, one {this holder's notice} other {these # notices}}. A change that tightens the terms does not bind over a holder who was never told, so it is held up until somebody takes responsibility for them.",
-    "t": "L'envoi a renoncé pour {n, plural, one {l'avis de ce détenteur} many {ces # avis} other {ces # avis}}. Un changement qui durcit les conditions ne s'applique pas à un détenteur jamais prévenu ; il reste bloqué jusqu'à ce que quelqu'un en prenne la responsabilité."
-  },
-  "admin.fees.notices.givenUpTitle": {
-    "en": "{n, plural, one {# holder} other {# holders}} could not be told",
-    "t": "{n, plural, one {# détenteur n'a pas pu être prévenu} many {# détenteurs n'ont pas pu être prévenus} other {# détenteurs n'ont pas pu être prévenus}}"
-  },
-  "admin.fees.notices.moreQueued": {
-    "en": "{n, plural, one {# more notice is still being delivered and is not covered by this act.} other {# more notices are still being delivered and are not covered by this act.}}",
-    "t": "{n, plural, one {# autre avis est encore en cours de remise et n'est pas couvert par cela.} many {# autres avis sont encore en cours de remise et ne sont pas couverts par cela.} other {# autres avis sont encore en cours de remise et ne sont pas couverts par cela.}}"
-  },
-  "admin.fees.notices.queued": {
-    "en": "{n, plural, one {# notice is} other {# notices are}} still being delivered. A change that tightens the terms waits for every holder to be told; there is nothing to do unless the mailer gives up on one.",
-    "t": "{n, plural, one {# avis est} many {# avis sont} other {# avis sont}} encore en cours de remise. Un changement qui durcit les conditions attend que chaque détenteur soit prévenu ; il n'y a rien à faire tant que l'envoi n'a renoncé pour aucun."
-  },
   "admin.fees.waiver.acknowledged": {
     "en": "Notices waived by {by} on {at}, over {n, plural, one {# holder} other {# holders}} who could not be told.",
     "t": "Avis levés par {by} le {at}, pour {n, plural, one {# détenteur} many {# détenteurs} other {# détenteurs}} qui n'ont pas pu être prévenus."
@@ -1118,6 +1002,14 @@
   "admin.fees.waiver.rowAnon": {
     "en": "Notices waived · {n, plural, one {# holder} other {# holders}}",
     "t": "Avis levés · {n, plural, one {# détenteur} many {# détenteurs} other {# détenteurs}}"
+  },
+  "admin.fees.withdrawableFrom": {
+    "en": "It is withdrawable on-chain from {screen}.",
+    "t": "Ils sont retirables on-chain depuis {screen}."
+  },
+  "admin.fees.worthAtNav": {
+    "en": "Worth at current NAV",
+    "t": "Valeur à la VL actuelle"
   },
   "admin.holder.allocation": {
     "en": "Allocation",
@@ -1151,245 +1043,9 @@
     "en": "Verified",
     "t": "Vérifié"
   },
-  "admin.outbox.col.event": {
-    "en": "Event",
-    "t": "Événement"
-  },
-  "admin.outbox.col.parked": {
-    "en": "Parked",
-    "t": "Depuis"
-  },
-  "admin.outbox.col.reason": {
-    "en": "Reason",
-    "t": "Motif"
-  },
-  "admin.outbox.col.seq": {
-    "en": "Seq",
-    "t": "Seq"
-  },
-  "admin.outbox.compensated": {
-    "en": "compensated",
-    "t": "compensé"
-  },
-  "admin.outbox.deadKey": {
-    "en": "Signing key unavailable — engineering has been alerted; unparking will fail until the key is rotated",
-    "t": "Clé de signature indisponible — l’ingénierie a été alertée ; la réinjection échouera tant que la clé n’aura pas été renouvelée"
-  },
-  "admin.outbox.noParkedEvents": {
-    "en": "No parked events",
-    "t": "Aucun événement en quarantaine"
-  },
-  "admin.outbox.noParkedEventsHint": {
-    "en": "The relay is clean.",
-    "t": "Le relais est sain."
-  },
-  "admin.outbox.parkedEvents": {
-    "en": "Parked events",
-    "t": "Événements en quarantaine"
-  },
-  "admin.outbox.parkedEventsSub": {
-    "en": "Outbox rows the relay couldn't apply — fix the cause, then unpark to re-drive",
-    "t": "Lignes d’outbox que le relais n’a pas pu appliquer — corrigez la cause, puis réinjectez pour les rejouer"
-  },
-  "admin.outbox.subtitle": {
-    "en": "Stuck outbox rows — what the relay couldn't apply, and the action that re-drives them",
-    "t": "Lignes d’outbox bloquées — ce que le relais n’a pas pu appliquer, et l’action qui les rejoue"
-  },
-  "admin.outbox.unpark": {
-    "en": "Unpark",
-    "t": "Réinjecter"
-  },
-  "admin.outbox.unparkRefetchFailed": {
-    "en": "Unparked, but refreshing the list failed: {error} — press Refresh to resync.",
-    "t": "Réinjecté, mais l’actualisation de la liste a échoué : {error} — cliquez sur « Actualiser » pour resynchroniser."
-  },
-  "admin.outbox.unparked": {
-    "en": "unparked",
-    "t": "réinjecté"
-  },
-  "admin.payments.address": {
-    "en": "Destination address",
-    "t": "Adresse de destination"
-  },
-  "admin.payments.amountUsdt": {
-    "en": "Amount (USDT)",
-    "t": "Montant (USDT)"
-  },
-  "admin.payments.col.amountUsdt": {
-    "en": "Amount, USDT",
-    "t": "Montant, USDT"
-  },
-  "admin.payments.col.approval": {
-    "en": "Approval",
-    "t": "Approbation"
-  },
-  "admin.payments.col.ends": {
-    "en": "From → to",
-    "t": "De → vers"
-  },
-  "admin.payments.col.opened": {
-    "en": "Opened",
-    "t": "Ouvert"
-  },
-  "admin.payments.confirmOpen": {
-    "en": "Open payment",
-    "t": "Ouvrir le paiement"
-  },
-  "admin.payments.err.enterAmount": {
-    "en": "Enter an amount.",
-    "t": "Saisissez un montant."
-  },
-  "admin.payments.err.enterReason": {
-    "en": "A reason is required — it is what the approvers read.",
-    "t": "Un motif est obligatoire — c'est ce que lisent les approbateurs."
-  },
-  "admin.payments.err.noRailFromPooled": {
-    "en": "An allocation's pooled claim — a product's, or the platform's fee and fund — cannot ship to an address. A holder redeems onto their own claim and withdraws from there.",
-    "t": "La créance groupée d'une allocation — celle d'un produit, ou les frais et le capital de la plateforme — ne peut pas être envoyée à une adresse. Un détenteur rachète sur sa propre créance et retire depuis là."
-  },
-  "admin.payments.err.pickDestination": {
-    "en": "Complete the destination.",
-    "t": "Complétez la destination."
-  },
-  "admin.payments.err.pickSource": {
-    "en": "Choose which product or investor the money comes from.",
-    "t": "Choisissez de quel produit ou investisseur provient l'argent."
-  },
-  "admin.payments.err.reasonTooLong": {
-    "en": "The reason is over 500 bytes.",
-    "t": "Le motif dépasse 500 octets."
-  },
-  "admin.payments.err.sameEnds": {
-    "en": "The source and the destination are the same claim.",
-    "t": "La source et la destination sont la même créance."
-  },
-  "admin.payments.formNote": {
-    "en": "Opening a payment moves no money. Fund-owned money is proposed to the owners' consilium; an investor's own money is put to that investor by email. Only once they agree does anything move.",
-    "t": "Ouvrir un paiement ne déplace aucun argent. L'argent du fonds est proposé au consilium des propriétaires ; l'argent propre d'un investisseur lui est soumis par e-mail. Rien ne bouge tant qu'ils n'ont pas accepté."
-  },
-  "admin.payments.kind.external": {
-    "en": "An external address",
-    "t": "Une adresse externe"
-  },
-  "admin.payments.kind.service": {
-    "en": "A product",
-    "t": "Un produit"
-  },
-  "admin.payments.kind.user": {
-    "en": "An investor",
-    "t": "Un investisseur"
-  },
-  "admin.payments.list": {
-    "en": "Payments",
-    "t": "Paiements"
-  },
-  "admin.payments.noProducts": {
-    "en": "No product is registered yet.",
-    "t": "Aucun produit n'est encore enregistré."
-  },
-  "admin.payments.noProductsHint": {
-    "en": "A product appears here once it is registered as an allocation.",
-    "t": "Un produit apparaît ici une fois enregistré comme allocation."
-  },
-  "admin.payments.noRail": {
-    "en": "No rail is configured",
-    "t": "Aucun rail configuré"
-  },
-  "admin.payments.noRailHint": {
-    "en": "Rails are configured on the treasury; a payment ships only on a chain with a running watcher.",
-    "t": "Les rails se configurent dans la trésorerie ; un paiement ne part que sur une chaîne avec un observateur actif."
-  },
-  "admin.payments.none": {
-    "en": "No payments yet",
-    "t": "Aucun paiement pour l'instant"
-  },
-  "admin.payments.noneHint": {
-    "en": "Every order opened here appears with who has to agree and where that stands. An order executes once they have, and shows what it became.",
-    "t": "Chaque ordre ouvert ici apparaît avec qui doit accepter et où en est l'approbation. Une fois acceptée, il s'exécute et montre ce qu'il est devenu."
-  },
-  "admin.payments.noneInState": {
-    "en": "No payments in this state",
-    "t": "Aucun paiement dans cet état"
-  },
-  "admin.payments.open": {
-    "en": "Open a payment",
-    "t": "Ouvrir un paiement"
-  },
   "admin.payments.openConsilium": {
     "en": "Open the consilium",
     "t": "Ouvrir le consilium"
-  },
-  "admin.payments.openedConsentBody": {
-    "en": "{email} has been emailed a link and a code. Nothing moves until they agree — this is their money, and only they can say so.",
-    "t": "{email} a reçu un lien et un code par e-mail. Rien ne bouge tant que cette personne n'a pas accepté — c'est son argent, et elle seule peut le dire."
-  },
-  "admin.payments.openedConsiliumBody": {
-    "en": "The owners have each been emailed a link. Nothing moves until more than half of them confirm from their own mailboxes; the live tally is in the consilium.",
-    "t": "Chaque propriétaire a reçu un lien par e-mail. Rien ne bouge tant que plus de la moitié n'ont pas confirmé depuis leur messagerie ; le décompte en direct est dans le consilium."
-  },
-  "admin.payments.openedExpires": {
-    "en": "Expires {at} · {left}",
-    "t": "Expire le {at} · {left}"
-  },
-  "admin.payments.openedTitle": {
-    "en": "Opened — no money has moved",
-    "t": "Ouvert — aucun argent n'a bougé"
-  },
-  "admin.payments.pickProduct": {
-    "en": "Choose a product",
-    "t": "Choisir un produit"
-  },
-  "admin.payments.placeholder.address": {
-    "en": "The wallet that receives the payment",
-    "t": "Le portefeuille qui reçoit le paiement"
-  },
-  "admin.payments.placeholder.reason": {
-    "en": "Why this money moves — the approvers read exactly this",
-    "t": "Pourquoi cet argent est transféré — les approbateurs liront exactement ceci"
-  },
-  "admin.payments.reason": {
-    "en": "Reason",
-    "t": "Motif"
-  },
-  "admin.payments.reasonHint": {
-    "en": "Required. {used} of {max} bytes. Part of what is approved, and covered by the request fingerprint — it cannot be changed afterwards.",
-    "t": "Obligatoire. {used} sur {max} octets. Fait partie de ce qui est approuvé et couvert par l'empreinte de la demande — impossible à modifier ensuite."
-  },
-  "admin.payments.requirement": {
-    "en": "Who must agree",
-    "t": "Qui doit accepter"
-  },
-  "admin.payments.review": {
-    "en": "Review payment",
-    "t": "Vérifier le paiement"
-  },
-  "admin.payments.reviewNote.owner_consilium": {
-    "en": "The terms are fixed once opened. Every owner is emailed exactly these and they are checked again before any money moves — changing anything means cancelling and starting over, and votes are not carried across.",
-    "t": "Les conditions sont figées une fois ouvertes. Chaque propriétaire les reçoit exactement par e-mail et elles sont revérifiées avant tout mouvement d'argent — modifier quoi que ce soit signifie annuler et recommencer, et les votes ne sont pas reportés."
-  },
-  "admin.payments.reviewNote.subject_consent": {
-    "en": "The terms are fixed once opened. This is the investor's own money: they alone are emailed exactly these and must agree with the code from that message. Changing anything means cancelling and starting over.",
-    "t": "Les conditions sont figées une fois ouvertes. Il s'agit de l'argent propre de l'investisseur : lui seul les reçoit par e-mail et doit accepter avec le code de ce message. Modifier quoi que ce soit signifie annuler et recommencer."
-  },
-  "admin.payments.reviewSentence": {
-    "en": "Pay {amount} from {source} to {destination}?",
-    "t": "Payer {amount} de {source} vers {destination} ?"
-  },
-  "admin.payments.source": {
-    "en": "Source",
-    "t": "Source"
-  },
-  "admin.payments.subtitle": {
-    "en": "Money between two named ends of the platform — inside the fund, into a product, or out to an address — each authorised by whoever the money belongs to",
-    "t": "De l'argent entre deux extrémités nommées de la plateforme — au sein du fonds, vers un produit ou vers une adresse externe — chacun autorisé par celui à qui l'argent appartient"
-  },
-  "admin.payments.tier": {
-    "en": "Tier",
-    "t": "Niveau"
-  },
-  "admin.rail": {
-    "en": "Rail",
-    "t": "Rail"
   },
   "admin.rail.bep20": {
     "en": "BEP20 · BNB Chain",
@@ -1467,6 +1123,10 @@
     "en": "Governance mail is not configured",
     "t": "L'e-mail de gouvernance n'est pas configuré"
   },
+  "admin.revenue.bankingTreasuryNote": {
+    "en": "Withdrawal fees land here, not in the fee allocation: banking's own cash, held by no one through units. Nothing is paid out of it until scope approvals cover treasury spending.",
+    "t": "Les frais de retrait arrivent ici, pas dans l'allocation des frais : l'argent propre de banking, que personne ne détient via des parts. Rien n'en sort tant que les approbations de scope ne couvrent pas les dépenses de la trésorerie."
+  },
   "admin.revenue.cashAvailable": {
     "en": "Cash · available",
     "t": "Trésorerie · disponible"
@@ -1518,6 +1178,10 @@
   "admin.revenue.toTreasury": {
     "en": "The fee allocation beside the platform's other balances: custody per rail, user claims, every allocation and its holders.",
     "t": "L'allocation des frais à côté des autres soldes de la plateforme : conservation par réseau, créances utilisateurs, chaque allocation et ses détenteurs."
+  },
+  "admin.revenue.treasuryPostedHint": {
+    "en": "retained withdrawal fees, reserved included",
+    "t": "frais de retrait retenus, réservations comprises"
   },
   "admin.revenue.unitsHint": {
     "en": "units of the fee allocation, held by people",
@@ -1619,373 +1283,21 @@
     "en": "Staged",
     "t": "Préparé"
   },
-  "admin.treasury.a11y.copy": {
-    "en": "Copy {what}",
-    "t": "Copier {what}"
-  },
-  "admin.treasury.allocations.claimDetail": {
-    "en": "posted {posted} · reserved {reserved}",
-    "t": "comptabilisé {posted} · réservé {reserved}"
-  },
-  "admin.treasury.allocations.col.allocation": {
-    "en": "Allocation",
-    "t": "Allocation"
-  },
-  "admin.treasury.allocations.col.claim": {
-    "en": "Cash claim",
-    "t": "Créance en trésorerie"
-  },
-  "admin.treasury.allocations.empty": {
-    "en": "No allocations yet",
-    "t": "Aucune allocation pour l'instant"
-  },
-  "admin.treasury.allocations.emptyHint": {
-    "en": "Every allocation the hub knows appears here with its claim, supply and holders — the products, and the hidden fee and fund allocations once they exist.",
-    "t": "Chaque allocation connue du hub apparaît ici avec sa créance, son encours et ses détenteurs — les produits, et les allocations cachées des frais et du capital dès qu'elles existent."
-  },
-  "admin.treasury.allocations.moreHolders": {
-    "en": "+{n} more",
-    "t": "+{n} autres"
-  },
-  "admin.treasury.allocations.noHolders": {
-    "en": "no holders",
-    "t": "aucun détenteur"
-  },
-  "admin.treasury.allocations.title": {
-    "en": "Held through allocations",
-    "t": "Détenu via les allocations"
-  },
   "admin.treasury.allocations.unmarked": {
     "en": "not yet marked",
     "t": "pas encore évalué"
   },
-  "admin.treasury.alreadyRecorded": {
-    "en": "Already recorded — that reference was credited before, nothing changed.",
-    "t": "Déjà enregistré — cette référence a déjà été créditée, rien n’a changé."
-  },
-  "admin.treasury.bank": {
-    "en": "Bank · USD",
-    "t": "Banque · USD"
-  },
-  "admin.treasury.bankHint": {
-    "en": "off-ramp · FX",
-    "t": "off-ramp · change"
-  },
-  "admin.treasury.claimsTotal": {
-    "en": "Claims · total (USDT)",
-    "t": "Créances · total (USDT)"
-  },
-  "admin.treasury.claimsTotalHint": {
-    "en": "= on-chain custody · backed",
-    "t": "= conservation on-chain · couvert"
-  },
-  "admin.treasury.custodyUnconfigured": {
-    "en": "— · custody unconfigured",
-    "t": "— · conservation non configurée"
-  },
-  "admin.treasury.expectedAmount": {
-    "en": "Expected amount (USDT) · optional",
-    "t": "Montant attendu (USDT) · facultatif"
-  },
-  "admin.treasury.gas": {
-    "en": "Gas",
-    "t": "Gas"
-  },
-  "admin.treasury.gasStation": {
-    "en": "Gas station",
-    "t": "Station de gas"
-  },
-  "admin.treasury.gasStationBalance": {
-    "en": "Gas station balance",
-    "t": "Solde de la station de gas"
-  },
-  "admin.treasury.gasStationHint": {
-    "en": "(fund {symbol} here — pays sweep gas drops)",
-    "t": "(approvisionnez en {symbol} ici — paie le gas des balayages)"
-  },
-  "admin.treasury.gasWord": {
-    "en": "gas",
-    "t": "gas"
-  },
-  "admin.treasury.heldByUsers": {
-    "en": "Held by users",
-    "t": "Détenu par les utilisateurs"
-  },
-  "admin.treasury.heldByUsersHint": {
-    "en": "user claims · held directly",
-    "t": "créances utilisateurs · détenues directement"
-  },
-  "admin.treasury.invariantNote": {
-    "en": "Per-rail backing is the treasury's job, not the ledger's: a shortfall on one rail is accept-and-queue, then rebalanced via CEX / alt-rail / top-up. The global invariant is {invariant}.",
-    "t": "La couverture rail par rail relève de la trésorerie, pas du registre : un déficit sur un rail est accepté et mis en file, puis rééquilibré via CEX, rail alternatif ou réapprovisionnement. L’invariant global est {invariant}."
-  },
-  "admin.treasury.layer1": {
-    "en": "Layer 1 · Ledger — claims by holder (USDT)",
-    "t": "Couche 1 · Grand livre — créances par détenteur (USDT)"
-  },
-  "admin.treasury.layer2": {
-    "en": "Layer 2 · Treasury — liquidity by rail",
-    "t": "Couche 2 · Trésorerie — liquidité par rail"
-  },
-  "admin.treasury.noRailWithTreasury": {
-    "en": "No rail with a treasury",
-    "t": "Aucun rail doté d’une trésorerie"
-  },
-  "admin.treasury.onchainRef": {
-    "en": "On-chain reference",
-    "t": "Référence on-chain"
-  },
-  "admin.treasury.onchainUsdt": {
-    "en": "On-chain USDT",
-    "t": "USDT on-chain"
-  },
-  "admin.treasury.party.generic": {
-    "en": "{kind} {id}",
-    "t": "{kind} {id}"
-  },
-  "admin.treasury.placeholder.any": {
-    "en": "any",
-    "t": "indifférent"
-  },
-  "admin.treasury.recordArrival": {
-    "en": "Record an out-of-band arrival",
-    "t": "Enregistrer une arrivée hors circuit"
-  },
-  "admin.treasury.recordArrivalIntro": {
-    "en": "USDT sent straight to a treasury hot wallet is real money the ledger never saw. Give its on-chain reference and the hub reads the transfer back off the chain — the amount and the party credited come from there, so this records an arrival rather than asserting one.",
-    "t": "Des USDT envoyés directement à un hot wallet de trésorerie sont de l’argent réel que le registre n’a jamais vu. Donnez leur référence on-chain et le hub relit le transfert sur la chaîne — le montant et la partie créditée en proviennent, si bien que cette action enregistre une arrivée plutôt qu’elle ne l’affirme."
-  },
-  "admin.treasury.recordArrivalSubmit": {
-    "en": "Record arrival",
-    "t": "Enregistrer l’arrivée"
-  },
-  "admin.treasury.recorded": {
-    "en": "Recorded — the chain reported {amount}, credited to {party}.",
-    "t": "Enregistré — la chaîne a rapporté {amount}, crédité à {party}."
-  },
-  "admin.treasury.recordedTitle": {
-    "en": "Recorded",
-    "t": "Enregistré"
-  },
-  "admin.treasury.refNote": {
-    "en": "The reference is both what gets verified and the idempotency key — {evmRef} on an EVM rail, {tonRef} on TON. A reference that names no confirmed transfer to one of our addresses is refused, and a re-submission of one already recorded is a no-op. Fill the amount only to assert what you expect; a mismatch is then an error instead of a surprise.",
-    "t": "La référence est à la fois ce qui est vérifié et la clé d’idempotence — {evmRef} sur un rail EVM, {tonRef} sur TON. Une référence qui ne désigne aucun transfert confirmé vers l’une de nos adresses est refusée, et une nouvelle soumission d’une référence déjà enregistrée est sans effet. Ne renseignez le montant que pour affirmer ce que vous attendez : un écart devient alors une erreur plutôt qu’une surprise."
-  },
-  "admin.treasury.reservedWithdrawals": {
-    "en": "Reserved · withdrawals",
-    "t": "Réservé · retraits"
-  },
-  "admin.treasury.reservedWithdrawalsHint": {
-    "en": "queued + in-flight (clearing)",
-    "t": "en file + en cours (compensation)"
-  },
-  "admin.treasury.seed.amount": {
-    "en": "Amount (USDT)",
-    "t": "Montant (USDT)"
-  },
-  "admin.treasury.seed.amountProblem": {
-    "en": "A positive decimal, e.g. 10000 or 2500.50",
-    "t": "Un nombre décimal positif, p. ex. 10000 ou 2500.50"
-  },
-  "admin.treasury.seed.depositor": {
-    "en": "Depositor · optional",
-    "t": "Déposant · facultatif"
-  },
-  "admin.treasury.seed.depositorHint": {
-    "en": "Leave empty to attribute the seed to yourself.",
-    "t": "Laissez vide pour vous attribuer l'amorçage."
-  },
-  "admin.treasury.seed.intro": {
-    "en": "USDT sent to a treasury address as the platform's own capital is nobody's until the owners say whose. Name the transfer, the amount the chain must report and the person it is attributed to; when the owners carry it, the hub books their deposit and their subscription into the fund allocation in one step.",
-    "t": "Les USDT envoyés à une adresse de trésorerie comme capital propre de la plateforme n'appartiennent à personne tant que les propriétaires ne le décident pas. Indiquez le transfert, le montant que la chaîne doit rapporter et la personne à qui il est attribué ; quand les propriétaires l'approuvent, le hub comptabilise son dépôt et sa souscription dans l'allocation du capital en une seule étape."
-  },
-  "admin.treasury.seed.opened": {
-    "en": "The owners have each been emailed a link. Nothing is booked until more than half of them confirm from their own mailboxes; the treasury follows once the chain-proven deposit and the fund subscription post.",
-    "t": "Chaque propriétaire a reçu un lien par e-mail. Rien n'est comptabilisé tant que plus de la moitié d'entre eux ne confirment pas depuis leur messagerie ; la trésorerie suivra une fois le dépôt vérifié sur la chaîne et la souscription au capital comptabilisés."
-  },
-  "admin.treasury.seed.submit": {
-    "en": "Propose seed",
-    "t": "Proposer"
-  },
-  "admin.treasury.seed.title": {
-    "en": "Propose seed capital",
-    "t": "Proposer un capital d'amorçage"
-  },
-  "admin.treasury.selectRail": {
-    "en": "Select a rail…",
-    "t": "Choisir un rail…"
-  },
-  "admin.treasury.subtitle": {
-    "en": "Two layers — ledger claims (USDT) by holder vs on-chain liquidity by rail",
-    "t": "Deux couches — créances du grand livre (USDT) par détenteur vs liquidité on-chain par réseau"
-  },
-  "admin.users.accessSecurity": {
-    "en": "Access & security",
-    "t": "Accès & sécurité"
-  },
-  "admin.users.adminViaProposal": {
-    "en": "Admin is not on this list — granting it is a proposal the owners vote through. Taking it away is still one step here. Open one in",
-    "t": "Admin ne figure pas dans cette liste — l'accorder passe par une proposition que les propriétaires votent. Le retirer reste une étape ici. En ouvrir une dans"
-  },
-  "admin.users.balance": {
-    "en": "Balance",
-    "t": "Solde"
-  },
-  "admin.users.breakGlassExplainer": {
-    "en": "This role came from the OWNER_SUBJECTS allowlist, not from the register. It is real access and it seats nobody — the consilium does not count it, and it lapses as soon as the fund has its first owner.",
-    "t": "Ce rôle provient de la liste OWNER_SUBJECTS, pas du registre. L'accès est réel mais n'accorde aucun siège — le consilium ne le compte pas, et il expire dès que le fonds a son premier propriétaire."
-  },
-  "admin.users.breakGlassRole": {
-    "en": "Emergency access",
-    "t": "Accès d'urgence"
-  },
-  "admin.users.count": {
-    "en": "{n, plural, one {# user} other {# users}}",
-    "t": "{n, plural, one {# utilisateur} many {# utilisateurs} other {# utilisateurs}}"
-  },
-  "admin.users.hold": {
-    "en": "Hold for 24h",
-    "t": "Bloquer 24 h"
-  },
-  "admin.users.holdHint": {
-    "en": "Freezes the account now. It lapses by itself after 24 hours unless the owners vote to make it permanent.",
-    "t": "Gèle le compte immédiatement. Expire de lui-même après 24 heures sauf si les propriétaires le rendent définitif."
-  },
-  "admin.users.identity": {
-    "en": "Identity",
-    "t": "Identité"
-  },
-  "admin.users.joined": {
-    "en": "Joined",
-    "t": "Inscrit"
-  },
-  "admin.users.kyc": {
-    "en": "KYC",
-    "t": "KYC"
-  },
-  "admin.users.kycBadge": {
-    "en": "KYC L{n}",
-    "t": "KYC N{n}"
+  "admin.treasury.bankingTreasury": {
+    "en": "Banking treasury",
+    "t": "Trésorerie de banking"
   },
   "admin.users.kycLevelShort": {
     "en": "L{n}",
     "t": "N{n}"
   },
-  "admin.users.kycSelf": {
-    "en": "Your own verification tier is not set from here. Another holder of KycManage has to change it.",
-    "t": "Votre propre niveau de vérification ne se règle pas ici. Un autre détenteur de KycManage doit le modifier."
-  },
-  "admin.users.liftHold": {
-    "en": "Lift hold",
-    "t": "Lever le blocage"
-  },
-  "admin.users.liftSuspension": {
-    "en": "Lift suspension",
-    "t": "Lever la suspension"
-  },
-  "admin.users.noMatch": {
-    "en": "No users match these filters",
-    "t": "Aucun utilisateur ne correspond à ces filtres"
-  },
-  "admin.users.noMatchHint": {
-    "en": "Loosen the search, role or status filter to see more accounts.",
-    "t": "Élargissez la recherche, le filtre de rôle ou de statut pour voir plus de comptes."
-  },
-  "admin.users.ownerSeatHeld": {
-    "en": "This account holds an owner's seat, so its role cannot be changed here. A seat is given up by resigning, or taken by a removal the other owners vote through, in",
-    "t": "Ce compte occupe un siège de propriétaire ; son rôle ne se modifie pas ici. Un siège se libère par démission, ou par une révocation votée par les autres propriétaires, dans"
-  },
-  "admin.users.proposeAdmin": {
-    "en": "Propose admin",
-    "t": "Proposer admin"
-  },
-  "admin.users.proposeAdminHint": {
-    "en": "Granting admin is the owners' decision. Taking it away is still one step, right here.",
-    "t": "Accorder admin relève des propriétaires. Le retirer reste une seule étape, ici même."
-  },
-  "admin.users.proposeReinstatement": {
-    "en": "Propose reinstatement",
-    "t": "Proposer la levée"
-  },
-  "admin.users.proposeReinstatementHint": {
-    "en": "Only the owners can undo their own verdict. A simple majority of them carries it.",
-    "t": "Seuls les propriétaires peuvent défaire leur propre verdict. Une majorité simple l'emporte."
-  },
-  "admin.users.proposeSuspension": {
-    "en": "Propose permanent",
-    "t": "Proposer définitif"
-  },
-  "admin.users.proposeSuspensionHint": {
-    "en": "Asks the owners to make this block permanent. A simple majority of them carries it.",
-    "t": "Demande aux propriétaires de rendre ce blocage définitif. Une majorité simple l'emporte."
-  },
-  "admin.users.reasonHint": {
-    "en": "Recorded on the audit row, and read by every owner who votes.",
-    "t": "Consigné dans le journal d'audit et lu par chaque propriétaire qui vote."
-  },
-  "admin.users.reasonLabel": {
-    "en": "Reason",
-    "t": "Motif"
-  },
-  "admin.users.reasonPlaceholder": {
-    "en": "Why this account, in one line",
-    "t": "Pourquoi ce compte, en une ligne"
-  },
-  "admin.users.revokeAllSessions": {
-    "en": "Revoke all sessions",
-    "t": "Révoquer toutes les sessions"
-  },
-  "admin.users.revokeNote": {
-    "en": "Bumps token_version — invalidates every JWT issued to this user.",
-    "t": "Incrémente token_version — invalide tous les JWT émis pour cet utilisateur."
-  },
-  "admin.users.role": {
-    "en": "Role",
-    "t": "Rôle"
-  },
   "admin.users.searchPlaceholder": {
     "en": "Search email or user id…",
     "t": "Rechercher un e-mail ou un id utilisateur…"
-  },
-  "admin.users.standing": {
-    "en": "Account standing",
-    "t": "État du compte"
-  },
-  "admin.users.standingActive": {
-    "en": "Active. This account can sign in and move money.",
-    "t": "Actif. Ce compte peut se connecter et déplacer de l'argent."
-  },
-  "admin.users.standingGovernance": {
-    "en": "Suspended by the owners' vote. It does not lapse, and one admin cannot lift it.",
-    "t": "Suspendu par le vote des propriétaires. N'expire pas, et un seul administrateur ne peut pas le lever."
-  },
-  "admin.users.standingHold": {
-    "en": "Held by one operator. It lapses on its own unless the owners vote to make it permanent.",
-    "t": "Bloqué par un seul opérateur. Expire de lui-même sauf si les propriétaires votent pour le rendre définitif."
-  },
-  "admin.users.standingHoldLapses": {
-    "en": "Lapses {when}",
-    "t": "Expire {when}"
-  },
-  "admin.users.standingLegacy": {
-    "en": "Suspended before holds and owners' verdicts were told apart. It does not lapse, and one admin can lift it.",
-    "t": "Suspendu avant que blocage et verdict des propriétaires soient distingués. N'expire pas, et un administrateur peut le lever."
-  },
-  "admin.users.standingOpened": {
-    "en": "Proposal opened. The owners vote in",
-    "t": "Proposition ouverte. Les propriétaires votent dans"
-  },
-  "admin.users.subtitle": {
-    "en": "Investors and operators — identities, KYC, roles and sessions",
-    "t": "Investisseurs et opérateurs — identités, KYC, rôles et sessions"
-  },
-  "admin.users.tokenVersion": {
-    "en": "Token version",
-    "t": "Version de jeton"
-  },
-  "admin.users.tokenVersionValue": {
-    "en": "v{n}",
-    "t": "v{n}"
   },
   "admin.valuation.allocationLabel": {
     "en": "{title} ({service})",
@@ -2135,114 +1447,6 @@
     "en": "Units issued in {service}",
     "t": "Parts émises dans {service}"
   },
-  "admin.withdrawals.awaitingAction": {
-    "en": "Awaiting action",
-    "t": "En attente d’action"
-  },
-  "admin.withdrawals.col.grossNet": {
-    "en": "Gross / net",
-    "t": "Brut / net"
-  },
-  "admin.withdrawals.confirmFail": {
-    "en": "Confirm fail",
-    "t": "Confirmer l’échec"
-  },
-  "admin.withdrawals.confirmSettle": {
-    "en": "Confirm settle",
-    "t": "Confirmer le règlement"
-  },
-  "admin.withdrawals.empty": {
-    "en": "No withdrawals awaiting action",
-    "t": "Aucun retrait n’attend d’action"
-  },
-  "admin.withdrawals.emptyHint": {
-    "en": "A withdrawal appears here once an investor asks for one.",
-    "t": "Un retrait apparaît ici dès qu’un investisseur en demande un."
-  },
-  "admin.withdrawals.failWarning": {
-    "en": "Failing refunds the user. If the broadcast reached the chain this would double-pay — the hub refuses while a broadcast record exists, but verify on-chain first.",
-    "t": "Déclarer l’échec rembourse l’utilisateur. Si la diffusion a atteint la chaîne, cela reviendrait à payer deux fois — le hub refuse tant qu’un enregistrement de diffusion existe, mais vérifiez d’abord on-chain."
-  },
-  "admin.withdrawals.footnote": {
-    "en": "Dispatch broadcasts a queued withdrawal once its rail has liquidity. Settle records the mined transaction and releases the reservation. Fail voids and refunds — ONLY safe when nothing reached the chain; the hub refuses it while a broadcast record exists.",
-    "t": "Expédier diffuse un retrait en file dès que son rail dispose de liquidité. Régler enregistre la transaction minée et libère la réservation. Échouer annule et rembourse — sûr UNIQUEMENT si rien n’a atteint la chaîne ; le hub le refuse tant qu’un enregistrement de diffusion existe."
-  },
-  "admin.withdrawals.netSuffix": {
-    "en": "{amount} net",
-    "t": "{amount} net"
-  },
-  "admin.withdrawals.openCount": {
-    "en": "{n, plural, one {# open} other {# open}}",
-    "t": "{n, plural, one {# ouvert} many {# ouverts} other {# ouverts}}"
-  },
-  "admin.withdrawals.placeholder.reason": {
-    "en": "Reason (audit note, optional)",
-    "t": "Motif (note d’audit, facultatif)"
-  },
-  "admin.withdrawals.placeholder.txHash": {
-    "en": "Mined transaction hash (0x…)",
-    "t": "Hash de la transaction minée (0x…)"
-  },
-  "admin.withdrawals.subtitle": {
-    "en": "Dispatch, settle, or fail withdrawals — investors' and payouts from banking's treasury",
-    "t": "Expédier, régler ou faire échouer les retraits — ceux des investisseurs et les paiements depuis la trésorerie de banking"
-  },
-  "approval.amount": {
-    "en": "Amount",
-    "t": "Montant"
-  },
-  "approval.burned.body": {
-    "en": "The code was entered incorrectly too many times, so the link was closed and every owner has been told. Nothing was approved and no money has moved. Ask whoever opened the request to send a new one.",
-    "t": "Le code a été saisi incorrectement trop de fois : le lien a donc été fermé et chaque propriétaire en a été informé. Rien n'a été approuvé et aucun argent n'a bougé. Demandez à la personne qui a ouvert la demande d'en envoyer une nouvelle."
-  },
-  "approval.burned.title": {
-    "en": "This link has been closed",
-    "t": "Ce lien a été fermé"
-  },
-  "approval.codeHint": {
-    "en": "Ten characters, printed in the message that brought you here. It is what tells us a person opened this, and not an automatic link checker.",
-    "t": "Dix caractères, imprimés dans le message qui vous a conduit ici. C'est ce qui nous indique qu'une personne a ouvert ceci, et non un vérificateur de liens automatique."
-  },
-  "approval.codeLabel": {
-    "en": "Code from your email",
-    "t": "Code reçu par e-mail"
-  },
-  "approval.codePlaceholder": {
-    "en": "e.g. K3M9XR2Q7T",
-    "t": "ex. K3M9XR2Q7T"
-  },
-  "approval.codeWrong": {
-    "en": "That code didn't match. {n, plural, one {# attempt remains} other {# attempts remain}} before this link closes for good.",
-    "t": "Ce code ne correspond pas. {n, plural, one {Il reste # tentative} many {Il reste # tentatives} other {Il reste # tentatives}} avant que ce lien ne se ferme pour de bon."
-  },
-  "approval.decided.body": {
-    "en": "You answered this earlier, and that answer stands. An answer cannot be changed once it is given.",
-    "t": "Vous avez déjà répondu, et cette réponse tient. Une réponse ne peut pas être modifiée une fois donnée."
-  },
-  "approval.decisionLead": {
-    "en": "Both answers need the code from your email. Enter it once, then choose.",
-    "t": "Les deux réponses exigent le code reçu par e-mail. Saisissez-le une fois, puis choisissez."
-  },
-  "approval.decisionTitle": {
-    "en": "Your decision",
-    "t": "Votre décision"
-  },
-  "approval.expired.title": {
-    "en": "The deadline for this request has passed",
-    "t": "Le délai de cette demande est dépassé"
-  },
-  "approval.expiredNote": {
-    "en": "The deadline for this request has passed, so it can no longer be answered. Nothing was decided.",
-    "t": "Le délai de cette demande est dépassé, il n'est donc plus possible d'y répondre. Rien n'a été décidé."
-  },
-  "approval.expires": {
-    "en": "Expires",
-    "t": "Expire"
-  },
-  "approval.expiresValue": {
-    "en": "{at} · {left}",
-    "t": "{at} · {left}"
-  },
   "approval.expiry.days": {
     "en": "{n, plural, one {# day left} other {# days left}}",
     "t": "{n, plural, one {# jour restant} many {# jours restants} other {# jours restants}}"
@@ -2259,1277 +1463,25 @@
     "en": "The deadline has passed",
     "t": "Le délai est dépassé"
   },
-  "approval.feePolicy.approve": {
-    "en": "Approve this change",
-    "t": "Approuver ce changement"
-  },
-  "approval.feePolicy.burned.body": {
-    "en": "The code was entered incorrectly too many times, so the link was closed and every owner has been told. Nothing was approved and the product's terms are unchanged. Ask whoever opened the request to send a new one.",
-    "t": "Le code a été saisi incorrectement trop de fois, le lien a donc été fermé et tous les propriétaires en ont été informés. Rien n'a été approuvé et les conditions du produit sont inchangées. Demandez à la personne qui a ouvert la demande d'en envoyer une nouvelle."
-  },
-  "approval.feePolicy.decided.approvedTitle": {
-    "en": "You approved this change",
-    "t": "Vous avez approuvé ce changement"
-  },
-  "approval.feePolicy.decided.freshBody": {
-    "en": "Your answer has been recorded. There is nothing further to do here — the change is scheduled once enough owners have agreed, and binds 24 hours after that while anyone holds units.",
-    "t": "Votre réponse a été enregistrée. Il n'y a rien d'autre à faire ici — le changement est planifié dès qu'assez de propriétaires ont approuvé, et s'applique 24 heures après, tant que quelqu'un détient des parts."
-  },
-  "approval.feePolicy.decided.rejectedTitle": {
-    "en": "You rejected this change",
-    "t": "Vous avez rejeté ce changement"
-  },
-  "approval.feePolicy.lead": {
-    "en": "{initiator} has asked to change what a product charges its investors, as set out below. Tightening the terms beyond what the prospectus promised is never one person's decision, so it needs the owners to agree.",
-    "t": "{initiator} a demandé de changer ce qu'un produit prélève à ses investisseurs, comme indiqué ci-dessous. Durcir les conditions au-delà de ce que le prospectus promettait n'est jamais la décision d'une seule personne ; les propriétaires doivent donc l'approuver."
-  },
-  "approval.feePolicy.payloadHashHint": {
-    "en": "The fingerprint is taken over the product, the terms now and proposed, the reason and the requested moment above. It is checked again before the change is scheduled, so a request cannot be edited after you have agreed to it.",
-    "t": "L'empreinte est calculée sur le produit, les conditions actuelles et proposées, le motif et le moment demandé ci-dessus. Elle est vérifiée à nouveau avant la planification du changement, de sorte qu'une demande ne peut plus être modifiée après votre accord."
-  },
-  "approval.feePolicy.tallyHint": {
-    "en": "More than half of the owners must approve before the terms change. You are one of them.",
-    "t": "Plus de la moitié des propriétaires doivent approuver avant que les conditions ne changent. Vous en faites partie."
-  },
-  "approval.feePolicy.title": {
-    "en": "Approve a change of fee terms",
-    "t": "Approuver un changement des conditions de frais"
-  },
-  "approval.footnote": {
-    "en": "This link was made for you alone. It works once, expires 72 hours after it was sent, and should not be forwarded.",
-    "t": "Ce lien a été créé pour vous seul. Il fonctionne une fois, expire 72 heures après son envoi et ne doit pas être transféré."
-  },
-  "approval.gone.body": {
-    "en": "Approval links work once and expire after 72 hours. This one may have been used already, run out of time, or been closed — which of those it was cannot be told from here. Ask whoever opened the request to send a new one.",
-    "t": "Les liens d'approbation fonctionnent une fois et expirent après 72 heures. Celui-ci a peut-être déjà été utilisé, a expiré ou a été fermé — impossible de dire lequel d'ici. Demandez à la personne qui a ouvert la demande d'en envoyer une nouvelle."
-  },
-  "approval.gone.title": {
-    "en": "This link can no longer be used",
-    "t": "Ce lien ne peut plus être utilisé"
-  },
-  "approval.holderGrant.allocation.fee": {
-    "en": "of the fee allocation",
-    "t": "de l'allocation des frais"
-  },
-  "approval.holderGrant.allocation.fund": {
-    "en": "of the fund allocation",
-    "t": "de l'allocation du capital"
-  },
-  "approval.holderGrant.approve": {
-    "en": "Approve this grant",
-    "t": "Approuver cette attribution"
-  },
-  "approval.holderGrant.decided.approvedTitle": {
-    "en": "You approved this grant",
-    "t": "Vous avez approuvé cette attribution"
-  },
-  "approval.holderGrant.decided.freshBody": {
-    "en": "Your answer has been recorded. There is nothing further to do here — the units are minted once enough owners have agreed.",
-    "t": "Votre réponse a été enregistrée. Il n'y a rien d'autre à faire ici — les parts sont émises une fois qu'assez de propriétaires ont accepté."
-  },
-  "approval.holderGrant.decided.rejectedTitle": {
-    "en": "You rejected this grant",
-    "t": "Vous avez rejeté cette attribution"
-  },
-  "approval.holderGrant.executes": {
-    "en": "If it passes, the units are minted to this person in kind, and they hold that share of the allocation from then on.",
-    "t": "S'il est adopté, les parts sont émises en nature pour cette personne, qui détient cette part de l'allocation dès lors."
-  },
-  "approval.holderGrant.holder": {
-    "en": "Holder",
-    "t": "Détenteur"
-  },
-  "approval.holderGrant.lead": {
-    "en": "{initiator} has asked to seat a person on one of the platform's own allocations, as set out below. Who holds the platform's money is never one person's decision, so it needs the owners to agree.",
-    "t": "{initiator} a demandé de faire entrer une personne dans l'une des allocations propres de la plateforme, comme indiqué ci-dessous. Qui détient l'argent de la plateforme n'est jamais la décision d'une seule personne, d'où l'accord des propriétaires."
-  },
-  "approval.holderGrant.payloadHashHint": {
-    "en": "The fingerprint is taken over the allocation, the person and the units above. It is checked again before anything is minted, so a request cannot be edited after you have agreed to it.",
-    "t": "L'empreinte est calculée sur l'allocation, la personne et les parts ci-dessus. Elle est vérifiée à nouveau avant toute émission, si bien qu'une demande ne peut pas être modifiée après votre accord."
-  },
-  "approval.holderGrant.title": {
-    "en": "Approve a holder grant",
-    "t": "Approuver une attribution de parts"
-  },
-  "approval.holderGrant.units": {
-    "en": "Units to mint",
-    "t": "Parts à émettre"
-  },
-  "approval.loadFailed": {
-    "en": "We couldn't load this request",
-    "t": "Impossible de charger cette demande"
-  },
-  "approval.loadFailedHint": {
-    "en": "The link itself may be perfectly fine — this looks like a problem reaching us. Try again in a moment.",
-    "t": "Le lien lui-même est peut-être parfaitement valide — cela ressemble à un problème pour nous joindre. Réessayez dans un instant."
-  },
-  "approval.network": {
-    "en": "Network",
-    "t": "Réseau"
-  },
-  "approval.openedAt": {
-    "en": "Opened",
-    "t": "Ouverte le"
-  },
-  "approval.openedBy": {
-    "en": "Opened by",
-    "t": "Ouverte par"
-  },
-  "approval.payloadHash": {
-    "en": "Request fingerprint",
-    "t": "Empreinte de la demande"
-  },
-  "approval.payment.approve": {
-    "en": "Approve this payment",
-    "t": "Approuver ce paiement"
-  },
-  "approval.payment.decided.approvedTitle": {
-    "en": "You approved this payment",
-    "t": "Vous avez approuvé ce paiement"
-  },
-  "approval.payment.decided.freshBody": {
-    "en": "Your answer has been recorded. There is nothing further to do here — the payment goes ahead once enough owners have agreed.",
-    "t": "Votre réponse a été enregistrée. Il n'y a rien d'autre à faire ici — le paiement sera exécuté une fois qu'assez de propriétaires auront accepté."
-  },
-  "approval.payment.decided.rejectedTitle": {
-    "en": "You rejected this payment",
-    "t": "Vous avez rejeté ce paiement"
-  },
-  "approval.payment.from": {
-    "en": "From",
-    "t": "De"
-  },
-  "approval.payment.lead": {
-    "en": "{initiator} has asked to move money the fund owns, as set out below. Moving the fund's own money is never one person's decision, so it needs the owners to agree.",
-    "t": "{initiator} demande à déplacer de l'argent appartenant au fonds, comme indiqué ci-dessous. Déplacer l'argent du fonds n'est jamais la décision d'une seule personne ; il faut l'accord des propriétaires."
-  },
-  "approval.payment.payloadHashHint": {
-    "en": "The fingerprint is taken over the amount, both ends and the reason above. It is checked again before any money moves, so a request cannot be edited after you have agreed to it.",
-    "t": "L'empreinte est calculée sur le montant, les deux extrémités et le motif ci-dessus. Elle est revérifiée avant tout mouvement d'argent, de sorte qu'une demande ne peut plus être modifiée après votre accord."
-  },
-  "approval.payment.reasonLabel": {
-    "en": "Reason given",
-    "t": "Motif donné"
-  },
-  "approval.payment.tier": {
-    "en": "Tier",
-    "t": "Niveau"
-  },
-  "approval.payment.title": {
-    "en": "Approve a fund payment",
-    "t": "Approuver un paiement du fonds"
-  },
-  "approval.payment.to": {
-    "en": "To",
-    "t": "Vers"
-  },
-  "approval.reject": {
-    "en": "Reject",
-    "t": "Rejeter"
-  },
-  "approval.removal.about": {
-    "en": "About",
-    "t": "Concerne"
-  },
-  "approval.removal.accept": {
-    "en": "Accept and give up my seat",
-    "t": "Accepter et céder mon siège"
-  },
-  "approval.removal.accepted.body": {
-    "en": "You accepted this earlier. Your ownership has ended.",
-    "t": "Vous avez accepté plus tôt. Votre propriété a pris fin."
-  },
-  "approval.removal.accepted.freshBody": {
-    "en": "Your ownership has ended and the other owners have been told. Nothing else about your account has changed.",
-    "t": "Votre propriété a pris fin et les autres propriétaires en ont été informés. Rien d'autre n'a changé sur votre compte."
-  },
-  "approval.removal.accepted.title": {
-    "en": "You gave up your seat",
-    "t": "Vous avez cédé votre siège"
-  },
-  "approval.removal.confirmAction": {
-    "en": "Give up my seat",
-    "t": "Céder mon siège"
-  },
-  "approval.removal.confirmBody": {
-    "en": "Your owner seat ends immediately and cannot be restored from here. You would need the remaining owners to make you an owner again. Nothing else about your account changes.",
-    "t": "Votre siège de propriétaire prend fin immédiatement et ne peut pas être rétabli d'ici. Il faudrait que les propriétaires restants vous nomment de nouveau propriétaire. Rien d'autre ne change sur votre compte."
-  },
-  "approval.removal.confirmTitle": {
-    "en": "This ends your ownership",
-    "t": "Ceci met fin à votre propriété"
-  },
-  "approval.removal.decisionLead": {
-    "en": "You can accept this or refuse it, and either answer needs the code from your email. Refusing does not end the matter: the other owners can still decide it between them, and that takes all of them agreeing.",
-    "t": "Vous pouvez accepter ou refuser, et chaque réponse exige le code reçu par e-mail. Refuser ne clôt pas l'affaire : les autres propriétaires peuvent encore en décider entre eux, et cela exige l'accord de chacun d'eux."
-  },
-  "approval.removal.decisionTitle": {
-    "en": "Your answer",
-    "t": "Votre réponse"
-  },
-  "approval.removal.irreversible": {
-    "en": "Accepting is final. Your ownership ends as soon as it is recorded, and it cannot be undone from this page or any other.",
-    "t": "Accepter est définitif. Votre propriété prend fin dès l'enregistrement, et cela ne peut être annulé ni depuis cette page ni depuis aucune autre."
-  },
-  "approval.removal.lead": {
-    "en": "{initiator} has proposed that you stop being an owner of the fund. You have a say in it, and there is a deadline.",
-    "t": "{initiator} a proposé que vous cessiez d'être propriétaire du fonds. Vous avez votre mot à dire, et il y a un délai."
-  },
-  "approval.removal.noReason": {
-    "en": "No reason was given.",
-    "t": "Aucune raison n'a été donnée."
-  },
-  "approval.removal.proposedBy": {
-    "en": "Proposed by",
-    "t": "Proposé par"
-  },
-  "approval.removal.reasonLabel": {
-    "en": "Reason given",
-    "t": "Raison donnée"
-  },
-  "approval.removal.refuse": {
-    "en": "Refuse — keep my seat",
-    "t": "Refuser — garder mon siège"
-  },
-  "approval.removal.refused.body": {
-    "en": "Your answer has been recorded. You keep your seat unless every other eligible owner agrees to end it, and you will be told either way.",
-    "t": "Votre réponse a été enregistrée. Vous gardez votre siège à moins que chaque autre propriétaire habilité n'accepte d'y mettre fin, et vous serez informé dans les deux cas."
-  },
-  "approval.removal.refused.title": {
-    "en": "You refused this",
-    "t": "Vous avez refusé"
-  },
-  "approval.removal.title": {
-    "en": "A request to end your ownership",
-    "t": "Une demande de mettre fin à votre propriété"
-  },
-  "approval.seedCapital.amount": {
-    "en": "Amount",
-    "t": "Montant"
-  },
-  "approval.seedCapital.approve": {
-    "en": "Approve this seed",
-    "t": "Approuver cet apport"
-  },
-  "approval.seedCapital.decided.approvedTitle": {
-    "en": "You approved this seed",
-    "t": "Vous avez approuvé cet apport"
-  },
-  "approval.seedCapital.decided.freshBody": {
-    "en": "Your answer has been recorded. There is nothing further to do here — the deposit is booked once enough owners have agreed.",
-    "t": "Votre réponse a été enregistrée. Il n'y a rien d'autre à faire ici — le dépôt est comptabilisé une fois qu'assez de propriétaires ont accepté."
-  },
-  "approval.seedCapital.decided.rejectedTitle": {
-    "en": "You rejected this seed",
-    "t": "Vous avez rejeté cet apport"
-  },
-  "approval.seedCapital.depositor": {
-    "en": "Depositor",
-    "t": "Déposant"
-  },
-  "approval.seedCapital.executes": {
-    "en": "If it passes, the transfer is verified on chain and booked as this person's deposit and subscription into the fund allocation — in one step, or not at all.",
-    "t": "S'il est adopté, le transfert est vérifié sur la chaîne et comptabilisé comme dépôt de cette personne et souscription dans l'allocation du capital — en une seule étape, ou pas du tout."
-  },
-  "approval.seedCapital.lead": {
-    "en": "{initiator} has asked to attribute a transfer to the treasury as a person's seed of the platform's capital, as set out below. Whose capital it is is never one person's decision, so it needs the owners to agree.",
-    "t": "{initiator} a demandé d'attribuer un transfert vers la trésorerie comme apport d'une personne au capital de la plateforme, comme indiqué ci-dessous. À qui appartient ce capital n'est jamais la décision d'une seule personne, d'où l'accord des propriétaires."
-  },
-  "approval.seedCapital.payloadHashHint": {
-    "en": "The fingerprint is taken over the reference, the rail, the amount and the depositor above. It is checked again before anything is booked, so a request cannot be edited after you have agreed to it.",
-    "t": "L'empreinte est calculée sur la référence, le réseau, le montant et le déposant ci-dessus. Elle est vérifiée à nouveau avant toute comptabilisation, si bien qu'une demande ne peut pas être modifiée après votre accord."
-  },
-  "approval.seedCapital.reference": {
-    "en": "On-chain reference",
-    "t": "Référence on-chain"
-  },
-  "approval.seedCapital.title": {
-    "en": "Approve seed capital",
-    "t": "Approuver un capital d'amorçage"
-  },
-  "approval.tally": {
-    "en": "{approvals} of {threshold, plural, one {# approval} other {# approvals}} so far",
-    "t": "{approvals} sur {threshold, plural, one {# approbation} many {# approbations} other {# approbations}} pour l'instant"
-  },
-  "approval.tallyHint": {
-    "en": "More than half of the owners must approve before any money moves. You are one of them.",
-    "t": "Plus de la moitié des propriétaires doivent approuver avant tout mouvement d'argent. Vous en faites partie."
-  },
-  "approval.tallyOwners": {
-    "en": "{owners, plural, one {# owner} other {# owners}} in total",
-    "t": "{owners, plural, one {# propriétaire} many {# propriétaires} other {# propriétaires}} au total"
-  },
-  "approval.unavailableBody": {
-    "en": "The terms of this payout didn't arrive, so there is nothing here to agree to and no decision is offered. This is a problem on our side, not with your link. Try again in a moment.",
-    "t": "Les conditions de ce versement ne sont pas arrivées, il n'y a donc rien ici à approuver et aucune décision n'est proposée. Le problème vient de chez nous, pas de votre lien. Réessayez dans un instant."
-  },
-  "approval.unavailableTitle": {
-    "en": "We can't show this request",
-    "t": "Impossible d'afficher cette demande"
-  },
-  "approval.valuation.approve": {
-    "en": "Approve this mark",
-    "t": "Approuver cette valorisation"
-  },
-  "approval.valuation.aum": {
-    "en": "Proposed AUM",
-    "t": "AUM proposé"
-  },
-  "approval.valuation.burned.body": {
-    "en": "The code was entered incorrectly too many times, so the link was closed and every owner has been told. Nothing was approved and the fund's NAV mark is unchanged. Ask whoever opened the request to send a new one.",
-    "t": "Le code a été saisi incorrectement trop de fois, le lien a donc été fermé et tous les propriétaires en ont été informés. Rien n'a été approuvé et la valorisation de VL du fonds est inchangée. Demandez à la personne qui a ouvert la demande d'en envoyer une nouvelle."
-  },
-  "approval.valuation.decided.approvedTitle": {
-    "en": "You approved this mark",
-    "t": "Vous avez approuvé cette valorisation"
-  },
-  "approval.valuation.decided.freshBody": {
-    "en": "Your answer has been recorded. There is nothing further to do here — the fund is marked once enough owners have agreed.",
-    "t": "Votre réponse a été enregistrée. Il n’y a plus rien à faire ici : le fonds sera valorisé dès qu’assez de propriétaires auront donné leur accord."
-  },
-  "approval.valuation.decided.rejectedTitle": {
-    "en": "You rejected this mark",
-    "t": "Vous avez rejeté cette valorisation"
-  },
-  "approval.valuation.executes": {
-    "en": "If it passes, the fund is marked at this AUM whatever the NAV-move guard would have said, and its queued redemptions settle at the NAV that follows.",
-    "t": "Si elle passe, le fonds est valorisé à cet AUM quoi qu’en aurait dit le garde-fou de variation de VL, et ses rachats en attente sont réglés à la VL qui en découle."
-  },
-  "approval.valuation.lead": {
-    "en": "{initiator} has asked to mark a fund at a value the NAV-move guard refuses. A mark past the guard is never one person's decision, so it needs the owners to agree.",
-    "t": "{initiator} demande à valoriser un fonds à une valeur que le garde-fou de variation de VL refuse. Une valorisation au-delà du garde-fou n’est jamais la décision d’une seule personne : il faut l’accord des propriétaires."
-  },
-  "approval.valuation.payloadHashHint": {
-    "en": "The fingerprint is taken over the product and the AUM above. It is checked again before the mark is recorded, so a request cannot be edited after you have agreed to it.",
-    "t": "L’empreinte est calculée sur le produit et l’AUM ci-dessus. Elle est revérifiée avant l’enregistrement de la valorisation, de sorte qu’une demande ne peut plus être modifiée après votre accord."
-  },
-  "approval.valuation.product": {
-    "en": "Product",
-    "t": "Produit"
-  },
-  "approval.valuation.tallyHint": {
-    "en": "More than half of the owners must approve before the fund is marked. You are one of them.",
-    "t": "Plus de la moitié des propriétaires doivent approuver avant que le fonds ne soit valorisé. Vous en faites partie."
-  },
-  "approval.valuation.title": {
-    "en": "Approve a NAV mark",
-    "t": "Approuver une valorisation de VL"
-  },
-  "approval.votingAs": {
-    "en": "You are answering as {email}.",
-    "t": "Vous répondez en tant que {email}."
-  },
-  "auth.cabinet": {
-    "en": "Cabinet",
-    "t": "Mon espace"
-  },
-  "auth.err.denied": {
-    "en": "Sign-in was cancelled.",
-    "t": "La connexion a été annulée."
-  },
-  "auth.err.exchange": {
-    "en": "We couldn't complete sign-in. Please try again.",
-    "t": "Nous n’avons pas pu finaliser la connexion. Veuillez réessayer."
-  },
-  "auth.err.generic": {
-    "en": "Sign-in failed. Please try again.",
-    "t": "Échec de la connexion. Veuillez réessayer."
-  },
-  "auth.err.invalid": {
-    "en": "That sign-in attempt expired. Please try again.",
-    "t": "Cette tentative de connexion a expiré. Veuillez réessayer."
-  },
-  "auth.notSignedIn": {
-    "en": "Not signed in",
-    "t": "Non connecté"
-  },
-  "auth.signInAgain": {
-    "en": "Sign in again",
-    "t": "Se reconnecter"
-  },
-  "auth.signOut": {
-    "en": "Sign out",
-    "t": "Se déconnecter"
-  },
-  "auth.manageAccount": {
-    "en": "Manage account",
-    "t": "Gérer le compte"
-  },
-  "auth.switchAccount": {
-    "en": "Switch account",
-    "t": "Changer de compte"
-  },
-  "auth.signedOut": {
-    "en": "Signed out",
-    "t": "Déconnecté"
-  },
-  "auth.signedOutSub": {
-    "en": "You've been signed out of your cabinet.",
-    "t": "Vous avez été déconnecté de votre espace."
-  },
-  "auth.stat.risk": {
-    "en": "Capital at risk. A target is not a forecast, and returns are not guaranteed.",
-    "t": "Capital à risque. Un objectif n'est pas une prévision, et les rendements ne sont pas garantis."
-  },
-  "consent.approve": {
-    "en": "Approve — move my money",
-    "t": "Accepter — déplacer mon argent"
-  },
-  "consent.askedBy": {
-    "en": "Asked by",
-    "t": "Demandé par"
-  },
-  "consent.burned.body": {
-    "en": "The code was entered incorrectly too many times, so the link was closed. Nothing was approved and your money has not moved. Whoever asked can open a new request.",
-    "t": "Le code a été saisi incorrectement trop de fois, le lien a donc été fermé. Rien n'a été approuvé et votre argent n'a pas bougé. La personne qui a demandé peut ouvrir une nouvelle demande."
-  },
-  "consent.decided.approvedFresh": {
-    "en": "Your answer has been recorded and the payment goes ahead. There is nothing further to do here.",
-    "t": "Votre réponse a été enregistrée et le paiement va être exécuté. Il n'y a rien d'autre à faire ici."
-  },
-  "consent.decided.approvedTitle": {
-    "en": "You approved this payment",
-    "t": "Vous avez accepté ce paiement"
-  },
-  "consent.decided.rejectedFresh": {
-    "en": "Your answer has been recorded. Your money stays exactly where it is, and whoever asked has been told.",
-    "t": "Votre réponse a été enregistrée. Votre argent reste exactement là où il est, et la personne qui a demandé en a été informée."
-  },
-  "consent.decided.rejectedTitle": {
-    "en": "You rejected this payment",
-    "t": "Vous avez refusé ce paiement"
-  },
-  "consent.decisionLead": {
-    "en": "Both answers need the code from your email. Enter it once, then choose. Rejecting keeps your money exactly where it is.",
-    "t": "Les deux réponses nécessitent le code de votre e-mail. Saisissez-le une fois, puis choisissez. Refuser laisse votre argent exactement là où il est."
-  },
-  "consent.decisionTitle": {
-    "en": "Your decision",
-    "t": "Votre décision"
-  },
-  "consent.lead": {
-    "en": "{initiator} is asking for it to be moved as set out below. Nothing happens unless you agree — nobody else is asked, and nobody else can answer for you.",
-    "t": "{initiator} demande à le déplacer comme indiqué ci-dessous. Rien ne se passe sans votre accord — personne d'autre n'est consulté, et personne ne peut répondre à votre place."
-  },
-  "consent.leadOwn": {
-    "en": "This is your money.",
-    "t": "C'est votre argent."
-  },
-  "consent.reasonLabel": {
-    "en": "Reason given by {initiator}",
-    "t": "Motif donné par {initiator}"
-  },
-  "consent.reject": {
-    "en": "Reject — keep my money",
-    "t": "Refuser — garder mon argent"
-  },
-  "consent.title": {
-    "en": "Your money is asked to move",
-    "t": "On demande à déplacer votre argent"
-  },
-  "consent.unavailableBody": {
-    "en": "The terms of this payment didn't arrive, so there is nothing here to agree to and no decision is offered. This is a problem on our side, not with your link. Try again in a moment.",
-    "t": "Les conditions de ce paiement ne sont pas arrivées : il n'y a donc rien à accepter ici et aucune décision n'est proposée. Le problème vient de chez nous, pas de votre lien. Réessayez dans un instant."
-  },
-  "consent.yourMoney": {
-    "en": "Whose money",
-    "t": "À qui est l'argent"
-  },
-  "consilium.admission.cancel": {
-    "en": "Withdraw this proposal",
-    "t": "Retirer cette proposition"
-  },
-  "consilium.admission.expires": {
-    "en": "Expires {at} · {left}",
-    "t": "Expire {at} · {left}"
-  },
-  "consilium.admission.heading": {
-    "en": "Admit {candidate}",
-    "t": "Admettre {candidate}"
-  },
-  "consilium.admission.noPeers": {
-    "en": "There is no owner left to agree, so this admission can no longer pass. Unlike a removal, it has no second route.",
-    "t": "Il ne reste aucun propriétaire pour donner son accord, cette admission ne peut donc plus passer. Contrairement à une révocation, elle n'a pas de seconde voie."
-  },
-  "consilium.admission.noReason": {
-    "en": "No reason was given.",
-    "t": "Aucune raison n'a été donnée."
-  },
-  "consilium.admission.notAVoter": {
-    "en": "The owners who may vote were fixed when this was proposed, and you were not among them. An owner seated since cannot be added to that set — otherwise new owners could be created to carry a vote.",
-    "t": "Les propriétaires habilités à voter ont été fixés au moment de la proposition, et vous n'en faisiez pas partie. Un propriétaire admis depuis ne peut pas être ajouté à cet ensemble — sinon on pourrait créer de nouveaux propriétaires pour emporter un vote."
-  },
-  "consilium.admission.oneRejectEnds": {
-    "en": "One refusal ends an admission — this one can no longer pass.",
-    "t": "Un seul refus met fin à une admission — celle-ci ne peut plus passer."
-  },
-  "consilium.admission.openedBy": {
-    "en": "Proposed by {initiator} · {at}",
-    "t": "Proposé par {initiator} · {at}"
-  },
-  "consilium.admission.peerTally": {
-    "en": "{admitted} of {total} owners have agreed",
-    "t": "{admitted} propriétaires sur {total} ont donné leur accord"
-  },
-  "consilium.admission.reason": {
-    "en": "Reason",
-    "t": "Raison"
-  },
-  "consilium.admission.unanimityNote": {
-    "en": "All of them must agree",
-    "t": "Tous doivent donner leur accord"
-  },
-  "consilium.admission.voteAdmit": {
-    "en": "Admit as an owner",
-    "t": "Admettre comme propriétaire"
-  },
-  "consilium.admission.voteReject": {
-    "en": "Refuse",
-    "t": "Refuser"
-  },
-  "consilium.admission.youAreCandidate": {
-    "en": "This admission is about your own seat, so you take no part in deciding it.",
-    "t": "Cette admission concerne votre propre siège, vous ne prenez donc aucune part à la décision."
-  },
-  "consilium.admission.youOpened": {
-    "en": "You proposed admitting {candidate}, so you have no vote on it — the bar you have to clear is every other owner agreeing, and opening a proposal must not be a way to lower it.",
-    "t": "Vous avez proposé d'admettre {candidate}, vous n'avez donc pas de vote — le seuil à franchir est l'accord de chaque autre propriétaire, et ouvrir une proposition ne doit pas être un moyen de l'abaisser."
-  },
-  "consilium.admission.youVoted": {
-    "en": "You answered: {vote}.",
-    "t": "Vous avez répondu : {vote}."
-  },
-  "consilium.admissionVote.admit": {
-    "en": "Admit",
-    "t": "Admettre"
-  },
-  "consilium.admissionVote.reject": {
-    "en": "Refuse",
-    "t": "Refuser"
-  },
-  "consilium.admissions.emptyBody": {
-    "en": "No admission is open. Proposing one is what starts it, and every other owner then has to agree.",
-    "t": "Aucune admission n'est ouverte. C'est une proposition qui la lance, et chaque autre propriétaire doit ensuite donner son accord."
-  },
-  "consilium.admissions.emptyTitle": {
-    "en": "Nobody is being admitted",
-    "t": "Personne n'est en cours d'admission"
-  },
-  "consilium.admissions.failedBody": {
-    "en": "Until it loads, the page cannot say whether anyone is being let into the fund, so it says nothing rather than guessing at it. The rest of the page is unaffected.",
-    "t": "Tant que cela n'est pas chargé, la page ne peut pas dire si quelqu'un est en train d'entrer dans le fonds, elle ne dit donc rien plutôt que de le deviner. Le reste de la page n'est pas affecté."
-  },
-  "consilium.admissions.failedTitle": {
-    "en": "Admissions did not load",
-    "t": "Les admissions ne se sont pas chargées"
-  },
-  "consilium.admissions.sub": {
-    "en": "Granting a seat is the only way to become an owner, and it is decided here.",
-    "t": "Accorder un siège est la seule façon de devenir propriétaire, et cela se décide ici."
-  },
-  "consilium.admissions.title": {
-    "en": "Admissions",
-    "t": "Admissions"
-  },
-  "consilium.admit.candidateHint": {
-    "en": "A candidate is not an owner yet, so the roster cannot list them. Their user ID is on their row in Users.",
-    "t": "Un candidat n'est pas encore propriétaire, la liste des propriétaires ne peut donc pas le mentionner. Son identifiant utilisateur figure sur sa ligne dans Utilisateurs."
-  },
-  "consilium.admit.candidateLabel": {
-    "en": "Account",
-    "t": "Compte"
-  },
-  "consilium.admit.candidatePlaceholder": {
-    "en": "User ID",
-    "t": "Identifiant utilisateur"
-  },
-  "consilium.admit.genesis": {
-    "en": "This fund has {n, plural, =0 {no seated owners} one {# seated owner} other {# seated owners}}. An admission needs at least one owner besides whoever proposes it, so it cannot seat the founders: they are written by the service itself at start-up, from the genesis list, and only while the register is empty. That boot closes the window for good, and from then on this form is the only way in.",
-    "t": "Ce fonds compte {n, plural, =0 {aucun propriétaire siégeant} one {# propriétaire siégeant} many {# propriétaires siégeants} other {# propriétaires siégeants}}. Une admission exige au moins un propriétaire autre que celui qui la propose : elle ne peut donc pas installer les fondateurs. Ceux-là sont inscrits par le service lui-même au démarrage, depuis la liste de genèse, et seulement tant que le registre est vide. Ce démarrage referme la fenêtre pour de bon, et ce formulaire devient la seule voie d'entrée."
-  },
-  "consilium.admit.opened": {
-    "en": "Proposed. Every other owner has been asked to answer.",
-    "t": "Proposé. Chaque autre propriétaire a été invité à répondre."
-  },
-  "consilium.admit.reasonHint": {
-    "en": "Every owner reads this before answering, in these words.",
-    "t": "Chaque propriétaire lit ceci avant de répondre, dans ces mots exacts."
-  },
-  "consilium.admit.reasonLabel": {
-    "en": "Reason",
-    "t": "Raison"
-  },
-  "consilium.admit.reasonPlaceholder": {
-    "en": "Why this person should hold a seat",
-    "t": "Pourquoi cette personne devrait occuper un siège"
-  },
-  "consilium.admit.sub": {
-    "en": "The only way a seat is granted. Every other owner has to agree.",
-    "t": "La seule façon d'accorder un siège. Chaque autre propriétaire doit donner son accord."
-  },
-  "consilium.admit.submit": {
-    "en": "Propose admission",
-    "t": "Proposer l'admission"
-  },
-  "consilium.admit.title": {
-    "en": "Admit an owner",
-    "t": "Admettre un propriétaire"
-  },
-  "consilium.admit.unanimityWarning": {
-    "en": "An admission passes only if every owner except you agrees, and there has to be at least one of them. This is stricter than a removal: a majority is not enough, and a single refusal ends it. A minority must never be able to grow itself into a majority.",
-    "t": "Une admission ne passe que si chaque propriétaire sauf vous donne son accord, et il doit y en avoir au moins un. C'est plus strict qu'une révocation : une majorité ne suffit pas, et un seul refus y met fin. Une minorité ne doit jamais pouvoir se transformer elle-même en majorité."
-  },
-  "consilium.admit.unknownBody": {
-    "en": "Without it the page cannot say how many owners would have to agree, so it is not offering the form rather than offering one it cannot explain.",
-    "t": "Sans elle, la page ne peut pas dire combien de propriétaires devraient donner leur accord ; elle ne propose donc pas le formulaire plutôt que d'en proposer un qu'elle ne peut pas expliquer."
-  },
-  "consilium.admit.unknownTitle": {
-    "en": "The owner list did not load",
-    "t": "La liste des propriétaires ne s'est pas chargée"
-  },
-  "consilium.feePolicy.asSoonAsAllowed": {
-    "en": "As soon as allowed — 24 hours after the owners carry it, while anyone holds units",
-    "t": "Dès que possible — 24 heures après la décision des propriétaires, tant que quelqu'un détient des parts"
-  },
-  "consilium.feePolicy.carried": {
-    "en": "Carried",
-    "t": "Adopté"
-  },
-  "consilium.feePolicy.effectiveFrom": {
-    "en": "Takes effect · {at}",
-    "t": "Prend effet · {at}"
-  },
-  "consilium.feePolicy.effectiveFromLabel": {
-    "en": "Takes effect",
-    "t": "Prend effet"
-  },
-  "consilium.feePolicy.fund": {
-    "en": "Product",
-    "t": "Produit"
-  },
-  "consilium.feePolicy.holders": {
-    "en": "{n, plural, one {# holder will be notified} other {# holders will be notified}}",
-    "t": "{n, plural, one {# porteur sera averti} many {# porteurs seront avertis} other {# porteurs seront avertis}}"
-  },
-  "consilium.feePolicy.holdersLabel": {
-    "en": "Holders to notify",
-    "t": "Porteurs à avertir"
-  },
-  "consilium.feePolicy.nothingCharged": {
-    "en": "Nothing charged",
-    "t": "Rien prélevé"
-  },
-  "consilium.feePolicy.now": {
-    "en": "Now",
-    "t": "Actuellement"
-  },
-  "consilium.feePolicy.proposed": {
-    "en": "Proposed",
-    "t": "Proposé"
-  },
-  "consilium.feePolicy.reason": {
-    "en": "Reason given",
-    "t": "Motif donné"
-  },
-  "consilium.floor.body": {
-    "en": "A payout needs more than half of the owners to agree, and with {n, plural, one {# owner} other {# owners}} that bar can no longer be cleared. Adding owners restores it.",
-    "t": "Un versement exige l'accord de plus de la moitié des propriétaires, et avec {n, plural, one {# propriétaire} many {# propriétaires} other {# propriétaires}} ce seuil ne peut plus être franchi. Ajouter des propriétaires le rétablit."
-  },
-  "consilium.floor.title": {
-    "en": "The fund cannot authorise a payout",
-    "t": "Le fonds ne peut pas autoriser de versement"
-  },
-  "consilium.forbidden.body": {
-    "en": "Only owners can see and take part in what is decided here. If that should include you, ask an existing owner.",
-    "t": "Seuls les propriétaires peuvent voir et prendre part à ce qui se décide ici. Si cela devrait vous inclure, demandez à un propriétaire actuel."
-  },
-  "consilium.forbidden.title": {
-    "en": "This room is for the fund's owners",
-    "t": "Cette salle est réservée aux propriétaires du fonds"
-  },
-  "consilium.holderGrant.allocation": {
-    "en": "Allocation",
-    "t": "Allocation"
-  },
-  "consilium.holderGrant.carried": {
-    "en": "Minted",
-    "t": "Émis"
-  },
-  "consilium.holderGrant.executes": {
-    "en": "If it passes, the units are minted to this person in kind — the allocation's supply grows by them, and they hold that share from then on.",
-    "t": "S'il est adopté, les parts sont émises en nature pour cette personne — l'encours de l'allocation augmente d'autant, et elle détient cette part dès lors."
-  },
-  "consilium.holderGrant.holder": {
-    "en": "Holder",
-    "t": "Détenteur"
-  },
-  "consilium.holderGrant.unitsWord": {
-    "en": "units",
-    "t": "parts"
-  },
-  "consilium.kind.fee_policy": {
-    "en": "Fee terms",
-    "t": "Conditions de frais"
-  },
-  "consilium.kind.holder_grant": {
-    "en": "Holder grant",
-    "t": "Attribution de parts"
-  },
-  "consilium.kind.payment": {
-    "en": "Payment",
-    "t": "Paiement"
-  },
-  "consilium.kind.seed_capital": {
-    "en": "Seed capital",
-    "t": "Capital d'amorçage"
-  },
-  "consilium.kind.valuation_override": {
-    "en": "NAV mark",
-    "t": "Marque de VL"
-  },
-  "consilium.payment.from": {
-    "en": "From",
-    "t": "De"
-  },
-  "consilium.payment.reason": {
-    "en": "Reason given",
-    "t": "Motif donné"
-  },
-  "consilium.payment.tier": {
-    "en": "Tier · {tier}",
-    "t": "Niveau · {tier}"
-  },
-  "consilium.payment.to": {
-    "en": "To",
-    "t": "Vers"
-  },
-  "consilium.payout.cancel": {
-    "en": "Cancel this request",
-    "t": "Annuler cette demande"
-  },
-  "consilium.payout.cancelConfirm": {
-    "en": "Cancel and void the votes",
-    "t": "Annuler et invalider les votes"
-  },
-  "consilium.payout.cancelWarning": {
-    "en": "Cancelling voids every approval collected so far. Votes are not carried over if the request is reopened, so the owners who have already answered would each have to answer again.",
-    "t": "L'annulation invalide chaque approbation recueillie jusqu'ici. Les votes ne sont pas reportés si la demande est rouverte : les propriétaires qui ont déjà répondu devraient donc chacun répondre à nouveau."
-  },
-  "consilium.payout.emptyAction": {
-    "en": "Go to payments",
-    "t": "Aller aux paiements"
-  },
-  "consilium.payout.emptyBody": {
-    "en": "When someone opens a payment of the fund's money, it appears here with its running tally, and every owner is emailed a link to answer from.",
-    "t": "Lorsque quelqu'un ouvre un paiement avec l'argent du fonds, il apparaît ici avec son décompte en cours, et chaque propriétaire reçoit par e-mail un lien pour répondre."
-  },
-  "consilium.payout.emptyTitle": {
-    "en": "No request is open",
-    "t": "Aucune demande ouverte"
-  },
-  "consilium.payout.expires": {
-    "en": "Expires {at} · {left}",
-    "t": "Expire {at} · {left}"
-  },
-  "consilium.payout.failedBody": {
-    "en": "Until it loads, the page cannot tell you whether a payout is open and waiting on the other owners — so do not read this as there being none. The rest of the page is unaffected.",
-    "t": "Tant que cela n'est pas chargé, la page ne peut pas vous dire si un versement est ouvert et attend les autres propriétaires — n'en concluez donc pas qu'il n'y en a aucun. Le reste de la page n'est pas affecté."
-  },
-  "consilium.payout.failedTitle": {
-    "en": "Fund payouts did not load",
-    "t": "Les versements du fonds ne se sont pas chargés"
-  },
-  "consilium.payout.fingerprint": {
-    "en": "Fingerprint · {hash}",
-    "t": "Empreinte · {hash}"
-  },
-  "consilium.payout.network": {
-    "en": "Network · {network}",
-    "t": "Réseau · {network}"
-  },
-  "consilium.payout.openedBy": {
-    "en": "Opened by {initiator}",
-    "t": "Ouverte par {initiator}"
-  },
-  "consilium.payout.owners": {
-    "en": "{n, plural, one {# owner} other {# owners}}",
-    "t": "{n, plural, one {# propriétaire} many {# propriétaires} other {# propriétaires}}"
-  },
-  "consilium.payout.past": {
-    "en": "Earlier requests",
-    "t": "Demandes antérieures"
-  },
-  "consilium.payout.sub": {
-    "en": "Moving money the fund owns by a payment order, marking a fund past the NAV-move guard, and changing what a product charges. One request at a time, and never one person's decision.",
-    "t": "Déplacer l'argent du fonds par un ordre de paiement, valoriser un fonds au-delà du garde-fou de variation de VL et changer ce qu'un produit prélève. Une demande à la fois, et jamais la décision d'une seule personne."
-  },
-  "consilium.payout.tally": {
-    "en": "{approvals} of {threshold, plural, one {# approval} other {# approvals}}",
-    "t": "{approvals} sur {threshold, plural, one {# approbation} many {# approbations} other {# approbations}}"
-  },
-  "consilium.payout.title": {
-    "en": "Fund payouts and payments",
-    "t": "Versements et paiements du fonds"
-  },
-  "consilium.payout.voteByEmail": {
-    "en": "Owners answer from the link emailed to them, not from this page — the code in that message is what makes an answer deliberate.",
-    "t": "Les propriétaires répondent depuis le lien qui leur est envoyé par e-mail, pas depuis cette page — c'est le code contenu dans ce message qui rend une réponse délibérée."
-  },
-  "consilium.proposalKind.admin_admission": {
-    "en": "Admin seat",
-    "t": "Siège d'admin"
-  },
-  "consilium.proposalKind.reinstatement": {
-    "en": "Letting back in",
-    "t": "Réadmission"
-  },
-  "consilium.proposalKind.suspension": {
-    "en": "Permanent block",
-    "t": "Blocage définitif"
-  },
-  "consilium.proposalVerb.admin_admission.against": {
-    "en": "Refuse",
-    "t": "Refuser"
-  },
-  "consilium.proposalVerb.admin_admission.for": {
-    "en": "Grant admin",
-    "t": "Accorder l'admin"
-  },
-  "consilium.proposalVerb.reinstatement.against": {
-    "en": "Keep blocked",
-    "t": "Maintenir le blocage"
-  },
-  "consilium.proposalVerb.reinstatement.for": {
-    "en": "Let back in",
-    "t": "Réadmettre"
-  },
-  "consilium.proposalVerb.suspension.against": {
-    "en": "Do not block",
-    "t": "Ne pas bloquer"
-  },
-  "consilium.proposalVerb.suspension.for": {
-    "en": "Block permanently",
-    "t": "Bloquer définitivement"
-  },
-  "consilium.proposalVote.against": {
-    "en": "Against",
-    "t": "Contre"
-  },
-  "consilium.proposalVote.for": {
-    "en": "For",
-    "t": "Pour"
-  },
-  "consilium.proposals.bystander": {
-    "en": "You were not seated when this opened, so you are not among its voters.",
-    "t": "Vous n'aviez pas de siège à l'ouverture, vous ne faites donc pas partie de ses votants."
-  },
-  "consilium.proposals.emptyBody": {
-    "en": "A hold an operator wants made permanent, a block to undo, or an admin seat to grant would appear here for you to vote on. Operators open these from the user console.",
-    "t": "Un blocage qu'un opérateur veut rendre définitif, un blocage à lever ou un siège d'admin à accorder apparaîtraient ici pour votre vote. Les opérateurs les ouvrent depuis la console des utilisateurs."
-  },
-  "consilium.proposals.emptyTitle": {
-    "en": "Nobody's standing is in question",
-    "t": "La situation de personne n'est en question"
-  },
-  "consilium.proposals.expires": {
-    "en": "Closes {at} · {left}",
-    "t": "Se clôt {at} · {left}"
-  },
-  "consilium.proposals.failedBody": {
-    "en": "Until they do, this page cannot say whether anyone's standing is being decided — including a 24-hour hold that lapses if nobody ratifies it.",
-    "t": "Tant qu'elles ne sont pas chargées, cette page ne peut pas dire si la situation de quelqu'un est en cours de décision — y compris un blocage de 24 heures qui s'éteint si personne ne le ratifie."
-  },
-  "consilium.proposals.failedTitle": {
-    "en": "The people proposals did not load",
-    "t": "Les propositions concernant les personnes ne se sont pas chargées"
-  },
-  "consilium.proposals.majorityNote": {
-    "en": "A simple majority of the owners who were seated when this opened carries it. The bar was frozen then and does not move with the roster.",
-    "t": "Une majorité simple des propriétaires qui avaient un siège à l'ouverture l'emporte. Le seuil a été figé à ce moment-là et ne suit pas la liste des propriétaires."
-  },
-  "consilium.proposals.openedBy": {
-    "en": "Opened by {initiator} on {at}",
-    "t": "Ouverte par {initiator} le {at}"
-  },
-  "consilium.proposals.sub": {
-    "en": "What the owners are deciding about one person's standing — a permanent block, letting someone back in, or the admin seat.",
-    "t": "Ce que les propriétaires décident de la situation d'une personne — un blocage définitif, une réadmission ou le siège d'admin."
-  },
-  "consilium.proposals.subject": {
-    "en": "Subject",
-    "t": "Personne concernée"
-  },
-  "consilium.proposals.tally": {
-    "en": "{n} of {threshold} needed",
-    "t": "{n} sur {threshold} requis"
-  },
-  "consilium.proposals.tallyDetail": {
-    "en": "{against} against · {waiting} yet to answer",
-    "t": "{against} contre · {waiting} sans réponse"
-  },
-  "consilium.proposals.title": {
-    "en": "People",
-    "t": "Personnes"
-  },
-  "consilium.proposals.unreachable": {
-    "en": "Enough owners have voted against that the threshold can no longer be reached.",
-    "t": "Assez de propriétaires ont voté contre pour que le seuil ne puisse plus être atteint."
-  },
-  "consilium.proposals.withdraw": {
-    "en": "Withdraw",
-    "t": "Retirer"
-  },
-  "consilium.proposals.youAreSubject": {
-    "en": "This is about you. You are not among its voters.",
-    "t": "Ceci vous concerne. Vous ne faites pas partie de ses votants."
-  },
-  "consilium.proposals.youInitiated": {
-    "en": "You opened this. The initiator does not vote — proposing is not agreeing.",
-    "t": "Vous avez ouvert ceci. L'initiateur ne vote pas — proposer n'est pas approuver."
-  },
-  "consilium.proposals.youVoted": {
-    "en": "You voted {vote}.",
-    "t": "Vous avez voté {vote}."
-  },
-  "consilium.propose.floorWarning": {
-    "en": "A fund needs at least three owners to authorise a payout, so a removal that would leave fewer than three is refused.",
-    "t": "Un fonds a besoin d'au moins trois propriétaires pour autoriser un versement ; une révocation qui en laisserait moins de trois est donc refusée."
-  },
-  "consilium.propose.noneBody": {
-    "en": "You are the only owner listed. A removal is always about someone else — to stand down yourself, use Stand down as an owner.",
-    "t": "Vous êtes le seul propriétaire listé. Une révocation concerne toujours quelqu'un d'autre — pour vous retirer vous-même, utilisez Se retirer comme propriétaire."
-  },
-  "consilium.propose.noneTitle": {
-    "en": "There is nobody to propose",
-    "t": "Il n'y a personne à proposer"
-  },
-  "consilium.propose.opened": {
-    "en": "Proposed. Everyone who can vote has been emailed, and so has the person it concerns.",
-    "t": "Proposé. Toutes les personnes qui peuvent voter ont reçu un e-mail, ainsi que la personne concernée."
-  },
-  "consilium.propose.reasonHint": {
-    "en": "This is emailed to them, in these words, and stays on the record. Write it as though they are reading it, because they are.",
-    "t": "Ceci lui est envoyé par e-mail, dans ces mots exacts, et reste au dossier. Écrivez-le comme si la personne le lisait, car c'est le cas."
-  },
-  "consilium.propose.reasonLabel": {
-    "en": "Reason",
-    "t": "Raison"
-  },
-  "consilium.propose.reasonPlaceholder": {
-    "en": "Why this seat should end",
-    "t": "Pourquoi ce siège devrait prendre fin"
-  },
-  "consilium.propose.sub": {
-    "en": "Ends someone's ownership if it carries. They are told at once, in your words.",
-    "t": "Met fin à la propriété de quelqu'un si elle l'emporte. La personne en est informée aussitôt, dans vos mots."
-  },
-  "consilium.propose.submit": {
-    "en": "Propose removal",
-    "t": "Proposer la révocation"
-  },
-  "consilium.propose.targetLabel": {
-    "en": "Owner",
-    "t": "Propriétaire"
-  },
-  "consilium.propose.targetPlaceholder": {
-    "en": "Choose an owner",
-    "t": "Choisir un propriétaire"
-  },
-  "consilium.propose.title": {
-    "en": "Propose a removal",
-    "t": "Proposer une révocation"
-  },
-  "consilium.propose.unknownBody": {
-    "en": "Proposing a removal means choosing an owner, and the owner list did not load — so the page does not know who could be proposed, or whether there is anyone here but you. Load it and this form comes back.",
-    "t": "Proposer une révocation suppose de choisir un propriétaire, et la liste des propriétaires ne s'est pas chargée — la page ne sait donc pas qui pourrait être proposé, ni s'il y a ici quelqu'un d'autre que vous. Chargez-la et ce formulaire revient."
-  },
-  "consilium.propose.unknownTitle": {
-    "en": "This cannot be offered right now",
-    "t": "Ceci ne peut pas être proposé pour le moment"
-  },
-  "consilium.removal.cancel": {
-    "en": "Withdraw this proposal",
-    "t": "Retirer cette proposition"
-  },
-  "consilium.removal.expires": {
-    "en": "Expires {at} · {left}",
-    "t": "Expire {at} · {left}"
-  },
-  "consilium.removal.heading": {
-    "en": "Removing {target}",
-    "t": "Révocation de {target}"
-  },
-  "consilium.removal.noPeers": {
-    "en": "With this few owners there is nobody eligible to vote, so this can only carry if the person it concerns accepts it themselves. That is deliberate: otherwise either of two owners could remove the other unopposed.",
-    "t": "Avec si peu de propriétaires, personne n'est habilité à voter ; ceci ne peut donc l'emporter que si la personne concernée l'accepte elle-même. C'est voulu : sinon l'un de deux propriétaires pourrait révoquer l'autre sans opposition."
-  },
-  "consilium.removal.noReason": {
-    "en": "No reason was given.",
-    "t": "Aucune raison n'a été donnée."
-  },
-  "consilium.removal.notAVoter": {
-    "en": "The owners who may vote on this were fixed when it was opened, so it is not yours to answer. That is what stops new owners being added to reach a result. Nothing is hidden from you — everything about it is on this page.",
-    "t": "Les propriétaires habilités à voter ont été fixés à l'ouverture, ce n'est donc pas à vous de répondre. C'est ce qui empêche d'ajouter de nouveaux propriétaires pour obtenir un résultat. Rien ne vous est caché — tout ce qui la concerne est sur cette page."
-  },
-  "consilium.removal.openedBy": {
-    "en": "Opened by {initiator} on {at}",
-    "t": "Ouverte par {initiator} le {at}"
-  },
-  "consilium.removal.peerTally": {
-    "en": "{removed} of {total, plural, one {# owner} other {# owners}} voted to remove",
-    "t": "{removed} sur {total, plural, one {# propriétaire} many {# propriétaires} other {# propriétaires}} ont voté la révocation"
-  },
-  "consilium.removal.reason": {
-    "en": "Reason given",
-    "t": "Raison donnée"
-  },
-  "consilium.removal.targetAccepted": {
-    "en": "{target} accepted this on {at}.",
-    "t": "{target} a accepté le {at}."
-  },
-  "consilium.removal.targetNotYetTold": {
-    "en": "{target} has not been notified yet.",
-    "t": "{target} n'a pas encore été notifié."
-  },
-  "consilium.removal.targetPending": {
-    "en": "{target} has been emailed and has not answered yet.",
-    "t": "{target} a reçu un e-mail et n'a pas encore répondu."
-  },
-  "consilium.removal.targetRefused": {
-    "en": "{target} has refused this.",
-    "t": "{target} a refusé."
-  },
-  "consilium.removal.unanimityNote": {
-    "en": "All of them must agree",
-    "t": "Tous doivent donner leur accord"
-  },
-  "consilium.removal.voteKeep": {
-    "en": "Keep the seat",
-    "t": "Garder le siège"
-  },
-  "consilium.removal.voteRemove": {
-    "en": "Vote to remove",
-    "t": "Voter la révocation"
-  },
-  "consilium.removal.youAreTarget": {
-    "en": "This is about your seat. Your answer is not given here — it is in the message sent to your own mailbox, so it stays yours alone to give.",
-    "t": "Ceci concerne votre siège. Votre réponse ne se donne pas ici — elle se trouve dans le message envoyé à votre propre boîte de réception, afin qu'elle reste la vôtre seule."
-  },
-  "consilium.removal.youOpened": {
-    "en": "You opened this, so you have no vote on removing {target}. You are still counted in the number it has to clear: if opening a request took you out of that count, opening one would be a way to lower the bar.",
-    "t": "Vous avez ouvert ceci, vous n'avez donc pas de vote sur la révocation de {target}. Vous comptez toujours dans le nombre à atteindre : si ouvrir une demande vous retirait de ce compte, en ouvrir une serait un moyen d'abaisser le seuil."
-  },
-  "consilium.removal.youVoted": {
-    "en": "You voted: {vote}. A vote cannot be changed once it is cast.",
-    "t": "Vous avez voté : {vote}. Un vote ne peut pas être modifié une fois exprimé."
-  },
-  "consilium.removals.emptyBody": {
-    "en": "No removal has been proposed. If one is, it appears here with every vote on it, and the person it concerns is told at the same time as everyone else.",
-    "t": "Aucune révocation n'a été proposée. S'il y en a une, elle apparaît ici avec chaque vote qui la concerne, et la personne visée est informée en même temps que tout le monde."
-  },
-  "consilium.removals.emptyTitle": {
-    "en": "Nothing is being decided",
-    "t": "Rien n'est en cours de décision"
-  },
-  "consilium.removals.failedBody": {
-    "en": "Until it loads, the page cannot tell you whether anyone's ownership is being decided right now — so do not read this as nothing being underway. The rest of the page is unaffected.",
-    "t": "Tant que cela n'est pas chargé, la page ne peut pas vous dire si la propriété de quelqu'un est en cours de décision — n'en concluez donc pas que rien n'est en cours. Le reste de la page n'est pas affecté."
-  },
-  "consilium.removals.failedTitle": {
-    "en": "Owner removals did not load",
-    "t": "Les révocations de propriétaires ne se sont pas chargées"
-  },
-  "consilium.removals.sub": {
-    "en": "Proposals to end someone's ownership.",
-    "t": "Propositions de mettre fin à la propriété de quelqu'un."
-  },
-  "consilium.removals.title": {
-    "en": "Owner removals",
-    "t": "Révocations de propriétaires"
-  },
-  "consilium.resign.confirm": {
-    "en": "Stand down as an owner",
-    "t": "Se retirer comme propriétaire"
-  },
-  "consilium.resign.confirmLabel": {
-    "en": "Type {email} to confirm",
-    "t": "Saisissez {email} pour confirmer"
-  },
-  "consilium.resign.done": {
-    "en": "You are no longer an owner.",
-    "t": "Vous n'êtes plus propriétaire."
-  },
-  "consilium.resign.floorWarning": {
-    "en": "A fund needs at least three owners to authorise a payout. If standing down would leave fewer than three, it is refused.",
-    "t": "Un fonds a besoin d'au moins trois propriétaires pour autoriser un versement. Si votre retrait en laissait moins de trois, il est refusé."
-  },
-  "consilium.resign.start": {
-    "en": "Stand down",
-    "t": "Se retirer"
-  },
-  "consilium.resign.sub": {
-    "en": "Give up your own seat. Nobody has to agree to let you leave.",
-    "t": "Cédez votre propre siège. Personne n'a à donner son accord pour vous laisser partir."
-  },
-  "consilium.resign.title": {
-    "en": "Stand down as an owner",
-    "t": "Se retirer comme propriétaire"
-  },
-  "consilium.resign.unavailable": {
-    "en": "We couldn't load your account, so this can't be confirmed right now. Reload the page and try again.",
-    "t": "Impossible de charger votre compte, ceci ne peut donc pas être confirmé pour le moment. Rechargez la page et réessayez."
-  },
-  "consilium.resign.warning": {
-    "en": "Your ownership ends as soon as this is recorded. You would need the remaining owners to make you an owner again. Nothing else about your account changes.",
-    "t": "Votre propriété prend fin dès l'enregistrement. Il faudrait que les propriétaires restants vous nomment de nouveau propriétaire. Rien d'autre ne change sur votre compte."
-  },
-  "consilium.roster.count": {
-    "en": "{n, plural, one {# owner} other {# owners}}",
-    "t": "{n, plural, one {# propriétaire} many {# propriétaires} other {# propriétaires}}"
-  },
-  "consilium.roster.emptyBody": {
-    "en": "Genesis has not run yet. At start-up the service seats everyone on the OWNER_SUBJECTS list who already has an account — but only if at least two of them resolve. A sole owner could never admit the second, so seating one is refused outright rather than left as a dead end.",
-    "t": "La genèse n'a pas encore eu lieu. Au démarrage, le service installe toutes les personnes de la liste OWNER_SUBJECTS qui possèdent déjà un compte — mais seulement si au moins deux d'entre elles se résolvent. Un propriétaire unique ne pourrait jamais admettre le second : installer une seule personne est donc refusé net, plutôt que de laisser une impasse."
-  },
-  "consilium.roster.emptyNext": {
-    "en": "Add the missing people to OWNER_SUBJECTS, have each of them sign in once so the account exists, and restart the service. Until the first seat is written, the operators on that list are working under emergency access — temporary by construction: the first successful seeding closes it permanently, and from then on a seat is only ever granted by a consilium of the existing owners.",
-    "t": "Ajoutez les personnes manquantes à OWNER_SUBJECTS, faites-les se connecter une fois chacune pour que le compte existe, puis redémarrez le service. Tant que le premier siège n'est pas inscrit, les opérateurs de cette liste agissent en accès d'urgence — temporaire par construction : le premier amorçage réussi le referme définitivement, et dès lors un siège n'est accordé que par un consilium des propriétaires en exercice."
-  },
-  "consilium.roster.emptyTitle": {
-    "en": "No owner holds a seat yet",
-    "t": "Aucun propriétaire n'occupe encore de siège"
-  },
-  "consilium.roster.failedBody": {
-    "en": "Until it loads, the page cannot say who owns this fund or how many owners it has, so it says nothing rather than guessing at it. The rest of the page is unaffected.",
-    "t": "Tant qu'elle n'est pas chargée, la page ne peut pas dire à qui appartient ce fonds ni combien de propriétaires il compte, elle ne dit donc rien plutôt que de le deviner. Le reste de la page n'est pas affecté."
-  },
-  "consilium.roster.failedTitle": {
-    "en": "The owner list did not load",
-    "t": "La liste des propriétaires ne s'est pas chargée"
-  },
-  "consilium.roster.since": {
-    "en": "Owner since {at}",
-    "t": "Propriétaire depuis {at}"
-  },
-  "consilium.roster.title": {
-    "en": "Owners",
-    "t": "Propriétaires"
-  },
-  "consilium.roster.you": {
-    "en": "(you)",
-    "t": "(vous)"
-  },
-  "consilium.seedCapital.carried": {
-    "en": "Booked",
-    "t": "Comptabilisé"
-  },
-  "consilium.seedCapital.depositor": {
-    "en": "Depositor · {id}",
-    "t": "Déposant · {id}"
-  },
-  "consilium.seedCapital.executes": {
-    "en": "If it passes, the transfer is verified on chain, booked as this person's deposit and subscribed into the fund allocation — one chain, or nothing.",
-    "t": "S'il est adopté, le transfert est vérifié sur la chaîne, comptabilisé comme dépôt de cette personne et souscrit dans l'allocation du capital — en une seule chaîne, ou pas du tout."
-  },
-  "consilium.state.approved": {
-    "en": "Approved",
-    "t": "Approuvée"
-  },
-  "consilium.state.cancelled": {
-    "en": "Cancelled",
-    "t": "Annulée"
-  },
-  "consilium.state.executed": {
-    "en": "Paid out",
-    "t": "Versée"
-  },
-  "consilium.state.executionfailed": {
-    "en": "Payout failed",
-    "t": "Versement échoué"
-  },
-  "consilium.state.expired": {
-    "en": "Expired",
-    "t": "Expirée"
-  },
-  "consilium.state.failed": {
-    "en": "Failed",
-    "t": "Échouée"
-  },
-  "consilium.state.kept": {
-    "en": "Seat kept",
-    "t": "Siège conservé"
-  },
-  "consilium.state.open": {
-    "en": "Open",
-    "t": "Ouverte"
-  },
-  "consilium.state.pending": {
-    "en": "Pending",
-    "t": "En attente"
-  },
-  "consilium.state.rejected": {
-    "en": "Rejected",
-    "t": "Rejetée"
-  },
-  "consilium.state.removed": {
-    "en": "Removed",
-    "t": "Révoqué"
-  },
-  "consilium.state.void": {
-    "en": "Void",
-    "t": "Nulle"
-  },
-  "consilium.stream.live": {
-    "en": "Live",
-    "t": "En direct"
-  },
-  "consilium.stream.paused": {
-    "en": "Paused",
-    "t": "En pause"
-  },
-  "consilium.stream.reconnecting": {
-    "en": "Reconnecting",
-    "t": "Reconnexion"
-  },
-  "consilium.sub": {
-    "en": "The owners' room — who the owners are, and what is being decided.",
-    "t": "La salle des propriétaires — qui sont les propriétaires, et ce qui est en cours de décision."
-  },
-  "consilium.title": {
-    "en": "Consilium",
-    "t": "Consilium"
-  },
-  "consilium.unavailable.body": {
-    "en": "Every one of the reads this room is built from failed, so the page cannot show who owns the fund, what is being decided, or where any vote stands. Nothing here should be trusted until it loads. Try again — and if it keeps failing, this data is unreachable rather than empty, which is worth raising.",
-    "t": "Chacune des lectures dont cette salle est constituée a échoué : la page ne peut donc montrer ni à qui appartient le fonds, ni ce qui se décide, ni où en est un vote. Rien ici ne doit être tenu pour fiable tant que ce n'est pas chargé. Réessayez — et si cela continue d'échouer, ces données sont inaccessibles plutôt que vides, ce qui mérite d'être signalé."
-  },
-  "consilium.unavailable.title": {
-    "en": "The owners' room could not be loaded",
-    "t": "La salle des propriétaires n'a pas pu être chargée"
-  },
-  "consilium.valuation.executes": {
-    "en": "If it passes, the fund is marked at this AUM whatever the NAV-move guard would have said, and its queued redemptions settle at the NAV that follows.",
-    "t": "Si elle passe, le fonds est valorisé à cet AUM quoi qu’en aurait dit le garde-fou de variation de VL, et ses rachats en attente sont réglés à la VL qui en découle."
-  },
-  "consilium.valuation.mark": {
-    "en": "NAV mark",
-    "t": "Valorisation de VL"
-  },
-  "consilium.valuation.product": {
-    "en": "Product",
-    "t": "Produit"
-  },
-  "consilium.vote.keep": {
-    "en": "To keep",
-    "t": "Pour garder"
-  },
-  "consilium.vote.remove": {
-    "en": "To remove",
-    "t": "Pour révoquer"
-  },
-  "consilium.vote.waiting": {
-    "en": "Not answered",
-    "t": "Sans réponse"
+  "auth.continue": {
+    "en": "Continue to sign in",
+    "t": "Continuer vers la connexion"
+  },
+  "auth.email.verify": {
+    "en": "Verify",
+    "t": "Vérifier"
+  },
+  "auth.wall.action": {
+    "en": "Sign in",
+    "t": "Se connecter"
+  },
+  "auth.wall.desc": {
+    "en": "This part of the cabinet belongs to your account. Sign in or create one — it takes a minute.",
+    "t": "Cette partie du cabinet appartient à votre compte. Connectez-vous ou créez-en un — cela prend une minute."
+  },
+  "auth.wall.title": {
+    "en": "Sign in to see this",
+    "t": "Connectez-vous pour voir ceci"
   },
   "dash.activeStrategies": {
     "en": "Active strategies",
@@ -3538,10 +1490,6 @@
   "dash.allTimeSuffix": {
     "en": "{pct} all-time",
     "t": "{pct} depuis l’origine"
-  },
-  "dash.available": {
-    "en": "Available",
-    "t": "Disponible"
   },
   "dash.browseStrategies": {
     "en": "Browse strategies",
@@ -3563,10 +1511,6 @@
     "en": "at cost basis",
     "t": "au prix de revient"
   },
-  "dash.hintAutoDeploysEod": {
-    "en": "auto-deploys at EOD",
-    "t": "déployé en fin de journée"
-  },
   "dash.hintFundPositions": {
     "en": "fund positions",
     "t": "positions en fonds"
@@ -3578,10 +1522,6 @@
   "dash.investedWhatIOwn": {
     "en": "Invested · what I own",
     "t": "Investi · mes avoirs"
-  },
-  "dash.moveMoney": {
-    "en": "Move money",
-    "t": "Mouvements de fonds"
   },
   "dash.netContributed": {
     "en": "Net contributed",
@@ -3595,10 +1535,6 @@
     "en": "The fund curve and your participation appear here once there is activity to plot.",
     "t": "La courbe du fonds et votre participation s’affichent ici dès qu’il y a de quoi tracer."
   },
-  "dash.noOperationsHint": {
-    "en": "Deposits, subscriptions, redemptions and withdrawals land here the moment you make them.",
-    "t": "Dépôts, souscriptions, rachats et retraits apparaissent ici dès que vous les effectuez."
-  },
   "dash.nothingInvested": {
     "en": "Nothing invested yet",
     "t": "Rien d’investi pour l’instant"
@@ -3606,26 +1542,6 @@
   "dash.nothingInvestedHint": {
     "en": "Subscribe to a strategy and the split of what you own shows up here.",
     "t": "Souscrivez à une stratégie et la répartition de vos avoirs s’affichera ici."
-  },
-  "dash.op.deposit": {
-    "en": "Deposit · {network}",
-    "t": "Dépôt · {network}"
-  },
-  "dash.op.redeemed": {
-    "en": "{fund} — redeemed",
-    "t": "{fund} — racheté"
-  },
-  "dash.op.sub": {
-    "en": "{ref} · {state}",
-    "t": "{ref} · {state}"
-  },
-  "dash.op.subscribed": {
-    "en": "{fund} — subscribed",
-    "t": "{fund} — souscrit"
-  },
-  "dash.op.withdrawal": {
-    "en": "Withdrawal · {network}",
-    "t": "Retrait · {network}"
   },
   "dash.portfolio": {
     "en": "Portfolio",
@@ -3659,14 +1575,6 @@
     "en": "Chart range",
     "t": "Période du graphique"
   },
-  "dash.recentOperations": {
-    "en": "Recent activity",
-    "t": "Activité récente"
-  },
-  "dash.servicePanel": {
-    "en": "Service-Arb panel",
-    "t": "Panneau Service-Arb"
-  },
   "dash.strategyCount": {
     "en": "{n, plural, one {# strategy} other {# strategies}}",
     "t": "{n, plural, one {# stratégie} many {# stratégies} other {# stratégies}}"
@@ -3683,14 +1591,6 @@
     "en": "Your participation",
     "t": "Votre participation"
   },
-  "err.address.controlChars": {
-    "en": "Residential address must not contain control characters",
-    "t": "L’adresse de résidence ne doit pas contenir de caractères de contrôle"
-  },
-  "err.address.maxLength": {
-    "en": "Residential address must be at most 256 characters",
-    "t": "L’adresse de résidence ne doit pas dépasser 256 caractères"
-  },
   "err.authNotConfigured": {
     "en": "Sign-in is unavailable right now. Please try again shortly.",
     "t": "La connexion est indisponible pour le moment. Veuillez réessayer sous peu."
@@ -3703,26 +1603,6 @@
     "en": "This page went stale. Reload it and try again.",
     "t": "Cette page n’est plus à jour. Rechargez-la et réessayez."
   },
-  "err.currency.format": {
-    "en": "Base currency must be a 3-letter code such as 'USD'",
-    "t": "La devise de référence doit être un code à 3 lettres tel que « USD »"
-  },
-  "err.dob.format": {
-    "en": "Date of birth must be a valid YYYY-MM-DD date",
-    "t": "La date de naissance doit être une date valide au format AAAA-MM-JJ"
-  },
-  "err.dob.range": {
-    "en": "Date of birth must be a real date between 1900 and 2100",
-    "t": "La date de naissance doit être une date réelle comprise entre 1900 et 2100"
-  },
-  "err.email.invalid": {
-    "en": "Enter a valid email address",
-    "t": "Saisissez une adresse e-mail valide"
-  },
-  "err.email.maxLength": {
-    "en": "Email address must be at most 320 characters",
-    "t": "L’adresse e-mail ne doit pas dépasser 320 caractères"
-  },
   "err.feePolicySave": {
     "en": "Could not save these terms.",
     "t": "Impossible d’enregistrer ces conditions."
@@ -3730,18 +1610,6 @@
   "err.feeSettle": {
     "en": "Could not settle these units.",
     "t": "Impossible de régler ces parts."
-  },
-  "err.field.maxLength": {
-    "en": "{field} must be at most {n, plural, one {# character} other {# characters}}",
-    "t": "{field} ne doit pas dépasser {n, plural, one {# caractère} many {# caractères} other {# caractères}}"
-  },
-  "err.field.minLetters": {
-    "en": "{field} must contain at least 2 letters",
-    "t": "{field} doit contenir au moins 2 lettres"
-  },
-  "err.field.nameChars": {
-    "en": "{field} may only contain letters, spaces, hyphens, apostrophes, and periods",
-    "t": "{field} ne peut contenir que des lettres, des espaces, des traits d’union, des apostrophes et des points"
   },
   "err.forbidden": {
     "en": "You don't have access to this.",
@@ -3755,13 +1623,13 @@
     "en": "Select a fund to continue.",
     "t": "Sélectionnez un fonds pour continuer."
   },
-  "err.kycStartFailed": {
-    "en": "We couldn't start verification. Please try again.",
-    "t": "Impossible de démarrer la vérification. Veuillez réessayer."
-  },
   "err.kycSelf": {
     "en": "You can't set your own verification tier — another holder of KycManage has to.",
     "t": "Vous ne pouvez pas définir votre propre niveau de vérification — un autre détenteur de KycManage doit le faire."
+  },
+  "err.kycStartFailed": {
+    "en": "We couldn't start verification. Please try again.",
+    "t": "Impossible de démarrer la vérification. Veuillez réessayer."
   },
   "err.kycThrottled": {
     "en": "You've started verification too many times today. Try again tomorrow.",
@@ -3771,14 +1639,6 @@
     "en": "Verification is unavailable right now. Please contact support.",
     "t": "La vérification est indisponible pour le moment. Veuillez contacter le support."
   },
-  "err.language.format": {
-    "en": "Language must be a BCP 47 code such as 'en' or 'en-US'",
-    "t": "La langue doit être un code BCP 47 tel que « en » ou « en-US »"
-  },
-  "err.language.maxLength": {
-    "en": "Language must be at most 16 characters",
-    "t": "La langue ne doit pas dépasser 16 caractères"
-  },
   "err.network": {
     "en": "Can't reach the server. Check your connection and try again.",
     "t": "Impossible de joindre le serveur. Vérifiez votre connexion et réessayez."
@@ -3786,18 +1646,6 @@
   "err.notFound": {
     "en": "Not found.",
     "t": "Introuvable."
-  },
-  "err.opsLoad": {
-    "en": "Couldn't load your activity",
-    "t": "Impossible de charger votre activité"
-  },
-  "err.phone.invalid": {
-    "en": "Enter a valid phone number starting with + or country code",
-    "t": "Saisissez un numéro de téléphone valide commençant par + ou par un indicatif pays"
-  },
-  "err.phone.maxLength": {
-    "en": "Phone number must be at most 32 characters",
-    "t": "Le numéro de téléphone ne doit pas dépasser 32 caractères"
   },
   "err.positionsLoad": {
     "en": "Couldn't load your positions",
@@ -3819,14 +1667,6 @@
     "en": "Your session has ended. Sign in again to continue.",
     "t": "Votre session a pris fin. Reconnectez-vous pour continuer."
   },
-  "err.timezone.format": {
-    "en": "Time zone must be 'UTC', 'GMT', or an IANA name such as 'Asia/Ho_Chi_Minh'",
-    "t": "Le fuseau horaire doit valoir « UTC », « GMT » ou un nom IANA tel que « Asia/Ho_Chi_Minh »"
-  },
-  "err.timezone.maxLength": {
-    "en": "Time zone must be at most 64 characters",
-    "t": "Le fuseau horaire ne doit pas dépasser 64 caractères"
-  },
   "err.unauthenticated": {
     "en": "We couldn't confirm your session. Reload the page or sign in again.",
     "t": "Nous n’avons pas pu confirmer votre session. Rechargez la page ou reconnectez-vous."
@@ -3838,10 +1678,6 @@
   "err.verificationRequired": {
     "en": "Verify your identity to continue.",
     "t": "Vérifiez votre identité pour continuer."
-  },
-  "err.walletLoad": {
-    "en": "Couldn't load your wallet",
-    "t": "Impossible de charger votre wallet"
   },
   "invest.about.risk": {
     "en": "Units can fall in value as well as rise. The NAV is set by a posted valuation, not by a market price, and past marks are no guide to future ones. Cash comes back only when a redemption settles or a buyer takes your units on the book. Invest only what you can afford to leave in.",
@@ -4279,49 +2115,45 @@
     "en": "Deposits are held in Turnkey custody under your identity verified by Didit; nothing moves without it.",
     "t": "Les dépôts sont conservés en garde chez Turnkey sous votre identité vérifiée par Didit ; sans elle, rien ne bouge."
   },
-  "kyc.verifyNow": {
-    "en": "Verify now",
-    "t": "Vérifier"
-  },
-  "kyc.dialog.title": {
-    "en": "Verify your identity",
-    "t": "Vérifiez votre identité"
-  },
-  "kyc.dialog.intro": {
-    "en": "A short identity check by our verification provider. Your deposit address and withdrawals open once it is done.",
-    "t": "Un court contrôle d'identité chez notre prestataire. Votre adresse de dépôt et les retraits s'ouvrent ensuite."
-  },
-  "kyc.dialog.needTitle": {
-    "en": "What you'll need",
-    "t": "Ce qu'il vous faut"
-  },
-  "kyc.dialog.needBody": {
-    "en": "A government-issued ID, and a phone or webcam for a selfie.",
-    "t": "Une pièce d'identité officielle, et un téléphone ou une webcam pour un selfie."
-  },
-  "kyc.dialog.timeTitle": {
-    "en": "How long it takes",
-    "t": "Combien de temps cela prend"
-  },
-  "kyc.dialog.timeBody": {
-    "en": "A few minutes to submit. Most checks are decided within the hour.",
-    "t": "Quelques minutes pour l'envoi. La plupart des contrôles aboutissent en moins d'une heure."
-  },
-  "kyc.dialog.afterTitle": {
-    "en": "What happens next",
-    "t": "Ce qui se passe ensuite"
+  "kyc.dialog.action": {
+    "en": "Start verification",
+    "t": "Lancer la vérification"
   },
   "kyc.dialog.afterBody": {
     "en": "We'll email you the result. You can close the tab — the check keeps running without it.",
     "t": "Nous vous enverrons le résultat par e-mail. Vous pouvez fermer l'onglet, le contrôle se poursuit."
   },
-  "kyc.dialog.action": {
-    "en": "Start verification",
-    "t": "Lancer la vérification"
+  "kyc.dialog.afterTitle": {
+    "en": "What happens next",
+    "t": "Ce qui se passe ensuite"
   },
-  "lang.switch": {
-    "en": "Language",
-    "t": "Langue"
+  "kyc.dialog.intro": {
+    "en": "A short identity check by our verification provider. Your deposit address and withdrawals open once it is done.",
+    "t": "Un court contrôle d'identité chez notre prestataire. Votre adresse de dépôt et les retraits s'ouvrent ensuite."
+  },
+  "kyc.dialog.needBody": {
+    "en": "A government-issued ID, and a phone or webcam for a selfie.",
+    "t": "Une pièce d'identité officielle, et un téléphone ou une webcam pour un selfie."
+  },
+  "kyc.dialog.needTitle": {
+    "en": "What you'll need",
+    "t": "Ce qu'il vous faut"
+  },
+  "kyc.dialog.timeBody": {
+    "en": "A few minutes to submit. Most checks are decided within the hour.",
+    "t": "Quelques minutes pour l'envoi. La plupart des contrôles aboutissent en moins d'une heure."
+  },
+  "kyc.dialog.timeTitle": {
+    "en": "How long it takes",
+    "t": "Combien de temps cela prend"
+  },
+  "kyc.dialog.title": {
+    "en": "Verify your identity",
+    "t": "Vérifiez votre identité"
+  },
+  "kyc.verifyNow": {
+    "en": "Verify now",
+    "t": "Vérifier"
   },
   "meta.description": {
     "en": "Your investor cabinet — portfolio, funds and wallet.",
@@ -4330,10 +2162,6 @@
   "meta.title": {
     "en": "EV Investment — Cabinet",
     "t": "EV Investment — Espace client"
-  },
-  "mfe.loading": {
-    "en": "Loading {name}…",
-    "t": "Chargement de {name}…"
   },
   "nav.a11y.primary": {
     "en": "Primary",
@@ -4347,21 +2175,13 @@
     "en": "Account",
     "t": "Compte"
   },
+  "nav.admin": {
+    "en": "Admin",
+    "t": "Admin"
+  },
   "nav.allocations": {
     "en": "Allocations",
     "t": "Produits"
-  },
-  "nav.cabinet": {
-    "en": "Cabinet",
-    "t": "Mon espace"
-  },
-  "nav.coins": {
-    "en": "Coins",
-    "t": "Cryptomonnaies"
-  },
-  "nav.consilium": {
-    "en": "Consilium",
-    "t": "Consilium"
   },
   "nav.fees": {
     "en": "Fees",
@@ -4371,41 +2191,21 @@
     "en": "Your account",
     "t": "Votre compte"
   },
-  "nav.home": {
-    "en": "Home",
-    "t": "Accueil"
-  },
   "nav.invest": {
     "en": "Invest",
     "t": "Investir"
-  },
-  "nav.notifications": {
-    "en": "Notifications",
-    "t": "Alertes"
-  },
-  "nav.operations": {
-    "en": "Activity",
-    "t": "Activité"
-  },
-  "nav.outbox": {
-    "en": "Outbox",
-    "t": "Outbox"
   },
   "nav.payments": {
     "en": "Payments",
     "t": "Paiements"
   },
-  "nav.profile": {
-    "en": "Profile",
-    "t": "Profil"
+  "nav.portfolio": {
+    "en": "Portfolio",
+    "t": "Portefeuille"
   },
   "nav.revenue": {
     "en": "Revenue stats",
     "t": "Statistiques des revenus"
-  },
-  "nav.settings": {
-    "en": "Settings",
-    "t": "Paramètres"
   },
   "nav.support": {
     "en": "Support",
@@ -4426,446 +2226,6 @@
   "nav.wallet": {
     "en": "Wallet",
     "t": "Wallet"
-  },
-  "nav.withdrawals": {
-    "en": "Withdrawals",
-    "t": "Retraits"
-  },
-  "notif.a11y.email": {
-    "en": "Email notifications",
-    "t": "Notifications par e-mail"
-  },
-  "notif.a11y.emailCopyFor": {
-    "en": "Email copy for {topic}",
-    "t": "Copie par e-mail pour {topic}"
-  },
-  "notif.a11y.inApp": {
-    "en": "In-app notifications",
-    "t": "Notifications dans l’application"
-  },
-  "notif.allCaughtUp": {
-    "en": "You're all caught up.",
-    "t": "Vous êtes à jour."
-  },
-  "notif.channelsFootnote": {
-    "en": "Turn a channel off and we stop sending on it. Turn both off and we stop notifying you altogether — updates still live on the fund pages whenever you want them.",
-    "t": "Désactivez un canal et nous cessons d’y envoyer. Désactivez les deux et nous cessons de vous notifier — les actualités restent consultables sur les pages des fonds quand vous le souhaitez."
-  },
-  "notif.delivery": {
-    "en": "Delivery",
-    "t": "Diffusion"
-  },
-  "notif.deliverySub": {
-    "en": "Choose where notifications reach you. Both can be off.",
-    "t": "Choisissez où les notifications vous parviennent. Les deux peuvent être désactivés."
-  },
-  "notif.emailUnverified": {
-    "en": "{email} · unverified, so email is not sent",
-    "t": "{email} · non vérifiée, aucun e-mail n’est envoyé"
-  },
-  "notif.emailVerified": {
-    "en": "Sent to {email} · verified",
-    "t": "Envoyé à {email} · vérifiée"
-  },
-  "notif.emptyHint": {
-    "en": "Follow a fund and its NAV updates, distributions and research notes land here — and in your inbox too, if you want a copy.",
-    "t": "Suivez un fonds et ses mises à jour de VL, ses distributions et ses notes de recherche arrivent ici — et dans votre boîte mail aussi, si vous en voulez une copie."
-  },
-  "notif.follow": {
-    "en": "Follow",
-    "t": "Suivre"
-  },
-  "notif.following": {
-    "en": "Following",
-    "t": "Suivi"
-  },
-  "notif.inAppSub": {
-    "en": "On by default. Turn this off and notifications stop appearing in your cabinet.",
-    "t": "Activé par défaut. Désactivez-le et les notifications cessent d’apparaître dans votre espace."
-  },
-  "notif.loadOlder": {
-    "en": "Load older",
-    "t": "Charger les plus anciennes"
-  },
-  "notif.markAllRead": {
-    "en": "Mark all read",
-    "t": "Tout marquer comme lu"
-  },
-  "notif.nothingUnread": {
-    "en": "Nothing unread",
-    "t": "Rien de non lu"
-  },
-  "notif.nothingYet": {
-    "en": "Nothing yet",
-    "t": "Rien pour l’instant"
-  },
-  "notif.settingsLink": {
-    "en": "Notification settings",
-    "t": "Paramètres de notification"
-  },
-  "notif.subtitle": {
-    "en": "Everything you follow — and how you hear about it",
-    "t": "Tout ce que vous suivez — et comment vous en êtes informé"
-  },
-  "notif.topicsSub": {
-    "en": "Email a copy for these. Unsubscribing is one click — no confirmation step.",
-    "t": "Recevez-en une copie par e-mail. Se désabonner tient en un clic, sans confirmation."
-  },
-  "notif.unread": {
-    "en": "Unread",
-    "t": "Non lus"
-  },
-  "notif.unreadCount": {
-    "en": "Unread · {n}",
-    "t": "Non lus · {n}"
-  },
-  "notif.whatYouFollow": {
-    "en": "What you follow",
-    "t": "Ce que vous suivez"
-  },
-  "notif.when.days": {
-    "en": "{n}d",
-    "t": "{n} j"
-  },
-  "notif.when.hours": {
-    "en": "{n}h",
-    "t": "{n} h"
-  },
-  "notif.when.minutes": {
-    "en": "{n}m",
-    "t": "{n} min"
-  },
-  "notif.when.now": {
-    "en": "now",
-    "t": "à l’instant"
-  },
-  "ops.a11y.rowDetails": {
-    "en": "{title} — details",
-    "t": "{title} — détails"
-  },
-  "ops.context.fund": {
-    "en": "Fund · {when}",
-    "t": "Fonds · {when}"
-  },
-  "ops.context.network": {
-    "en": "{network} · {when}",
-    "t": "{network} · {when}"
-  },
-  "ops.day.today": {
-    "en": "Today",
-    "t": "Aujourd’hui"
-  },
-  "ops.day.todayInline": {
-    "en": "today",
-    "t": "aujourd’hui"
-  },
-  "ops.day.undated": {
-    "en": "Undated",
-    "t": "Sans date"
-  },
-  "ops.day.yesterday": {
-    "en": "Yesterday",
-    "t": "Hier"
-  },
-  "ops.day.yesterdayInline": {
-    "en": "yesterday",
-    "t": "hier"
-  },
-  "ops.detail.amountCredited": {
-    "en": "Amount credited",
-    "t": "Montant crédité"
-  },
-  "ops.detail.amountDebited": {
-    "en": "Amount debited",
-    "t": "Montant débité"
-  },
-  "ops.detail.cashIn": {
-    "en": "Cash in",
-    "t": "Cash entrant"
-  },
-  "ops.detail.cashOut": {
-    "en": "Cash out",
-    "t": "Cash sortant"
-  },
-  "ops.detail.feeDeferred": {
-    "en": "Taken in units — the rest is carried to the next charge",
-    "t": "Prélevé en parts — le reste est reporté sur le prochain prélèvement"
-  },
-  "ops.detail.feeTaken": {
-    "en": "Taken in units, not from your wallet",
-    "t": "Prélevé en parts, pas sur votre solde"
-  },
-  "ops.detail.managementFee": {
-    "en": "Management fee",
-    "t": "Frais de gestion"
-  },
-  "ops.detail.netArrives": {
-    "en": "{amount} USDT arrives after the network fee",
-    "t": "{amount} USDT arrivent après les frais de réseau"
-  },
-  "ops.detail.netSent": {
-    "en": "Net sent",
-    "t": "Net envoyé"
-  },
-  "ops.detail.notYetBroadcast": {
-    "en": "not yet broadcast",
-    "t": "pas encore diffusé"
-  },
-  "ops.detail.performanceFee": {
-    "en": "Performance fee",
-    "t": "Commission de surperformance"
-  },
-  "ops.detail.pricePerUnit": {
-    "en": "Price per unit",
-    "t": "Prix par part"
-  },
-  "ops.detail.pricedAtSettle": {
-    "en": "Priced when the fund settles it",
-    "t": "Valorisé au règlement par le fonds"
-  },
-  "ops.detail.reference": {
-    "en": "Reference",
-    "t": "Référence"
-  },
-  "ops.detail.setAtSettle": {
-    "en": "set at settle",
-    "t": "fixé au règlement"
-  },
-  "ops.detail.toAddress": {
-    "en": "To address",
-    "t": "Adresse de destination"
-  },
-  "ops.detail.unitsMinted": {
-    "en": "Units minted",
-    "t": "Parts émises"
-  },
-  "ops.detail.unitsRedeemed": {
-    "en": "Units redeemed",
-    "t": "Parts rachetées"
-  },
-  "ops.detail.valueTaken": {
-    "en": "Value taken",
-    "t": "Valeur prélevée"
-  },
-  "ops.empty.deposits": {
-    "en": "No deposits yet",
-    "t": "Aucun dépôt pour l’instant"
-  },
-  "ops.empty.fees": {
-    "en": "No fees yet",
-    "t": "Aucun frais pour l’instant"
-  },
-  "ops.empty.redemptions": {
-    "en": "No redemptions yet",
-    "t": "Aucun rachat pour l’instant"
-  },
-  "ops.empty.subscriptions": {
-    "en": "No subscriptions yet",
-    "t": "Aucune souscription pour l’instant"
-  },
-  "ops.empty.withdrawals": {
-    "en": "No withdrawals yet",
-    "t": "Aucun retrait pour l’instant"
-  },
-  "ops.emptyHint": {
-    "en": "Add funds to your wallet, then subscribe into a fund — every movement appears here from the moment you make it, not once it settles.",
-    "t": "Alimentez votre wallet, puis souscrivez à un fonds — chaque mouvement apparaît ici dès que vous l’effectuez, et non une fois réglé."
-  },
-  "ops.filter.deposits": {
-    "en": "Deposits",
-    "t": "Dépôts"
-  },
-  "ops.filter.fees": {
-    "en": "Fees",
-    "t": "Frais"
-  },
-  "ops.filter.redemptions": {
-    "en": "Redemptions",
-    "t": "Rachats"
-  },
-  "ops.filter.subscriptions": {
-    "en": "Subscriptions",
-    "t": "Souscriptions"
-  },
-  "ops.filter.withdrawals": {
-    "en": "Withdrawals",
-    "t": "Retraits"
-  },
-  "ops.filterByKind": {
-    "en": "Filter activity by kind",
-    "t": "Filtrer l’activité par type"
-  },
-  "ops.filterEmptyHint": {
-    "en": "You have other activity — switch back to All to see it.",
-    "t": "Vous avez d’autres mouvements — revenez sur Tout pour les voir."
-  },
-  "ops.kind.deposit": {
-    "en": "Deposit",
-    "t": "Dépôt"
-  },
-  "ops.kind.fee": {
-    "en": "Fee",
-    "t": "Frais"
-  },
-  "ops.kind.redemption": {
-    "en": "Redemption",
-    "t": "Rachat"
-  },
-  "ops.kind.subscription": {
-    "en": "Subscription",
-    "t": "Souscription"
-  },
-  "ops.kind.unknown": {
-    "en": "Operation",
-    "t": "Opération"
-  },
-  "ops.kind.withdrawal": {
-    "en": "Withdrawal",
-    "t": "Retrait"
-  },
-  "ops.op.feeCharged": {
-    "en": "{fund} — fee charged",
-    "t": "{fund} — frais prélevés"
-  },
-  "ops.state.cancelled": {
-    "en": "Cancelled",
-    "t": "Annulé"
-  },
-  "ops.state.charged": {
-    "en": "Charged",
-    "t": "Prélevé"
-  },
-  "ops.state.completed": {
-    "en": "Completed",
-    "t": "Terminé"
-  },
-  "ops.state.credited": {
-    "en": "Credited",
-    "t": "Crédité"
-  },
-  "ops.state.failed": {
-    "en": "Failed",
-    "t": "Échec"
-  },
-  "ops.state.partlyDeferred": {
-    "en": "Partly deferred",
-    "t": "Reporté"
-  },
-  "ops.state.processing": {
-    "en": "Processing",
-    "t": "En cours"
-  },
-  "ops.state.queued": {
-    "en": "Queued",
-    "t": "En file"
-  },
-  "ops.step.awaitingFund": {
-    "en": "Awaiting fund liquidity",
-    "t": "En attente de liquidité du fonds"
-  },
-  "ops.step.awaitingFundMeta": {
-    "en": "priced at the NAV when it settles",
-    "t": "valorisé à la VL du règlement"
-  },
-  "ops.step.awaitingRail": {
-    "en": "Awaiting network liquidity",
-    "t": "En attente de liquidité sur le réseau"
-  },
-  "ops.step.awaitingRailMeta": {
-    "en": "sent as soon as the network is topped up",
-    "t": "part dès que le réseau est réapprovisionné"
-  },
-  "ops.step.broadcast": {
-    "en": "Broadcast to the network",
-    "t": "Diffusé sur le réseau"
-  },
-  "ops.step.burnVoided": {
-    "en": "the reserved burn was voided",
-    "t": "la destruction réservée a été annulée"
-  },
-  "ops.step.cashPaidOut": {
-    "en": "Cash paid out",
-    "t": "Cash versé"
-  },
-  "ops.step.creditedToBalance": {
-    "en": "credited to your balance",
-    "t": "crédité sur votre solde"
-  },
-  "ops.step.inFlight": {
-    "en": "in flight",
-    "t": "en cours d’envoi"
-  },
-  "ops.step.leftCustody": {
-    "en": "funds have left custody",
-    "t": "les fonds ont quitté la conservation"
-  },
-  "ops.step.perUnit": {
-    "en": "{nav} per unit",
-    "t": "{nav} par part"
-  },
-  "ops.step.pricedAtSettle": {
-    "en": "Priced at the settle NAV",
-    "t": "Valorisé à la VL de règlement"
-  },
-  "ops.step.redCancelled": {
-    "en": "Cancelled — units returned",
-    "t": "Annulé — parts restituées"
-  },
-  "ops.step.redFailed": {
-    "en": "Failed — units returned",
-    "t": "Échec — parts restituées"
-  },
-  "ops.step.requested": {
-    "en": "Requested",
-    "t": "Demandé"
-  },
-  "ops.step.reservationVoided": {
-    "en": "the reservation was voided",
-    "t": "la réservation a été annulée"
-  },
-  "ops.step.settledOnChain": {
-    "en": "Settled on-chain",
-    "t": "Réglé on-chain"
-  },
-  "ops.step.waiting": {
-    "en": "waiting",
-    "t": "en attente"
-  },
-  "ops.step.wdCancelled": {
-    "en": "Cancelled — balance returned",
-    "t": "Annulé — solde restitué"
-  },
-  "ops.step.wdFailed": {
-    "en": "Failed — balance returned",
-    "t": "Échec — solde restitué"
-  },
-  "ops.sub.deposit": {
-    "en": "{network} · {ref}",
-    "t": "{network} · {ref}"
-  },
-  "ops.sub.managementLeg": {
-    "en": "{amount} management",
-    "t": "{amount} gestion"
-  },
-  "ops.sub.performanceLeg": {
-    "en": "{amount} performance",
-    "t": "{amount} performance"
-  },
-  "ops.sub.withdrawal": {
-    "en": "{network} · {destination}",
-    "t": "{network} · {destination}"
-  },
-  "ops.sub.withdrawalNet": {
-    "en": "{network} · {destination} · {amount} USDT net",
-    "t": "{network} · {destination} · {amount} USDT net"
-  },
-  "ops.subtitle": {
-    "en": "Every deposit, withdrawal, subscription and redemption you have made, and every fee a fund has charged — one timeline.",
-    "t": "Chaque dépôt, retrait, souscription et rachat que vous avez effectué, et chaque frais prélevé par un fonds — un seul fil."
-  },
-  "ops.truncatedNote": {
-    "en": "Showing your most recent activity — older entries aren't listed here yet.",
-    "t": "Affichage de votre activité la plus récente — les entrées plus anciennes ne sont pas encore listées ici."
   },
   "panelAccess.action": {
     "en": "Panel access",
@@ -4947,150 +2307,6 @@
     "en": "Who has access",
     "t": "Qui a accès"
   },
-  "payment.consent.approve": {
-    "en": "Consented",
-    "t": "Consentement donné"
-  },
-  "payment.consent.invalidated": {
-    "en": "Consent void",
-    "t": "Consentement annulé"
-  },
-  "payment.consent.pending": {
-    "en": "Awaiting the investor",
-    "t": "En attente de l'investisseur"
-  },
-  "payment.consent.reject": {
-    "en": "Declined",
-    "t": "Refusé"
-  },
-  "payment.consent.unsent": {
-    "en": "Email not yet sent",
-    "t": "E-mail pas encore envoyé"
-  },
-  "payment.end.fullAddress": {
-    "en": "Show the full address",
-    "t": "Afficher l'adresse complète"
-  },
-  "payment.requirement.hint.owner_consilium": {
-    "en": "Fund-owned money: more than half of the owners must confirm from their mailboxes.",
-    "t": "Argent du fonds : plus de la moitié des propriétaires doivent confirmer depuis leur messagerie."
-  },
-  "payment.requirement.hint.subject_consent": {
-    "en": "An investor's own money: that investor alone is emailed and must agree.",
-    "t": "L'argent propre d'un investisseur : seul cet investisseur reçoit un e-mail et doit accepter."
-  },
-  "payment.requirement.owner_consilium": {
-    "en": "Owners' consilium",
-    "t": "Consilium des propriétaires"
-  },
-  "payment.requirement.subject_consent": {
-    "en": "The investor's consent",
-    "t": "Consentement de l'investisseur"
-  },
-  "payment.state.approved": {
-    "en": "Approved",
-    "t": "Approuvé"
-  },
-  "payment.state.cancelled": {
-    "en": "Cancelled",
-    "t": "Annulé"
-  },
-  "payment.state.executed": {
-    "en": "Executed",
-    "t": "Exécuté"
-  },
-  "payment.state.execution_failed": {
-    "en": "Execution failed",
-    "t": "Exécution échouée"
-  },
-  "payment.state.expired": {
-    "en": "Expired",
-    "t": "Expiré"
-  },
-  "payment.state.pending": {
-    "en": "Pending",
-    "t": "En attente"
-  },
-  "payment.state.rejected": {
-    "en": "Rejected",
-    "t": "Rejeté"
-  },
-  "payment.tier.external": {
-    "en": "External",
-    "t": "Externe"
-  },
-  "payment.tier.hint.external": {
-    "en": "Out to an on-chain address. Ships as a withdrawal once approved.",
-    "t": "Vers une adresse on-chain. Part comme un retrait une fois approuvé."
-  },
-  "payment.tier.hint.internal": {
-    "en": "Between two claims inside the fund. No money leaves the ledger.",
-    "t": "Entre deux créances au sein du fonds. Aucun argent ne quitte le registre."
-  },
-  "payment.tier.hint.service": {
-    "en": "Into one of the fund's products, as its pooled claim.",
-    "t": "Vers l'un des produits du fonds, sur sa créance commune."
-  },
-  "payment.tier.internal": {
-    "en": "Internal",
-    "t": "Interne"
-  },
-  "payment.tier.service": {
-    "en": "To a product",
-    "t": "Vers un produit"
-  },
-  "profile.activeSince": {
-    "en": "Active since {date}",
-    "t": "Actif depuis le {date}"
-  },
-  "profile.activity": {
-    "en": "Activity",
-    "t": "Activité"
-  },
-  "profile.activityCapped": {
-    "en": "Counted over your {n} most recent activity entries",
-    "t": "Comptées sur vos {n} entrées d’activité les plus récentes"
-  },
-  "profile.activitySub": {
-    "en": "Everything that has moved money on this account",
-    "t": "Tout ce qui a fait bouger de l’argent sur ce compte"
-  },
-  "profile.completeDetails": {
-    "en": "Complete your details in Settings — verification and compliance checks rely on them.",
-    "t": "Complétez vos informations dans les Paramètres — la vérification et les contrôles de conformité en dépendent."
-  },
-  "profile.dateOfBirth": {
-    "en": "Date of birth",
-    "t": "Date de naissance"
-  },
-  "profile.edit": {
-    "en": "Edit",
-    "t": "Modifier"
-  },
-  "profile.editInSettings": {
-    "en": "Edit in Settings",
-    "t": "Modifier"
-  },
-  "profile.hintAtNav": {
-    "en": "at current NAV",
-    "t": "à la VL actuelle"
-  },
-  "profile.identityAndStanding": {
-    "en": "Identity and account standing",
-    "t": "Identité et statut du compte"
-  },
-  "profile.identityVerification": {
-    "en": "Identity verification",
-    "t": "Vérification d’identité"
-  },
-  "profile.kyc.contact": {
-    "en": "Contact {contact}",
-    "t": "Contacter {contact}"
-  },
-  "profile.kyc.caseTitle": {
-    "en": "Verification in progress",
-    "t": "Vérification en cours"
-  },
   "profile.kyc.casePill": {
     "en": "In review",
     "t": "En examen"
@@ -5103,9 +2319,21 @@
     "en": "Your documents are with our reviewers — we'll email you the decision",
     "t": "Vos documents sont en cours d'examen — nous vous enverrons la décision par e-mail"
   },
+  "profile.kyc.caseTitle": {
+    "en": "Verification in progress",
+    "t": "Vérification en cours"
+  },
+  "profile.kyc.contact": {
+    "en": "Contact {contact}",
+    "t": "Contacter {contact}"
+  },
   "profile.kyc.continue": {
     "en": "Continue",
     "t": "Continuer"
+  },
+  "profile.kyc.emailUnverified": {
+    "en": "Verify your email first — Settings → Security.",
+    "t": "Vérifiez d’abord votre e-mail — Paramètres → Sécurité."
   },
   "profile.kyc.start": {
     "en": "Start",
@@ -5127,341 +2355,13 @@
     "en": "Automatic verification is temporarily out of service — write to us and we'll raise your level by hand.",
     "t": "La vérification automatique est temporairement hors service — écrivez-nous et nous relèverons votre niveau à la main."
   },
-  "profile.kycLevelPill": {
-    "en": "KYC level {n}",
-    "t": "KYC niv. {n}"
-  },
-  "profile.kycRaisedBy": {
-    "en": "Raised by verification and review",
-    "t": "Relevé après vérification et examen"
-  },
-  "profile.lastActivity": {
-    "en": "Last activity",
-    "t": "Dernière activité"
-  },
-  "profile.legalName": {
-    "en": "Legal name",
-    "t": "Nom légal"
-  },
-  "profile.nationality": {
-    "en": "Nationality",
-    "t": "Nationalité"
-  },
-  "profile.noActivityBody": {
-    "en": "Your first deposit will appear here.",
-    "t": "Votre premier dépôt apparaîtra ici."
-  },
-  "profile.noActivityTitle": {
-    "en": "No activity yet",
-    "t": "Aucune activité pour l’instant"
-  },
-  "profile.phoneNumber": {
-    "en": "Phone number",
-    "t": "Numéro de téléphone"
-  },
-  "profile.platformAccess": {
-    "en": "Platform access",
-    "t": "Accès à la plateforme"
-  },
-  "profile.preferredName": {
-    "en": "Preferred name",
-    "t": "Nom d’usage"
-  },
-  "profile.residentialAddress": {
-    "en": "Residential address",
-    "t": "Adresse de résidence"
-  },
-  "profile.subtitle": {
-    "en": "Who you are on the platform and how your account stands",
-    "t": "Qui vous êtes sur la plateforme et l’état de votre compte"
-  },
-  "profile.taxResidence": {
-    "en": "Tax residence",
-    "t": "Résidence fiscale"
-  },
-  "profile.unverified": {
-    "en": "Unverified",
-    "t": "Non vérifié"
-  },
-  "profile.viewAllActivity": {
-    "en": "View all activity",
-    "t": "Voir toute l’activité"
-  },
-  "session.breakGlass.body": {
-    "en": "This fund has no owner in the register yet, so your role comes from the OWNER_SUBJECTS emergency allowlist and not from the register itself. It is real authority over this console, but it seats nobody: you hold no vote in the consilium. A seat is written once by the genesis seed when the service starts, or granted afterwards by a consilium of the existing owners — and this notice goes away for good the moment the first owner is seated.",
-    "t": "Ce fonds n'a encore aucun propriétaire au registre : votre rôle provient donc de la liste d'accès d'urgence OWNER_SUBJECTS et non du registre lui-même. Ce sont de véritables pouvoirs sur cette console, mais ils n'accordent aucun siège : vous n'avez pas de voix au consilium. Un siège n'est inscrit que par l'amorçage de genèse au démarrage du service, ou accordé ensuite par un consilium des propriétaires en exercice — et cet avis disparaîtra définitivement dès que le premier propriétaire sera installé."
-  },
-  "session.breakGlass.title": {
-    "en": "You are working under emergency access",
-    "t": "Vous agissez en accès d'urgence"
-  },
-  "settings.a11y.sections": {
-    "en": "Settings sections",
-    "t": "Sections des paramètres"
-  },
-  "settings.baseCurrency": {
-    "en": "Base currency",
-    "t": "Devise de référence"
-  },
-  "settings.currency.eur": {
-    "en": "EUR (€)",
-    "t": "EUR (€)"
-  },
-  "settings.currency.usd": {
-    "en": "USD ($)",
-    "t": "USD ($)"
-  },
-  "settings.deliveryTopicsSub": {
-    "en": "Where we reach you and what you follow",
-    "t": "Où nous vous joignons et ce que vous suivez"
-  },
-  "settings.device.browser": {
-    "en": "Browser",
-    "t": "Navigateur"
-  },
-  "settings.device.generic": {
-    "en": "device",
-    "t": "appareil"
-  },
-  "settings.device.label": {
-    "en": "{browser} · {os}",
-    "t": "{browser} · {os}"
-  },
-  "settings.device.unknown": {
-    "en": "Unknown device",
-    "t": "Appareil inconnu"
-  },
-  "settings.devicesSignedIn": {
-    "en": "{n, plural, one {# device currently signed in} other {# devices currently signed in}}",
-    "t": "{n, plural, one {# appareil actuellement connecté} many {# appareils actuellement connectés} other {# appareils actuellement connectés}}"
-  },
-  "settings.documents.custody": {
-    "en": "How funds are held",
-    "t": "Comment les fonds sont détenus"
-  },
-  "settings.documents.custodySub": {
-    "en": "Deposits are held in the fund's custody wallets at Turnkey on the network you sent them over, and booked to your identity as verified by Didit. Nothing is moved without that identity, and withdrawals go only to an address you request. You sign in with your Google account.",
-    "t": "Les dépôts sont conservés dans les portefeuilles de garde du fonds chez Turnkey, sur le réseau par lequel vous les avez envoyés, et inscrits sous votre identité vérifiée par Didit. Rien n'est déplacé sans cette identité, et les retraits ne vont qu'à une adresse que vous demandez. La connexion se fait avec votre compte Google."
-  },
-  "settings.documents.newTab": {
-    "en": "opens in a new tab",
-    "t": "s'ouvre dans un nouvel onglet"
-  },
-  "settings.documents.published": {
-    "en": "Published documents",
-    "t": "Documents publiés"
-  },
-  "settings.documents.risk": {
-    "en": "Risk",
-    "t": "Risque"
-  },
-  "settings.documents.rowSub": {
-    "en": "Whitepaper, open source, how funds are held, risk",
-    "t": "Livre blanc, code ouvert, garde des fonds, risque"
-  },
-  "settings.documents.sourceCode": {
-    "en": "Open source",
-    "t": "Code ouvert"
-  },
-  "settings.documents.sourceCodeSub": {
-    "en": "The fund's code, on GitHub",
-    "t": "Le code du fonds, sur GitHub"
-  },
-  "settings.documents.sub": {
-    "en": "What the fund has published, and how your money is held",
-    "t": "Ce que le fonds a publié et comment votre argent est détenu"
-  },
-  "settings.documents.title": {
-    "en": "Documents and disclosures",
-    "t": "Documents et informations"
-  },
-  "settings.documents.whitepaper": {
-    "en": "Whitepaper",
-    "t": "Livre blanc"
-  },
-  "settings.documents.whitepaperSub": {
-    "en": "The fund's thesis and structure, on the public site",
-    "t": "La thèse et la structure du fonds, sur le site public"
-  },
-  "settings.fixHighlighted": {
-    "en": "Please fix the highlighted fields",
-    "t": "Veuillez corriger les champs signalés"
-  },
-  "settings.group.cabinet": {
-    "en": "Cabinet",
-    "t": "Mon espace"
-  },
-  "settings.group.cabinetSub": {
-    "en": "How the cabinet looks and how it reaches you",
-    "t": "L’apparence de votre espace et la façon dont il vous contacte"
-  },
-  "settings.group.help": {
-    "en": "Help",
-    "t": "Aide"
-  },
-  "settings.group.helpSub": {
-    "en": "What the fund has published, and how to reach a person",
-    "t": "Ce que le fonds a publié et comment joindre une personne"
-  },
-  "settings.group.profileSub": {
-    "en": "Who you are and how your account is protected",
-    "t": "Qui vous êtes et comment votre compte est protégé"
-  },
-  "settings.hint.address": {
-    "en": "Your current home address.",
-    "t": "Votre adresse actuelle."
-  },
-  "settings.hint.baseCurrency": {
-    "en": "Saved to your account. Balances in the cabinet are always shown in USD.",
-    "t": "Enregistrée sur votre compte. Les soldes de votre espace sont toujours affichés en USD."
-  },
-  "settings.hint.dateOfBirth": {
-    "en": "As on your identity document.",
-    "t": "Telle qu’elle figure sur votre pièce d’identité."
-  },
-  "settings.hint.email": {
-    "en": "Comes from your Google account and can't be changed here.",
-    "t": "Provient de votre compte Google et ne peut pas être modifiée ici."
-  },
-  "settings.hint.language": {
-    "en": "Applies as soon as you save; the whole cabinet switches.",
-    "t": "S’applique dès l’enregistrement ; tout votre espace change de langue."
-  },
-  "settings.hint.phone": {
-    "en": "Used to reach you about your account.",
-    "t": "Pour vous joindre au sujet de votre compte."
-  },
-  "settings.hint.preferredName": {
-    "en": "How the cabinet and our emails address you.",
-    "t": "Comment votre espace et nos e-mails s’adressent à vous."
-  },
-  "settings.hint.timeZone": {
-    "en": "Saved to your account. The cabinet itself shows times in your device's time zone.",
-    "t": "Enregistré sur votre compte. Votre espace affiche les heures dans le fuseau horaire de votre appareil."
-  },
-  "settings.nav.documents": {
-    "en": "Documents",
-    "t": "Documents"
-  },
-  "settings.inbox": {
-    "en": "Inbox",
-    "t": "Boîte de réception"
-  },
-  "settings.nav.personal": {
-    "en": "Personal details",
-    "t": "Données personnelles"
-  },
-  "settings.nav.preferences": {
-    "en": "Preferences",
-    "t": "Préférences"
-  },
-  "settings.noSessions": {
-    "en": "No active sessions.",
-    "t": "Aucune session active."
-  },
-  "settings.notificationsSub": {
-    "en": "Which channels reach you and which events you follow",
-    "t": "Quels canaux vous joignent et quels événements vous suivez"
-  },
-  "settings.personalRowSub": {
-    "en": "Name, phone, address, tax residence",
-    "t": "Nom, téléphone, adresse, résidence fiscale"
-  },
-  "settings.personalSub": {
-    "en": "Your identity as the fund records it",
-    "t": "Votre identité telle que le fonds l’enregistre"
-  },
-  "settings.preferencesSub": {
-    "en": "How the cabinet is displayed to you. Saved to your account, so every device follows",
-    "t": "Comment votre espace s’affiche pour vous. Enregistré sur votre compte, donc valable sur tous vos appareils"
-  },
-  "settings.revoke": {
-    "en": "Revoke",
-    "t": "Révoquer"
-  },
-  "settings.securitySub": {
-    "en": "How you sign in and where your account is active",
-    "t": "Comment vous vous connectez et où votre compte est actif"
-  },
-  "settings.selectCurrency": {
-    "en": "Select currency",
-    "t": "Choisir la devise"
-  },
-  "settings.selectLanguage": {
-    "en": "Select language",
-    "t": "Choisir la langue"
-  },
-  "settings.selectTimeZone": {
-    "en": "Select time zone",
-    "t": "Choisir le fuseau horaire"
-  },
-  "settings.session.activeNow": {
-    "en": "Active now",
-    "t": "Actif maintenant"
-  },
-  "settings.session.activeNowLower": {
-    "en": "active now",
-    "t": "actif maintenant"
-  },
-  "settings.session.activeRecently": {
-    "en": "active recently",
-    "t": "actif récemment"
-  },
-  "settings.session.lastActiveDays": {
-    "en": "last active {n}d ago",
-    "t": "actif il y a {n} j"
-  },
-  "settings.session.lastActiveHours": {
-    "en": "last active {n}h ago",
-    "t": "actif il y a {n} h"
-  },
-  "settings.session.lastActiveMinutes": {
-    "en": "last active {n}m ago",
-    "t": "actif il y a {n} min"
-  },
-  "settings.sessionsLoading": {
-    "en": "Loading active sessions…",
-    "t": "Chargement des sessions actives…"
-  },
-  "settings.sessionsSub": {
-    "en": "Where you're signed in — revoke anything you don't recognise",
-    "t": "Où vous êtes connecté — révoquez tout ce que vous ne reconnaissez pas"
-  },
-  "settings.signOutOthers": {
-    "en": "Sign out all other devices",
-    "t": "Déconnecter les autres"
-  },
-  "settings.subtitle": {
-    "en": "Manage your account, security and access",
-    "t": "Gérez votre compte, votre sécurité et vos accès"
-  },
-  "settings.support.email": {
-    "en": "Email support",
-    "t": "Écrire à l'assistance"
-  },
-  "settings.support.sub": {
-    "en": "A person reads every message",
-    "t": "Une personne lit chaque message"
-  },
-  "settings.thisDevice": {
-    "en": "This device",
-    "t": "Cet appareil"
-  },
-  "settings.timeZone": {
-    "en": "Time zone",
-    "t": "Fuseau horaire"
-  },
-  "settings.trustedSessionsSub": {
-    "en": "Devices signed in to your account",
-    "t": "Appareils connectés à votre compte"
-  },
-  "settings.tz.hoChiMinh": {
-    "en": "Asia / Ho Chi Minh",
-    "t": "Asie / Hô Chi Minh"
-  },
-  "settings.viewProfile": {
-    "en": "View profile",
-    "t": "Voir le profil"
+  "profile.kyc.verifyEmailSub": {
+    "en": "Identity checks open once your address is confirmed",
+    "t": "La vérification d’identité s’ouvre une fois votre adresse confirmée"
+  },
+  "profile.kyc.verifyEmailTitle": {
+    "en": "Verify your email first",
+    "t": "Vérifiez d’abord votre e-mail"
   },
   "status.backHome": {
     "en": "Back to home",
@@ -6131,6 +3031,14 @@
     "en": "Available",
     "t": "Disponible"
   },
+  "tips.wallet.balance.in-compartments.body": {
+    "en": "USDT you moved into a service's compartment. Still yours and counted in your total — move it back to your main balance to withdraw it.",
+    "t": "USDT que vous avez déplacés dans le compartiment d'un service. Toujours à vous et compris dans votre total — remettez-les sur votre solde principal pour les retirer."
+  },
+  "tips.wallet.balance.in-compartments.title": {
+    "en": "In compartments",
+    "t": "En compartiments"
+  },
   "tips.wallet.balance.in-orders.body": {
     "en": "USDT set aside by your resting buy orders on the book. Still yours: it comes back to available when an order is cancelled, and turns into units when it fills.",
     "t": "USDT réservés par vos ordres d'achat en attente dans le carnet. Toujours à vous : ils redeviennent disponibles à l'annulation d'un ordre et se transforment en parts à l'exécution."
@@ -6535,10 +3443,6 @@
     "en": "Partially filled, rest cancelled",
     "t": "Partiellement exécuté, reste annulé"
   },
-  "trade.state.unfilledCancelled": {
-    "en": "Not filled, cancelled",
-    "t": "Non exécuté, annulé"
-  },
   "trade.state.partiallyFilled": {
     "en": "Partially filled",
     "t": "Partiellement exécuté"
@@ -6546,6 +3450,10 @@
   "trade.state.rejected": {
     "en": "Rejected",
     "t": "Refusé"
+  },
+  "trade.state.unfilledCancelled": {
+    "en": "Not filled, cancelled",
+    "t": "Non exécuté, annulé"
   },
   "trade.stream.live": {
     "en": "Live",
@@ -6607,37 +3515,9 @@
     "en": "Account",
     "t": "Compte"
   },
-  "ui.accountStatus": {
-    "en": "Account status",
-    "t": "Statut du compte"
-  },
-  "ui.addFunds": {
-    "en": "Add funds",
-    "t": "Alimenter le compte"
-  },
-  "ui.address": {
-    "en": "address",
-    "t": "adresse"
-  },
-  "ui.all": {
-    "en": "All",
-    "t": "Tout"
-  },
-  "ui.allocate": {
-    "en": "Allocate",
-    "t": "Allouer"
-  },
-  "ui.amount": {
-    "en": "Amount",
-    "t": "Montant"
-  },
   "ui.back": {
     "en": "Back",
     "t": "Retour"
-  },
-  "ui.browseFunds": {
-    "en": "Browse funds",
-    "t": "Parcourir les fonds"
   },
   "ui.cancel": {
     "en": "Cancel",
@@ -6646,14 +3526,6 @@
   "ui.close": {
     "en": "Close",
     "t": "Fermer"
-  },
-  "ui.copied": {
-    "en": "Copied",
-    "t": "Copié"
-  },
-  "ui.copy": {
-    "en": "Copy",
-    "t": "Copier"
   },
   "ui.dateTime.clear": {
     "en": "Clear",
@@ -6679,22 +3551,6 @@
     "en": "Previous month",
     "t": "Mois précédent"
   },
-  "ui.deliveryTopics": {
-    "en": "Delivery & topics",
-    "t": "Diffusion & sujets"
-  },
-  "ui.deposit": {
-    "en": "Deposit",
-    "t": "Déposer"
-  },
-  "ui.depositUsdt": {
-    "en": "Deposit USDT",
-    "t": "Déposer des USDT"
-  },
-  "ui.destination": {
-    "en": "Destination",
-    "t": "Destinataire"
-  },
   "ui.details": {
     "en": "Details",
     "t": "Détails"
@@ -6703,29 +3559,9 @@
     "en": "Edit",
     "t": "Modifier"
   },
-  "ui.email": {
-    "en": "Email",
-    "t": "E-mail"
-  },
-  "ui.emailAddress": {
-    "en": "Email address",
-    "t": "Adresse e-mail"
-  },
-  "ui.inProgress": {
-    "en": "In progress",
-    "t": "En cours"
-  },
-  "ui.inYourCabinet": {
-    "en": "In your cabinet",
-    "t": "Dans votre espace"
-  },
   "ui.keep": {
     "en": "Keep it",
     "t": "Conserver"
-  },
-  "ui.kycLevel": {
-    "en": "KYC level",
-    "t": "Niveau KYC"
   },
   "ui.loading": {
     "en": "Loading…",
@@ -6739,41 +3575,9 @@
     "en": "Max",
     "t": "Max"
   },
-  "ui.network": {
-    "en": "Network",
-    "t": "Réseau"
-  },
-  "ui.networks": {
-    "en": "Networks",
-    "t": "Réseaux"
-  },
-  "ui.noOperations": {
-    "en": "No activity yet",
-    "t": "Aucune activité pour l’instant"
-  },
   "ui.none": {
     "en": "None",
     "t": "Aucun"
-  },
-  "ui.operations": {
-    "en": "Activity",
-    "t": "Activité"
-  },
-  "ui.profile": {
-    "en": "Profile",
-    "t": "Profil"
-  },
-  "ui.progress": {
-    "en": "Progress",
-    "t": "Avancement"
-  },
-  "ui.receiveFunds": {
-    "en": "Receive funds into your wallet",
-    "t": "Recevoir des fonds sur votre wallet"
-  },
-  "ui.refresh": {
-    "en": "Refresh",
-    "t": "Actualiser"
   },
   "ui.reloadPage": {
     "en": "Reload page",
@@ -6787,756 +3591,20 @@
     "en": "Save",
     "t": "Enregistrer"
   },
-  "ui.saveChanges": {
-    "en": "Save changes",
-    "t": "Enregistrer"
-  },
-  "ui.saved": {
-    "en": "Saved",
-    "t": "Enregistré"
-  },
-  "ui.security": {
-    "en": "Security",
-    "t": "Sécurité"
-  },
-  "ui.sessionsDevices": {
-    "en": "Sessions & devices",
-    "t": "Sessions & appareils"
-  },
   "ui.total": {
     "en": "Total",
     "t": "Total"
   },
-  "ui.trustedSessions": {
-    "en": "Trusted sessions",
-    "t": "Sessions de confiance"
+  "wallet.subtitle": {
+    "en": "Your invest balance and the main account behind it",
+    "t": "Votre solde invest et le compte principal derrière lui"
   },
-  "ui.verified": {
-    "en": "Verified",
-    "t": "Vérifié"
-  },
-  "ui.services": {
-    "en": "Services",
-    "t": "Services"
-  },
-  "ui.walletHistory": {
-    "en": "History",
-    "t": "Historique"
-  },
-  "ui.viewAll": {
-    "en": "View all",
-    "t": "Tout afficher"
-  },
-  "ui.wallet": {
+  "wallet.title": {
     "en": "Wallet",
     "t": "Wallet"
   },
-  "ui.withdraw": {
-    "en": "Withdraw",
-    "t": "Retirer"
-  },
-  "ui.withdrawUsdt": {
-    "en": "Withdraw USDT",
-    "t": "Retirer des USDT"
-  },
-  "wallet.acceptedInstantly": {
-    "en": "Accepted; if {network} liquidity is short right now, it queues until topped up — you'll be notified.",
-    "t": "Accepté ; si la liquidité {network} est à court pour l’instant, la demande est mise en file jusqu’au réapprovisionnement — vous serez notifié."
-  },
-  "wallet.activitySub": {
-    "en": "Deposits and withdrawals — queued, processing, completed",
-    "t": "Dépôts et retraits — en file, en cours, terminés"
-  },
-  "wallet.amountCaps": {
-    "en": "AMOUNT",
-    "t": "MONTANT"
-  },
-  "wallet.availPrefix": {
-    "en": "Avail: {amount}",
-    "t": "Dispo : {amount}"
-  },
-  "wallet.cancelWithdrawal": {
-    "en": "Cancel withdrawal",
-    "t": "Annuler le retrait"
-  },
-  "wallet.chain.bep20": {
-    "en": "BNB Smart Chain",
-    "t": "BNB Smart Chain"
-  },
-  "wallet.chain.polygon": {
-    "en": "Polygon PoS",
-    "t": "Polygon PoS"
-  },
-  "wallet.chain.ton": {
-    "en": "The Open Network",
-    "t": "The Open Network"
-  },
-  "wallet.chain.trc20": {
-    "en": "TRON",
-    "t": "TRON"
-  },
-  "wallet.chain.unknown": {
-    "en": "Network",
-    "t": "Réseau"
-  },
-  "wallet.chip.avail": {
-    "en": "AVAILABLE",
-    "t": "DISPONIBLE"
-  },
-  "wallet.chip.availShort": {
-    "en": "AVAIL",
-    "t": "DISPO"
-  },
-  "wallet.chip.inOrders": {
-    "en": "IN ORDERS",
-    "t": "EN ORDRES"
-  },
-  "wallet.chip.inOrdersShort": {
-    "en": "ORDERS",
-    "t": "ORDRES"
-  },
-  "wallet.chip.invest": {
-    "en": "INVESTED",
-    "t": "INVESTI"
-  },
-  "wallet.chip.investShort": {
-    "en": "INVEST",
-    "t": "INVESTI"
-  },
-  "wallet.chip.pendingWd": {
-    "en": "PENDING WD",
-    "t": "RETRAIT EN ATTENTE"
-  },
-  "wallet.confirmWithdrawal": {
-    "en": "Confirm withdrawal",
-    "t": "Confirmer le retrait"
-  },
-  "wallet.copyAddress": {
-    "en": "Copy address",
-    "t": "Copier l’adresse"
-  },
-  "wallet.creditedAfterConfirmations": {
-    "en": "Credited to your one balance after {n, plural, one {# network confirmation} other {# network confirmations}}.",
-    "t": "Crédité sur votre solde unique après {n, plural, one {# confirmation réseau} many {# confirmations réseau} other {# confirmations réseau}}."
-  },
-  "wallet.depositAddressUnavailable": {
-    "en": "A {network} deposit address isn't available yet — this network is still being set up. Check back soon.",
-    "t": "Aucune adresse de dépôt {network} n’est encore disponible — ce réseau est en cours de mise en service. Revenez bientôt."
-  },
-  "wallet.depositNetwork": {
-    "en": "Deposit network",
-    "t": "Réseau de dépôt"
-  },
-  "wallet.depositVerifyBody": {
-    "en": "Your deposit address opens once your identity is verified. It only needs doing once.",
-    "t": "Votre adresse de dépôt s'ouvre dès que votre identité est vérifiée. Cela ne se fait qu'une fois."
-  },
-  "wallet.depositVerifyTitle": {
-    "en": "Verify your identity to deposit",
-    "t": "Vérifiez votre identité pour déposer"
-  },
-  "wallet.destinationAddressCaps": {
-    "en": "DESTINATION ADDRESS",
-    "t": "ADRESSE DU DESTINATAIRE"
-  },
-  "wallet.destinationCaps": {
-    "en": "DESTINATION",
-    "t": "DESTINATAIRE"
-  },
-  "wallet.evmSiblingHazard": {
-    "en": "This {network} address is not your {siblings} address — even though both start with 0x. USDT sent on {siblingsOr} will not be credited.",
-    "t": "Cette adresse {network} n’est pas votre adresse {siblings}, même si toutes deux commencent par 0x. Les USDT envoyés sur {siblingsOr} ne seront pas crédités."
-  },
-  "wallet.exceedsInstant": {
-    "en": "~{amount} USDT exceeds instant {network} liquidity and will be queued until the network is topped up.",
-    "t": "~{amount} USDT dépasse la liquidité instantanée du réseau {network} et sera mis en file jusqu’à son réapprovisionnement."
-  },
-  "wallet.minInstantQueued": {
-    "en": "Min {min} USDT · instant {network} {instant} · rest queued",
-    "t": "Min {min} USDT · {network} instantané {instant} · reste en file"
-  },
-  "wallet.networkCaps": {
-    "en": "NETWORK",
-    "t": "RÉSEAU"
-  },
-  "wallet.networkFee": {
-    "en": "Network fee",
-    "t": "Frais de réseau"
-  },
-  "wallet.networkWarning": {
-    "en": "Network warning",
-    "t": "Avertissement réseau"
-  },
-  "wallet.newDeposit": {
-    "en": "New deposit",
-    "t": "Nouveau dépôt"
-  },
-  "wallet.noActivity": {
-    "en": "No activity yet",
-    "t": "Aucune activité pour l’instant"
-  },
-  "wallet.noActivityHint": {
-    "en": "Your deposits and withdrawals will appear here once you make your first transfer.",
-    "t": "Vos dépôts et retraits apparaîtront ici dès votre premier transfert."
-  },
-  "wallet.noDepositRails": {
-    "en": "No deposit networks are available right now — check back soon.",
-    "t": "Aucun réseau de dépôt n’est disponible pour l’instant — revenez bientôt."
-  },
-  "wallet.noRails": {
-    "en": "No deposit or withdrawal networks are available right now — check back soon.",
-    "t": "Aucun réseau de dépôt ou de retrait n’est disponible pour l’instant — revenez bientôt."
-  },
-  "wallet.noRailsTitle": {
-    "en": "No networks available yet",
-    "t": "Aucun réseau disponible pour l'instant"
-  },
-  "wallet.overviewVerifyTitle": {
-    "en": "Verify your identity to use these networks",
-    "t": "Vérifiez votre identité pour utiliser ces réseaux"
-  },
-  "wallet.overviewVerifyBody": {
-    "en": "Deposit addresses are issued and withdrawals open once your identity is verified. Your balance above is unaffected.",
-    "t": "Les adresses de dépôt sont émises et les retraits s'ouvrent une fois votre identité vérifiée. Votre solde ci-dessus reste intact."
-  },
-  "wallet.noWithdrawRails": {
-    "en": "No withdrawal networks are available right now — check back soon.",
-    "t": "Aucun réseau de retrait n’est disponible pour l’instant — revenez bientôt."
-  },
-  "wallet.oneFungibleBalance": {
-    "en": "≈ ${amount} · one fungible balance",
-    "t": "≈ {amount} $ · un seul solde fongible"
-  },
-  "wallet.overviewSub": {
-    "en": "One USDT balance · networks are how you deposit and withdraw",
-    "t": "Un solde USDT unique · les réseaux servent à déposer et retirer"
-  },
-  "wallet.pendWd": {
-    "en": "PEND WD",
-    "t": "RET ATT"
-  },
-  "wallet.placeholder.railAddress": {
-    "en": "{network} address",
-    "t": "Adresse {network}"
-  },
-  "wallet.qrUnavailable": {
-    "en": "QR code unavailable — use the address below.",
-    "t": "QR code indisponible — utilisez l’adresse ci-dessous."
-  },
-  "wallet.railActionUnavailable": {
-    "en": "{action} is not available on this network yet",
-    "t": "{action} n’est pas encore disponible sur ce réseau"
-  },
-  "wallet.railHazard": {
-    "en": "Only send USDT on the {network} network to this address. Funds sent on any other network will be lost permanently.",
-    "t": "N’envoyez à cette adresse que des USDT sur le réseau {network}. Les fonds envoyés sur un autre réseau seront définitivement perdus."
-  },
-  "wallet.railUsdt": {
-    "en": "{network} · USDT",
-    "t": "{network} · USDT"
-  },
-  "wallet.railsCaption": {
-    "en": "deposit & withdrawal networks",
-    "t": "réseaux de dépôt & de retrait"
-  },
-  "wallet.receiptQueued": {
-    "en": "{amount} USDT to {address} is queued — it is sent once {network} liquidity is topped up.",
-    "t": "{amount} USDT vers {address} sont en file — l’envoi partira dès que la liquidité {network} sera réapprovisionnée."
-  },
-  "wallet.receiptSubmitted": {
-    "en": "{amount} USDT is on its way to {address} — pending on-chain confirmation.",
-    "t": "{amount} USDT sont en route vers {address} — en attente de confirmation on-chain."
-  },
-  "wallet.reviewWithdrawal": {
-    "en": "Review withdrawal",
-    "t": "Vérifier le retrait"
-  },
-  "wallet.selectNetwork": {
-    "en": "SELECT NETWORK",
-    "t": "CHOISIR LE RÉSEAU"
-  },
-  "wallet.statusCaps": {
-    "en": "STATUS",
-    "t": "STATUT"
-  },
-  "wallet.toAddressLine": {
-    "en": "To {address}",
-    "t": "Vers {address}"
-  },
-  "wallet.totalBalance": {
-    "en": "TOTAL BALANCE",
-    "t": "SOLDE TOTAL"
-  },
-  "wallet.txRef": {
-    "en": "tx {ref}",
-    "t": "tx {ref}"
-  },
-  "wallet.withdrawSub": {
-    "en": "Send funds to an external address — one balance, any network",
-    "t": "Envoyez des fonds vers une adresse externe — un solde unique, tous les réseaux"
-  },
-  "wallet.withdrawVerifyBody": {
-    "en": "Withdrawals open once your identity is verified. Your balance is untouched in the meantime.",
-    "t": "Les retraits s'ouvrent dès que votre identité est vérifiée. Votre solde reste intact entre-temps."
-  },
-  "wallet.withdrawVerifyTitle": {
-    "en": "Verify your identity to withdraw",
-    "t": "Vérifiez votre identité pour retirer"
-  },
-  "wallet.withdrawalFailed": {
-    "en": "Withdrawal failed",
-    "t": "Échec du retrait"
-  },
-  "wallet.withdrawalNetwork": {
-    "en": "Withdrawal network",
-    "t": "Réseau de retrait"
-  },
-  "wallet.withdrawalQueued": {
-    "en": "Withdrawal queued",
-    "t": "Retrait en file"
-  },
-  "wallet.withdrawalSubmitted": {
-    "en": "Withdrawal submitted",
-    "t": "Retrait soumis"
-  },
-  "wallet.youWillReceive": {
-    "en": "You will receive",
-    "t": "Vous recevrez"
-  },
-  "wallet.yourDepositAddress": {
-    "en": "Your {network} deposit address",
-    "t": "Votre adresse de dépôt {network}"
-  },
-  "onboarding.allSet.body": {
-    "en": "Your holdings and their split are under {own}; every movement lands in {ops}.",
-    "t": "Vos positions et leur répartition sont dans « {own} » ; chaque mouvement apparaît dans « {ops} »."
-  },
-  "onboarding.allSet.dismiss": {
-    "en": "Got it",
-    "t": "Compris"
-  },
-  "onboarding.allSet.title": {
-    "en": "You're all set",
-    "t": "Tout est prêt"
-  },
-  "onboarding.deposit.current": {
-    "en": "Send funds to your deposit address — credited once the network confirms it.",
-    "t": "Envoyez des fonds à votre adresse de dépôt — crédités dès que le réseau confirme le virement."
-  },
-  "onboarding.deposit.done": {
-    "en": "Funds received.",
-    "t": "Fonds reçus."
-  },
-  "onboarding.deposit.locked": {
-    "en": "Opens once your identity is verified.",
-    "t": "Disponible une fois votre identité vérifiée."
-  },
-  "onboarding.deposit.title": {
-    "en": "Make your first deposit",
-    "t": "Faites votre premier dépôt"
-  },
-  "onboarding.invest.current": {
-    "en": "Pick a strategy and subscribe with your available balance.",
-    "t": "Choisissez une stratégie et souscrivez avec votre solde disponible."
-  },
-  "onboarding.invest.done": {
-    "en": "You hold units.",
-    "t": "Vous détenez des parts."
-  },
-  "onboarding.invest.locked": {
-    "en": "Opens once a deposit is credited.",
-    "t": "Disponible une fois un dépôt crédité."
-  },
-  "onboarding.invest.title": {
-    "en": "Choose a strategy",
-    "t": "Choisissez une stratégie"
-  },
-  "onboarding.progress": {
-    "en": "{done} of {total} done",
-    "t": "{done} sur {total} terminés"
-  },
-  "onboarding.status.complete": {
-    "en": "Verified · funded · invested",
-    "t": "Vérifié · approvisionné · investi"
-  },
-  "onboarding.subtitle": {
-    "en": "Three steps to your first investment.",
-    "t": "Trois étapes jusqu'à votre premier investissement."
-  },
-  "onboarding.title": {
-    "en": "Get started",
-    "t": "Premiers pas"
-  },
-  "onboarding.verify.done": {
-    "en": "Your deposit address and withdrawals are open.",
-    "t": "Votre adresse de dépôt et les retraits sont ouverts."
-  },
-  "onboarding.verify.review": {
-    "en": "Nothing to do on your side — your documents are with our reviewers and we'll email you the decision.",
-    "t": "Rien à faire de votre côté — vos documents sont chez nos vérificateurs, la décision vous sera envoyée par e-mail."
-  },
-  "onboarding.verify.title": {
-    "en": "Verify your identity",
-    "t": "Vérifiez votre identité"
-  },
-  "auth.code.back": {
-    "en": "Use a different email",
-    "t": "Utiliser une autre adresse"
-  },
-  "auth.code.checkSpam": {
-    "en": "It can take a minute. Check your spam folder too.",
-    "t": "Cela peut prendre une minute. Vérifiez aussi vos spams."
-  },
-  "auth.code.desc": {
-    "en": "We sent a 6 digit sign in code to {email}",
-    "t": "Nous avons envoyé un code de connexion à 6 chiffres à {email}"
-  },
-  "auth.code.label": {
-    "en": "Code",
-    "t": "Code"
-  },
-  "auth.code.mailMe": {
-    "en": "Email me a code",
-    "t": "M’envoyer un code"
-  },
-  "auth.code.resend": {
-    "en": "Send a new code",
-    "t": "Envoyer un nouveau code"
-  },
-  "auth.code.resendIn": {
-    "en": "Send a new code in {seconds}s",
-    "t": "Nouveau code dans {seconds} s"
-  },
-  "auth.code.title": {
-    "en": "Check your email",
-    "t": "Consultez vos e-mails"
-  },
-  "auth.createAccount": {
-    "en": "Create an account",
-    "t": "Créer un compte"
-  },
-  "auth.dialog.heading": {
-    "en": "Sign in or create an account",
-    "t": "Se connecter ou créer un compte"
-  },
-  "auth.email.confirm": {
-    "en": "Confirm",
-    "t": "Confirmer"
-  },
-  "auth.email.unverifiedSub": {
-    "en": "Not verified — identity checks need a verified email",
-    "t": "Non vérifiée — la vérification d’identité exige une adresse vérifiée"
-  },
-  "auth.email.verified": {
-    "en": "Verified",
-    "t": "Vérifiée"
-  },
-  "auth.email.verify": {
-    "en": "Verify",
-    "t": "Vérifier"
-  },
-  "auth.err.attemptsExceeded": {
-    "en": "Too many tries. Send yourself a new code.",
-    "t": "Trop d’essais. Demandez un nouveau code."
-  },
-  "auth.err.captcha": {
-    "en": "Captcha verification failed. Please try again.",
-    "t": "La vérification captcha a échoué. Réessayez."
-  },
-  "auth.err.captchaLoad": {
-    "en": "Captcha failed to load. Please refresh the page.",
-    "t": "Le captcha n’a pas pu se charger. Actualisez la page."
-  },
-  "auth.err.captchaUnavailable": {
-    "en": "We could not check the captcha just now. Please try again.",
-    "t": "Impossible de vérifier le captcha pour le moment. Veuillez réessayer."
-  },
-  "auth.err.codeExpired": {
-    "en": "That code has expired. Send yourself a new code.",
-    "t": "Ce code a expiré. Demandez-en un nouveau."
-  },
-  "auth.err.disabled": {
-    "en": "This account is suspended.",
-    "t": "Ce compte est suspendu."
-  },
-  "auth.err.emailTaken": {
-    "en": "An account already exists for that address. Sign in instead — with a code if you forgot the password.",
-    "t": "Un compte existe déjà pour cette adresse. Connectez-vous — avec un code si vous avez oublié le mot de passe."
-  },
-  "auth.err.emailVerifiedElsewhere": {
-    "en": "This address is verified on another account.",
-    "t": "Cette adresse est déjà vérifiée sur un autre compte."
-  },
-  "auth.err.invalidCode": {
-    "en": "That code is not right. Try again.",
-    "t": "Ce code est incorrect. Réessayez."
-  },
-  "auth.err.invalidCredentials": {
-    "en": "Wrong email, username or password.",
-    "t": "E-mail, nom d’utilisateur ou mot de passe incorrect."
-  },
-  "auth.err.invalidEmail": {
-    "en": "Enter a valid email address.",
-    "t": "Saisissez une adresse e-mail valide."
-  },
-  "auth.err.invalidUsername": {
-    "en": "3–32 characters: letters, digits, '_', '.' or '-'.",
-    "t": "3 à 32 caractères : lettres, chiffres, '_', '.' ou '-'."
-  },
-  "auth.err.passwordLocked": {
-    "en": "Too many wrong passwords. Sign in with a code instead.",
-    "t": "Trop de mots de passe erronés. Connectez-vous plutôt avec un code."
-  },
-  "auth.err.signOut": {
-    "en": "We couldn't sign you out. Please try again.",
-    "t": "Impossible de vous déconnecter. Veuillez réessayer."
-  },
-  "auth.err.throttled": {
-    "en": "Too many codes went to this address. Try again in a few minutes.",
-    "t": "Trop de codes envoyés à cette adresse. Réessayez dans quelques minutes."
-  },
-  "auth.err.usernameTaken": {
-    "en": "That username is taken.",
-    "t": "Ce nom d’utilisateur est déjà pris."
-  },
-  "auth.err.verifyAttemptsExceeded": {
-    "en": "Too many wrong codes in the last 24 hours. Try again tomorrow.",
-    "t": "Trop de codes erronés au cours des dernières 24 heures. Réessayez demain."
-  },
-  "auth.err.verifyThrottled": {
-    "en": "Too many codes went to this address. Try again later — the limit is 10 a day.",
-    "t": "Trop de codes envoyés à cette adresse. Réessayez plus tard — 10 au maximum par jour."
-  },
-  "auth.err.weakPassword": {
-    "en": "Use at least 8 characters.",
-    "t": "Utilisez au moins 8 caractères."
-  },
-  "auth.field.email": {
-    "en": "Email",
-    "t": "E-mail"
-  },
-  "auth.field.identifier": {
-    "en": "Email or username",
-    "t": "E-mail ou nom d’utilisateur"
-  },
-  "auth.field.newPassword": {
-    "en": "New password",
-    "t": "Nouveau mot de passe"
-  },
-  "auth.field.password": {
-    "en": "Password",
-    "t": "Mot de passe"
-  },
-  "auth.method.code": {
-    "en": "Email code",
-    "t": "Code par e-mail"
-  },
-  "auth.method.password": {
-    "en": "Password",
-    "t": "Mot de passe"
-  },
-  "auth.methods.title": {
-    "en": "Sign-in methods",
-    "t": "Méthodes de connexion"
-  },
-  "auth.orContinueWith": {
-    "en": "Or continue with",
-    "t": "Ou continuer avec"
-  },
-  "auth.password.change": {
-    "en": "Change password",
-    "t": "Changer le mot de passe"
-  },
-  "auth.password.save": {
-    "en": "Save password",
-    "t": "Enregistrer le mot de passe"
-  },
-  "auth.password.set": {
-    "en": "Set password",
-    "t": "Définir un mot de passe"
-  },
-  "auth.signIn": {
-    "en": "Sign in",
-    "t": "Se connecter"
-  },
-  "auth.signup.create": {
-    "en": "Create account",
-    "t": "Créer le compte"
-  },
-  "auth.signup.desc": {
-    "en": "Your account works right away. A KYC check later needs a verified email.",
-    "t": "Votre compte fonctionne tout de suite. Une vérification KYC ultérieure exige une adresse vérifiée."
-  },
-  "auth.signup.haveAccount": {
-    "en": "Already have an account? Sign in",
-    "t": "Déjà un compte ? Se connecter"
-  },
-  "auth.signup.heading": {
-    "en": "Create an account",
-    "t": "Créer un compte"
-  },
-  "auth.signup.verifyNow": {
-    "en": "Verify my email now",
-    "t": "Vérifier mon e-mail maintenant"
-  },
-  "auth.useCodeInstead": {
-    "en": "Sign in with a code instead",
-    "t": "Se connecter plutôt avec un code"
-  },
-  "auth.useLoginCode": {
-    "en": "Email me a code",
-    "t": "M’envoyer un code"
-  },
-  "auth.usePasswordInstead": {
-    "en": "Sign in with a password instead",
-    "t": "Se connecter plutôt avec un mot de passe"
-  },
-  "auth.username.change": {
-    "en": "Change",
-    "t": "Modifier"
-  },
-  "auth.username.none": {
-    "en": "None yet — once set, it signs you in like your email",
-    "t": "Aucun pour l’instant — une fois défini, il vous connecte comme votre e-mail"
-  },
-  "auth.username.save": {
-    "en": "Save",
-    "t": "Enregistrer"
-  },
-  "auth.username.title": {
-    "en": "Username",
-    "t": "Nom d’utilisateur"
-  },
-  "auth.verify.desc": {
-    "en": "Your account is ready. Enter the 6 digit code we sent to {email} to verify it, or skip and verify later in Settings.",
-    "t": "Votre compte est prêt. Saisissez le code à 6 chiffres envoyé à {email} pour le vérifier, ou faites-le plus tard dans les Paramètres."
-  },
-  "auth.verify.later": {
-    "en": "Verify later",
-    "t": "Vérifier plus tard"
-  },
-  "auth.verify.title": {
-    "en": "Confirm your email",
-    "t": "Confirmez votre e-mail"
-  },
-  "auth.wall.action": {
-    "en": "Sign in",
-    "t": "Se connecter"
-  },
-  "auth.wall.desc": {
-    "en": "This part of the cabinet belongs to your account. Sign in or create one — it takes a minute.",
-    "t": "Cette partie du cabinet appartient à votre compte. Connectez-vous ou créez-en un — cela prend une minute."
-  },
-  "auth.wall.title": {
-    "en": "Sign in to see this",
-    "t": "Connectez-vous pour voir ceci"
-  },
-  "nav.guestMode": {
-    "en": "Guest Mode",
-    "t": "Mode invité"
-  },
-  "profile.kyc.emailUnverified": {
-    "en": "Verify your email first — Settings → Security.",
-    "t": "Vérifiez d’abord votre e-mail — Paramètres → Sécurité."
-  },
-  "profile.kyc.verifyEmailSub": {
-    "en": "Identity checks open once your address is confirmed",
-    "t": "La vérification d’identité s’ouvre une fois votre adresse confirmée"
-  },
-  "profile.kyc.verifyEmailTitle": {
-    "en": "Verify your email first",
-    "t": "Vérifiez d’abord votre e-mail"
-  },
-  "auth.err.passkeyCancelled": {
-    "en": "Passkey sign in was cancelled.",
-    "t": "La connexion par clé d’accès a été annulée."
-  },
-  "auth.err.passkeyExpired": {
-    "en": "That took too long. Try the passkey again.",
-    "t": "Cela a pris trop de temps. Réessayez la clé d’accès."
-  },
-  "auth.err.passkeyRegistered": {
-    "en": "This passkey is registered already.",
-    "t": "Cette clé d’accès est déjà enregistrée."
-  },
-  "auth.err.passkeyRejected": {
-    "en": "That passkey is not registered here. Sign in with a code instead.",
-    "t": "Cette clé d’accès n’est pas enregistrée ici. Connectez-vous plutôt avec un code."
-  },
-  "auth.passkeys.add": {
-    "en": "Add a passkey",
-    "t": "Ajouter une clé d’accès"
-  },
-  "auth.passkeys.default": {
-    "en": "Passkey",
-    "t": "Clé d’accès"
-  },
-  "auth.passkeys.remove": {
-    "en": "Remove",
-    "t": "Supprimer"
-  },
-  "auth.passkeys.sub": {
-    "en": "Sign in with your fingerprint, face or screen lock — no code, no password",
-    "t": "Connectez-vous avec votre empreinte, votre visage ou le verrouillage d’écran — sans code ni mot de passe"
-  },
-  "auth.passkeys.title": {
-    "en": "Passkeys",
-    "t": "Clés d’accès"
-  },
-  "auth.usePasskey": {
-    "en": "Use a passkey",
-    "t": "Utiliser une clé d’accès"
-  },
-  "admin.revenue.bankingTreasuryNote": {
-    "en": "Withdrawal fees land here, not in the fee allocation: banking's own cash, held by no one through units. Nothing is paid out of it until scope approvals cover treasury spending.",
-    "t": "Les frais de retrait arrivent ici, pas dans l'allocation des frais : l'argent propre de banking, que personne ne détient via des parts. Rien n'en sort tant que les approbations de scope ne couvrent pas les dépenses de la trésorerie."
-  },
-  "admin.revenue.treasuryPostedHint": {
-    "en": "retained withdrawal fees, reserved included",
-    "t": "frais de retrait retenus, réservations comprises"
-  },
-  "admin.treasury.bankingTreasury": {
-    "en": "Banking treasury",
-    "t": "Trésorerie de banking"
-  },
-  "admin.treasury.bankingTreasuryAccess": {
-    "en": "banking's own",
-    "t": "propre à banking"
-  },
-  "admin.treasury.bankingTreasuryHolders": {
-    "en": "withdrawal fees · spending closed for now",
-    "t": "frais de retrait · dépenses fermées pour l'instant"
-  },
-  "admin.treasury.heldInCompartments": {
-    "en": "Held in compartments",
-    "t": "Détenu en compartiments"
-  },
-  "admin.treasury.heldInCompartmentsHint": {
-    "en": "users' scope compartments · still theirs",
-    "t": "compartiments des utilisateurs par scope · toujours à eux"
-  },
-  "admin.users.balanceInCompartments": {
-    "en": "· in compartments",
-    "t": "· en compartiments"
-  },
-  "admin.users.balanceMain": {
-    "en": "· main",
-    "t": "· principal"
-  },
-  "admin.withdrawals.source.treasury": {
-    "en": "Banking treasury",
-    "t": "Trésorerie de banking"
-  },
-  "tips.wallet.balance.in-compartments.body": {
-    "en": "USDT you moved into a service's compartment. Still yours and counted in your total — move it back to your main balance to withdraw it.",
-    "t": "USDT que vous avez déplacés dans le compartiment d'un service. Toujours à vous et compris dans votre total — remettez-les sur votre solde principal pour les retirer."
-  },
-  "tips.wallet.balance.in-compartments.title": {
-    "en": "In compartments",
-    "t": "En compartiments"
-  },
-  "wallet.chip.inCompartments": {
-    "en": "IN COMPARTMENTS",
-    "t": "EN COMPARTIMENTS"
+  "wallet.unavailable": {
+    "en": "The wallet could not be loaded. Reload the page to try again.",
+    "t": "Impossible de charger le wallet. Rechargez la page pour réessayer."
   }
 }
