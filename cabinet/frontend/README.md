@@ -1,25 +1,99 @@
-# cabinet frontend — host shell
+# invest cabinet — frontend
 
-The Next.js host shell for the bank's cabinet. Two jobs:
+The investor cabinet at **`invest.evinvest.ltd/cabinet`**: Next.js (App Router) with
+`basePath: "/cabinet"`, `@evinvest/uikit` for every control and the app shell, and
+`@evinvest/i18n` in five locales. The landing owns the rest of the host
+(EV-Fund/landing); a Traefik `PathPrefix(/cabinet)` route sends this prefix here.
 
-1. **Microfrontend composition.** Every microfrontend (React or Rust/WASM, inline
-   widget or whole page) is a self-registering **custom element**. The host mounts
-   them with [`<RemoteElement>`](./shared/mfe/RemoteElement.tsx), resolving each by
-   logical name from the [registry](./mfe-registry.json) (read here server-side for
-   page routes, and served to the browser at `/api/mfe-registry` by the backend).
-   Remotes deploy independently — change the registry, not the host. Light DOM only
-   (Tailwind v4 tokens break in shadow DOM).
-   - Inline widget: render `<RemoteElement>` anywhere in a page.
-   - Whole page: the catch-all route `app/(mfe)/[service]/[[...slug]]` mounts a page MFE.
+Imported from the banking cabinet (EV-Main/banking `cabinet/frontend` at
+`4f18800b`) and cut down to what invest owns (ORG-RESTRUCTURE-PLAN §6, D3, D4, D8,
+D11). Money stays banking's: no withdrawals, payments, treasury, outbox or users
+screens here — those live in the central admin on evinvest.ltd.
 
-2. **BFF proxy.** The BFF itself is a separate Rust service
-   ([`../backend`](../backend)). This app keeps calling same-origin `/api/*`;
-   [`next.config.ts`](./next.config.ts) rewrites those to the backend
-   (`CABINET_BACKEND_URL`), so the `__Host-`/HttpOnly session cookie + CSRF model
-   stays same-origin. The browser never holds a token.
+## Routes
 
-See [`docs/ARCHITECTURE.md`](../../../docs/ARCHITECTURE.md) for the full contract and
-the React / Rust-WASM producer recipes.
+All under `/cabinet/{locale}`; a request without a locale is redirected into one.
+
+| Path | What |
+|---|---|
+| `/` | Portfolio — positions across allocations, performance |
+| `/invest`, `/invest/[service]` | Allocations: the catalog, one product, subscribe and redeem |
+| `/invest/[service]/trade` | The order book terminal for one product |
+| `/wallet` | Banking's wallet element, `scope="invest"` (`@evinvest/wallet`) |
+| `/account` | Concierge's account element (`@evinvest/concierge`) |
+| `/admin/allocations`, `/admin/allocations/[service]` | Allocation registry; panel access per allocation |
+| `/admin/valuation`, `/admin/fees`, `/admin/revenue` | Valuation and redemptions, fee terms, fund revenue |
+| `/login` | Not a page: redirects to the `returnTo` page with `?login`, which opens sign-in |
+
+The console (`/admin/*`) is shown when the session's `user.isAdmin` is true — the
+BFF derives it from the caller's `<scope>:admin` / `<scope>:operator` seats, since
+an admin of any scope that owns an allocation manages it here (§2). The investor
+pages need `invest:self:invest`. Both are cosmetic gates
+(`shared/config/route-permissions.ts`); the BFF is the boundary.
+
+## Sign-in and session
+
+- **Guest:** every page renders; the route gate shows a sign-in wall in the dimmed
+  shell. "Sign in" sets `?login`, which mounts concierge's `<mfe-concierge-sign-in>`
+  (`features/auth`), loaded from the registry at
+  `https://evinvest.ltd/api/auth/mfe/registry.json`.
+- **After sign-in** (`ev:signed-in`) the page navigates to the BFF's RP login,
+  `/cabinet/api/auth/login?return_to=<this page>`. The BFF runs concierge's
+  `authorize` → `code` → callback for the RP client `invest` and sets the session
+  cookie. An OAuth round trip (Google, GitHub) returns to the same RP login.
+- **Session:** the BFF's `invest_session` cookie (`__Host-` in production) is the
+  only credential this app forwards; `GET /cabinet/api/auth/session` returns the
+  principal (`SessionInfo` in `shared/contracts/admin.ts`) and refreshes the tokens
+  behind it. CSRF: double-submit, cookie `invest_csrf`, header `x-ev-csrf`.
+- **Sign-out** from the account element: `POST /cabinet/api/auth/logout`, then
+  concierge's confirm page ends the evinvest.ltd session and returns to
+  `https://invest.evinvest.ltd/` — so the `invest` scope's `return_paths` in
+  concierge must list `/`.
+
+## What the invest BFF must serve
+
+This app is the frontend only; the Rust BFF is not written yet. Everything below
+`/cabinet/api/*` is rewritten to `CABINET_BACKEND_URL` and must be answered there,
+in the shapes the banking cabinet BFF uses today:
+
+| Path | Origin today | Notes |
+|---|---|---|
+| `/api/auth/login`, `/api/auth/callback`, `/api/auth/logout`, `/api/auth/session` | new | RP session for client `invest` |
+| `/api/funds/*`, `/api/allocations*` | banking BFF | positions, NAV, fee policy, subscriptions, redemptions |
+| `/api/book/*`, `/api/book/ws` | banking BFF | order book, candles, orders, fills; websocket |
+| `/api/admin/allocations/*`, `/api/admin/valuation/*`, `/api/admin/fees/*`, `/api/admin/revenue` | banking BFF | the allocation console |
+| `/api/wallet` | banking BFF | read only: the balance available to deal with |
+| `/api/kyc/status`, `/api/kyc/start` | concierge (site-root) | relayed with the RP session's credential |
+| `/api/users` | banking BFF | the profile the KYC gate reads |
+| `/api/admin/users` | banking BFF | the user picker in issue/grant forms |
+| `/api/admin/tenants/{ns}/grants` | banking BFF → concierge | panel access per allocation |
+| `/api/consilium/holder-grant`, `/api/owners*` | banking BFF | to concierge approvals (§4.4) |
+| `/api/platform` | banking BFF | maintenance / read-only / announcement banner |
+
+## Generated files
+
+`shared/contracts/gen/**` is generated — **do not edit it by hand**. It was copied
+as is from banking `cabinet/frontend/shared/contracts/gen` at `4f18800b`, where
+`@hey-api/openapi-ts` emits it from banking's `contracts/openapi.json`
+(`openapi-ts.config.ts`). Until invest publishes its own OpenAPI, regenerate in
+banking and copy the output; `npm run gen:api` here expects the spec at
+`../../contracts/openapi.json`, which this repo does not have yet.
+
+`messages/en/common.json` and `i18n-slices.json` are generated from the code
+(`npm run i18n:extract`, `npm run i18n:slices`).
+
+## Develop
+
+```sh
+npm ci
+cp .env.example .env.local     # CABINET_BACKEND_URL is required
+npm run dev                    # http://localhost:3000/cabinet
+npm run check && npm run lint && npm run i18n:check
+npm run build
+```
+
+Without a BFF every page still renders (as a guest, behind the sign-in wall);
+`/cabinet/api/*` answers 500 from the failed rewrite.
 
 ## i18n
 
@@ -43,22 +117,11 @@ tests use) because it imports `shared/config/i18n.ts`, and that module loads the
 catalogues through the `@/messages/...` tsconfig path alias, which bare node
 does not resolve.
 
-**The locale is a cookie here, not a URL segment.** That asymmetry with the
-conductor is deliberate. The public site prefixes every non-default locale
-(`/ru/team`) because it must serve `hreflang` alternates to a crawler and must not
-move already-indexed URLs. The cabinet is entirely behind auth: no crawler, no
-indexed URL, and prefixing would mean restructuring all 19 routes around a
-`[locale]` segment to buy nothing.
-
-So `proxy.ts` negotiates `Accept-Language` once and mints a sticky `ev_locale`
-cookie, and never overwrites it — a reader who picks English on a Russian laptop
-stays in English. `currentLocale()` (`shared/config/locale.ts`) reads it; the root
-layout feeds `I18nProvider` so both the `(app)` and `(auth)` groups are covered.
-
-Only a Settings save *confirms* that cookie (`ev_locale_chosen`). An unprefixed entry
-whose `ev_locale` was not confirmed is treated as a guess, so the account's stored
-language wins on that device; a URL never writes to the account. A confirmed
-choice is kept on that device until it is changed there.
+**The locale is the first segment under the prefix** — `/cabinet/ru/invest`. A
+request without one (`/cabinet`, an old link) is redirected by `proxy.ts` to the
+locale in the `ev_locale` cookie — the same cookie the landing on this host
+writes — else `Accept-Language`, else English. `currentLocale()`
+(`shared/config/locale.ts`) reads the segment through `next/root-params`.
 
 Catalogues live in `messages/<locale>/common.json`. English is a plain map; every
 other locale records the English each entry was translated from, which is what
@@ -83,8 +146,8 @@ its env var is set, so local dev needs no configuration.
   `config.public.posthogKey` / `posthogHost` (`NEXT_PUBLIC_POSTHOG_KEY` / `_HOST`
   through `config.ts`) and are passed to the provider as props — its own env
   fallback reads `process.env[name]` dynamically, which Next never inlines into
-  the browser bundle. Both are build-time literals in the root `flake.nix`
-  (`cabinetApp.env`); the host also feeds the CSP `connect-src`. What the shared
+  the browser bundle. Both are build-time values (`NEXT_PUBLIC_*`); the host also
+  feeds the CSP `connect-src`. What the shared
   seam lacks lives in [`shared/analytics`](./shared/analytics): the activation
   funnel's event names (`login_view`, `session_created`, `kyc_started`,
   `kyc_completed`, `first_deposit`, `first_subscription` — a contract with the
@@ -95,9 +158,9 @@ its env var is set, so local dev needs no configuration.
   fires. That exception ends when `@evinvest/analytics` grows `identify()`.
 - **Error monitoring** (`@evinvest/error-monitoring`) — `ErrorMonitoringProvider`
   (browser) in providers; server/runtime init + request-error capture in
-  [`instrumentation.ts`](./instrumentation.ts); build integration via `withSentry`
-  in [`next.config.ts`](./next.config.ts). Reads `NEXT_PUBLIC_SENTRY_DSN` (browser)
-  / `SENTRY_DSN` (server) and the `SENTRY_ORG`/`PROJECT`/`AUTH_TOKEN` build vars.
+  [`instrumentation.ts`](./instrumentation.ts). No build-time integration — see the
+  note at the end of [`next.config.ts`](./next.config.ts). Reads
+  `NEXT_PUBLIC_SENTRY_DSN` (browser, required in production) / `SENTRY_DSN` (server).
 - **Experiments** (`@evinvest/experiments`) — the A/B registry lives in
   [`application/experiments.ts`](./application/experiments.ts); sticky variant
   assignment runs in [`proxy.ts`](./proxy.ts). Read a variant in a Server
@@ -105,14 +168,6 @@ its env var is set, so local dev needs no configuration.
   to `useCapture`). Empty until the first experiment is declared.
 
 See [`.env.example`](./.env.example) for the full env surface.
-
-## Dev
-
-```
-nix run .#cabinet           # this app (proxies /api/* → the cabinet backend)
-nix run .#cabinet-backend   # the BFF (needs piggybank; ports: flake.nix `ports`)
-nix run .#dev               # full stack: postgres + tigerbeetle + redis + signer + piggybank + cabinet-backend + cabinet
-```
 
 ## Data
 
@@ -133,9 +188,10 @@ those reads; the problem was that none of them was shared.
 
 Why not Next's `fetch` extension: `next: { revalidate, tags }` is a **server**
 extension, applied to fetches Next issues while rendering. This cabinet reads
-nothing on the server — `/api/*` is a rewrite straight to the Rust BFF
-(`next.config.ts`), there are no route handlers, and every read is a browser call
-carrying the user's session cookie. So the cache is client-side, but keeps Next's
+little on the server — `/cabinet/api/*` is a rewrite straight to the invest BFF
+(`next.config.ts`), there are no route handlers, and most reads are browser calls
+carrying the user's session cookie (a few pages seed their first HTML through
+`shared/api/server/bff.ts`). So the cache is client-side, but keeps Next's
 vocabulary — `revalidate` in seconds, `tags`, and a `revalidateTag()` — because
 the semantics are the same.
 
@@ -144,11 +200,10 @@ Rules:
 - **Declare each read once**, in `entities/<x>/model/<x>-resource.ts`, with the
   window it stays fresh for and the tags its mutations move. Views import from
   `model/`, never from `api/`.
-- **A mutation names what it moved**, it does not refetch. `submitWithdrawal`
-  names `wallet · withdrawals · operations`, so the balance on *every* open
-  surface follows — no call site has to know which screens are mounted. A write
-  whose response IS the new state (`saveProfile`, `postValuation`) publishes it
-  rather than invalidating.
+- **A mutation names what it moved**, it does not refetch. A subscription names
+  `wallet · positions · fees`, so the figures on *every* open surface follow — no call
+  site has to know which screens are mounted. A write whose response IS the new
+  state (`saveProfile`, `postValuation`) publishes it rather than invalidating.
 - **`isLoading` is the only state that earns a skeleton.** It is true only when
   there is nothing to show and nothing has failed. Cached data renders on the
   first frame and refreshes behind itself; see the `Settled` rule below, which
@@ -229,23 +284,11 @@ Rules:
 - **A panel that swaps records is two motions, not one.** Key `Panel` on whether
   the panel is open — never on which record it shows, or every row click plays a
   full exit and enter — and put `PanelSwap` inside for the record change. The
-  admin users drawer (`views/admin/users`) is the reference.
+  allocation side panel (`views/admin/allocations`) is the reference.
 - **Alerts and result cards that replace one another share one
   `PanelPresence`.** A submit that fails should swap review → error in place
-  rather than emptying the column and refilling it. See `views/wallet/withdraw`
-  and `views/invest/deal-panels`.
-- **A marker that moves is one node per surface, mounted once and translated** —
-  never a per-item background that blinks between rows, and never a `layoutId`
-  pill that mounts inside whichever item is active. The mobile tab bar's rule is
-  positioned by arithmetic, because its tabs are uniform; the rail's active
-  marker is positioned by measurement in a layout effect, because its sections
-  differ in row count and every label is a translation, and its move is a CSS
-  transition on `transform` (`globals.css`). `layoutId` is not used for either,
-  for two reasons found the hard way: the slide it produces is a layout
-  projection driven from the main thread, which drops frames while the page just
-  navigated to is rendering; and its measurement adds `window.scroll` to every
-  box unless the element itself is `position: fixed`, so a marker inside the
-  rail's fixed wrapper took its origin from the previous page's scroll offset and
-  flew in from below its row.
+  rather than emptying the column and refilling it. See `views/invest/deal-panels`.
+- **Nav markers are the kit's.** The rail and the tab bar are uikit `ShellNav` and
+  `BottomTabBar`; their markers move as the kit decides, not per app.
 - Note the eslint guard on arbitrary Tailwind values applies here too — motion
   values live in props and tokens, not in class strings.
