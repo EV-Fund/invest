@@ -1,0 +1,212 @@
+"use client";
+
+// What each screen reads, so the reading can start before the screen does.
+//
+// The cache in `shared/lib/resource.ts` removes the skeleton on the SECOND visit to a
+// screen — the value is already there. This closes the first visit too. `next/link` would
+// prefetch the route's RSC payload on hover, but the cabinet turns that off (see
+// `shared/ui/cabinet-link.tsx`: a dynamic route with no loading boundary has nothing to
+// carry); this is the same idea applied where it pays — the data the screen will ask for,
+// driven off the same signal. By the time the click lands the answer
+// is usually in the cache, and the screen paints its figures on the first frame.
+//
+// Two triggers, both cheap and both cancel-free (a warm that turns out to be unnecessary
+// costs one GET that a later screen would have made anyway):
+//
+//   · intent — pointer or keyboard focus on a nav row warms that row's screen;
+//   · idle — once the shell is up, warm the handful of reads shared by most screens, at
+//     idle priority so they never race the reads the current screen is making for itself.
+
+import {
+  adminAllocationsResource,
+  cabinetConfigResource,
+  fundRevenueResource,
+  mfeRegistryResource,
+  parkedEventsResource,
+  redemptionQueueResource,
+  treasuryResource,
+  usersResource,
+  withdrawalQueueResource,
+} from "@/entities/admin/model/admin-resource";
+import { bookPolicyResource, bookSnapshotResource, bookTradesResource, openOrdersResource } from "@/entities/book/model/book-resource";
+import { allocationsResource, fundNavResource, positionsResource, redemptionsResource } from "@/entities/fund/model/fund-resource";
+import { notificationSettingsResource, notificationsResource } from "@/entities/notification/model/notification-resource";
+import { RECENT_OPS, operationsResource } from "@/entities/operation/model/operation-resource";
+import { paymentsResource } from "@/entities/payment/model/payment-resource";
+import { isServiceId, tenantOf } from "@/entities/grant/lib/access";
+import { grantHoldersResource } from "@/entities/grant/model/grant-resource";
+import { sessionsResource } from "@/entities/session/model/session-resource";
+import { profileResource } from "@/entities/user/model/profile-resource";
+import { depositsResource, walletResource, withdrawalsResource } from "@/entities/wallet/model/wallet-resource";
+
+// Zone-relative paths, exactly as the rail writes them (basePath is not part of these).
+// Ordered longest-prefix-first so `/wallet/activity` isn't answered by `/wallet`.
+const ROUTES: ReadonlyArray<{ prefix: string; warm: (path: string) => void }> = [
+  { prefix: "/admin/users", warm: () => usersResource.prefetch({}) },
+  {
+    prefix: "/admin/cabinet",
+    warm: () => {
+      cabinetConfigResource.prefetch();
+      mfeRegistryResource.prefetch();
+    },
+  },
+  { prefix: "/admin/treasury", warm: () => treasuryResource.prefetch() },
+  { prefix: "/admin/withdrawals", warm: () => withdrawalQueueResource.prefetch() },
+  { prefix: "/admin/outbox", warm: () => parkedEventsResource.prefetch() },
+  {
+    prefix: "/admin/payments",
+    warm: () => {
+      // The unfiltered list, plus what the form's pickers read: the product list and the
+      // configured rails (the treasury read carries them).
+      paymentsResource.prefetch();
+      adminAllocationsResource.prefetch();
+      treasuryResource.prefetch();
+    },
+  },
+  { prefix: "/admin/revenue", warm: () => fundRevenueResource.prefetch() },
+  // `/admin/allocations/<service>` is the panel-access page, open to a delegate who cannot
+  // read the registry — warming that would only buy them a 403.
+  {
+    prefix: "/admin/allocations/",
+    warm: (path) => {
+      const service = path.slice("/admin/allocations/".length).split("/")[0] ?? "";
+      const namespace = isServiceId(service) ? tenantOf(service) : null;
+      if (namespace !== null) grantHoldersResource.prefetch(namespace);
+    },
+  },
+  { prefix: "/admin/allocations", warm: () => adminAllocationsResource.prefetch() },
+  {
+    prefix: "/admin/valuation",
+    warm: () => {
+      adminAllocationsResource.prefetch();
+      redemptionQueueResource.prefetch();
+    },
+  },
+  {
+    prefix: "/wallet/activity",
+    warm: () => {
+      withdrawalsResource.prefetch();
+      depositsResource.prefetch();
+    },
+  },
+  { prefix: "/wallet", warm: () => walletResource.prefetch() },
+  {
+    prefix: "/invest/",
+    warm: (path) => {
+      allocationsResource.prefetch();
+      positionsResource.prefetch();
+      redemptionsResource.prefetch();
+      // `/invest/<service>` — the fund's own page opens on its NAV, and on whether its
+      // book is open (the "Trade" control reads the policy).
+      const [slug, surface] = path.slice("/invest/".length).split("/");
+      const service = decodeURIComponent(slug ?? "");
+      if (!service) return;
+      fundNavResource.prefetch(service);
+      bookPolicyResource.prefetch(service);
+      if (surface === "trade") {
+        // The terminal: the book paints from the cache before the socket's first frame
+        // lands, and the form needs the balance to say what is available.
+        bookSnapshotResource.prefetch(service);
+        bookTradesResource.prefetch(service);
+        openOrdersResource.prefetch(service);
+        walletResource.prefetch();
+      }
+    },
+  },
+  {
+    prefix: "/invest",
+    warm: () => {
+      positionsResource.prefetch();
+      redemptionsResource.prefetch();
+      walletResource.prefetch();
+      allocationsResource.prefetch();
+    },
+  },
+  {
+    prefix: "/operations",
+    warm: () => {
+      operationsResource.prefetch(undefined);
+      allocationsResource.prefetch();
+    },
+  },
+  {
+    prefix: "/notifications",
+    warm: () => notificationsResource.prefetch("all"),
+  },
+  {
+    prefix: "/profile",
+    warm: () => {
+      // The profile is read-only and summarises the account: the identity record, the
+      // holdings and balance behind its stat strip, the full timeline behind its activity
+      // counts (the same read `/operations` makes, so one cache entry serves both), and the
+      // session list its Access card counts.
+      profileResource.prefetch();
+      positionsResource.prefetch();
+      walletResource.prefetch();
+      operationsResource.prefetch(undefined);
+      sessionsResource.prefetch();
+    },
+  },
+  {
+    prefix: "/settings",
+    warm: () => {
+      profileResource.prefetch();
+      sessionsResource.prefetch();
+      notificationSettingsResource.prefetch();
+    },
+  },
+  {
+    prefix: "/",
+    warm: () => {
+      walletResource.prefetch();
+      positionsResource.prefetch();
+      operationsResource.prefetch(RECENT_OPS);
+      allocationsResource.prefetch();
+    },
+  },
+];
+
+// "/" is Home, not "every path": it is matched exactly, never as a prefix. Every other entry
+// matches its own path or anything nested under it.
+function matches(path: string, prefix: string): boolean {
+  if (prefix === "/") return path === "/";
+  return path === prefix || path.startsWith(prefix.endsWith("/") ? prefix : `${prefix}/`);
+}
+
+/** Warm the reads the screen at `href` will make. Safe to call repeatedly — fresh entries are left alone. */
+export function prefetchRoute(href: string): void {
+  const path = href.split("?")[0] ?? href;
+  ROUTES.find((route) => matches(path, route.prefix))?.warm(path);
+}
+
+/**
+ * Handlers to spread onto a nav link so intent warms its screen. `onFocus` is not optional
+ * garnish: a keyboard user tabbing the rail has to get the same head start a pointer does.
+ */
+export function prefetchOn(href: string) {
+  const warm = () => prefetchRoute(href);
+  return { onMouseEnter: warm, onFocus: warm, onTouchStart: warm };
+}
+
+/**
+ * Warm what nearly every screen in the cabinet reads: the balance, the positions, and the
+ * fund catalog the rail itself lists. Called once when the signed-in shell mounts.
+ *
+ * At idle, so the current screen's own reads go first — nothing here is needed to paint the
+ * page the user actually asked for.
+ */
+export function warmShell(): () => void {
+  const warm = () => {
+    walletResource.prefetch();
+    positionsResource.prefetch();
+    allocationsResource.prefetch();
+  };
+  if (typeof window === "undefined") return () => undefined;
+  if (typeof requestIdleCallback === "function") {
+    const handle = requestIdleCallback(warm, { timeout: 2_000 });
+    return () => cancelIdleCallback(handle);
+  }
+  // Safari has no requestIdleCallback; a short timer is close enough for a warm-up.
+  const timer = setTimeout(warm, 500);
+  return () => clearTimeout(timer);
+}
