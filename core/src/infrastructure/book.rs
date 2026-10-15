@@ -11,11 +11,13 @@
 //! **The ledger facts are drained here, in order.** A placement writes its
 //! [`BookEvent`]s to the outbox in the sequence the relay has to apply them — the
 //! taker's escrow lock, then each fill, then the release of whatever reached a terminal
-//! state — and the relay's strict `seq` order does the rest. The escrow is moved by the
-//! relay AFTER this commit (Write-Last), so the order is on the book before its units or
-//! cash have moved; the use case's Read-First is what keeps that honest, and TigerBeetle's
-//! non-negative flags are the backstop when two placements race it (see
-//! [`super::relay`], which marks such an order `rejected`).
+//! state — and the relay's strict `seq` order does the rest. A sell's units are moved into
+//! escrow by the relay AFTER this commit (Write-Last), so the order is on the book before
+//! its units have moved; the use case's Read-First is what keeps that honest, and
+//! TigerBeetle's non-negative flags are the backstop when two placements race it (see
+//! [`super::relay`], which marks such an order `rejected`). A buy's cash escrow is a hold
+//! banking placed before this transaction began; the row records it ([`OrderEscrow`]) for
+//! the relay to capture and void.
 //!
 //! **Time priority is `seq`, not `created_at`.** `now()` is the transaction's start; two
 //! transactions that queued on the advisory lock carry it in the order they BEGAN, not
@@ -23,8 +25,8 @@
 //! lock, and is what the matcher sorts on.
 
 use async_trait::async_trait;
-use domain::{
-	balance::{Party, ServiceId},
+use invest_domain::{
+	balance::ServiceId,
 	book::{
 		BookEvent, BookPolicy, CancelReason, CandleResolution, ClientOrderId, IncomingOrder, Locked, MatchingEngine, Order, OrderId, OrderKind, OrderSnapshot, OrderState, Price,
 		RestingOrder, Side, Tif, Trade, TradeId,
@@ -37,11 +39,8 @@ use sqlx::{PgConnection, PgPool, Row};
 use uuid::Uuid;
 
 use crate::{
-	infrastructure::{claims::TxReads, outbox},
-	ports::{
-		book::{BookDepth, BookLevel, BookPolicyRecord, BookStore, CancelOutcome, Candle, OrderRecord, PlaceOutcome, TradeRecord, UserTrade},
-		ledger::SpendGuard,
-	},
+	infrastructure::outbox,
+	ports::book::{BookDepth, BookLevel, BookPolicyRecord, BookStore, CancelOutcome, Candle, OrderEscrow, OrderRecord, PlaceOutcome, TradeRecord, UserTrade},
 };
 
 /// The `event_log.aggregate` names the book's facts are filed under — an order's lock and
@@ -320,10 +319,10 @@ fn reserved_units(order: &Order) -> u128 {
 	}
 }
 
-async fn insert_order(conn: &mut PgConnection, order: &Order, revision: i64) -> Result<(), DomainError> {
+async fn insert_order(conn: &mut PgConnection, order: &Order, revision: i64, escrow: &OrderEscrow) -> Result<(), DomainError> {
 	sqlx::query(
-		"INSERT INTO book_orders (id, service, user_id, client_order_id, side, kind, tif, price, size, filled, notional_filled, fee_paid, reserved, state, revision) \
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
+		"INSERT INTO book_orders (id, service, user_id, client_order_id, side, kind, tif, price, size, filled, notional_filled, fee_paid, reserved, state, revision, scope, hold_id) \
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)",
 	)
 	.bind(order.id().raw())
 	.bind(order.service().as_str())
@@ -340,6 +339,8 @@ async fn insert_order(conn: &mut PgConnection, order: &Order, revision: i64) -> 
 	.bind(reserved_units(order).to_string())
 	.bind(order.state().as_str())
 	.bind(revision)
+	.bind(escrow.scope.as_str())
+	.bind(escrow.hold.as_ref().map(|hold| hold.0.as_str()))
 	.execute(&mut *conn)
 	.await
 	.map_err(repo_err)?;
@@ -540,24 +541,22 @@ impl BookStore for PgBook {
 		raw.map(|price| parse_units(&price, "best price").map(Price::from_base_units)).transpose()
 	}
 
-	async fn place(&self, mut order: Order, engine: &dyn MatchingEngine, policy: &BookPolicy, nav: Nav, guard: &dyn SpendGuard) -> Result<PlaceOutcome, DomainError> {
+	async fn place(&self, mut order: Order, engine: &dyn MatchingEngine, policy: &BookPolicy, nav: Nav, escrow: &OrderEscrow) -> Result<PlaceOutcome, DomainError> {
 		let service = order.service().clone();
+		if (order.side() == Side::Buy) != escrow.hold.is_some() {
+			return Err(DomainError::Repository("a buy's escrow is a hold in banking, and only a buy's".into()));
+		}
 		let mut tx = self.pool.begin().await.map_err(repo_err)?;
 		lock_book(&mut tx, &service).await?;
-		match order.side() {
-			// A buy spends the user's unified claim, so it takes the same shared per-user lock
-			// a withdraw and a subscribe take (see [`outbox::lock_user`]) — the three
-			// optimistic Read-Firsts on one claim serialize on one target.
-			Side::Buy => outbox::lock_user(&mut tx, order.user().raw()).await?,
-			// A sell spends units, which redemptions serialize on the position row.
-			Side::Sell => {
-				sqlx::query("SELECT 1 FROM fund_positions WHERE user_id = $1 AND service = $2 FOR UPDATE")
-					.bind(order.user().raw())
-					.bind(service.as_str())
-					.fetch_optional(&mut *tx)
-					.await
-					.map_err(repo_err)?;
-			}
+		// A sell spends units, which redemptions serialize on the position row. A buy's cash
+		// is already held in banking, which serializes it there.
+		if order.side() == Side::Sell {
+			sqlx::query("SELECT 1 FROM fund_positions WHERE user_id = $1 AND service = $2 FOR UPDATE")
+				.bind(order.user().raw())
+				.bind(service.as_str())
+				.fetch_optional(&mut *tx)
+				.await
+				.map_err(repo_err)?;
 		}
 		// The idempotency read, repeated under the lock: two concurrent retries of one
 		// request both passed the use case's unlocked read, and the second to arrive
@@ -565,7 +564,6 @@ impl BookStore for PgBook {
 		if let Some(existing) = find_by_client_id(&mut tx, order.user(), order.client_order_id()).await? {
 			return Ok(PlaceOutcome::Existing(existing));
 		}
-		guard.check(&mut TxReads::new(&mut tx)).await?;
 
 		let (sql, side) = match order.side() {
 			Side::Buy => (SELECT_ASKS_CROSSING, Side::Sell),
@@ -598,7 +596,7 @@ impl BookStore for PgBook {
 		// The taker's row is inserted BEFORE its fills are applied and the row updated at
 		// the end, because the trades reference it; its escrow lock is the first fact
 		// drained, because the relay must hold the escrow before any fill draws on it.
-		insert_order(&mut tx, &order, revision).await?;
+		insert_order(&mut tx, &order, revision, escrow).await?;
 		record_event(
 			&mut tx,
 			ORDER_AGGREGATE,
@@ -656,7 +654,6 @@ impl BookStore for PgBook {
 					notional,
 					fee,
 					nav,
-					payee: Party::fee_payee(),
 				},
 			)
 			.await?;

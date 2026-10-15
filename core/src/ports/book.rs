@@ -10,13 +10,15 @@
 //! change without the persistence changing with it.
 //!
 //! The escrow an order commits and the settlement of a fill are NOT written here: they
-//! are [`BookEvent`](domain::book::BookEvent)s drained to the outbox inside the same
-//! transaction, and the relay moves the money afterwards (Write-Last), exactly as a
-//! subscription's cash and mint follow its row. So an order is on the book the moment
-//! its row commits, and the balances a client reads catch up at the relay's latency.
+//! are [`BookEvent`](invest_domain::book::BookEvent)s drained to the outbox inside the
+//! same transaction, and the relay moves the units and captures the cash afterwards
+//! (Write-Last). So an order is on the book the moment its row commits, and the balances a
+//! client reads catch up at the relay's latency. The one exception is a buy's cash: its
+//! hold in banking is placed before the order is recorded, and the row names it
+//! ([`OrderEscrow`]).
 
 use async_trait::async_trait;
-use domain::{
+use invest_domain::{
 	balance::ServiceId,
 	book::{BookPolicy, CandleResolution, ClientOrderId, MatchingEngine, Order, OrderId, Price, Rejection, Side, Trade},
 	error::DomainError,
@@ -24,7 +26,7 @@ use domain::{
 	users::UserId,
 };
 
-use crate::ports::ledger::SpendGuard;
+use crate::ports::money::{HoldId, ScopeId};
 
 #[async_trait]
 pub trait BookStore: Send + Sync {
@@ -56,9 +58,9 @@ pub trait BookStore: Send + Sync {
 	///
 	/// A rejection by the engine writes nothing. A `client_order_id` the caller already
 	/// used (a race two concurrent retries lose to each other) writes nothing either and
-	/// answers with the standing row. `guard` runs under the order's lock — for a buy the
-	/// user's claim lock — before anything is written.
-	async fn place(&self, order: Order, engine: &dyn MatchingEngine, policy: &BookPolicy, nav: Nav, guard: &dyn SpendGuard) -> Result<PlaceOutcome, DomainError>;
+	/// answers with the standing row. `escrow` is where the order's money is: the scope its
+	/// fills settle in, and for a buy the hold banking already placed.
+	async fn place(&self, order: Order, engine: &dyn MatchingEngine, policy: &BookPolicy, nav: Nav, escrow: &OrderEscrow) -> Result<PlaceOutcome, DomainError>;
 
 	/// Take a resting order off the book under the book's write lock, bumping the
 	/// revision and draining the release of its unspent escrow. Idempotent on an order
@@ -88,6 +90,15 @@ pub trait BookStore: Send + Sync {
 
 	/// The book revision at which `user`'s orders on `service` last changed (0 = never).
 	async fn orders_revision(&self, user: UserId, service: &ServiceId) -> Result<u64, DomainError>;
+}
+
+/// Where an order's money sits outside invest: the scope of the product it trades — every
+/// capture and void of the buy's hold is made there — and, for a buy, banking's hold on the
+/// buyer's compartment. A sell's escrow is units, on invest's own ledger, so it has none.
+#[derive(Clone, Debug)]
+pub struct OrderEscrow {
+	pub scope: ScopeId,
+	pub hold: Option<HoldId>,
 }
 
 /// The terms as stored, with the DB stamp the domain does not model.

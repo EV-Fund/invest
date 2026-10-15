@@ -1,13 +1,13 @@
 //! `book` context — holders trading an allocation's units with each other.
 //!
-//! Placing acts on the caller's own `sub` behind the same money gates as a subscription
-//! (`unfrozen_caller`: the read-only kill-switch and the cross-plane freeze); cancelling
-//! is behind `caller_id` only, like cancelling a redemption — a frozen user may still
-//! unwind. Every read resolves the allocation as the caller sees it, so the book of a
-//! product hidden from them is `NOT_FOUND` exactly as the product is. The policy is an
-//! operator's (`bank:allocation:manage`), the same seam that opens a product.
+//! Placing acts on the caller's own `sub`; the use case refuses a suspended caller, and
+//! banking refuses a buy's hold for a frozen one. Cancelling is behind `caller_id` only,
+//! like cancelling a redemption — a suspended user may still unwind. Every read resolves
+//! the allocation as the caller sees it, so the book of a product hidden from them is
+//! `NOT_FOUND` exactly as the product is. The policy is an operator's
+//! (`invest:allocation:manage`), the same seam that opens a product.
 //!
-//! `WatchBook` is the one server stream on the hub. It is a `watch` receiver turned
+//! `WatchBook` is the one server stream invest-core serves. It is a `watch` receiver turned
 //! into a stream by hand ([`BookWatch`]): every frame is built by re-reading the book,
 //! so a subscriber that lags sees the latest state, never a backlog.
 //!
@@ -21,14 +21,14 @@ use std::{
 	task::{Context, Poll},
 };
 
-use concierge_domain::authz::bank;
-use domain::{
+use invest_contracts::invest::v1::{self as pb, book_service_server::BookService};
+use invest_domain::{
+	authz::Permission,
 	balance::ServiceId,
 	book::{BookPolicy, CancelReason, CandleResolution, ClientOrderId, OrderId, OrderKind, Price, Side, Tif},
 	money::Shares,
 	users::UserId,
 };
-use evbanking_contracts::banking::v1::{self as pb, book_service_server::BookService};
 use tokio::sync::watch;
 use tonic::{Request, Response, Status, codegen::tokio_stream::Stream};
 use uuid::Uuid;
@@ -37,7 +37,7 @@ use crate::{
 	AppState,
 	application::book::{self as book_app, BookPorts, BookSnapshotView, PlaceOrderRequest, WatchFrame},
 	ports::book::{BookLevel, BookPolicyRecord, Candle, OrderRecord, TradeRecord, UserTrade},
-	services::support::{caller_id, holds_permission, map_err, optional, require_permission, unfrozen_caller, unix_now},
+	services::support::{caller_id, holds_permission, map_err, optional, require_permission, unix_now},
 };
 
 const DEFAULT_LIST_LIMIT: u32 = 100;
@@ -62,10 +62,11 @@ impl BookSvc {
 		BookPorts {
 			allocations: self.state.allocations.as_ref(),
 			ledger: self.state.ledger.as_ref(),
+			money: self.state.money.as_ref(),
 			nav: self.state.nav.as_ref(),
 			store: self.state.book.as_ref(),
 			engine: self.state.book_engine.as_ref(),
-			outflow: self.state.outflow.as_ref(),
+			users: self.state.users.as_ref(),
 			relay: &self.state.relay_notify,
 			feed: &self.state.book_feed,
 		}
@@ -75,7 +76,7 @@ impl BookSvc {
 	/// widened for an `AllocationManage` holder.
 	async fn visible<T>(&self, request: &Request<T>, service: &ServiceId) -> Result<UserId, Status> {
 		let caller = caller_id(request)?;
-		let unrestricted = holds_permission(&self.state, request, bank::Allocation::Manage).await?;
+		let unrestricted = holds_permission(&self.state, request, Permission::AllocationManage).await?;
 		book_app::require_visible(self.state.allocations.as_ref(), service, caller, unrestricted).await.map_err(map_err)?;
 		Ok(caller)
 	}
@@ -86,7 +87,7 @@ impl BookService for BookSvc {
 	type WatchBookStream = Pin<Box<dyn Stream<Item = Result<pb::BookEvent, Status>> + Send + 'static>>;
 
 	async fn place_order(&self, request: Request<pb::PlaceOrderRequest>) -> Result<Response<pb::Order>, Status> {
-		let user = unfrozen_caller(&self.state, &request).await?;
+		let user = caller_id(&request)?;
 		let req = request.into_inner();
 		let service = ServiceId::parse(&req.service).map_err(map_err)?;
 		let side = Side::parse(&req.side).map_err(map_err)?;
@@ -164,9 +165,17 @@ impl BookService for BookSvc {
 		let service = ServiceId::parse(&request.get_ref().service).map_err(map_err)?;
 		self.visible(&request, &service).await?;
 		let depth = bounded(request.get_ref().depth, DEFAULT_DEPTH, MAX_DEPTH);
-		let view = book_app::snapshot(self.state.book.as_ref(), self.state.nav.as_ref(), self.state.ledger.as_ref(), &service, depth, unix_now())
-			.await
-			.map_err(map_err)?;
+		let view = book_app::snapshot(
+			self.state.book.as_ref(),
+			self.state.nav.as_ref(),
+			self.state.ledger.as_ref(),
+			self.state.money.as_ref(),
+			&service,
+			depth,
+			unix_now(),
+		)
+		.await
+		.map_err(map_err)?;
 		Ok(Response::new(snapshot_to_proto(&view)))
 	}
 
@@ -217,7 +226,7 @@ impl BookService for BookSvc {
 	}
 
 	async fn set_book_policy(&self, request: Request<pb::SetBookPolicyRequest>) -> Result<Response<pb::BookPolicy>, Status> {
-		require_permission(&self.state, &request, bank::Allocation::Manage).await?;
+		require_permission(&self.state, &request, Permission::AllocationManage).await?;
 		let req = request.into_inner();
 		let service = ServiceId::parse(&req.service).map_err(map_err)?;
 		let price_tick = optional(&req.price_tick)
@@ -276,6 +285,7 @@ async fn next_frame(mut watch: WatchState) -> Option<(Result<pb::BookEvent, Stat
 		watch.state.book.as_ref(),
 		watch.state.nav.as_ref(),
 		watch.state.ledger.as_ref(),
+		watch.state.money.as_ref(),
 		&watch.service,
 		watch.caller,
 		watch.depth,
@@ -442,8 +452,8 @@ fn policy_to_proto(record: &BookPolicyRecord) -> pb::BookPolicy {
 /// the domain enums are what the hub stores. Drift between them is a test failure here.
 #[cfg(test)]
 mod tests {
-	use domain::book::OrderState;
-	use evbanking_contracts::book::{cancel_reason as wire_cancel_reason, kind as wire_kind, resolution as wire_resolution, side as wire_side, state as wire_state, tif as wire_tif};
+	use invest_contracts::book::{cancel_reason as wire_cancel_reason, kind as wire_kind, resolution as wire_resolution, side as wire_side, state as wire_state, tif as wire_tif};
+	use invest_domain::book::OrderState;
 
 	use super::*;
 
