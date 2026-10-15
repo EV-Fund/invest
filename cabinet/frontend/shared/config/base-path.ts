@@ -50,12 +50,13 @@ export const zonePathname = (pathname: string): `/${string}` => {
 };
 
 /**
- * Requests under the prefix that are NOT pages: Next's build output and the BFF. None of
+ * Requests under the prefix that are NOT pages: Next's build output and the BFF — its API
+ * and its sign-in callback (`/auth/callback`). None of
  * them may be locale-redirected or gated behind the session. The proxy matcher excludes
  * them too; this is the same rule in code, so correctness does not hang on a regex in a
  * config object that nothing tests.
  */
-const NON_PAGE = /^\/(?:_next\/static\/|_next\/image|api\/|favicon\.ico$)/;
+const NON_PAGE = /^\/(?:_next\/static\/|_next\/image|api\/|auth\/|favicon\.ico$)/;
 
 /** @see NON_PAGE — `pathname` is basePath-relative, as the proxy sees it. */
 export const isNonPagePath = (pathname: string): boolean => NON_PAGE.test(pathname);

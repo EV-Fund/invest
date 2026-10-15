@@ -18,9 +18,10 @@ function requiredEnv(name: string): string {
   if (!value) throw new Error(`missing required env var ${name}`);
   return value;
 }
-// Where same-origin /cabinet/api/* is rewritten to — the invest BFF. Baked into
-// routes-manifest.json at build time, so it must resolve synchronously here.
-const BACKEND = requiredEnv("CABINET_BACKEND_URL");
+// The invest BFF's origin (`http://invest-cabinet-backend:50072`). Every BFF route lives under
+// `/cabinet`, so a request keeps its whole path there. Baked into routes-manifest.json at
+// build time, so it must resolve synchronously here.
+const BACKEND = requiredEnv("CABINET_BACKEND_URL").replace(/\/+$/, "");
 // eslint-disable-next-line no-restricted-properties -- see the note above: ./config cannot be imported here
 const IN_PRODUCTION = process.env.NODE_ENV === "production";
 
@@ -49,8 +50,15 @@ const nextConfig: NextConfig = {
     globalNotFound: true,
   },
   async rewrites() {
-    // basePath-relative: externally this matches /cabinet/api/*.
-    return [{ source: "/api/:path*", destination: `${BACKEND}/api/:path*` }];
+    // basePath-relative sources: externally /cabinet/api/* and /cabinet/auth/*. The second
+    // is the sign-in callback, `/cabinet/auth/callback` without `/api`, because that is the
+    // redirect URI concierge registered for the `invest` client, byte for byte. In
+    // production the ingress sends both prefixes to the BFF before they reach Next; these
+    // rewrites are the same routing for `next dev` and a pod reached directly.
+    return [
+      { source: "/api/:path*", destination: `${BACKEND}${BASE_PATH}/api/:path*` },
+      { source: "/auth/:path*", destination: `${BACKEND}${BASE_PATH}/auth/:path*` },
+    ];
   },
   // Request-invariant hardening on every response, mirroring
   // shared/config/security.ts's staticSecurityHeaders() (kept in sync by

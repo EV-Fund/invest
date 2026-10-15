@@ -116,5 +116,5 @@ function withCsp(res: NextResponse, csp: string): NextResponse {
 export const config = {
   // basePath-relative. "/" is listed explicitly: the negative lookahead alone never
   // matches the bare index. `isNonPagePath` is the same rule in code; keep the two in step.
-  matcher: ["/", "/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/", "/((?!api/|auth/|_next/static|_next/image|favicon.ico).*)"],
 };
