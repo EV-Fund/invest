@@ -440,13 +440,19 @@ impl BookPolicy {
 	pub const DEFAULT_MARKET_SLIPPAGE_BPS: u32 = 500;
 	/// `0.01` USDT — the tick a product trades on until an operator says otherwise.
 	pub const DEFAULT_PRICE_TICK: Price = Price::from_base_units(SCALE / 100);
+	/// 1 % — the most a taker may be charged. A fee is the platform's cut of a trade between
+	/// two holders, and the operator setting it is one `AllocationManage` holder: above this
+	/// it would be a confiscation, not a fee.
+	pub const MAX_TAKER_FEE_BPS: u32 = 100;
 
-	/// Validate a full set of terms. Every bps figure is at most one hundred percent;
-	/// tick and lot are positive, because a zero grid admits every price and every size
-	/// and would make "aligned" meaningless.
+	/// Validate a full set of terms. The taker fee is at most [`Self::MAX_TAKER_FEE_BPS`] and
+	/// the slippage at most one hundred percent; tick and lot are positive, because a zero
+	/// grid admits every price and every size and would make "aligned" meaningless.
+	// TODO(fee change notice): a new taker fee binds at once; like a fund's fee terms it
+	// should be scheduled, with notice to the resting orders it would charge.
 	pub fn new(book_open: bool, taker_fee_bps: u32, price_tick: Price, lot_size: Shares, market_slippage_bps: u32, allow_unbacked_trading: bool) -> Result<Self, DomainError> {
-		if u128::from(taker_fee_bps) > BPS_DENOMINATOR {
-			return Err(DomainError::Validation(format!("taker fee must be at most {BPS_DENOMINATOR} bps")));
+		if taker_fee_bps > Self::MAX_TAKER_FEE_BPS {
+			return Err(DomainError::Validation(format!("taker fee must be at most {} bps", Self::MAX_TAKER_FEE_BPS)));
 		}
 		if u128::from(market_slippage_bps) > BPS_DENOMINATOR {
 			return Err(DomainError::Validation(format!("market slippage must be at most {BPS_DENOMINATOR} bps")));
@@ -1144,8 +1150,15 @@ mod tests {
 
 	#[test]
 	fn policy_terms_are_bounded() {
-		assert!(BookPolicy::new(true, 10_000, price("0.01"), shares("1"), 0, false).is_ok());
-		assert!(BookPolicy::new(true, 10_001, price("0.01"), shares("1"), 0, false).is_err(), "a fee above 100% is refused");
+		assert!(BookPolicy::new(true, BookPolicy::MAX_TAKER_FEE_BPS, price("0.01"), shares("1"), 0, false).is_ok());
+		assert!(
+			BookPolicy::new(true, BookPolicy::MAX_TAKER_FEE_BPS + 1, price("0.01"), shares("1"), 0, false).is_err(),
+			"a fee above 1% is refused"
+		);
+		assert!(
+			BookPolicy::new(true, 10_000, price("0.01"), shares("1"), 0, false).is_err(),
+			"a fee of the whole trade is refused"
+		);
 		assert!(BookPolicy::new(true, 0, price("0.01"), shares("1"), 10_001, false).is_err(), "slippage above 100% is refused");
 		assert!(
 			BookPolicy::new(true, 0, Price::from_base_units(0), shares("1"), 0, false).is_err(),
