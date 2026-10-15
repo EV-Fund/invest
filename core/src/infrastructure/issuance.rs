@@ -24,7 +24,7 @@ use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
 use crate::{
-	infrastructure::outbox,
+	infrastructure::{fee_accrual, now_unix, outbox, positions},
 	ports::issuance::{IssueOutcome, UnitIssuanceRecord, UnitIssuanceRepository},
 };
 
@@ -216,26 +216,15 @@ pub(crate) async fn project_holder_position(
 		return Ok(());
 	};
 	// Every writer of `cost_basis` owes the fee plane one step first: settle what the OLD
-	// basis accrued (banking's `fee_accrual::carry_accrual`), or the next assessment charges
-	// the whole elapsed window on the new basis. invest has no fees yet, so nothing has
-	// accrued; the call comes back with the fee plane (PR 1b), here and on every writer.
+	// basis accrued, or the next assessment charges the whole elapsed window on the new
+	// basis (see [`super::fee_accrual`]). Stamped with the moment the relay applies it, as
+	// every relay projection is.
+	fee_accrual::carry_accrual(&mut *tx, user.raw(), service.as_str(), now_unix())
+		.await
+		.map_err(|err| sqlx::Error::Protocol(format!("carry fee accrual before an issuance moves the basis: {err}")))?;
 	match source {
 		IssuanceSource::Mint => {
-			sqlx::query(
-				"INSERT INTO fund_positions (user_id, service, cost_basis, units, high_water_mark) VALUES ($1, $2, $3, $4, $5) \
-				 ON CONFLICT (user_id, service) DO UPDATE SET \
-				 cost_basis = (fund_positions.cost_basis::numeric + EXCLUDED.cost_basis::numeric)::text, \
-				 units = (fund_positions.units::numeric + EXCLUDED.units::numeric)::text, \
-				 high_water_mark = GREATEST(fund_positions.high_water_mark::numeric, EXCLUDED.high_water_mark::numeric)::text, \
-				 updated_at = now()",
-			)
-			.bind(user.raw())
-			.bind(service.as_str())
-			.bind(cost_basis.base_units().to_string())
-			.bind(units.base_units().to_string())
-			.bind(nav.base_units().to_string())
-			.execute(&mut *tx)
-			.await?;
+			positions::add_to_position(&mut *tx, *user, service, cost_basis, units, nav).await?;
 		}
 		// The row's own `cost_basis` is the book value the operator wrote off for the
 		// record; the projection sheds its basis pro rata to the units retired, exactly as

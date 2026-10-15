@@ -189,3 +189,35 @@ pub async fn pipeline_depth(pool: &PgPool) -> Result<PipelineDepth, sqlx::Error>
 fn repo_err(err: sqlx::Error) -> DomainError {
 	DomainError::Repository(err.to_string())
 }
+
+/// Units of `user`'s holding in `service` that undrained events already speak for: a
+/// redemption's burn, a sell's escrow and a fee's clawback, each committed but not yet
+/// applied by the relay — so the ledger still shows them free. A gate deciding on the
+/// ledger's `available` subtracts these, under a lock that every such writer it races takes
+/// too, or two requests read the same free units and both are accepted. Parked rows are
+/// excluded: they will never be applied.
+pub(crate) async fn units_in_flight(conn: &mut PgConnection, user: Uuid, service: &str) -> Result<u128, DomainError> {
+	let total: String = sqlx::query_scalar(
+		"SELECT COALESCE(SUM(units), 0)::text FROM ( \
+		   SELECT (payload->>'units')::numeric AS units FROM outbox \
+		    WHERE dispatched_at IS NULL AND parked_at IS NULL AND kind = 'redemptions' AND payload->>'type' = 'requested' \
+		      AND payload->>'user' = $1 AND payload->>'service' = $2 \
+		   UNION ALL \
+		   SELECT (payload->'locked'->>'amount')::numeric FROM outbox \
+		    WHERE dispatched_at IS NULL AND parked_at IS NULL AND kind = 'book' AND payload->>'type' = 'order_placed' \
+		      AND payload->'locked'->>'kind' = 'units' AND payload->>'user' = $1 AND payload->>'service' = $2 \
+		   UNION ALL \
+		   SELECT (payload->>'units')::numeric FROM outbox \
+		    WHERE dispatched_at IS NULL AND parked_at IS NULL AND kind = 'fees' AND payload->>'type' = 'charged' \
+		      AND payload->>'user' = $1 AND payload->>'service' = $2 \
+		 ) AS claims",
+	)
+	.bind(user.to_string())
+	.bind(service)
+	.fetch_one(&mut *conn)
+	.await
+	.map_err(|err| DomainError::Repository(format!("units in flight for {user} in '{service}': {err}")))?;
+	total
+		.parse()
+		.map_err(|_| DomainError::Repository(format!("units in flight for {user} in '{service}' is not a whole number: {total}")))
+}

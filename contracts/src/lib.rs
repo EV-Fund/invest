@@ -6,12 +6,14 @@
 //!
 //! Generated code is flat by nature, so the primitive a consumer is organized around gets
 //! a curated hand-written facade: [`allocation`] gathers the whole Allocation surface
-//! (stubs, messages, the wire vocabularies) and documents the conversation it belongs to.
+//! (stubs, messages, the wire vocabularies) and documents the conversation it belongs to;
+//! [`book`] does the same for the order book.
 //!
 //! Moved from banking 9ffafce3 (`evbanking_contracts`, package `banking.v1`); the wire
 //! shapes are banking's, under a package of invest's own.
 
 pub mod allocation;
+pub mod book;
 
 /// Generated tonic code for the `invest.v1` proto package (clients + servers + message
 /// types), pulled in via `tonic::include_proto!("invest.v1")`.

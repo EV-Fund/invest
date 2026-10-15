@@ -58,6 +58,15 @@ impl UserDirectory for PgUsers {
 		})
 		.transpose()
 	}
+
+	async fn auth_subject(&self, user: UserId) -> Result<Option<String>, DomainError> {
+		let subject: Option<Option<String>> = sqlx::query_scalar("SELECT auth_subject FROM users WHERE id = $1")
+			.bind(user.raw())
+			.fetch_optional(&self.pool)
+			.await
+			.map_err(repo_err)?;
+		Ok(subject.flatten())
+	}
 }
 
 fn repo_err(err: sqlx::Error) -> DomainError {

@@ -16,8 +16,8 @@ rewritten.
 | Path | Crate | What |
 | ---- | ----- | ---- |
 | `domain/` | `invest_domain` | Pure, wasm-safe domain: allocations, issuance, the unit chart of accounts, money types, permissions |
-| `contracts/` | `invest_contracts` | `invest.v1` protos (`AllocationsService`, `FundsService`) → tonic stubs, plus the `allocation` facade |
-| `core/` | `invest-core` | The server: gRPC, use cases, Postgres, the TigerBeetle unit ledger, the outbox relay, the money port |
+| `contracts/` | `invest_contracts` | `invest.v1` protos (`AllocationsService`, `FundsService`, `BookService`, `FeesService`) → tonic stubs, plus the `allocation` and `book` facades |
+| `core/` | `invest-core` | The server: gRPC, use cases, Postgres, the TigerBeetle unit ledger, the outbox relay and its money sagas, the fee sweeper, the money port |
 | `core/migrations/` | — | sqlx migrations, applied on boot |
 | `cabinet/frontend/` | — | The investor cabinet (separate PR) |
 
@@ -73,13 +73,26 @@ invest-core reads the environment only; `core/.env.example` documents every vari
 | `SENTRY_DSN` | unset | required in production |
 | `APP_ENV` | — | `development` / `production` |
 
-## Not in this release (PR 1b)
+## Money flows
 
-Subscriptions and redemptions as sagas through banking's scope ledger, the fee plane, the
-order book. Their tables are already in `0001`. The banking tests that drove them — and so
-were not moved yet — are: from `allocation_registry`, `a_subscription_past_the_unit_cap_is_refused_before_any_money_moves`
-and `narrowing_the_cap_below_the_issued_supply_stops_issuance_without_trapping_anyone`; from
-`balance_allocations`, every deposit, withdrawal, subscription and redemption test; from
-`ownership_fee`, the fee settlement, withdrawal-fee, redemption and cooldown tests. banking's
-`ownership_contract` pins banking's own migration 0047 over its production history and has no
-counterpart here.
+Every flow with a cash leg is a saga the relay carries across the two ledgers — the units
+on invest's TigerBeetle, the cash through banking's scope ledger — each step idempotent by
+a key derived from the aggregate (`core/src/infrastructure/relay/sagas.rs`):
+
+| Flow | Cash in banking | Units in invest |
+| ---- | --------------- | --------------- |
+| Subscribe | `Reserve` on the subscriber's compartment (synchronous, TTL 1 h), then `Capture` into `(<scope>, alloc:<slug>)` | pending mint, posted after the capture; voided with the hold when banking refuses |
+| Redeem | `Payout` from `(<scope>, alloc:<slug>)` at settle, only once the burn is reserved | pending burn at request — admitted only for units free and not claimed by an undrained event — posted after the payout; voided when banking refuses |
+| Book buy | `Reserve` before the order is written; each fill `Capture`s to the seller, the release `Void`s the rest | sells escrow units, and only escrowed orders of active holders are matched; a fill is pending until its cash moved, and one that cannot settle is busted — the seller's units back, the buy's hold voided |
+| Fees | the taker fee (at most 1 %) and a fee-class settlement go `alloc:<slug>` → `(<scope>, fee)`, which banking forwards to `(invest, alloc:fee)` from every scope | a charge moves units into the product's fee class; a settlement reserves their burn before the sweep and posts or voids it after; one settlement per product at a time, idempotent by its key |
+
+Opening a product (`SetAllocationState open`) opens its `alloc:<slug>` account in banking
+first. banking serves only `OpenAccount`, `GetBalances` and `Transfer` today; a saga step
+it does not serve yet retries from the same outbox row.
+
+Not here yet: the owners' approval of a fee change beyond the house envelope (refused until
+invest is a client of concierge's approvals), delivering holder notices of a fee change
+(recorded as given up; a dearer change binds once its requester acknowledges), and
+`RequestPayout` for a redemption past banking's automatic ceilings (fails the redemption).
+banking's `ownership_contract` suite pins banking's own migration 0047 over its production
+history and has no counterpart here.

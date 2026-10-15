@@ -219,6 +219,10 @@ message RegisterAllocationRequest {
   // no earlier pick that "unset" could destroy — absent and empty both legitimately
   // mean "the operator chose nothing yet", which is what the default is for.
   string icon = 4;
+  // The concierge scope the product's cash lives in — banking's `(<scope>, alloc:<service>)`
+  // account, and the compartments its subscribers pay from. Fixed for the product's life.
+  // Empty means `invest`; the panel's products live in `sa`.
+  string scope = 5;
 }
 
 message UpdateAllocationRequest {

@@ -13,6 +13,10 @@ use invest_domain::{authz::Permission, error::DomainError, users::UserId};
 pub trait UserDirectory: Send + Sync {
 	/// What invest knows of `user`, or `None` when nothing has been projected for them.
 	async fn standing(&self, user: UserId) -> Result<Option<UserStanding>, DomainError>;
+
+	/// The subject banking names `user`'s compartments by, or `None` while the projection
+	/// has not learned it — no money of theirs can be moved until it has.
+	async fn auth_subject(&self, user: UserId) -> Result<Option<String>, DomainError>;
 }
 
 /// One person as the projection holds them.

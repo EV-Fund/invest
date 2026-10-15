@@ -17,13 +17,22 @@
 //!
 //! [`UserDirectory`] is the projection of the people concierge knows: who may hold, and
 //! which `invest:*` permissions they carry.
+//!
+//! The dealing ports follow the same rule: [`SubscriptionRepository`] and
+//! [`RedemptionRepository`] record the money sagas, [`BookStore`] the order book, and the
+//! [`fees`] seams the fee plane — each write atomic with its outbox row, every unit and
+//! cash movement made after the commit.
 
 pub mod allocations;
+pub mod book;
+pub mod fees;
 pub mod issuance;
 pub mod ledger;
 pub mod money;
 pub mod nav;
 pub mod positions;
+pub mod redemptions;
+pub mod subscriptions;
 pub mod users;
 
 pub use allocations::{AllocationAccessGrant, AllocationRecord, AllocationRegistry};
@@ -32,4 +41,6 @@ pub use ledger::{CompletionKind, Ledger, LedgerBalance, LedgerError, LedgerTrans
 pub use money::{MoneyLedger, MoneyLedgerError};
 pub use nav::{NavMarks, Valuation};
 pub use positions::{FundPosition, FundPositionReader, UnitFlow};
+pub use redemptions::{QueuedRedemption, RedemptionRecord, RedemptionRepository};
+pub use subscriptions::{SubscriptionRecord, SubscriptionRepository};
 pub use users::{UserDirectory, UserStanding};

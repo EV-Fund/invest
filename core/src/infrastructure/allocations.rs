@@ -33,7 +33,10 @@ use uuid::Uuid;
 
 use crate::{
 	infrastructure::outbox,
-	ports::allocations::{AllocationAccessGrant, AllocationRecord, AllocationRegistry},
+	ports::{
+		allocations::{AllocationAccessGrant, AllocationRecord, AllocationRegistry},
+		money::ScopeId,
+	},
 };
 
 /// sqlx 0.9 accepts only `&'static str` SQL (its injection guardrail), so the shared
@@ -254,10 +257,11 @@ async fn update_row(conn: &mut PgConnection, allocation: &Allocation) -> Result<
 
 #[async_trait]
 impl AllocationRegistry for PgAllocations {
-	async fn register(&self, allocation: &mut Allocation) -> Result<(), DomainError> {
+	async fn register(&self, allocation: &mut Allocation, scope: &ScopeId) -> Result<(), DomainError> {
 		let mut tx = self.pool.begin().await.map_err(repo_err)?;
 		let inserted = sqlx::query(
-			"INSERT INTO allocations (id, service, title, summary, state, unit_cap, icon, access, backing) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (service) DO NOTHING",
+			"INSERT INTO allocations (id, service, title, summary, state, unit_cap, icon, access, backing, scope) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) \
+			 ON CONFLICT (service) DO NOTHING",
 		)
 		.bind(allocation.id().raw())
 		.bind(allocation.service().as_str())
@@ -268,6 +272,7 @@ impl AllocationRegistry for PgAllocations {
 		.bind(allocation.icon().as_str())
 		.bind(allocation.access().as_str())
 		.bind(allocation.backing().as_str())
+		.bind(scope.as_str())
 		.execute(&mut *tx)
 		.await
 		.map_err(repo_err)?
@@ -278,6 +283,16 @@ impl AllocationRegistry for PgAllocations {
 		outbox::drain_to_outbox(&mut tx, allocation, false).await?;
 		tx.commit().await.map_err(repo_err)?;
 		Ok(())
+	}
+
+	async fn scope(&self, service: &ServiceId) -> Result<ScopeId, DomainError> {
+		let scope: String = sqlx::query_scalar("SELECT scope FROM allocations WHERE service = $1")
+			.bind(service.as_str())
+			.fetch_optional(&self.pool)
+			.await
+			.map_err(repo_err)?
+			.ok_or_else(|| not_found(service))?;
+		ScopeId::parse(&scope).map_err(|err| DomainError::Repository(format!("allocations.scope of '{service}': {err}")))
 	}
 
 	async fn update_details(&self, service: &ServiceId, title: &str, summary: &str, icon: Option<AllocationIcon>) -> Result<Allocation, DomainError> {

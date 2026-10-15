@@ -1,8 +1,7 @@
 //! Postgres adapter for the [`FundPositionReader`] port — reads the `fund_positions`
 //! projection (cost basis + high-water mark) the relay maintains, and the holder's unit
-//! flows merged from the records of every channel that moves units. The subscription,
-//! redemption, fee and book tables are empty until those flows arrive (PR 1b); the merge
-//! reads them already so the history needs no second shape then.
+//! flows merged from the records of every channel that moves units — subscriptions,
+//! redemptions, fee charges, in-kind issuances and book fills.
 
 use async_trait::async_trait;
 use invest_domain::{
@@ -17,16 +16,17 @@ use crate::ports::positions::{FundPosition, FundPositionReader, UnitFlow};
 
 /// A holder's unit moves in one fund, merged in the database like the operation feed
 /// is. Each branch is the control-plane record the write side already keeps, stamped at
-/// the moment the units actually moved: a subscription at request (its mint is the very
-/// next relay tick), a redemption at settlement (`updated_at` once `completed` — the
-/// reserve at request leaves the units owned), a fee at assessment, an issuance when the
+/// the moment the units actually moved: a subscription once settled (`updated_at` once
+/// `settled` — a hold banking refused or a capture rolled back moved no units), a
+/// redemption once completed (`updated_at` once `completed` — the reserve at request leaves
+/// the units owned), a fee at assessment, an issuance when the
 /// relay applied it, a book fill at execution — the buyer gains `size`, the seller loses
 /// it. `delta` is signed TEXT: the tables store unsigned base units as TEXT (never a
 /// number SQL reasons about), and the sign is the one thing added here. Seconds are
 /// floored like the marks' (`nav.rs`), so a flow and a mark in the same second agree.
 const UNIT_FLOWS_SQL: &str = "SELECT FLOOR(EXTRACT(EPOCH FROM ts))::bigint AS at_unix, delta FROM (
-    SELECT created_at AS ts, units AS delta
-      FROM subscriptions WHERE user_id = $1 AND service = $2
+    SELECT updated_at AS ts, units AS delta
+      FROM subscriptions WHERE user_id = $1 AND service = $2 AND state = 'settled'
     UNION ALL
     SELECT updated_at, '-' || units
       FROM redemptions WHERE user_id = $1 AND service = $2 AND state = 'completed'
@@ -38,10 +38,10 @@ const UNIT_FLOWS_SQL: &str = "SELECT FLOOR(EXTRACT(EPOCH FROM ts))::bigint AS at
       FROM unit_issuances WHERE holder_kind = 'user' AND holder_id = $1 AND service = $2 AND state = 'applied'
     UNION ALL
     SELECT executed_at, size
-      FROM book_trades WHERE buyer_id = $1 AND service = $2
+      FROM book_trades WHERE buyer_id = $1 AND service = $2 AND busted_at IS NULL
     UNION ALL
     SELECT executed_at, '-' || size
-      FROM book_trades WHERE seller_id = $1 AND service = $2
+      FROM book_trades WHERE seller_id = $1 AND service = $2 AND busted_at IS NULL
 ) AS flows
 ORDER BY ts ASC";
 
@@ -106,4 +106,34 @@ fn parse_base_units(raw: String) -> Result<u128, DomainError> {
 
 fn repo_err(err: sqlx::Error) -> DomainError {
 	DomainError::Repository(err.to_string())
+}
+
+/// A holder's position gains `units` bought for `cost_basis` at `nav`, on the caller's
+/// transaction: basis and units add up, and the high-water mark is the higher of the two —
+/// the one writer of a position's growth, for a subscription, an in-kind mint and a buy.
+/// The caller has carried the accrual of the old basis first (`fee_accrual`).
+pub(crate) async fn add_to_position(
+	conn: &mut sqlx::PgConnection,
+	user: UserId,
+	service: &ServiceId,
+	cost_basis: Usdt,
+	units: invest_domain::money::Shares,
+	nav: Nav,
+) -> Result<(), sqlx::Error> {
+	sqlx::query(
+		"INSERT INTO fund_positions (user_id, service, cost_basis, units, high_water_mark) VALUES ($1, $2, $3, $4, $5) \
+		 ON CONFLICT (user_id, service) DO UPDATE SET \
+		 cost_basis = (fund_positions.cost_basis::numeric + EXCLUDED.cost_basis::numeric)::text, \
+		 units = (fund_positions.units::numeric + EXCLUDED.units::numeric)::text, \
+		 high_water_mark = GREATEST(fund_positions.high_water_mark::numeric, EXCLUDED.high_water_mark::numeric)::text, \
+		 updated_at = now()",
+	)
+	.bind(user.raw())
+	.bind(service.as_str())
+	.bind(cost_basis.base_units().to_string())
+	.bind(units.base_units().to_string())
+	.bind(nav.base_units().to_string())
+	.execute(conn)
+	.await?;
+	Ok(())
 }

@@ -31,13 +31,19 @@ use invest_domain::{
 	users::UserId,
 };
 
+use crate::ports::money::ScopeId;
+
 #[async_trait]
 pub trait AllocationRegistry: Repository<Aggregate = Allocation> + Reader<Aggregate = Allocation> {
 	/// Persist a brand-new allocation (`draft`, at the default access level) + its
-	/// `Registered` event. The unique `service` key makes a double registration a
-	/// [`DomainError::Conflict`] rather than a silent overwrite — re-registering a live
-	/// product must never reset it.
-	async fn register(&self, allocation: &mut Allocation) -> Result<(), DomainError>;
+	/// `Registered` event, in `scope` — the scope its cash lives in, fixed for its life.
+	/// The unique `service` key makes a double registration a [`DomainError::Conflict`]
+	/// rather than a silent overwrite — re-registering a live product must never reset it.
+	async fn register(&self, allocation: &mut Allocation, scope: &ScopeId) -> Result<(), DomainError>;
+
+	/// The scope `service`'s cash lives in: banking's `(<scope>, alloc:<service>)` account,
+	/// and the compartments its subscribers and buyers pay from. `NotFound` if unregistered.
+	async fn scope(&self, service: &ServiceId) -> Result<ScopeId, DomainError>;
 
 	/// Replace the presentation fields — title, summary and icon — under the row lock:
 	/// load `FOR UPDATE`, apply [`Allocation::update_details`], persist + drain.

@@ -6,8 +6,14 @@
 //! the parts of the contract a saga leans on — the idempotency key (same terms → the
 //! original answer, other terms → ALREADY_EXISTS), a hold that cannot be over-captured,
 //! a compartment that cannot go below zero, NOT_FOUND for an account invest does not own —
-//! and none of banking's policy (mandates, ceilings, grants). [`Self::unimplemented`]
-//! makes chosen RPCs answer as banking does now.
+//! and none of banking's policy (mandates, ceilings, grants). Banking's side of a fee sweep
+//! is played too: what lands on a scope's `fee` collector moves on to `(invest, alloc:fee)`
+//! at once, from every scope (plan §3.9).
+//!
+//! A test steers it with [`InMemoryMoneyLedger::unimplemented`] (an RPC banking does not
+//! serve), [`InMemoryMoneyLedger::refuse`] (a refusal banking would give) and
+//! [`InMemoryMoneyLedger::outage`] (a transient failure for the next few calls) — all at
+//! run time, since the ledger is shared with the relay behind an `Arc`.
 //!
 //! Never wired into a running server: a fake ledger behind a real price is worse than none.
 
@@ -17,7 +23,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use invest_domain::{architecture::Gateway, money::Usdt};
+use invest_domain::{architecture::Gateway, balance::ServiceId, money::Usdt};
 
 use crate::ports::money::{
 	AccountLabel, CaptureRequest, CaptureTo, FeeSweepRequest, Hold, HoldId, HoldState, MoneyKey, MoneyLedger, MoneyLedgerError, Payout, PayoutRequest, Refusal, ReserveRequest, ScopeAccount,
@@ -27,20 +33,23 @@ use crate::ports::money::{
 #[derive(Default)]
 pub struct InMemoryMoneyLedger {
 	state: Mutex<State>,
-	unimplemented: HashSet<&'static str>,
 }
 
 #[derive(Default)]
 struct State {
 	/// invest's own accounts; `fee` collectors are banking's and live in `collected`.
 	accounts: HashMap<(ScopeId, AccountLabel), Usdt>,
-	/// What each scope's `fee` collector received from sweeps.
+	/// What each scope's `fee` collector received from sweeps (before banking forwarded it).
 	collected: HashMap<ScopeId, Usdt>,
 	compartments: HashMap<(ScopeId, String), Usdt>,
 	holds: HashMap<HoldId, Hold>,
 	/// (rpc, scope, key) → (the terms first asked, the answer given).
 	keys: HashMap<(&'static str, ScopeId, String), (String, Answer)>,
 	next_id: u64,
+	unimplemented: HashSet<&'static str>,
+	refusals: HashMap<&'static str, Refusal>,
+	/// rpc → how many more calls answer UNAVAILABLE.
+	outages: HashMap<&'static str, u32>,
 }
 
 #[derive(Clone)]
@@ -57,17 +66,42 @@ impl InMemoryMoneyLedger {
 	}
 
 	/// Answer these RPCs UNIMPLEMENTED, as banking does until it serves them.
-	pub fn unimplemented(mut self, rpcs: &[&'static str]) -> Self {
-		self.unimplemented.extend(rpcs);
+	pub fn unimplemented(self, rpcs: &[&'static str]) -> Self {
+		self.lock().unimplemented.extend(rpcs);
 		self
 	}
 
+	/// Refuse every further call of `rpc` with `refusal`, before it touches anything — the
+	/// way banking refuses on policy (a frozen scope, a missing mandate, a ceiling). Lifted
+	/// by [`Self::serve`].
+	pub fn refuse(&self, rpc: &'static str, refusal: Refusal) {
+		self.lock().refusals.insert(rpc, refusal);
+	}
+
+	/// Answer the next `calls` calls of `rpc` UNAVAILABLE without acting — banking away for a
+	/// moment. The call after them is served.
+	pub fn outage(&self, rpc: &'static str, calls: u32) {
+		self.lock().outages.insert(rpc, calls);
+	}
+
+	/// Serve `rpc` again: lift a [`Self::refuse`] or an [`Self::outage`] still running.
+	pub fn serve(&self, rpc: &'static str) {
+		let mut state = self.lock();
+		state.refusals.remove(rpc);
+		state.outages.remove(rpc);
+	}
+
 	/// Credit an account invest owns, opening it if needed — money arriving from outside
-	/// the flows under test (fees settled into `alloc:fee`, a seed).
+	/// the flows under test (a seed).
 	pub fn credit(&self, scope: &ScopeId, label: &AccountLabel, amount: Usdt) {
 		let mut state = self.lock();
 		let balance = state.accounts.entry((scope.clone(), label.clone())).or_default();
 		*balance = balance.checked_add(amount).unwrap_or(Usdt::from_base_units(u128::MAX));
+	}
+
+	/// The balance of an account invest owns, zero when it was never opened.
+	pub fn account(&self, scope: &ScopeId, label: &AccountLabel) -> Usdt {
+		self.lock().accounts.get(&(scope.clone(), label.clone())).copied().unwrap_or_default()
 	}
 
 	/// Put money in a user's compartment in `scope`.
@@ -82,9 +116,18 @@ impl InMemoryMoneyLedger {
 		self.lock().compartments.get(&(scope.clone(), auth_subject.to_owned())).copied().unwrap_or_default()
 	}
 
-	/// What `scope`'s `fee` collector has received.
+	/// What `scope`'s `fee` collector has received, all of it since forwarded.
 	pub fn collected(&self, scope: &ScopeId) -> Usdt {
 		self.lock().collected.get(scope).copied().unwrap_or_default()
+	}
+
+	/// The holds placed for `subject_ref` (`subscription:<uuid>`, `book_order:<uuid>`), in
+	/// the order placed.
+	pub fn holds_for(&self, subject_ref: &str) -> Vec<Hold> {
+		let state = self.lock();
+		let mut holds: Vec<Hold> = state.holds.values().filter(|hold| hold.subject_ref == subject_ref).cloned().collect();
+		holds.sort_by_key(|hold| hold.id.0.trim_start_matches("hold-").parse::<u64>().unwrap_or(u64::MAX));
+		holds
 	}
 
 	fn lock(&self) -> std::sync::MutexGuard<'_, State> {
@@ -93,9 +136,21 @@ impl InMemoryMoneyLedger {
 		self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
 	}
 
+	/// Whether banking serves `rpc` right now, as the test steered it.
 	fn served(&self, rpc: &'static str) -> Result<(), MoneyLedgerError> {
-		if self.unimplemented.contains(rpc) {
+		let mut state = self.lock();
+		if state.unimplemented.contains(rpc) {
 			return Err(MoneyLedgerError::Unimplemented { rpc });
+		}
+		if let Some(refusal) = state.refusals.get(rpc) {
+			return Err(MoneyLedgerError::Refused(refusal.clone()));
+		}
+		if let Some(left) = state.outages.get_mut(rpc) {
+			*left -= 1;
+			if *left == 0 {
+				state.outages.remove(rpc);
+			}
+			return Err(MoneyLedgerError::Unavailable(format!("{rpc}: injected outage")));
 		}
 		Ok(())
 	}
@@ -331,6 +386,11 @@ impl MoneyLedger for InMemoryMoneyLedger {
 		state.debit_account(&request.scope, &request.from, request.amount)?;
 		let collected = state.collected.entry(request.scope.clone()).or_default();
 		*collected = collected.checked_add(request.amount).ok_or_else(|| MoneyLedgerError::Invalid("collector overflows".into()))?;
+		// banking's whitelisted route: every scope's fee collector forwards to invest's `fee`
+		// allocation, which banking opens for invest if it has to.
+		let fee_label = AccountLabel::allocation(&ServiceId::fee()).map_err(|err| MoneyLedgerError::Invalid(err.to_string()))?;
+		let forwarded = state.accounts.entry((ScopeId::invest(), fee_label)).or_default();
+		*forwarded = forwarded.checked_add(request.amount).ok_or_else(|| MoneyLedgerError::Invalid("alloc:fee overflows".into()))?;
 		let transfer = Transfer {
 			id: state.mint_id("transfer"),
 			amount: request.amount,
@@ -457,5 +517,53 @@ mod tests {
 			subject_ref: subject(),
 		};
 		assert!(matches!(ledger.reserve(&reserve).await, Err(MoneyLedgerError::Unimplemented { rpc: "Reserve" })));
+	}
+
+	// plan §3.9: a fee swept in any scope — `sa` as much as `invest` — ends on invest's own
+	// `fee` allocation, never in banking's treasury.
+	#[tokio::test]
+	async fn a_fee_swept_in_any_scope_lands_on_invest_s_fee_allocation() {
+		let ledger = InMemoryMoneyLedger::new();
+		let sa = ScopeId::parse("sa").unwrap();
+		let fee = AccountLabel::allocation(&ServiceId::fee()).unwrap();
+		ledger.credit(&sa, &alloc(), usdt("10"));
+		let sweep = FeeSweepRequest {
+			scope: sa.clone(),
+			from: alloc(),
+			amount: usdt("4"),
+			key: key("s1"),
+			subject_ref: SubjectRef::new("fee_settlement", uuid::Uuid::nil()).unwrap(),
+		};
+		ledger.sweep_fees(&sweep).await.unwrap();
+		ledger.sweep_fees(&sweep).await.unwrap();
+		assert_eq!(ledger.account(&sa, &alloc()), usdt("6"), "the retry moved nothing");
+		assert_eq!(ledger.collected(&sa), usdt("4"));
+		assert_eq!(ledger.account(&ScopeId::invest(), &fee), usdt("4"));
+	}
+
+	#[tokio::test]
+	async fn a_refusal_holds_until_lifted_and_an_outage_ends_by_itself() {
+		let ledger = InMemoryMoneyLedger::new();
+		let scope = ScopeId::invest();
+		ledger.fund(&scope, "erin", usdt("5"));
+		let reserve = |raw: &str| ReserveRequest {
+			scope: scope.clone(),
+			auth_subject: "erin".into(),
+			amount: usdt("1"),
+			ttl_seconds: None,
+			key: key(raw),
+			subject_ref: subject(),
+		};
+		ledger.refuse("Reserve", Refusal::MandateRequired);
+		for raw in ["r1", "r2"] {
+			assert!(matches!(ledger.reserve(&reserve(raw)).await, Err(MoneyLedgerError::Refused(Refusal::MandateRequired))));
+		}
+		ledger.serve("Reserve");
+		ledger.outage("Reserve", 2);
+		for raw in ["r3", "r4"] {
+			assert!(matches!(ledger.reserve(&reserve(raw)).await, Err(MoneyLedgerError::Unavailable(_))));
+		}
+		ledger.reserve(&reserve("r5")).await.unwrap();
+		assert_eq!(ledger.compartment(&scope, "erin"), usdt("4"), "only the served call held money");
 	}
 }

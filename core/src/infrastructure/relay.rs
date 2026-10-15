@@ -22,17 +22,25 @@
 //! One bad event can't wedge the queue; a park *after* an earlier leg posted is flagged
 //! half-applied (`compensated_at`).
 //!
-//! Moved from banking 9ffafce3 (`piggybank/core/src/infrastructure/relay.rs`), cut to the
-//! one event invest relays today — an in-kind issuance. The subscription, redemption, fee
-//! and book plans arrive with their aggregates (PR 1b); their cash legs go through
-//! banking's ledger, not this relay's TigerBeetle.
+//! Moved from banking 9ffafce3 (`piggybank/core/src/infrastructure/relay.rs`). An in-kind
+//! issuance is planned here as banking planned it; every event with a cash leg — a
+//! subscription, a redemption, a fill, a fee settlement — is a saga across two ledgers,
+//! carried out in [`sagas`]: the units on invest's TigerBeetle, the cash through the
+//! [`MoneyLedger`] (banking), each step idempotent by a deterministic transfer id or a
+//! money key derived from the aggregate, so a redelivery after any crash repeats nothing.
+//! A money call that cannot be made right now (banking unreachable, or not serving the RPC
+//! yet) retries from the same `seq`, exactly as an unreachable TigerBeetle does.
 
 use std::{sync::Arc, time::Duration};
 
 use invest_domain::{
 	architecture::DomainEvent,
 	balance::{LedgerAccountKey, TransferCode},
+	book::BookEvent,
+	fees::FeeEvent,
 	issuance::{IssuanceEvent, IssuanceSource},
+	redemptions::RedemptionEvent,
+	subscriptions::SubscriptionEvent,
 };
 use sqlx::{PgPool, pool::PoolConnection, postgres::Postgres};
 use tokio::sync::Notify;
@@ -42,11 +50,16 @@ use uuid::Uuid;
 
 use crate::{
 	infrastructure::{
-		issuance,
+		book, issuance,
 		outbox::{self, OutboxRow},
 	},
-	ports::ledger::{Ledger, LedgerError, LedgerTransfer},
+	ports::{
+		ledger::{Ledger, LedgerError, LedgerTransfer},
+		money::MoneyLedger,
+	},
 };
+
+mod sagas;
 
 /// Salt for an in-kind issuance's single posted leg, the mint `Dr <holder shares> / Cr
 /// shares-outstanding`. Derived from the issuance id (not the event id) so an operator
@@ -77,17 +90,18 @@ const OUTBOX_LOCK_KEY: i64 = 0x4556_494e_4f42_585f_u64 as i64;
 /// aliases a real transfer.
 const ISSUE_APPLIED: &[u8] = b"issue:applied";
 
-/// The relay task: drains the outbox to the ledger. Cloneable handles (`pool`, `ledger`,
-/// `notify`) so command handlers can `notify` it to dispatch promptly.
+/// The relay task: drains the outbox to the ledgers. Cloneable handles (`pool`, `ledger`,
+/// `money`, `notify`) so command handlers can `notify` it to dispatch promptly.
 pub struct Relay {
 	pool: PgPool,
 	ledger: Arc<dyn Ledger>,
+	money: Arc<dyn MoneyLedger>,
 	notify: Arc<Notify>,
 }
 
 impl Relay {
-	pub fn new(pool: PgPool, ledger: Arc<dyn Ledger>, notify: Arc<Notify>) -> Self {
-		Self { pool, ledger, notify }
+	pub fn new(pool: PgPool, ledger: Arc<dyn Ledger>, money: Arc<dyn MoneyLedger>, notify: Arc<Notify>) -> Self {
+		Self { pool, ledger, money, notify }
 	}
 
 	/// Run until `shutdown` is cancelled. Take the singleton outbox lock on a dedicated
@@ -266,12 +280,12 @@ impl Relay {
 					}
 					return DrainStep::Throttle;
 				}
-				Outcome::RetryBounded(reason) => {
+				Outcome::RetryBounded { reason, applied_legs } => {
 					// A retryable that can never resolve (a completion whose pending was
 					// itself parked, so it is never found) must not wedge the single-worker
 					// queue forever — park it after a bound so later events keep flowing.
 					if row.attempts + 1 >= MAX_RETRYABLE_ATTEMPTS {
-						self.park(row, &format!("retryable exhausted after {} attempts: {reason}", row.attempts + 1), 0).await;
+						self.park(row, &format!("retryable exhausted after {} attempts: {reason}", row.attempts + 1), applied_legs).await;
 						advanced = true;
 					} else {
 						if let Err(err) = outbox::record_failure(&self.pool, row.seq, &reason).await {
@@ -295,6 +309,15 @@ impl Relay {
 		if let Err(err) = outbox::mark_parked(&self.pool, row.seq, reason).await {
 			error!(seq = row.seq, "relay: failed to stamp parked_at (event will re-deliver): {err}");
 		}
+		// A parked escrow lock is an order standing on the book with nothing behind it —
+		// the one park that must ALSO change control-plane state, because the matcher
+		// would otherwise keep filling an order whose settlement is bound to park too.
+		if row.kind == BookEvent::KIND
+			&& let Ok(BookEvent::OrderPlaced { order_id, .. }) = serde_json::from_str::<BookEvent>(&row.payload)
+			&& let Err(err) = book::mark_rejected(&self.pool, order_id.raw(), &format!("ledger refused the escrow: {reason}")).await
+		{
+			error!(seq = row.seq, order = %order_id, "relay: failed to mark the order rejected after its lock parked: {err}");
+		}
 		if applied_legs > 0 {
 			error!(seq = row.seq, event_id = %row.event_id, aggregate = %row.aggregate, applied_legs, "relay: PARKED HALF-APPLIED event (compensation owed): {reason}");
 			if let Err(err) = outbox::mark_compensated(&self.pool, row.seq).await {
@@ -306,6 +329,17 @@ impl Relay {
 	}
 
 	async fn dispatch(&self, row: &OutboxRow) -> Outcome {
+		match row.kind.as_str() {
+			SubscriptionEvent::KIND => self.subscription(row).await,
+			RedemptionEvent::KIND => self.redemption(row).await,
+			BookEvent::KIND => self.book(row).await,
+			FeeEvent::KIND => self.fee(row).await,
+			_ => self.dispatch_planned(row).await,
+		}
+	}
+
+	/// An event whose every leg is a posted unit transfer, planned up front ([`plan`]).
+	async fn dispatch_planned(&self, row: &OutboxRow) -> Outcome {
 		let ops = match plan(row) {
 			Ok(ops) => ops,
 			Err(reason) => return Outcome::park(format!("unplannable event: {reason}")),
@@ -328,7 +362,7 @@ impl Relay {
 					applied += 1;
 				}
 				Err(LedgerError::Unavailable(err)) => return Outcome::Retry(err),
-				Err(LedgerError::Retryable(err)) => return Outcome::RetryBounded(err),
+				Err(LedgerError::Retryable(reason)) => return Outcome::RetryBounded { reason, applied_legs: applied },
 				Err(LedgerError::InsufficientFunds) => {
 					return Outcome::Park {
 						reason: "insufficient funds".into(),
@@ -417,7 +451,12 @@ enum Outcome {
 	/// A retryable ledger state (a pending not yet visible) — retry from this `seq`, but
 	/// **bounded**: a pending that can never appear (its reserve was itself parked) must
 	/// not wedge the single-worker queue forever, so park after `MAX_RETRYABLE_ATTEMPTS`.
-	RetryBounded(String),
+	/// `applied_legs` as for `Park`: the exhausted retry parks the event with it, so one
+	/// that half-applied is flagged for compensation rather than parked as untouched.
+	RetryBounded {
+		reason: String,
+		applied_legs: usize,
+	},
 	/// Terminal for this event — move it to the distinct **parked** state (stays queryable,
 	/// excluded from the drain). `applied_legs` is how many legs of this (possibly
 	/// multi-leg) event already posted before the park: `> 0` means it half-applied and a
@@ -441,14 +480,15 @@ struct PlannedOp {
 	action: LedgerAction,
 }
 
-/// What one leg does to the ledger. Only posted transfers today; the two-phase and linked
-/// shapes the ledger port offers come back with the events that need them (PR 1b).
+/// What one leg of a planned (single-ledger) event does. Only posted transfers: every
+/// two-phase leg belongs to a money saga, which drives the ledger itself (`sagas`).
 enum LedgerAction {
 	Post(LedgerTransfer),
 }
 
 /// Map an outbox event to the ledger op(s) it performs. `reference` (stamped into
 /// `user_data_128`) is always the aggregate id, tying every TB transfer back to its row.
+/// Only an issuance is planned here; the sagas are dispatched before this is reached.
 fn plan(row: &OutboxRow) -> Result<Vec<PlannedOp>, String> {
 	let reference = row.aggregate_id.as_u128();
 	match row.kind.as_str() {

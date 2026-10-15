@@ -1,6 +1,6 @@
 //! invest-core's composition root: read the config, dial Postgres, TigerBeetle and banking,
-//! apply the migrations, and run the gRPC server and the outbox relay as branches of one
-//! structured `join!` until a signal.
+//! apply the migrations, and run the gRPC server, the outbox relay and the fee sweeper as
+//! branches of one structured `join!` until a signal.
 
 use std::{future::Future, sync::Arc};
 
@@ -8,24 +8,38 @@ use color_eyre::eyre::{Context, ensure, eyre};
 use ev::error_monitoring::{self, Config as SentryConfig};
 use evconcierge_auth::{TokenType, Verifier, VerifierConfig};
 use invest_core::{
-	AppState, config,
+	AppState,
+	application::book::BookFeed,
+	config,
 	infrastructure::{
 		allocations::PgAllocations,
+		book::PgBook,
 		db,
+		fee_policy_changes::PgFeePolicyChanges,
+		fee_sweeper::FeeSweeper,
+		fees::{PgFeeAssessments, PgFeePolicies, PgFeeSettlements, PgPositionAccruals},
 		issuance::PgUnitIssuances,
 		ledger::{self, TbLedger},
 		money::{Unconfigured, grpc::ScopeLedgerClient},
 		nav::PgNav,
 		positions::PgFundPositions,
+		redemptions::PgRedemptions,
 		relay::Relay,
+		subscriptions::PgSubscriptions,
 		tigerbeetle::TigerBeetle,
 		users::PgUsers,
 	},
-	ports::{Ledger, MoneyLedger},
+	ports::{Ledger, MoneyLedger, fees::FeePorts},
 	services,
 };
+use invest_domain::book::PriceTimeEngine;
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
+
+/// The identity plane's issuer — the only one whose tokens invest-core accepts.
+const CONCIERGE_ISSUER: &str = "https://auth.concierge.ev";
+/// invest's relying-party client in concierge — the only audience accepted.
+const INVEST_AUDIENCE: &str = "invest";
 
 // Sentry must be initialised before the async runtime starts — no #[tokio::main].
 fn main() -> color_eyre::Result<()> {
@@ -83,12 +97,18 @@ async fn run(config: config::AppConfig) -> color_eyre::Result<()> {
 		jwks_grpc_endpoint: config.auth_jwks_grpc_endpoint.clone(),
 	};
 	// concierge's own `assert_plane` would refuse an `invest` audience (it insists on the
-	// word "concierge"); what it guards — a verifier pointed at banking's issuer — is asked
-	// here directly.
+	// word "concierge"); what it guards — a verifier pointed at another plane's issuer, or
+	// accepting tokens minted for another relying party — is asked here directly, and
+	// exactly: a substring would admit any issuer that merely mentions concierge.
 	ensure!(
-		verifier_config.issuer.contains("concierge"),
-		"AUTH_ISSUER {} is not the concierge plane's — invest-core accepts concierge's tokens only",
+		verifier_config.issuer == CONCIERGE_ISSUER,
+		"AUTH_ISSUER {} is not the concierge plane's ({CONCIERGE_ISSUER}) — invest-core accepts concierge's tokens only",
 		verifier_config.issuer
+	);
+	ensure!(
+		verifier_config.audiences == [INVEST_AUDIENCE],
+		"AUTH_AUDIENCE {:?} is not invest's ({INVEST_AUDIENCE}) — invest-core accepts tokens minted for invest only",
+		verifier_config.audiences
 	);
 	let verifier = Verifier::try_new(verifier_config).map_err(|err| eyre!("invalid concierge JWKS endpoint: {err}"))?;
 
@@ -113,30 +133,56 @@ async fn run(config: config::AppConfig) -> color_eyre::Result<()> {
 	};
 
 	let relay_notify = Arc::new(Notify::new());
-	let relay = Relay::new(relay_pool, ledger.clone(), relay_notify.clone());
+	let relay = Relay::new(relay_pool, ledger.clone(), money.clone(), relay_notify.clone());
+	let fees = FeePorts {
+		policies: Arc::new(PgFeePolicies::new(pool.clone())),
+		changes: Arc::new(PgFeePolicyChanges::new(pool.clone())),
+		accruals: Arc::new(PgPositionAccruals::new(pool.clone())),
+		assessments: Arc::new(PgFeeAssessments::new(pool.clone())),
+		settlements: Arc::new(PgFeeSettlements::new(pool.clone(), ledger.clone())),
+	};
+	let nav = Arc::new(PgNav::new(pool.clone()));
+	let fee_sweeper = FeeSweeper::new(
+		fees.policies.clone(),
+		fees.changes.clone(),
+		fees.accruals.clone(),
+		fees.assessments.clone(),
+		ledger.clone(),
+		money.clone(),
+		nav.clone(),
+		relay_notify.clone(),
+	);
 	let state = AppState {
 		pool: pool.clone(),
-		ledger,
+		ledger: ledger.clone(),
 		money,
 		users: Arc::new(PgUsers::new(pool.clone())),
 		allocations: Arc::new(PgAllocations::new(pool.clone())),
 		issuances: Arc::new(PgUnitIssuances::new(pool.clone())),
-		nav: Arc::new(PgNav::new(pool.clone())),
+		subscriptions: Arc::new(PgSubscriptions::new(pool.clone())),
+		redemptions: Arc::new(PgRedemptions::new(pool.clone(), ledger.clone())),
+		book: Arc::new(PgBook::new(pool.clone())),
+		book_engine: Arc::new(PriceTimeEngine),
+		book_feed: BookFeed::new(),
+		fees,
+		nav,
 		positions: Arc::new(PgFundPositions::new(pool)),
 		relay_notify,
 	};
 
 	tracing::info!(addr = %config.grpc_addr, "invest-core serving");
-	// Graceful shutdown, structured (no detached spawns): the server and the relay run as
-	// branches of one `join!` on this task. A signal cancels a shared token; the server
-	// drains in-flight calls, the relay stops at a batch boundary, and `join!` waits for both.
+	// Graceful shutdown, structured (no detached spawns): the server, the relay and the fee
+	// sweeper run as branches of one `join!` on this task. A signal cancels a shared token;
+	// the server drains in-flight calls, the workers stop at a batch boundary, and `join!`
+	// waits for all of them.
 	let shutdown = CancellationToken::new();
-	let ((), served, relayed) = tokio::join!(
+	let ((), served, relayed, swept) = tokio::join!(
 		await_signal(shutdown.clone()),
 		branch(&shutdown, "gRPC server", services::serve(config.grpc_addr, state, verifier, shutdown.clone().cancelled_owned())),
 		branch(&shutdown, "relay", infallible(relay.run(shutdown.clone()))),
+		branch(&shutdown, "fee sweeper", infallible(fee_sweeper.run(shutdown.clone()))),
 	);
-	served.and(relayed)
+	served.and(relayed).and(swept)
 }
 
 /// Run one branch of the root `join!`: whatever ends it — an error or a clean return —

@@ -26,7 +26,7 @@ pub trait NavMarks: Send + Sync {
 	async fn anchor(&self, service: &ServiceId, at_unix: i64) -> Result<Option<Valuation>, DomainError>;
 
 	/// Whether `subject` posted a mark for `service` strictly after `since_unix` — the
-	/// redeem cooldown's question (PR 1b). `subject` is the `posted_by` string as recorded.
+	/// redeem cooldown's question. `subject` is the `posted_by` string as recorded.
 	async fn posted_by_since(&self, service: &ServiceId, subject: &str, since_unix: i64) -> Result<bool, DomainError>;
 
 	/// The marks with `from_unix ≤ posted_at ≤ to_unix`, OLDEST first, at most `limit` of

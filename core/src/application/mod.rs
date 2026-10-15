@@ -17,9 +17,13 @@
 //! run through the same registry, NAV and cap gates as a subscription will be.
 //! [`ownership`] is the read of who holds an allocation, summed from the ledger, behind
 //! the cap table. [`funds`] is the price — NAV marks, the computed price of the reserved
-//! allocations — and a holder's position at it.
+//! allocations — a holder's position at it, and dealing with the fund: subscriptions and
+//! redemptions, whose cash is banking's. [`book`] is holders dealing with each other, and
+//! [`fees`] the management and performance fee, charged in units and settled into cash.
 
 pub mod allocations;
+pub mod book;
+pub mod fees;
 pub mod funds;
 pub mod issuance;
 pub mod ownership;

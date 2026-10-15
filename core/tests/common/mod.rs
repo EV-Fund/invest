@@ -19,16 +19,20 @@
 use std::sync::{Arc, LazyLock};
 
 use invest_core::{
-	application::{funds::FundPorts, issuance::IssueUnitsRequest},
+	application::{fees as fee_app, funds::FundPorts, issuance::IssueUnitsRequest},
 	infrastructure::{
 		allocations::PgAllocations,
 		db,
+		fee_policy_changes::PgFeePolicyChanges,
+		fees::{PgFeeAssessments, PgFeePolicies, PgFeeSettlements, PgPositionAccruals},
 		issuance::PgUnitIssuances,
 		ledger::{self, TbLedger},
 		money::fake::InMemoryMoneyLedger,
 		nav::PgNav,
 		positions::PgFundPositions,
+		redemptions::PgRedemptions,
 		relay::Relay,
+		subscriptions::PgSubscriptions,
 		tigerbeetle::TigerBeetle,
 		users::PgUsers,
 	},
@@ -36,6 +40,8 @@ use invest_core::{
 };
 use invest_domain::{
 	balance::ServiceId,
+	error::DomainError,
+	fees::{FeeAssessment, FeeSettlement, Trigger},
 	issuance::{IdempotencyKey, UnitHolder},
 	money::{Shares, Usdt},
 	users::UserId,
@@ -378,10 +384,15 @@ pub async fn reachable_ledger(pool: &PgPool, skipping: &str) -> Option<Arc<dyn L
 pub async fn active_user(users: &PgUsers) -> UserId {
 	let user = UserId::new();
 	users
-		.record(user, &UserStanding { active: true, permissions: None }, Some(&format!("itest-{user}")))
+		.record(user, &UserStanding { active: true, permissions: None }, Some(&auth_subject(user)))
 		.await
 		.expect("record a user in the projection");
 	user
+}
+
+/// The subject banking names [`active_user`]'s compartments by.
+pub fn auth_subject(user: UserId) -> String {
+	format!("itest-{user}")
 }
 
 /// invest-core's adapters over this binary's database and the TigerBeetle replica, with
@@ -394,8 +405,16 @@ pub struct Engine {
 	pub issuances: PgUnitIssuances,
 	pub positions: PgFundPositions,
 	pub nav: PgNav,
+	pub subscriptions: PgSubscriptions,
+	pub redemptions: PgRedemptions,
+	pub policies: PgFeePolicies,
+	pub changes: PgFeePolicyChanges,
+	pub accruals: PgPositionAccruals,
+	pub assessments: PgFeeAssessments,
+	pub settlements: PgFeeSettlements,
 	pub ledger: Arc<dyn Ledger>,
-	pub money: InMemoryMoneyLedger,
+	/// Shared with the relay, so a test steering it (a refusal, an outage) steers the sagas.
+	pub money: Arc<InMemoryMoneyLedger>,
 	pub relay: Relay,
 	pub notify: Arc<Notify>,
 	/// Held for the test's whole life — declared last so it is released after the relay.
@@ -408,15 +427,24 @@ pub async fn engine(suite: &str) -> Option<Engine> {
 	let serial = outbox_serial().await;
 	let pool = pool().await?;
 	let ledger = reachable_ledger(&pool, suite).await?;
+	set_aside_leftovers(&pool).await;
 	let notify = Arc::new(Notify::new());
+	let money = Arc::new(InMemoryMoneyLedger::new());
 	Some(Engine {
 		allocations: PgAllocations::new(pool.clone()),
 		users: PgUsers::new(pool.clone()),
 		issuances: PgUnitIssuances::new(pool.clone()),
 		positions: PgFundPositions::new(pool.clone()),
 		nav: PgNav::new(pool.clone()),
-		money: InMemoryMoneyLedger::new(),
-		relay: Relay::new(pool.clone(), ledger.clone(), notify.clone()),
+		subscriptions: PgSubscriptions::new(pool.clone()),
+		redemptions: PgRedemptions::new(pool.clone(), ledger.clone()),
+		policies: PgFeePolicies::new(pool.clone()),
+		changes: PgFeePolicyChanges::new(pool.clone()),
+		accruals: PgPositionAccruals::new(pool.clone()),
+		assessments: PgFeeAssessments::new(pool.clone()),
+		settlements: PgFeeSettlements::new(pool.clone(), ledger.clone()),
+		relay: Relay::new(pool.clone(), ledger.clone(), money.clone(), notify.clone()),
+		money,
 		ledger,
 		notify,
 		pool,
@@ -430,10 +458,29 @@ impl Engine {
 		FundPorts {
 			allocations: &self.allocations,
 			ledger: self.ledger.as_ref(),
-			money: &self.money,
+			money: self.money.as_ref(),
 			nav: &self.nav,
 			relay: &self.notify,
 		}
+	}
+}
+
+/// Park whatever an earlier test of this binary left in the outbox undrained. Its money
+/// steps name holds and accounts in THAT test's in-memory ledger, gone with it: applied
+/// here, a fill would ask this test's ledger for a hold it never placed and park inside
+/// this test's drain, failing it for a sibling's leftover. Parked rows leave the drain and
+/// `drain_to_quiescence` reports only parks raised during its own call, so setting them
+/// aside is invisible to the test that follows — and loud on stderr for the one that forgot.
+async fn set_aside_leftovers(pool: &PgPool) {
+	let left: Vec<(i64, String)> = sqlx::query_as(
+		"UPDATE outbox SET parked_at = now(), last_error = 'left undrained by an earlier test of this binary' \
+		 WHERE dispatched_at IS NULL AND parked_at IS NULL RETURNING seq, kind",
+	)
+	.fetch_all(pool)
+	.await
+	.expect("set aside the outbox rows an earlier test left");
+	if !left.is_empty() {
+		eprintln!("outbox rows left undrained by an earlier test, set aside: {left:?}");
 	}
 }
 
@@ -446,4 +493,52 @@ pub fn mint_request(service: &ServiceId, holder: UnitHolder, units: &str, cost_b
 		cost_basis: cost_basis.map(|basis| Usdt::parse_decimal(basis).unwrap()),
 		idempotency_key: IdempotencyKey::parse(key).unwrap(),
 	}
+}
+
+/// A fresh idempotency key — a settlement the test means as new.
+pub fn fresh_key() -> IdempotencyKey {
+	IdempotencyKey::parse(&format!("itest-{}", uuid::Uuid::new_v4())).unwrap()
+}
+
+/// Settle `service`'s fee class (all of it when `units` is `None`) as `settler`, under `key`,
+/// through the use case the operator's RPC runs — without draining the relay.
+pub async fn settle_fee_class(e: &Engine, service: &ServiceId, units: Option<Shares>, key: &IdempotencyKey, settler: UserId) -> Result<FeeSettlement, DomainError> {
+	fee_app::settle_fee_shares(
+		&e.settlements,
+		&e.allocations,
+		e.ledger.as_ref(),
+		e.money.as_ref(),
+		&e.nav,
+		&e.redemptions,
+		&e.notify,
+		service.clone(),
+		units,
+		key,
+		settler,
+		now_unix(),
+	)
+	.await
+}
+
+/// Assess `user`'s position in `service` for the elapsed period, as the sweeper does —
+/// without draining the relay.
+pub async fn assess_period(e: &Engine, user: UserId, service: &ServiceId, now: i64) -> Result<Option<FeeAssessment>, DomainError> {
+	fee_app::assess_position(
+		&e.policies,
+		&e.accruals,
+		&e.assessments,
+		e.ledger.as_ref(),
+		e.money.as_ref(),
+		&e.nav,
+		&e.notify,
+		user,
+		service.clone(),
+		Trigger::Period,
+		now,
+	)
+	.await
+}
+
+fn now_unix() -> i64 {
+	std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |elapsed| elapsed.as_secs() as i64)
 }
