@@ -1011,3 +1011,19 @@ async fn a_book_opened_on_cash_stops_when_the_units_turn_in_kind_until_acknowled
 	sell(&h, seller, &service, "1", "1").await;
 	assert_eq!(book_app::list_open_orders(&h.book, seller, Some(&service)).await.unwrap().len(), 1);
 }
+
+/// banking held the buy's cash, then could not be asked about the hold: the order is not
+/// written, and the hold it took is given back rather than left held behind nothing.
+#[tokio::test]
+async fn a_buy_that_fails_after_its_hold_releases_the_hold() {
+	let Some(h) = harness().await else { return };
+	let service = tradable_product(&h, 0).await;
+	let buyer = provisioned_user(&h).await;
+	fund_user(&h, buyer, "100");
+
+	h.money.outage("GetHold", 1);
+	let err = place(&h, buyer, &service, Side::Buy, OrderKind::Limit, Tif::Gtc, Some("1"), "10").await.unwrap_err();
+	assert!(matches!(err, DomainError::Repository(_)), "{err:?}");
+	assert!(book_app::list_order_history(&h.book, buyer, None, 10).await.unwrap().is_empty(), "nothing written");
+	assert_eq!(cash_of(&h, buyer), usdt("100"), "the hold was released");
+}
