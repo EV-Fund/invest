@@ -57,6 +57,16 @@ pub struct CandlesQuery {
 	to: Option<i64>,
 }
 
+/// invest-core's own ceilings (`core/src/services/book.rs`), applied here too so an
+/// oversized `depth` or `limit` is never forwarded at all.
+pub const MAX_DEPTH: u32 = 50;
+pub const MAX_LIST_LIMIT: u32 = 200;
+
+/// `0` (absent) stays `0`, which invest-core reads as its default.
+pub fn bounded(value: Option<u32>, max: u32) -> u32 {
+	value.unwrap_or(0).min(max)
+}
+
 /// The one allocation a per-book read names. A missing or blank service is a client error
 /// decided here — never a call to invest-core with an empty id.
 pub fn required_service(service: Option<String>) -> Result<String, ApiError> {
@@ -85,7 +95,7 @@ pub async fn get_book(State(st): State<AppState>, jar: Cookies, Query(q): Query<
 	let token = require_token(&st, &jar).await?;
 	let book = st
 		.grpc
-		.get_book(&token, &service, q.depth.unwrap_or(0))
+		.get_book(&token, &service, bounded(q.depth, MAX_DEPTH))
 		.await
 		.map_err(|s| ApiError::read(s, "book unavailable"))?;
 	Ok(Json(book.into()))
@@ -98,7 +108,7 @@ pub async fn list_trades(State(st): State<AppState>, jar: Cookies, Query(q): Que
 	let token = require_token(&st, &jar).await?;
 	let tape = st
 		.grpc
-		.list_trades(&token, &service, q.limit.unwrap_or(0))
+		.list_trades(&token, &service, bounded(q.limit, MAX_LIST_LIMIT))
 		.await
 		.map_err(|s| ApiError::read(s, "trades unavailable"))?;
 	Ok(Json(tape.into()))
@@ -202,7 +212,7 @@ pub async fn list_order_history(State(st): State<AppState>, jar: Cookies, Query(
 	let token = require_token(&st, &jar).await?;
 	let orders = st
 		.grpc
-		.list_order_history(&token, &q.service.unwrap_or_default(), q.limit.unwrap_or(0))
+		.list_order_history(&token, &q.service.unwrap_or_default(), bounded(q.limit, MAX_LIST_LIMIT))
 		.await
 		.map_err(|s| ApiError::read(s, "order history unavailable"))?;
 	Ok(Json(orders.into()))
@@ -214,7 +224,7 @@ pub async fn list_fills(State(st): State<AppState>, jar: Cookies, Query(q): Quer
 	let token = require_token(&st, &jar).await?;
 	let fills = st
 		.grpc
-		.list_user_trades(&token, &q.service.unwrap_or_default(), q.limit.unwrap_or(0))
+		.list_user_trades(&token, &q.service.unwrap_or_default(), bounded(q.limit, MAX_LIST_LIMIT))
 		.await
 		.map_err(|s| ApiError::read(s, "fills unavailable"))?;
 	Ok(Json(fills.into()))
@@ -240,7 +250,7 @@ mod book_route_tests {
 		io::{AsyncReadExt, AsyncWriteExt},
 		net::{TcpListener, TcpStream},
 	};
-	use tokio_stream::Stream;
+	use tokio_stream::{Stream, StreamExt};
 	use tonic::{Code, Request as GrpcRequest, Response as GrpcResponse, Status, transport::Server};
 
 	use super::*;
@@ -271,6 +281,8 @@ mod book_route_tests {
 	struct Hub {
 		/// When set, every book RPC fails with this code (the upstream-refusal cases).
 		fail_with: Option<Code>,
+		/// The feed stays open after its first frame, as a live book does.
+		hold_open: bool,
 		seen: Arc<Mutex<Seen>>,
 	}
 
@@ -475,7 +487,11 @@ mod book_route_tests {
 				trades: vec![stub_trade(false)],
 				orders_revision: 7,
 			};
-			Ok(GrpcResponse::new(Box::pin(tokio_stream::iter(vec![Ok(frame)]))))
+			let first = tokio_stream::iter(vec![Ok(frame)]);
+			if self.hold_open {
+				return Ok(GrpcResponse::new(Box::pin(first.chain(tokio_stream::pending()))));
+			}
+			Ok(GrpcResponse::new(Box::pin(first)))
 		}
 
 		async fn get_book_policy(&self, request: GrpcRequest<iv::GetBookPolicyRequest>) -> Result<GrpcResponse<iv::BookPolicy>, Status> {
@@ -1077,5 +1093,84 @@ mod book_route_tests {
 		let seen = seen.lock().unwrap();
 		let watched = seen.watch.as_ref().expect("invest-core saw the subscription, with the session's token");
 		assert_eq!((watched.service.as_str(), watched.depth), (SERVICE, 10));
+	}
+
+	/// An oversized page is cut to invest-core's own ceiling here, not forwarded.
+	#[tokio::test]
+	async fn depth_and_limits_are_clamped_before_invest_core() {
+		let hub = Hub::new();
+		let seen = hub.seen.clone();
+		let Some(f) = fixture(hub, INVESTOR).await else { return };
+		for uri in [
+			"/cabinet/api/book?service=quy-nhon&depth=5000",
+			"/cabinet/api/book/trades?service=quy-nhon&limit=100000",
+			"/cabinet/api/book/fills?limit=4000000000",
+		] {
+			assert_eq!(send(&f, signed(&f, "GET", uri, None, false)).await.0, StatusCode::OK, "{uri}");
+		}
+		let seen = seen.lock().unwrap();
+		assert_eq!(seen.book.as_ref().map(|r| r.depth), Some(MAX_DEPTH));
+		assert_eq!(seen.trades.as_ref().map(|r| r.limit), Some(MAX_LIST_LIMIT));
+		assert_eq!(seen.user_trades.as_ref().map(|r| r.limit), Some(MAX_LIST_LIMIT));
+	}
+
+	fn live_book() -> Hub {
+		Hub { hold_open: true, ..Hub::default() }
+	}
+
+	/// The next close frame's code, skipping keepalives; `None` when none came in `within`.
+	async fn close_code(socket: &mut TcpStream, within: std::time::Duration) -> Option<u16> {
+		tokio::time::timeout(within, async {
+			loop {
+				let (opcode, payload) = read_frame(socket).await;
+				if opcode == OPCODE_CLOSE {
+					return u16::from_be_bytes([payload[0], payload[1]]);
+				}
+			}
+		})
+		.await
+		.ok()
+	}
+
+	/// Signing out ends the feed too: the socket does not outlive the session that opened it
+	/// (security review F3). The client reads 4401 as "sign in again".
+	#[tokio::test]
+	async fn a_socket_closes_once_its_session_is_gone() {
+		let Some(f) = fixture(live_book(), INVESTOR).await else { return };
+		let addr = listen(&f).await;
+		let (status, mut socket) = handshake(addr, "/cabinet/api/book/ws?service=quy-nhon", Some(&f.signed.cookie), Some(ORIGIN)).await;
+		assert_eq!(status, 101);
+		assert_eq!(read_frame(&mut socket).await.0, OPCODE_TEXT, "the book");
+
+		let (status, _) = send(&f, signed(&f, "POST", "/cabinet/api/auth/logout", None, true)).await;
+		assert_eq!(status, StatusCode::NO_CONTENT);
+		assert_eq!(close_code(&mut socket, std::time::Duration::from_secs(5)).await, Some(4401));
+	}
+
+	/// One session holds a handful of feeds, not an unbounded number of upstream streams.
+	#[tokio::test]
+	async fn a_session_holds_at_most_four_book_sockets() {
+		let Some(f) = fixture(live_book(), INVESTOR).await else { return };
+		let addr = listen(&f).await;
+		let uri = "/cabinet/api/book/ws?service=quy-nhon";
+		let mut open = Vec::new();
+		for _ in 0..4 {
+			let (status, socket) = handshake(addr, uri, Some(&f.signed.cookie), Some(ORIGIN)).await;
+			assert_eq!(status, 101);
+			open.push(socket);
+		}
+		let (status, _) = handshake(addr, uri, Some(&f.signed.cookie), Some(ORIGIN)).await;
+		assert_eq!(status, 429, "a fifth socket for the same session");
+
+		drop(open.pop());
+		let mut admitted = false;
+		for _ in 0..40 {
+			if handshake(addr, uri, Some(&f.signed.cookie), Some(ORIGIN)).await.0 == 101 {
+				admitted = true;
+				break;
+			}
+			tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+		}
+		assert!(admitted, "a closed socket frees its place");
 	}
 }

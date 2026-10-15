@@ -41,7 +41,7 @@ use crate::{
 };
 
 /// The cabinet's origin in every test, as production configures its own.
-pub const ORIGIN: &str = "https://invest.test";
+pub const ORIGIN: &str = "http://invest.test";
 /// The access token a seeded session holds; the stub invest-core accepts nothing else.
 pub const ACCESS_TOKEN: &str = "invest-access-token";
 pub const CSRF: &str = "csrf-token-value";

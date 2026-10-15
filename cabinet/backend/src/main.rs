@@ -35,6 +35,11 @@ fn main() -> color_eyre::Result<()> {
 	// error, before anything binds — exiting 78 (EX_CONFIG), so "the config is wrong" is
 	// distinguishable from a dependency blip.
 	let config = ev::settings::or_exit(AppConfig::from_env());
+	if let Err(why) = config.validate() {
+		eprintln!("invalid configuration: {why}");
+		// EX_CONFIG, as `or_exit` does for a missing or malformed variable.
+		std::process::exit(78);
+	}
 
 	// Dropping the guard flushes events, so it lives as long as `main`.
 	let _sentry_guard = error_monitoring::init(&SentryConfig {

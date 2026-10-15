@@ -19,6 +19,8 @@ pub enum ApiError {
 	Csrf,
 	/// Client input rejected before any upstream call (400).
 	BadRequest(String),
+	/// The caller holds as many of a bounded resource as one session may — book sockets (429).
+	TooMany,
 	/// The session needs concierge and concierge cannot be reached (503). Nothing was
 	/// closed: the next request may succeed.
 	SessionUnavailable,
@@ -94,6 +96,7 @@ impl IntoResponse for ApiError {
 			ApiError::Unauthenticated => (StatusCode::UNAUTHORIZED, "unauthenticated".to_string()),
 			ApiError::Csrf => (StatusCode::FORBIDDEN, "csrf".to_string()),
 			ApiError::BadRequest(m) => (StatusCode::BAD_REQUEST, m),
+			ApiError::TooMany => (StatusCode::TOO_MANY_REQUESTS, "too many open book feeds".to_string()),
 			ApiError::SessionUnavailable => (StatusCode::SERVICE_UNAVAILABLE, "sign-in is unavailable, try again".to_string()),
 			ApiError::Internal(report) => {
 				tracing::error!(error = ?report, "internal error behind a cabinet request");

@@ -12,16 +12,16 @@ pub struct SignInRow {
 
 pub struct SessionRow {
 	pub user_id: Uuid,
-	pub access_token: String,
+	pub access_sealed: Vec<u8>,
 	pub access_expires_at: i64,
-	pub refresh_token: String,
+	pub refresh_sealed: Vec<u8>,
 	pub expires_at: i64,
 }
 
 pub struct NewTokens<'a> {
-	pub access_token: &'a str,
+	pub access_sealed: &'a [u8],
 	pub access_expires_at: i64,
-	pub refresh_token: &'a str,
+	pub refresh_sealed: &'a [u8],
 	pub expires_at: i64,
 }
 
@@ -76,14 +76,14 @@ pub async fn prune(pool: &PgPool, now: i64) -> Result<u64> {
 
 pub async fn insert_session(pool: &PgPool, id_hash: &[u8], user_id: Uuid, tokens: &NewTokens<'_>, now: i64) -> Result<()> {
 	sqlx::query(
-		"INSERT INTO cabinet.sessions (id_hash, user_id, access_token, access_expires_at, refresh_token, expires_at, created_at)
+		"INSERT INTO cabinet.sessions (id_hash, user_id, access_sealed, access_expires_at, refresh_sealed, expires_at, created_at)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7)",
 	)
 	.bind(id_hash)
 	.bind(user_id)
-	.bind(tokens.access_token)
+	.bind(tokens.access_sealed)
 	.bind(tokens.access_expires_at)
-	.bind(tokens.refresh_token)
+	.bind(tokens.refresh_sealed)
 	.bind(tokens.expires_at)
 	.bind(now)
 	.execute(pool)
@@ -93,7 +93,7 @@ pub async fn insert_session(pool: &PgPool, id_hash: &[u8], user_id: Uuid, tokens
 }
 
 pub async fn get_session(pool: &PgPool, id_hash: &[u8]) -> Result<Option<SessionRow>> {
-	let row = sqlx::query("SELECT user_id, access_token, access_expires_at, refresh_token, expires_at FROM cabinet.sessions WHERE id_hash = $1")
+	let row = sqlx::query("SELECT user_id, access_sealed, access_expires_at, refresh_sealed, expires_at FROM cabinet.sessions WHERE id_hash = $1")
 		.bind(id_hash)
 		.fetch_optional(pool)
 		.await
@@ -101,9 +101,9 @@ pub async fn get_session(pool: &PgPool, id_hash: &[u8]) -> Result<Option<Session
 	row.map(|row| {
 		Ok(SessionRow {
 			user_id: row.try_get("user_id")?,
-			access_token: row.try_get("access_token")?,
+			access_sealed: row.try_get("access_sealed")?,
 			access_expires_at: row.try_get("access_expires_at")?,
-			refresh_token: row.try_get("refresh_token")?,
+			refresh_sealed: row.try_get("refresh_sealed")?,
 			expires_at: row.try_get("expires_at")?,
 		})
 	})
@@ -130,18 +130,21 @@ pub async fn claim_rotation(pool: &PgPool, id_hash: &[u8], seen_access_expires_a
 }
 
 /// Write the rotated pair, only over the pair the rotation started from. `false` when a
-/// taken-over lease already wrote another.
+/// taken-over lease already wrote another. The session's deadline only ever shortens:
+/// concierge slides the refresh token's expiry on every rotation, but the browser's cookie
+/// dies at the deadline the callback gave it, and a row past that would be an orphan
+/// holding a live refresh token (security review F2).
 pub async fn set_tokens(pool: &PgPool, id_hash: &[u8], seen_access_expires_at: i64, tokens: &NewTokens<'_>) -> Result<bool> {
 	let written = sqlx::query(
 		"UPDATE cabinet.sessions
-		 SET access_token = $3, access_expires_at = $4, refresh_token = $5, expires_at = $6, rotating_until = NULL
+		 SET access_sealed = $3, access_expires_at = $4, refresh_sealed = $5, expires_at = LEAST(expires_at, $6), rotating_until = NULL
 		 WHERE id_hash = $1 AND access_expires_at = $2",
 	)
 	.bind(id_hash)
 	.bind(seen_access_expires_at)
-	.bind(tokens.access_token)
+	.bind(tokens.access_sealed)
 	.bind(tokens.access_expires_at)
-	.bind(tokens.refresh_token)
+	.bind(tokens.refresh_sealed)
 	.bind(tokens.expires_at)
 	.execute(pool)
 	.await

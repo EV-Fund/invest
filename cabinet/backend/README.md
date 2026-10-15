@@ -17,7 +17,7 @@ banking or moves to concierge and the central admin (plan §6).
 | Login | `GET /cabinet/api/auth/login?return_to=/cabinet/…` | A state and a PKCE verifier are recorded in `cabinet.sign_ins` (by the state's hash); the state goes to the browser in an HttpOnly cookie; 302 to `https://evinvest.ltd/api/auth/authorize?client_id=invest&…`. `return_to` outside `/cabinet` is a 400. Silent when the evinvest.ltd session exists. |
 | Callback | `GET /cabinet/auth/callback?code&state` | The URL's state must equal the cookie's (constant time) and its record must not be redeemed; then `ExchangeCode(code, verifier)`; a session row; the session and CSRF cookies; 303 to `return_to`. |
 | Requests | `/cabinet/api/*` | The session is read by the SHA-256 of its cookie; an access token within 30 s of expiry is rotated first (`RefreshClientToken`), one rotation per session across replicas (a lease on the row). |
-| Session | `GET /cabinet/api/auth/session` | The principal (`SessionInfo`, camelCase) or a guest — always 200 unless the answer is unknown (503). Rotates and re-reads `GetMe`. |
+| Session | `GET /cabinet/api/auth/session` | The principal (`SessionInfo`, camelCase) or a guest — always 200 unless the answer is unknown (503). Rotates the tokens when they are about to lapse; `GetMe` through the same one-minute cache as the console. |
 | Logout | `POST /cabinet/api/auth/logout` | CSRF + `Origin`; the session row deleted, the cookies cleared. concierge's confirm page ends the evinvest.ltd session. |
 
 The callback is **`/cabinet/auth/callback`, without `/api`**: that is the redirect URI
@@ -29,9 +29,18 @@ Cookies (`__Host-` prefixed and `Secure` in production, bare in dev):
 
 | Cookie | HttpOnly | What |
 | ------ | -------- | ---- |
-| `invest_session` | yes | 256 random bits, hex. The database holds its hash and concierge's tokens; the tokens never reach the browser. `SameSite=Lax`, lives as long as concierge's refresh token. |
+| `invest_session` | yes | 256 random bits, hex. The database holds its hash and concierge's tokens sealed (ChaCha20-Poly1305 under HKDF-SHA256 of the cookie, `session/seal.rs`): a dump alone opens no session, and the tokens never reach the browser. `SameSite=Lax`; lives until the deadline the callback set, which a rotation never extends. |
 | `invest_csrf` | no | The double-submit token, echoed in `x-ev-csrf` on every mutation. |
 | `invest_sign_in` | yes | The state of a sign-in in flight; ten minutes, cleared by the callback. |
+
+**The login and the callback must be rate-limited at the ingress** (devops
+`ingress.rateLimitPathPrefixes`: `/cabinet/api/auth/login`, `/cabinet/auth/callback`).
+The login is anonymous and writes a `cabinet.sign_ins` row; without a limit a flood fills
+the table and drains the pool (`DB_MAX_CONNECTIONS`, 3 s acquire timeout). Expired
+sign-ins are pruned when a session opens, not by the login.
+
+The book socket closes with 4401 when its access token lapses or, checked on each
+keepalive (25 s), when its session is gone; one session holds at most 4 sockets (429).
 
 Every mutating route (and the book socket's handshake) also requires
 `Origin == CABINET_PUBLIC_ORIGIN`; a request without `Origin` is refused.
@@ -100,7 +109,7 @@ it on every run.
 | `CONCIERGE_CLIENT_SECRET` | — | secret; concierge's `RP_CLIENT_SECRET_INVEST` |
 | `CONCIERGE_PUBLIC_ORIGIN` | `https://evinvest.ltd` | where the browser authorizes |
 | `CABINET_PUBLIC_ORIGIN` | — | `https://invest.evinvest.ltd`; the redirect URI's origin and the only accepted `Origin` |
-| `AUTH_COOKIE_SECURE` | from `APP_ENV` | `__Host-` + `Secure` cookies; must match the frontend's |
+| `AUTH_COOKIE_SECURE` | from the origin's scheme | `__Host-` + `Secure` cookies; must match the frontend's. `false` with an https origin exits 78 |
 | `APP_ENV` | — | `development` / `production` |
 | `SENTRY_DSN` | — | required in production |
 

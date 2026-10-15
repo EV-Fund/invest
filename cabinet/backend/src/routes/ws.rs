@@ -6,8 +6,9 @@
 //!
 //! - **It is authorized at the handshake and only until the token says so.** The session
 //!   is resolved exactly as on the REST routes, and the socket closes itself when the
-//!   access token it subscribed with expires; the client rotates the session and
-//!   reconnects.
+//!   access token it subscribed with expires, or — checked on every keepalive — when the
+//!   session is gone; the client rotates the session and reconnects. One session holds
+//!   at most four sockets.
 //! - **The handshake checks `Origin`** ([`super::origin_allowed`]). A websocket handshake
 //!   is exempt from the same-origin policy but still carries cookies, so without this any
 //!   page could open the signed-in user's feed. This is the socket's half of what the CSRF
@@ -23,7 +24,11 @@ use crate::now_secs;
 
 /// Keepalive cadence. Also the worst-case lag on noticing a browser that vanished without
 /// a close frame: the send that fails is how a dead peer is reaped.
+#[cfg(not(test))]
 pub const HEARTBEAT: Duration = Duration::from_secs(25);
+/// Short in tests, so what rides on the keepalive — the session check — is observable.
+#[cfg(test)]
+pub const HEARTBEAT: Duration = Duration::from_millis(200);
 
 /// Application close codes (the 4000–4999 range is ours). The client distinguishes "your
 /// session ended, sign in again" from "the feed is down, fall back to polling".

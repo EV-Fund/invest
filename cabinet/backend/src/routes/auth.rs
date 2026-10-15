@@ -302,8 +302,10 @@ impl SessionInfo {
 }
 
 /// `GET /cabinet/api/auth/session` — the principal, or a guest. Rotates the tokens behind
-/// the session when they are about to lapse and asks concierge afresh, so the cabinet's
-/// session keeper reading this every few minutes keeps the session alive and current.
+/// the session when they are about to lapse, so the cabinet's session keeper reading this
+/// every few minutes keeps the session alive. `GetMe` goes through the one-minute cache the
+/// console gates use: a keeper or a page full of components reading this costs concierge
+/// at most one call a minute per session, and a revoked grant shows within that minute.
 ///
 /// A guest is 200, not 401: the frontend reads a non-2xx as "unknown" (offline, BFF down)
 /// and must be able to tell it from "signed out". A session that is gone has its cookies
@@ -314,7 +316,7 @@ pub async fn session(State(st): State<AppState>, jar: Cookies) -> Result<Respons
 	};
 	let resolved = st.sessions.resolve(cookie, now_secs()).await;
 	let me = match resolved {
-		Ok(session) => st.sessions.me(&session, true).await,
+		Ok(session) => st.sessions.me(&session, false).await,
 		Err(err) => Err(err),
 	};
 	match me {
@@ -415,7 +417,7 @@ mod flow_tests {
 		let authorize = location(&headers);
 		assert!(authorize.starts_with("https://concierge.test/api/auth/authorize?"), "{authorize}");
 		assert_eq!(query_param(&authorize, "client_id"), "invest");
-		assert_eq!(query_param(&authorize, "redirect_uri"), "https%3A%2F%2Finvest.test%2Fcabinet%2Fauth%2Fcallback");
+		assert_eq!(query_param(&authorize, "redirect_uri"), "http%3A%2F%2Finvest.test%2Fcabinet%2Fauth%2Fcallback");
 		assert_eq!(query_param(&authorize, "code_challenge_method"), "S256");
 		let state = query_param(&authorize, "state");
 		assert_eq!(set_cookies(&headers).get("invest_sign_in"), Some(&state), "the browser carries the state it was sent with");
@@ -563,6 +565,66 @@ mod flow_tests {
 		assert_eq!(h.concierge.refreshes(), 1);
 		let session = h.state.sessions.resolve(&signed.session, now_secs()).await.unwrap();
 		assert!(session.access_token.contains("-rotated-"), "the row holds the rotated pair");
+	}
+
+	/// The database alone opens no session: the tokens are sealed under the cookie.
+	#[tokio::test]
+	async fn the_store_holds_no_token_in_clear() {
+		let Some(h) = Harness::new(None).await else { return };
+		let signed = h.sign_in(INVESTOR).await;
+		let key = crate::session::SessionKey::of_cookie(&signed.session).unwrap();
+		let (access, refresh): (Vec<u8>, Vec<u8>) = sqlx::query_as("SELECT access_sealed, refresh_sealed FROM cabinet.sessions WHERE id_hash = $1")
+			.bind(key.as_bytes())
+			.fetch_one(h.state.sessions.pool())
+			.await
+			.unwrap();
+		for sealed in [&access, &refresh] {
+			assert!(!sealed.windows(7).any(|w| w == b"refresh") && !sealed.windows(6).any(|w| w == b"invest"), "a token in clear");
+		}
+		let session = h.state.sessions.resolve(&signed.session, now_secs()).await.unwrap();
+		assert_eq!(session.access_token, crate::routes::test_support::ACCESS_TOKEN, "and it opens under the cookie");
+	}
+
+	/// A rotation renews the tokens, not the session: the cookie dies at the deadline the
+	/// callback gave it, so the row must not outlive it holding a live refresh token
+	/// (security review F2).
+	#[tokio::test]
+	async fn a_rotation_never_extends_the_sessions_deadline() {
+		let Some(h) = Harness::new(None).await else { return };
+		h.concierge.grant(INVESTOR);
+		let deadline = now_secs() + 3_600;
+		let tokens = evconcierge_client::ClientTokens {
+			user_id: USER,
+			access_token: "lapsing".into(),
+			access_expires_at: now_secs() + 5,
+			refresh_token: "refresh".into(),
+			refresh_expires_at: deadline,
+		};
+		let opened = h.state.sessions.open(&tokens, now_secs()).await.unwrap();
+		let signed = crate::routes::test_support::Signed {
+			cookie: format!("invest_session={}; invest_csrf={CSRF}", opened.cookie),
+			session: opened.cookie,
+		};
+		let (status, _, _) = h.send(request("GET", "/cabinet/api/auth/session", Some(&signed), None, false)).await;
+		assert_eq!(status, StatusCode::OK);
+		assert_eq!(h.concierge.refreshes(), 1, "the session rotated");
+		let key = crate::session::SessionKey::of_cookie(&signed.session).unwrap();
+		let expires_at: i64 = sqlx::query_scalar("SELECT expires_at FROM cabinet.sessions WHERE id_hash = $1")
+			.bind(key.as_bytes())
+			.fetch_one(h.state.sessions.pool())
+			.await
+			.expect("the row is still there");
+		assert_eq!(expires_at, deadline, "the rotated refresh token's later expiry is not the session's");
+	}
+
+	#[tokio::test]
+	async fn the_session_reads_getme_once_a_minute() {
+		let Some(h) = Harness::new(None).await else { return };
+		let signed = h.sign_in(INVESTOR).await;
+		for _ in 0..3 {
+			assert_eq!(h.send(request("GET", "/cabinet/api/auth/session", Some(&signed), None, false)).await.0, StatusCode::OK);
+		}
+		assert_eq!(h.concierge.me_calls(), 1);
 	}
 
 	/// concierge refusing the refresh (signed out on evinvest.ltd, suspended) ends the session

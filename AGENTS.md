@@ -47,8 +47,8 @@ banking's on purpose.
   Its bookkeeping (`concierge_projection_*`) is created at boot by the crate, versioned
   apart from `core/migrations/`; truncate it together with `users` or not at all.
 - **Health stays outside auth.** `grpc.health.v1` is not wrapped in the auth layer.
-- **The browser holds no token.** The cabinet BFF keeps concierge's tokens in
-  `cabinet.sessions`, keyed by the hash of the session cookie. Every mutating route calls
+- **The browser holds no token.** The cabinet BFF keeps concierge's tokens sealed (key
+  derived from the cookie) in `cabinet.sessions`, keyed by the hash of the session cookie. Every mutating route calls
   `verify_csrf` (double-submit + `Origin`); the redirect URI is concierge's registered
   `/cabinet/auth/callback`, byte for byte.
 

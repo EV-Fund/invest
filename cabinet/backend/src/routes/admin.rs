@@ -3,8 +3,8 @@
 //! Every handler is gated first by [`require_permission`] on an `invest:*` permission as
 //! concierge resolves the caller's seat, then forwards the caller's access token to
 //! invest-core, which re-checks the same permission against its own projection (defense
-//! in depth; a missing one surfaces as 403). Mutations verify CSRF and `Origin` right
-//! after the gate. The gates mirror invest-core's: `invest:allocation:manage` everywhere
+//! in depth; a missing one surfaces as 403). Mutations verify CSRF and `Origin` first,
+//! as the investor routes do, so a forged request costs no session read and no `GetMe`. The gates mirror invest-core's: `invest:allocation:manage` everywhere
 //! but posting a valuation, which is `invest:valuation:post`.
 
 use axum::{
@@ -69,10 +69,10 @@ pub async fn list_fee_policies(State(st): State<AppState>, jar: Cookies) -> Resu
 /// or 0 = as soon as the notice allows) and `reason` (required by invest-core when the change
 /// needs the owners) travel as given; invest-core decides the requirement and the moment.
 pub async fn schedule_fee_policy(State(st): State<AppState>, jar: Cookies, headers: HeaderMap, body: Bytes) -> Result<Json<dto::FeePolicyChange>, ApiError> {
-	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	if !verify_csrf(&st, &jar, &headers) {
 		return Err(ApiError::Csrf);
 	}
+	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	let v = parse_body(&body);
 	let (Some(service), Some(basis), Some(crystallization)) = (required(&v, "service"), required(&v, "basis"), required(&v, "crystallization")) else {
 		return Err(ApiError::BadRequest("service, basis and crystallization are required".into()));
@@ -107,10 +107,10 @@ pub async fn schedule_fee_policy(State(st): State<AppState>, jar: Cookies, heade
 
 /// `POST /cabinet/api/admin/fees/policy/cancel` — withdraw a pending change of terms.
 pub async fn cancel_fee_policy_change(State(st): State<AppState>, jar: Cookies, headers: HeaderMap, body: Bytes) -> Result<Json<dto::FeePolicyChange>, ApiError> {
-	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	if !verify_csrf(&st, &jar, &headers) {
 		return Err(ApiError::Csrf);
 	}
+	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	let v = parse_body(&body);
 	let (Some(service), Some(change_id)) = (required(&v, "service"), required(&v, "change_id")) else {
 		return Err(ApiError::BadRequest("service and change_id are required".into()));
@@ -122,10 +122,10 @@ pub async fn cancel_fee_policy_change(State(st): State<AppState>, jar: Cookies, 
 /// of a scheduled change who could not be told, so a tightening binds over them. invest-core
 /// decides who may (the requester or an owner) and whether there is anything to acknowledge.
 pub async fn acknowledge_undelivered_notices(State(st): State<AppState>, jar: Cookies, headers: HeaderMap, body: Bytes) -> Result<Json<dto::FeePolicyChange>, ApiError> {
-	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	if !verify_csrf(&st, &jar, &headers) {
 		return Err(ApiError::Csrf);
 	}
+	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	let v = parse_body(&body);
 	let (Some(service), Some(change_id)) = (required(&v, "service"), required(&v, "change_id")) else {
 		return Err(ApiError::BadRequest("service and change_id are required".into()));
@@ -163,10 +163,10 @@ pub async fn fee_shares(State(st): State<AppState>, jar: Cookies, Query(q): Quer
 /// Refused rather than queued when the fund's claim cannot cover it on top of its queued
 /// redemptions — the manager is paid last.
 pub async fn settle_fee_shares(State(st): State<AppState>, jar: Cookies, headers: HeaderMap, body: Bytes) -> Result<Json<dto::FeeSettlement>, ApiError> {
-	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	if !verify_csrf(&st, &jar, &headers) {
 		return Err(ApiError::Csrf);
 	}
+	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	let v = parse_body(&body);
 	let Some(service) = required(&v, "service") else {
 		return Err(ApiError::BadRequest("service is required".into()));
@@ -237,10 +237,10 @@ fn allocation_icon(v: &Value) -> Result<Option<String>, ApiError> {
 /// `POST /cabinet/api/admin/allocations/register` — register a new investable product (`draft`).
 /// This is the only way a fund comes into existence.
 pub async fn register_allocation(State(st): State<AppState>, jar: Cookies, headers: HeaderMap, body: Bytes) -> Result<Json<dto::Allocation>, ApiError> {
-	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	if !verify_csrf(&st, &jar, &headers) {
 		return Err(ApiError::Csrf);
 	}
+	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	let v = parse_body(&body);
 	let (Some(service), Some(title)) = (required(&v, "service"), required(&v, "title")) else {
 		return Err(ApiError::BadRequest("service and title are required".into()));
@@ -262,10 +262,10 @@ pub async fn register_allocation(State(st): State<AppState>, jar: Cookies, heade
 
 /// `POST /cabinet/api/admin/allocations/update` — edit an allocation's presentation fields.
 pub async fn update_allocation(State(st): State<AppState>, jar: Cookies, headers: HeaderMap, body: Bytes) -> Result<Json<dto::Allocation>, ApiError> {
-	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	if !verify_csrf(&st, &jar, &headers) {
 		return Err(ApiError::Csrf);
 	}
+	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	let v = parse_body(&body);
 	let (Some(service), Some(title)) = (required(&v, "service"), required(&v, "title")) else {
 		return Err(ApiError::BadRequest("service and title are required".into()));
@@ -285,10 +285,10 @@ pub async fn update_allocation(State(st): State<AppState>, jar: Cookies, headers
 /// `POST /cabinet/api/admin/allocations/state` — open or close an allocation. Closing stops new
 /// subscriptions only; redemptions keep working so no investor is trapped.
 pub async fn set_allocation_state(State(st): State<AppState>, jar: Cookies, headers: HeaderMap, body: Bytes) -> Result<Json<dto::Allocation>, ApiError> {
-	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	if !verify_csrf(&st, &jar, &headers) {
 		return Err(ApiError::Csrf);
 	}
+	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	let v = parse_body(&body);
 	let (Some(service), Some(state)) = (required(&v, "service"), required(&v, "state")) else {
 		return Err(ApiError::BadRequest("service and state are required".into()));
@@ -301,10 +301,10 @@ pub async fn set_allocation_state(State(st): State<AppState>, jar: Cookies, head
 /// Separate from `/update` because this one gates money: invest-core refuses a subscription
 /// that would carry the issued supply past it.
 pub async fn set_allocation_unit_cap(State(st): State<AppState>, jar: Cookies, headers: HeaderMap, body: Bytes) -> Result<Json<dto::Allocation>, ApiError> {
-	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	if !verify_csrf(&st, &jar, &headers) {
 		return Err(ApiError::Csrf);
 	}
+	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	let v = parse_body(&body);
 	let (Some(service), Some(unit_cap)) = (required(&v, "service"), required(&v, "unit_cap")) else {
 		return Err(ApiError::BadRequest("service and unit_cap are required".into()));
@@ -334,10 +334,10 @@ fn allocation_access_level(v: &Value, key: &str, grantable: bool) -> Result<Stri
 /// (`hidden` | `view` | `invest`). Orthogonal to `/state`: that says whether the product
 /// deals, this says with whom by default. Per-investor grants are untouched.
 pub async fn set_allocation_access(State(st): State<AppState>, jar: Cookies, headers: HeaderMap, body: Bytes) -> Result<Json<dto::Allocation>, ApiError> {
-	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	if !verify_csrf(&st, &jar, &headers) {
 		return Err(ApiError::Csrf);
 	}
+	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	let v = parse_body(&body);
 	let Some(service) = required(&v, "service") else {
 		return Err(ApiError::BadRequest("service is required".into()));
@@ -354,10 +354,10 @@ pub async fn set_allocation_access(State(st): State<AppState>, jar: Cookies, hea
 /// units — or corrects a product back. Idempotent. The vocabulary is checked here, like
 /// an access level, so a typo is refused one hop away.
 pub async fn set_allocation_backing(State(st): State<AppState>, jar: Cookies, headers: HeaderMap, body: Bytes) -> Result<Json<dto::Allocation>, ApiError> {
-	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	if !verify_csrf(&st, &jar, &headers) {
 		return Err(ApiError::Csrf);
 	}
+	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	let v = parse_body(&body);
 	let Some(service) = required(&v, "service") else {
 		return Err(ApiError::BadRequest("service is required".into()));
@@ -393,10 +393,10 @@ pub async fn list_allocation_access_grants(State(st): State<AppState>, jar: Cook
 /// on a product. A repeat for the same investor overwrites the level. `user_id` is the
 /// person's concierge user id.
 pub async fn grant_allocation_access(State(st): State<AppState>, jar: Cookies, headers: HeaderMap, body: Bytes) -> Result<Json<dto::AllocationAccessGrant>, ApiError> {
-	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	if !verify_csrf(&st, &jar, &headers) {
 		return Err(ApiError::Csrf);
 	}
+	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	let v = parse_body(&body);
 	let (Some(service), Some(user_id)) = (required(&v, "service"), required(&v, "user_id")) else {
 		return Err(ApiError::BadRequest("service and user_id are required".into()));
@@ -410,10 +410,10 @@ pub async fn grant_allocation_access(State(st): State<AppState>, jar: Cookies, h
 /// fall to the product's default. Idempotent: revoking a grant that does not stand is
 /// still `ok`. Units they already hold are untouched and stay redeemable.
 pub async fn revoke_allocation_access(State(st): State<AppState>, jar: Cookies, headers: HeaderMap, body: Bytes) -> Result<Json<Value>, ApiError> {
-	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	if !verify_csrf(&st, &jar, &headers) {
 		return Err(ApiError::Csrf);
 	}
+	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	let v = parse_body(&body);
 	let (Some(service), Some(user_id)) = (required(&v, "service"), required(&v, "user_id")) else {
 		return Err(ApiError::BadRequest("service and user_id are required".into()));
@@ -430,10 +430,10 @@ pub async fn revoke_allocation_access(State(st): State<AppState>, jar: Cookies, 
 /// console generates one per form submission and re-sends the same one on a timeout, so
 /// a double click lands one mint.
 pub async fn issue_units(State(st): State<AppState>, jar: Cookies, headers: HeaderMap, body: Bytes) -> Result<Json<dto::UnitIssuance>, ApiError> {
-	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	if !verify_csrf(&st, &jar, &headers) {
 		return Err(ApiError::Csrf);
 	}
+	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	let v = parse_body(&body);
 	let (Some(service), Some(user_id), Some(units), Some(idempotency_key)) = (required(&v, "service"), required(&v, "user_id"), required(&v, "units"), required(&v, "idempotency_key"))
 	else {
@@ -470,10 +470,10 @@ pub async fn list_unit_holders(State(st): State<AppState>, jar: Cookies, Query(q
 /// mint, with `source: "retire"` and positive `units`. The key is the same retry
 /// contract, in the same per-product key space as `/allocations/issue`.
 pub async fn retire_units(State(st): State<AppState>, jar: Cookies, headers: HeaderMap, body: Bytes) -> Result<Json<dto::UnitIssuance>, ApiError> {
-	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	if !verify_csrf(&st, &jar, &headers) {
 		return Err(ApiError::Csrf);
 	}
+	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	let v = parse_body(&body);
 	let (Some(service), Some(user_id), Some(units), Some(idempotency_key)) = (required(&v, "service"), required(&v, "user_id"), required(&v, "units"), required(&v, "idempotency_key"))
 	else {
@@ -506,10 +506,10 @@ pub async fn retire_units(State(st): State<AppState>, jar: Cookies, headers: Hea
 /// acknowledgement that the book trades units the fund holds no cash for is given, never
 /// presumed; invest-core refuses to open an `in_kind` product's book without it.
 pub async fn set_book_policy(State(st): State<AppState>, jar: Cookies, headers: HeaderMap, body: Bytes) -> Result<Json<dto::BookPolicy>, ApiError> {
-	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	if !verify_csrf(&st, &jar, &headers) {
 		return Err(ApiError::Csrf);
 	}
+	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	let v = parse_body(&body);
 	let Some(service) = required(&v, "service") else {
 		return Err(ApiError::BadRequest("service is required".into()));
@@ -540,10 +540,10 @@ pub async fn set_book_policy(State(st): State<AppState>, jar: Cookies, headers: 
 /// `override` in the body (banking#232): a mark the guard refuses needs the owners'
 /// approval, which moves to concierge (S2-6) and is not served here yet.
 pub async fn post_valuation(State(st): State<AppState>, jar: Cookies, headers: HeaderMap, body: Bytes) -> Result<Json<dto::FundNav>, ApiError> {
-	let token = require_permission(&st, &jar, Permission::ValuationPost).await?;
 	if !verify_csrf(&st, &jar, &headers) {
 		return Err(ApiError::Csrf);
 	}
+	let token = require_permission(&st, &jar, Permission::ValuationPost).await?;
 	let v = parse_body(&body);
 	let (Some(service), Some(aum)) = (required(&v, "service"), required(&v, "aum")) else {
 		return Err(ApiError::BadRequest("service and aum are required".into()));
@@ -554,10 +554,10 @@ pub async fn post_valuation(State(st): State<AppState>, jar: Cookies, headers: H
 
 /// `POST /cabinet/api/admin/valuation/settle` — settle a queued redemption.
 pub async fn settle_redemption(State(st): State<AppState>, jar: Cookies, headers: HeaderMap, body: Bytes) -> Result<Json<dto::Redemption>, ApiError> {
-	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	if !verify_csrf(&st, &jar, &headers) {
 		return Err(ApiError::Csrf);
 	}
+	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	let Some(id) = required(&parse_body(&body), "redemption_id") else {
 		return Err(ApiError::BadRequest("redemption_id is required".into()));
 	};
@@ -566,10 +566,10 @@ pub async fn settle_redemption(State(st): State<AppState>, jar: Cookies, headers
 
 /// `POST /cabinet/api/admin/valuation/fail` — fail (void + refund units) a queued redemption.
 pub async fn fail_redemption(State(st): State<AppState>, jar: Cookies, headers: HeaderMap, body: Bytes) -> Result<Json<dto::Redemption>, ApiError> {
-	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	if !verify_csrf(&st, &jar, &headers) {
 		return Err(ApiError::Csrf);
 	}
+	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	let Some(id) = required(&parse_body(&body), "redemption_id") else {
 		return Err(ApiError::BadRequest("redemption_id is required".into()));
 	};
@@ -608,7 +608,7 @@ mod admin_route_tests {
 	use tonic::{Code, Request as GrpcRequest, Response as GrpcResponse, Status, transport::Server};
 
 	use super::*;
-	use crate::routes::test_support::{Harness, INVESTOR, MANAGER, Signed, USER, bearer_ok, request, serve_core};
+	use crate::routes::test_support::{CSRF, Harness, INVESTOR, MANAGER, Signed, USER, bearer_ok, request, serve_core};
 
 	const SERVICE: &str = "quy-nhon";
 	const HOLDER: &str = "6f1c2a3e-0b4d-4c5e-8f9a-1b2c3d4e5f60";
@@ -1004,7 +1004,11 @@ mod admin_route_tests {
 			("POST", "/cabinet/api/admin/fees/policy", Some(SCHEDULE)),
 			("POST", "/cabinet/api/admin/valuation/post", Some(r#"{"service":"quy-nhon","aum":"1"}"#)),
 		] {
-			let (status, _, _) = f.h.send(request(method, uri, None, body, true)).await;
+			// The CSRF pair is present so the mutations pass that gate, which runs first, and
+			// are refused on the session — the thing this test is about.
+			let mut req = request(method, uri, None, body, true);
+			req.headers_mut().insert(axum::http::header::COOKIE, format!("invest_csrf={CSRF}").parse().unwrap());
+			let (status, _, _) = f.h.send(req).await;
 			assert_eq!(status, StatusCode::UNAUTHORIZED, "{method} {uri}");
 		}
 		assert_eq!(f.core.calls(), 0, "nothing reached invest-core");
@@ -1065,6 +1069,16 @@ mod admin_route_tests {
 		let (status, body) = f.send("POST", "/cabinet/api/admin/fees/policy", Some(SCHEDULE), false).await;
 		assert_eq!((status, body["error"].as_str()), (StatusCode::FORBIDDEN, Some("csrf")));
 		assert!(f.seen().schedule.is_none());
+	}
+
+	/// A forged mutation is refused on CSRF before the session or the permission is read —
+	/// no `GetMe` is spent on it.
+	#[tokio::test]
+	async fn csrf_is_checked_before_the_console_gate() {
+		let Some(f) = fixture(Core::default(), INVESTOR).await else { return };
+		let (status, body) = f.send("POST", "/cabinet/api/admin/fees/policy", Some(SCHEDULE), false).await;
+		assert_eq!((status, body["error"].as_str()), (StatusCode::FORBIDDEN, Some("csrf")));
+		assert_eq!(f.h.concierge.me_calls(), 0);
 	}
 
 	// ── fees ────────────────────────────────────────────────────────────────────
