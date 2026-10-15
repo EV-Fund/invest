@@ -1,14 +1,14 @@
 //! Allocation registry use cases — the catalog of investable products.
 //!
 //! Pure control plane: nothing here touches TigerBeetle or the relay, so no handler
-//! notifies it. The write side is Admin/Owner-gated at the service boundary
-//! (`bank:allocation:manage`); the read side is open to any authenticated user,
+//! notifies it. The write side is gated at the service boundary
+//! (`invest:allocation:manage`); the read side is open to any authenticated user,
 //! filtered to what that user may see, with the unrestricted view behind the same
 //! permission.
 //!
-//! The reserved `fee` and `fund` allocations (#245) are registered by migration 0045 and
+//! The reserved `fee` and `fund` allocations (#245) are registered by migration 0001 and
 //! are NOT an operator's to manage: every write here refuses them first
-//! ([`refuse_on_reserved`]). Their holders are seated by the owners' quorum, their state,
+//! ([`refuse_on_reserved`]). Their holders are seated by the owners' approval, their state,
 //! access, backing and cap are what the migration wrote, and a single `AllocationManage`
 //! holder can neither let themselves in nor lock the holders out.
 //!
@@ -19,7 +19,7 @@
 //! caller's access, the redeem gate never does — it consults the product's *backing*
 //! instead, because a redemption pays cash the fund has to actually hold.
 
-use domain::{
+use invest_domain::{
 	allocations::{Allocation, AllocationAccess, AllocationBacking, AllocationIcon, AllocationId},
 	balance::ServiceId,
 	error::DomainError,
@@ -38,7 +38,7 @@ use crate::ports::allocations::{AllocationAccessGrant, AllocationRecord, Allocat
 pub(crate) fn refuse_on_reserved(service: &ServiceId) -> Result<(), DomainError> {
 	if service.is_reserved() {
 		return Err(DomainError::Forbidden(format!(
-			"'{service}' is a reserved allocation: its holders are seated by the owners' consilium, and its state, access, backing and cap are not an operator's to change"
+			"'{service}' is a reserved allocation: its holders are seated by the owners' approval, and its state, access, backing and cap are not an operator's to change"
 		)));
 	}
 	Ok(())
@@ -123,7 +123,7 @@ pub async fn list_grants(allocations: &dyn AllocationRegistry, service: &Service
 
 /// One allocation by service id, in any state, caller-agnostic. `NotFound` if never
 /// registered. For anything shown to a caller, use [`get_for`] — this is the internal
-/// resolver the valuation and fee paths use, where no investor is looking.
+/// resolver the valuation and issuance paths use, where no investor is looking.
 pub async fn get(allocations: &dyn AllocationRegistry, service: &ServiceId) -> Result<Allocation, DomainError> {
 	allocations.find(service).await?.ok_or_else(|| not_found(service))
 }

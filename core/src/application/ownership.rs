@@ -1,13 +1,12 @@
-//! Who holds an allocation — the read behind the cap table, the treasury and the
-//! reconciliation's per-allocation checks (#245).
+//! Who holds an allocation — the read behind the cap table and the "every unit at a
+//! holder" checks (#245).
 //!
-//! The invariant every PR of the ownership work is held to: **every unit of value on
-//! every ledger is at a holder**, a person directly (a `user:<id>` claim) or through
-//! the units of an allocation. This module is where that is *read*, never derived: an
-//! allocation's holders are summed from the Share ledger's holding accounts, its supply
-//! is read from `SharesOutstanding`, its cash from its claim, and the two figures a
-//! reader compares — `Σ holders` and the supply — are both reported, so a remainder is
-//! a finding rather than something a view fills in.
+//! The invariant every PR of the ownership work is held to: **every unit of value is at a
+//! holder**, a person directly or through the units of an allocation. This module is
+//! where that is *read*, never derived: an allocation's holders are summed from the Share
+//! ledger's holding accounts and its supply is read from `SharesOutstanding`, and the two
+//! figures a reader compares — `Σ holders` and the supply — are both reported, so a
+//! remainder is a finding rather than something a view fills in.
 //!
 //! Two things can be wrong with an allocation, and they are reported apart:
 //! - **units drift** ([`AllocationOwnership::units_reconcile`] false) — the supply is
@@ -16,12 +15,16 @@
 //! - **value without a holder** ([`AllocationOwnership::is_unheld`]) — the allocation
 //!   holds cash or product units while nobody holds units of it. Nothing is lost and
 //!   nothing is inconsistent; the money is simply not yet anyone's. It happens when
-//!   fees settle into `service:fee` before a holder grant seats anyone — so it is a
-//!   warning and a number, not an alert; the owners decide whose it is.
+//!   fees settle into `fee` before a holder grant seats anyone — so it is a warning and a
+//!   number, not an alert; the owners decide whose it is.
+//!
+//! The cash side is banking's (`(invest, alloc:<slug>)`), so the caller who needs it reads
+//! it through the money port ([`crate::application::funds::allocation_cash`]) and hands
+//! it in; the cap table needs units only and never calls banking.
 
 use std::collections::HashMap;
 
-use domain::{
+use invest_domain::{
 	balance::{LedgerAccountKey, ServiceId},
 	error::DomainError,
 	issuance::UnitHolder,
@@ -30,38 +33,13 @@ use domain::{
 
 use crate::{
 	application::issuance::UnitHolding,
-	ports::ledger::{HoldingScope, Ledger, LedgerBalance},
+	ports::ledger::{HoldingScope, Ledger},
 };
-
-/// An allocation's cash claim, split the way every reader of it needs: what is settled,
-/// what a payment out of it has spoken for, and what is left to spend. Read off ONE
-/// balance, so the three can never disagree.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct AllocationClaim {
-	/// The settled balance of `service:<svc>`.
-	pub posted: Usdt,
-	/// `posted − reserved`.
-	pub available: Usdt,
-	/// Locked by approved payments out of the claim that have not settled.
-	pub reserved: Usdt,
-}
-
-impl From<LedgerBalance> for AllocationClaim {
-	fn from(balance: LedgerBalance) -> Self {
-		Self {
-			posted: Usdt::from_base_units(balance.posted),
-			available: Usdt::from_base_units(balance.available()),
-			reserved: Usdt::from_base_units(balance.locked),
-		}
-	}
-}
 
 /// One allocation's ownership picture, read live from the ledger.
 #[derive(Clone, Debug)]
 pub struct AllocationOwnership {
 	pub service: ServiceId,
-	/// The allocation's cash.
-	pub claim: AllocationClaim,
 	/// Units in circulation — what the cash and the held product units are divided over.
 	pub units_outstanding: Shares,
 	/// Who holds it, largest first; ties broken by the holder's stored identity, so the
@@ -87,16 +65,16 @@ impl AllocationOwnership {
 		self.held_units() == self.units_outstanding
 	}
 
-	/// Whether anything stands behind the allocation's units — cash on its claim, or
-	/// units of a product it holds.
-	pub fn has_value(&self) -> bool {
-		!self.claim.posted.is_zero() || self.product_units.iter().any(|(_, units)| !units.is_zero())
+	/// Whether anything stands behind the allocation's units — `cash` on its account in
+	/// banking, or units of a product it holds.
+	pub fn has_value(&self, cash: Usdt) -> bool {
+		!cash.is_zero() || self.product_units.iter().any(|(_, units)| !units.is_zero())
 	}
 
 	/// Value with nobody behind it: the allocation holds something while no unit of it
 	/// is outstanding, so no person owns what it holds.
-	pub fn is_unheld(&self) -> bool {
-		self.units_outstanding.is_zero() && self.has_value()
+	pub fn is_unheld(&self, cash: Usdt) -> bool {
+		self.units_outstanding.is_zero() && self.has_value(cash)
 	}
 }
 
@@ -109,7 +87,6 @@ impl AllocationOwnership {
 /// one-unit drift. A view reports both figures and lets the reader compare; the
 /// reconciliation takes a second look before it alerts.
 pub async fn allocation_ownership(ledger: &dyn Ledger, service: ServiceId) -> Result<AllocationOwnership, DomainError> {
-	let claim = AllocationClaim::from(ledger.balance(&LedgerAccountKey::ServiceClaim(service.clone())).await?);
 	let units_outstanding = Shares::from_base_units(ledger.balance(&LedgerAccountKey::SharesOutstanding(service.clone())).await?.posted);
 	let mut by_holder: HashMap<UnitHolder, Shares> = HashMap::new();
 	for (key, units) in ledger.share_holdings(&HoldingScope::Product(service.clone())).await? {
@@ -140,7 +117,6 @@ pub async fn allocation_ownership(ledger: &dyn Ledger, service: ServiceId) -> Re
 	}
 	Ok(AllocationOwnership {
 		service,
-		claim,
 		units_outstanding,
 		holders,
 		product_units,
@@ -161,7 +137,7 @@ fn holder_identity(holder: &UnitHolder) -> (&'static str, String) {
 
 #[cfg(test)]
 mod tests {
-	use domain::users::UserId;
+	use invest_domain::users::UserId;
 
 	use super::*;
 
@@ -173,14 +149,9 @@ mod tests {
 		Usdt::parse_decimal(decimal).unwrap()
 	}
 
-	fn picture(claim: &str, outstanding: &str, holders: &[&str], product_units: &[&str]) -> AllocationOwnership {
+	fn picture(outstanding: &str, holders: &[&str], product_units: &[&str]) -> AllocationOwnership {
 		AllocationOwnership {
 			service: ServiceId::fee(),
-			claim: AllocationClaim {
-				posted: usdt(claim),
-				available: usdt(claim),
-				reserved: Usdt::ZERO,
-			},
 			units_outstanding: shares(outstanding),
 			holders: holders
 				.iter()
@@ -195,22 +166,21 @@ mod tests {
 
 	#[test]
 	fn the_supply_reconciles_when_the_holders_add_up_to_it() {
-		assert!(picture("0", "30", &["10", "20"], &[]).units_reconcile());
-		assert!(!picture("0", "30", &["10", "10"], &[]).units_reconcile(), "a unit nobody holds is drift");
-		assert!(!picture("0", "10", &["10", "10"], &[]).units_reconcile(), "a unit held beyond the supply is drift");
-		assert!(picture("0", "0", &[], &[]).units_reconcile(), "an empty allocation trivially reconciles");
+		assert!(picture("30", &["10", "20"], &[]).units_reconcile());
+		assert!(!picture("30", &["10", "10"], &[]).units_reconcile(), "a unit nobody holds is drift");
+		assert!(!picture("10", &["10", "10"], &[]).units_reconcile(), "a unit held beyond the supply is drift");
+		assert!(picture("0", &[], &[]).units_reconcile(), "an empty allocation trivially reconciles");
 	}
 
 	#[test]
 	fn value_is_unheld_only_while_nobody_holds_units_of_it() {
-		// The window between the first release and the data migration: fees settled into
-		// `service:fee`, no holder seated yet.
-		assert!(picture("100", "0", &[], &[]).is_unheld());
+		// Fees settled into `fee`, no holder seated yet.
+		assert!(picture("0", &[], &[]).is_unheld(usdt("100")));
 		// The same for the fee classes it holds in a product.
-		assert!(picture("0", "0", &[], &["5"]).is_unheld());
+		assert!(picture("0", &[], &["5"]).is_unheld(Usdt::ZERO));
 		// One holder seated: the same cash is theirs.
-		assert!(!picture("100", "1", &["1"], &[]).is_unheld());
+		assert!(!picture("1", &["1"], &[]).is_unheld(usdt("100")));
 		// Nothing there, nobody there: nothing to report.
-		assert!(!picture("0", "0", &[], &[]).is_unheld());
+		assert!(!picture("0", &[], &[]).is_unheld(Usdt::ZERO));
 	}
 }

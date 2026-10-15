@@ -1,9 +1,11 @@
 //! Postgres adapter for the [`FundPositionReader`] port — reads the `fund_positions`
-//! projection (cost basis + high-water mark) maintained by subscribe/redeem, and the
-//! holder's unit flows merged from the records of every channel that moves units.
+//! projection (cost basis + high-water mark) the relay maintains, and the holder's unit
+//! flows merged from the records of every channel that moves units. The subscription,
+//! redemption, fee and book tables are empty until those flows arrive (PR 1b); the merge
+//! reads them already so the history needs no second shape then.
 
 use async_trait::async_trait;
-use domain::{
+use invest_domain::{
 	balance::ServiceId,
 	error::DomainError,
 	money::{Nav, Usdt},

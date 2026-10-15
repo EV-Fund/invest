@@ -8,87 +8,15 @@
 //! (never the delivery cursor `seq`). [`super::relay`] drains undispatched rows in
 //! strict `seq` order.
 
-use domain::{
+use invest_domain::{
 	architecture::{DomainEvent, EmitsEvents, Entity, Identifier},
-	balance::LedgerAccountKey,
 	error::DomainError,
-	users::UserId,
 };
 use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
-/// Take the per-user write lock — a transaction-scoped `pg_advisory_xact_lock` keyed on the
-/// user id — inside an open command transaction, held until commit. Every flow that spends a
-/// user's unified `UserClaim` (withdraw, subscribe) takes this *same* target before its
-/// Read-First so the optimistic solvency checks serialize across flows: without it a
-/// concurrent withdraw + subscribe on one claim both read the same stale `available()`, both
-/// commit `Queued`, and the second reserve then parks in the relay, silently diverging PG
-/// from TB. (Redemptions serialize on their `fund_positions` row instead — a different
-/// account, the units, not the claim.) An advisory lock (over a `users`-row `FOR UPDATE`)
-/// engages even before the user row is materialized and needs no FK, so the serialization is
-/// unconditional. TigerBeetle's non-negative flag remains the actual money backstop.
-pub async fn lock_user(conn: &mut PgConnection, user_id: Uuid) -> Result<(), DomainError> {
-	lock_claim(conn, &LedgerAccountKey::UserClaim(UserId::from_raw(user_id))).await
-}
-
-/// Take the write lock for ONE claim — the general form of [`lock_user`].
-///
-/// Every writer that spends a claim must take this same target before its optimistic
-/// Read-First, or the serialization silently stops covering whoever was added last. Keying
-/// it on the claim rather than on a user id is what lets a spender of `fee`, `fund` or a
-/// service claim join that discipline without inventing a second lock space.
-pub async fn lock_claim(conn: &mut PgConnection, claim: &LedgerAccountKey) -> Result<(), DomainError> {
-	sqlx::query("SELECT pg_advisory_xact_lock($1)")
-		.bind(claim_lock_key(claim))
-		.execute(&mut *conn)
-		.await
-		.map_err(repo_err)?;
-	Ok(())
-}
-
-/// Take a transaction-scoped advisory lock on an arbitrary `name`, for a writer that must
-/// serialize on something other than a claim (a user's idempotency key). Hashed into the
-/// same key space as [`lock_claim`]; a name is never a ledger logical key, so the two cannot
-/// meet by accident — prefix it with what it locks.
-pub async fn lock_named(conn: &mut PgConnection, name: &str) -> Result<(), DomainError> {
-	sqlx::query("SELECT pg_advisory_xact_lock($1)")
-		.bind(advisory_key(Uuid::new_v5(&Uuid::NAMESPACE_OID, name.as_bytes())))
-		.execute(&mut *conn)
-		.await
-		.map_err(repo_err)?;
-	Ok(())
-}
-
-/// The advisory-lock name for a claim.
-///
-/// THE NAMED ARM IS FROZEN, NOT STYLE. A rolling deploy runs the old binary and the new one
-/// against one database; if the new one derived a different name for the user claim, a
-/// withdraw on the old binary and a subscribe on the new one would take two DIFFERENT locks
-/// and stop serializing — the exact divergence this lock exists to prevent, arriving
-/// silently and only during a deploy. So the name every released binary has been taking is
-/// reproduced here verbatim, and the general formula covers every other claim.
-/// `the_generalized_claim_lock_keeps_the_keys_the_old_helpers_computed` pins it against a
-/// rewrite. (The retired `fee` claim had a frozen name of its own until #245 retired the
-/// revenue payout that took it; nothing spends that claim any more.)
-///
-/// A `_` arm is right here (unlike the exhaustive matches elsewhere in the domain): a new
-/// account key needs no decision, because the general formula already names it correctly and
-/// uniquely.
-fn claim_lock_name(claim: &LedgerAccountKey) -> Uuid {
-	match claim {
-		LedgerAccountKey::UserClaim(user) => user.raw(),
-		other => Uuid::new_v5(&Uuid::NAMESPACE_OID, other.logical_key().as_bytes()),
-	}
-}
-
-fn claim_lock_key(claim: &LedgerAccountKey) -> i64 {
-	advisory_key(claim_lock_name(claim))
-}
-
 /// Insert one event into the `event_log` (always) and the `outbox` (when `relay`),
 /// under a caller-supplied `event_id` so the two rows share the idempotency key.
-/// Used directly for standalone ledger facts (deposits/seeding) that have no
-/// aggregate to drain.
 pub async fn insert_event(conn: &mut PgConnection, event_id: Uuid, aggregate: &str, aggregate_id: Uuid, kind: &str, payload: &str, relay: bool) -> Result<(), DomainError> {
 	sqlx::query("INSERT INTO event_log (event_id, aggregate, aggregate_id, kind, payload) VALUES ($1, $2, $3, $4, $5::jsonb)")
 		.bind(event_id)
@@ -113,35 +41,14 @@ pub async fn insert_event(conn: &mut PgConnection, event_id: Uuid, aggregate: &s
 	Ok(())
 }
 /// Drain an aggregate's pending events onto the open transaction: each event lands
-/// in the `event_log`, and in the `outbox` too when `relay` is true (money-moving
-/// aggregates). State and events therefore commit together or not at all.
+/// in the `event_log`, and in the `outbox` too when `relay` is true (aggregates that
+/// move units). State and events therefore commit together or not at all.
 pub async fn drain_to_outbox<A>(conn: &mut PgConnection, aggregate: &mut A, relay: bool) -> Result<(), DomainError>
 where
 	A: EmitsEvents,
 	<A as Entity>::Id: Identifier<Underlying = Uuid>, {
 	let aggregate_id = Entity::id(aggregate).underlying();
 	for event in aggregate.drain_events() {
-		let payload = serde_json::to_string(&event).map_err(|e| DomainError::Repository(e.to_string()))?;
-		insert_event(conn, Uuid::new_v4(), A::NAME, aggregate_id, <A::Event as DomainEvent>::KIND, &payload, relay).await?;
-	}
-	Ok(())
-}
-/// Drain an aggregate's pending events, asking the EVENT whether each one belongs in the
-/// outbox — the per-event form of [`drain_to_outbox`], whose single flag answers for all of
-/// them at once.
-///
-/// Needed wherever one aggregate raises both money facts and audit facts. A payment order is
-/// the case: `Reserved` and `Settled` move money, while `Opened`, `Approved` and `Executed`
-/// are audit trail, and relaying `Executed` for an external payment would reserve the amount
-/// a second time behind the withdrawal that is already moving it.
-pub async fn drain_to_outbox_by<A, F>(conn: &mut PgConnection, aggregate: &mut A, relays: F) -> Result<(), DomainError>
-where
-	A: EmitsEvents,
-	<A as Entity>::Id: Identifier<Underlying = Uuid>,
-	F: Fn(&A::Event) -> bool, {
-	let aggregate_id = Entity::id(aggregate).underlying();
-	for event in aggregate.drain_events() {
-		let relay = relays(&event);
 		let payload = serde_json::to_string(&event).map_err(|e| DomainError::Repository(e.to_string()))?;
 		insert_event(conn, Uuid::new_v4(), A::NAME, aggregate_id, <A::Event as DomainEvent>::KIND, &payload, relay).await?;
 	}
@@ -234,7 +141,7 @@ pub async fn parked_rows(pool: &PgPool) -> Result<Vec<ParkedRow>, sqlx::Error> {
 	.await
 }
 /// Clear a parked row so the relay re-drives it — the operator's intervention once the
-/// park's cause (an underfunded treasury, a rejected broadcast) is fixed. `attempts`
+/// park's cause is fixed. `attempts`
 /// MUST reset with it: the relay re-parks a bounded retryable at `MAX_RETRYABLE_ATTEMPTS`,
 /// so a retry-exhausted row would otherwise re-park on its first redelivery. `last_error`
 /// is kept for forensics (the next attempt overwrites it). Refuses a dispatched row
@@ -279,48 +186,6 @@ pub async fn pipeline_depth(pool: &PgPool) -> Result<PipelineDepth, sqlx::Error>
 	.fetch_one(pool)
 	.await
 }
-/// Fold a user UUID into the `bigint` advisory-lock key space. XOR-ing the two 64-bit halves
-/// keeps the full 128 bits of entropy in play (a single half would ignore the other), so two
-/// distinct users practically never share a key and serialize against each other.
-fn advisory_key(user_id: Uuid) -> i64 {
-	let (hi, lo) = user_id.as_u64_pair();
-	(hi ^ lo) as i64
-}
-
 fn repo_err(err: sqlx::Error) -> DomainError {
 	DomainError::Repository(err.to_string())
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[test]
-	fn the_generalized_claim_lock_keeps_the_keys_the_old_helpers_computed() {
-		// The formulas below are written out rather than called, on purpose: they are what
-		// every deployed binary computes today, so this test fails the moment `claim_lock_name`
-		// is "simplified" into a uniform v5 over `logical_key()` and the live lock quietly
-		// moves to a new target.
-		let user = Uuid::new_v4();
-		assert_eq!(
-			claim_lock_key(&LedgerAccountKey::UserClaim(UserId::from_raw(user))),
-			advisory_key(user),
-			"lock_user keyed the raw user id"
-		);
-		assert_eq!(
-			claim_lock_key(&LedgerAccountKey::ServiceClaim(domain::balance::ServiceId::fee())),
-			advisory_key(Uuid::new_v5(&Uuid::NAMESPACE_OID, b"service:fee")),
-			"every other claim is a v5 over its logical key"
-		);
-		// And distinct claims still get distinct targets, or the generalization would have
-		// serialized unrelated writers against each other.
-		assert_ne!(
-			claim_lock_key(&LedgerAccountKey::ServiceClaim(domain::balance::ServiceId::fee())),
-			claim_lock_key(&LedgerAccountKey::ServiceClaim(domain::balance::ServiceId::fund()))
-		);
-		assert_ne!(
-			claim_lock_key(&LedgerAccountKey::UserClaim(UserId::from_raw(user))),
-			claim_lock_key(&LedgerAccountKey::UserClaim(UserId::from_raw(Uuid::new_v4())))
-		);
-	}
 }

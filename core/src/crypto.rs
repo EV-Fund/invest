@@ -1,13 +1,10 @@
 //! The process-level rustls crypto provider, chosen once at start-up.
 //!
-//! The hub's dependency graph enables two rustls providers: `ring` (through tonic) and
-//! `aws-lc-rs` (through reqwest). A rustls CLIENT built by tonic picks ring on its own, so the
-//! outbound seams (the bridge, the signer) never noticed. A rustls SERVER does not guess: the
-//! first TLS listener — the scope ledger's — panicked on its first handshake with "Could not
-//! automatically determine the process-level CryptoProvider", taking the whole hub down. So
-//! `main` installs one before any server or client is built, and every test that stands up
-//! a TLS server calls this same function rather than installing a provider of its own, so a
-//! test cannot pass on a provider production never installs.
+//! The dependency graph can enable two rustls providers: `ring` (through tonic) and
+//! `aws-lc-rs` (through reqwest, which concierge's auth crate pulls in). rustls refuses to
+//! guess between them — banking's first TLS listener panicked on its first handshake with
+//! "Could not automatically determine the process-level CryptoProvider" — so `main`
+//! installs one before any TLS client (the scope ledger's mTLS) is built.
 
 use rustls::crypto::CryptoProvider;
 

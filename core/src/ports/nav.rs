@@ -8,7 +8,7 @@
 //! the name, which the kernel reserves for aggregate persistence).
 
 use async_trait::async_trait;
-use domain::{
+use invest_domain::{
 	balance::{ServiceId, ValuationId},
 	error::DomainError,
 	money::{Nav, Shares, Usdt},
@@ -26,7 +26,7 @@ pub trait NavMarks: Send + Sync {
 	async fn anchor(&self, service: &ServiceId, at_unix: i64) -> Result<Option<Valuation>, DomainError>;
 
 	/// Whether `subject` posted a mark for `service` strictly after `since_unix` — the
-	/// redeem cooldown's question. `subject` is the `posted_by` string as recorded.
+	/// redeem cooldown's question (PR 1b). `subject` is the `posted_by` string as recorded.
 	async fn posted_by_since(&self, service: &ServiceId, subject: &str, since_unix: i64) -> Result<bool, DomainError>;
 
 	/// The marks with `from_unix ≤ posted_at ≤ to_unix`, OLDEST first, at most `limit` of
@@ -34,9 +34,9 @@ pub trait NavMarks: Send + Sync {
 	/// drop something drops the deep past, never the current price).
 	async fn history(&self, service: &ServiceId, from_unix: i64, to_unix: i64, limit: usize) -> Result<Vec<Valuation>, DomainError>;
 
-	/// One mark by its caller-minted id, or `None`. The consilium execution path derives
-	/// the id from the consilium and re-reads it here, so a retried execution finds the
-	/// mark it already recorded instead of filing a phantom failure.
+	/// One mark by its caller-minted id, or `None` — so a retried owners' override (an
+	/// approved valuation, once concierge approvals reach invest) finds the mark it
+	/// already recorded.
 	async fn find(&self, id: ValuationId) -> Result<Option<Valuation>, DomainError>;
 
 	/// Append a new mark — `id` is caller-minted, `posted_at` is DB-stamped. Returns the

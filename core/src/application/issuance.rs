@@ -8,23 +8,21 @@
 //! spending a balance: they are recording that a holder owns a share of an asset the
 //! product was registered against.
 //!
-//! Admin-only at the boundary (`bank:allocation:manage`). The allocation must be
+//! Admin-only at the boundary (`invest:allocation:manage`). The allocation must be
 //! registered but may be in any state: a product sized and seeded before it opens is the
 //! normal case, and a closed one may still need its cap table corrected.
 //!
 //! [`retire_units`] is the mint's mirror — a holder's units burnt with no cash leg —
 //! with a Read-First on what the holder has free and a closed-door gate that `force`
-//! overrides. The hand-over out of the company's stake (the stake-transfer RPC) was
-//! retired with the company holder itself (#245); the two rows it and the company mint
-//! wrote are history ([`StoredIssuance::RetiredCompany`]), and their key is taken for good.
+//! overrides.
 //!
 //! **The reserved allocations are not the operator's to mint.** `fee` and `fund` are the
 //! platform's own money, held by people (#245); a unit of either dilutes every holder
 //! already there, and who holds the owners' money is the owners' call, not one
 //! administrator's. [`issue_units`] and [`retire_units`] therefore refuse a reserved
 //! `service` outright, and the one door that mints reserved units — [`grant_units`] — is
-//! reached only as the effect of an executed holder-grant consilium (and by the one-off
-//! data migration that seats the first holders). A holder LEAVES a reserved allocation by
+//! reached only as the effect of an owners' holder grant (concierge approvals, a
+//! follow-up) and by the data wave that seats the first holders. A holder LEAVES a reserved allocation by
 //! redemption at its NAV, never by an operator's burn.
 //!
 //! A mint also flips the product's backing to `in_kind` (see
@@ -32,7 +30,7 @@
 //! have no cash in the fund's claim, so the redeem path has to know before the first
 //! holder asks to be paid out of it.
 
-use domain::{
+use invest_domain::{
 	allocations::{AllocationBacking, AllocationState},
 	balance::ServiceId,
 	error::DomainError,
@@ -47,9 +45,9 @@ use crate::{
 		ownership as ownership_app,
 	},
 	ports::{
-		UnitIssuanceRepository, UserRepository,
+		UnitIssuanceRepository, UserDirectory,
 		allocations::AllocationRegistry,
-		issuance::{IssueOutcome, StoredIssuance, UnitIssuanceRecord},
+		issuance::{IssueOutcome, UnitIssuanceRecord},
 		ledger::Ledger,
 	},
 };
@@ -115,7 +113,7 @@ pub struct UnitHolding {
 /// so it runs before any read could fail for a reason that hides it); the allocation
 /// must be registered, in any state; the holder must exist — a user (units minted to a
 /// UUID nobody can sign in as are units nobody can redeem) or a registered reserved
-/// allocation (the `fee` row migration `0045` wrote); the NAV must be fresh, because it
+/// allocation (the `fee` row migration `0001` wrote); the NAV must be fresh, because it
 /// is recorded on the row and blended into the holder's high-water mark; and the cap
 /// must hold
 /// ([`Allocation::ensure_capacity`](domain::allocations::Allocation::ensure_capacity)),
@@ -136,18 +134,18 @@ pub struct UnitHolding {
 /// (#245, L-1): the `fee` allocation's units of a product are its fee class, minted by
 /// the fee accrual as the charge earns them, and an operator minting product units into
 /// `fee` by hand would be inflating the owners' allocation at the product's investors'
-/// expense with no fee behind it. The relay, the consilium and the data migration reach
-/// [`mint`] through [`grant_units`], never through here.
+/// expense with no fee behind it. A holder grant and the data wave reach [`mint`] through
+/// [`grant_units`], never through here.
 pub async fn issue_units(
 	ports: &FundPorts<'_>,
 	issuances: &dyn UnitIssuanceRepository,
-	users: &dyn UserRepository,
+	users: &dyn UserDirectory,
 	request: IssueUnitsRequest,
 	now_unix: i64,
 ) -> Result<UnitIssuanceRecord, DomainError> {
 	if request.service.is_reserved() {
 		return Err(DomainError::Forbidden(format!(
-			"'{}' is a reserved allocation: its units are granted by the owners' consilium (a holder grant), never issued by hand",
+			"'{}' is a reserved allocation: its units are granted by the owners' approval (a holder grant), never issued by hand",
 			request.service
 		)));
 	}
@@ -159,19 +157,19 @@ pub async fn issue_units(
 	mint(ports, issuances, users, request, now_unix).await
 }
 
-/// Mint units of a RESERVED allocation to a person — the effect of an executed
-/// holder-grant consilium, and the door the one-off data migration seats the first
-/// holders through. Everything [`issue_units`] checks is checked here too (the key, the
-/// holder graph, the registry row, a fresh NAV, the cap); what differs is who may reach
-/// it: no RPC does, and the consilium's execution path arrives with an idempotency key
-/// derived from the consilium, so a retried execution finds its own row.
+/// Mint units of a RESERVED allocation to a person — the effect of an approved holder
+/// grant, and the door the data wave seats the first holders through. Everything
+/// [`issue_units`] checks is checked here too (the key, the holder graph, the registry
+/// row, a fresh NAV, the cap); what differs is who may reach it: no RPC does, and an
+/// approval's execution arrives with an idempotency key derived from the approval, so a
+/// retried execution finds its own row.
 ///
 /// The backing stays `cash`, deliberately (see [`mint`]): a reserved allocation's units
 /// are backed by the cash on its own claim, and its holders are paid out of exactly that.
 pub async fn grant_units(
 	ports: &FundPorts<'_>,
 	issuances: &dyn UnitIssuanceRepository,
-	users: &dyn UserRepository,
+	users: &dyn UserDirectory,
 	request: IssueUnitsRequest,
 	now_unix: i64,
 ) -> Result<UnitIssuanceRecord, DomainError> {
@@ -190,7 +188,7 @@ pub async fn grant_units(
 async fn mint(
 	ports: &FundPorts<'_>,
 	issuances: &dyn UnitIssuanceRepository,
-	users: &dyn UserRepository,
+	users: &dyn UserDirectory,
 	request: IssueUnitsRequest,
 	now_unix: i64,
 ) -> Result<UnitIssuanceRecord, DomainError> {
@@ -202,14 +200,14 @@ async fn mint(
 		idempotency_key: &request.idempotency_key,
 	};
 	if let Some(existing) = issuances.find_by_key(&request.service, &request.idempotency_key).await? {
-		return identity.same_stored_request_or_conflict(existing);
+		return identity.same_request_or_conflict(existing);
 	}
 	// Pure and first: a holder the graph refuses is refused as such, before any read
 	// could fail for a reason that hides it.
 	request.holder.ensure_may_hold(&request.service)?;
 	let allocation = allocations_app::get(ports.allocations, &request.service).await?;
 	require_holder(ports.allocations, users, &request.holder).await?;
-	let price = funds_app::dealing_nav(ports.nav, ports.ledger, &request.service, now_unix).await?;
+	let price = funds_app::dealing_nav(ports.nav, ports.ledger, ports.money, &request.service, now_unix).await?;
 	allocation.ensure_capacity(funds_app::issued_units(ports.ledger, &request.service).await?, request.units)?;
 	let issuance = UnitIssuance::issue(
 		UnitIssuanceId::new(),
@@ -252,7 +250,7 @@ async fn mint(
 pub async fn retire_units(
 	ports: &FundPorts<'_>,
 	issuances: &dyn UnitIssuanceRepository,
-	users: &dyn UserRepository,
+	users: &dyn UserDirectory,
 	request: RetireUnitsRequest,
 	now_unix: i64,
 ) -> Result<UnitIssuanceRecord, DomainError> {
@@ -270,7 +268,7 @@ pub async fn retire_units(
 		idempotency_key: &request.idempotency_key,
 	};
 	if let Some(existing) = issuances.find_by_key(&request.service, &request.idempotency_key).await? {
-		return identity.same_stored_request_or_conflict(existing);
+		return identity.same_request_or_conflict(existing);
 	}
 	request.holder.ensure_may_hold(&request.service)?;
 	let allocation = allocations_app::get(ports.allocations, &request.service).await?;
@@ -281,7 +279,7 @@ pub async fn retire_units(
 		)));
 	}
 	require_holder(ports.allocations, users, &request.holder).await?;
-	let price = funds_app::dealing_nav(ports.nav, ports.ledger, &request.service, now_unix).await?;
+	let price = funds_app::dealing_nav(ports.nav, ports.ledger, ports.money, &request.service, now_unix).await?;
 	let held = Shares::from_base_units(ports.ledger.balance(&request.holder.shares_key(&request.service)?).await?.available());
 	if held < request.units {
 		return Err(DomainError::Validation(format!(
@@ -306,21 +304,21 @@ pub async fn retire_units(
 /// The holder must exist: units minted to a UUID nobody can sign in as are units nobody
 /// can redeem, and units minted to an allocation with no registry row would trip the
 /// `holder_service` foreign key as an opaque repository error instead of this
-/// `NotFound`. A person must also be ACTIVE (#245, L-2): a frozen account can no more
+/// `NotFound`. A person must also be ACTIVE (#245, L-2): a suspended account can no more
 /// redeem than a missing one, and a holder grant approved over an active person must not
-/// mint to them once they have been disabled during the vote. Whether the holder may
+/// mint to them once they have been suspended during the vote. Whether the holder may
 /// hold at all ([`UnitHolder::ensure_may_hold`]) is checked by the use case before any
 /// read.
-pub(crate) async fn require_holder(allocations: &dyn AllocationRegistry, users: &dyn UserRepository, holder: &UnitHolder) -> Result<(), DomainError> {
+pub(crate) async fn require_holder(allocations: &dyn AllocationRegistry, users: &dyn UserDirectory, holder: &UnitHolder) -> Result<(), DomainError> {
 	match holder {
 		UnitHolder::User(user) => {
-			let Some(row) = users.find_by_id(*user).await? else {
+			let Some(standing) = users.standing(*user).await? else {
 				return Err(DomainError::NotFound {
 					entity: "user",
 					id: user.to_string(),
 				});
 			};
-			if !row.is_active() {
+			if !standing.active {
 				return Err(DomainError::Precondition(format!("user {user} is not active, so no units can be minted to them")));
 			}
 			Ok(())
@@ -352,19 +350,6 @@ struct RequestIdentity<'a> {
 }
 
 impl RequestIdentity<'_> {
-	/// [`Self::same_request_or_conflict`] over what a key lookup found: a historical
-	/// company-stake row is never the same request as anything asked today.
-	fn same_stored_request_or_conflict(&self, existing: StoredIssuance) -> Result<UnitIssuanceRecord, DomainError> {
-		match existing {
-			StoredIssuance::Live(record) => self.same_request_or_conflict(record),
-			StoredIssuance::RetiredCompany(_) => Err(DomainError::Conflict(format!(
-				"idempotency key '{}' already names a historical company-stake issuance on '{}'",
-				self.idempotency_key.as_str(),
-				self.service
-			))),
-		}
-	}
-
 	fn same_request_or_conflict(&self, existing: UnitIssuanceRecord) -> Result<UnitIssuanceRecord, DomainError> {
 		if existing.issuance.matches_request(self.holder, self.source, self.units) {
 			Ok(existing)

@@ -2,12 +2,12 @@
 //!
 //! Units are authoritative in TigerBeetle; this projection carries the control-plane
 //! extras a unit balance can't — the average-cost basis (for P&L) and the per-investor
-//! NAV high-water mark (reserved for a future performance fee). Read-only here:
-//! subscribe/redeem maintain it. The application joins it with the live unit balance and
+//! NAV high-water mark (the performance fee's reference). Read-only here: the relay
+//! maintains it as units land. The application joins it with the live unit balance and
 //! current NAV to build a position view.
 
 use async_trait::async_trait;
-use domain::{
+use invest_domain::{
 	balance::ServiceId,
 	error::DomainError,
 	money::{Nav, Usdt},

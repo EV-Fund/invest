@@ -1,26 +1,21 @@
-//! `funds` context — a user's fund investments via the service currency (units/shares).
+//! `funds` context — a holder's units at the fund's price, and the price itself.
 //!
-//! Subscribe/redeem/cancel act on the caller's own `sub`; the queue settlement and
-//! valuation operator RPCs live on [`BalanceSvc`](super::balance::BalanceSvc).
+//! Position and NAV reads act on the caller's own `sub`; posting a valuation is gated on
+//! `invest:valuation:post`. Subscribe and redeem arrive with the money sagas (PR 1b).
 //!
 //! `Result<_, Status>` is tonic's mandated handler signature; `Status` is a large
 //! type we don't control, so the large-err lint does not apply in this module.
 #![allow(clippy::result_large_err)]
 
-use concierge_domain::authz::bank;
-use domain::{
-	balance::ServiceId,
-	money::{Shares, Usdt},
-	redemptions::Redemption,
-	subscriptions::Subscription,
-};
-use evbanking_contracts::banking::v1::{self as pb, funds_service_server::FundsService};
+use evconcierge_auth::claims_of;
+use invest_contracts::invest::v1::{self as pb, funds_service_server::FundsService};
+use invest_domain::{authz::Permission, balance::ServiceId, money::Usdt};
 use tonic::{Request, Response, Status};
 
 use crate::{
 	AppState,
 	application::funds as funds_app,
-	services::support::{caller_id, holds_permission, map_err, parse_redemption_id, unfrozen_caller, unix_now},
+	services::support::{caller_id, holds_permission, map_err, require_permission, unix_now},
 };
 
 #[derive(Clone)]
@@ -36,65 +31,10 @@ impl FundsSvc {
 
 #[tonic::async_trait]
 impl FundsService for FundsSvc {
-	async fn subscribe(&self, request: Request<pb::SubscribeRequest>) -> Result<Response<pb::Subscription>, Status> {
-		let user = unfrozen_caller(&self.state, &request).await?;
-		let req = request.into_inner();
-		let service = ServiceId::parse(&req.service).map_err(map_err)?;
-		let amount = Usdt::parse_decimal(&req.amount).map_err(map_err)?;
-		let subscription = funds_app::subscribe(
-			&funds_app::FundPorts {
-				allocations: self.state.allocations.as_ref(),
-				ledger: self.state.ledger.as_ref(),
-				nav: self.state.nav.as_ref(),
-				relay: &self.state.relay_notify,
-			},
-			self.state.subscriptions.as_ref(),
-			user,
-			service,
-			amount,
-			unix_now(),
-		)
-		.await
-		.map_err(map_err)?;
-		Ok(Response::new(subscription_to_proto(&subscription)))
-	}
-
-	async fn redeem(&self, request: Request<pb::RedeemRequest>) -> Result<Response<pb::Redemption>, Status> {
-		let user = unfrozen_caller(&self.state, &request).await?;
-		let req = request.into_inner();
-		let service = ServiceId::parse(&req.service).map_err(map_err)?;
-		let units = Shares::parse_decimal(&req.units).map_err(map_err)?;
-		let redemption = funds_app::request_redemption(
-			&funds_app::FundPorts {
-				allocations: self.state.allocations.as_ref(),
-				ledger: self.state.ledger.as_ref(),
-				nav: self.state.nav.as_ref(),
-				relay: &self.state.relay_notify,
-			},
-			self.state.redemptions.as_ref(),
-			user,
-			service,
-			units,
-			unix_now(),
-		)
-		.await
-		.map_err(map_err)?;
-		Ok(Response::new(redemption_to_proto(&redemption)))
-	}
-
-	async fn cancel_redemption(&self, request: Request<pb::CancelRedemptionRequest>) -> Result<Response<pb::Redemption>, Status> {
-		let user = caller_id(&request)?;
-		let id = parse_redemption_id(&request.get_ref().redemption_id)?;
-		let redemption = funds_app::cancel_redemption(self.state.redemptions.as_ref(), &self.state.relay_notify, id, user)
-			.await
-			.map_err(map_err)?;
-		Ok(Response::new(redemption_to_proto(&redemption)))
-	}
-
 	async fn get_position(&self, request: Request<pb::GetPositionRequest>) -> Result<Response<pb::Position>, Status> {
 		let user = caller_id(&request)?;
 		let service = ServiceId::parse(&request.get_ref().service).map_err(map_err)?;
-		let view = funds_app::get_position(self.state.positions.as_ref(), self.state.ledger.as_ref(), self.state.nav.as_ref(), user, service)
+		let view = funds_app::get_position(&self.state.fund_ports(), self.state.positions.as_ref(), user, service)
 			.await
 			.map_err(map_err)?;
 		Ok(Response::new(position_to_proto(&view)))
@@ -102,19 +42,9 @@ impl FundsService for FundsSvc {
 
 	async fn list_positions(&self, request: Request<pb::ListPositionsRequest>) -> Result<Response<pb::PositionList>, Status> {
 		let user = caller_id(&request)?;
-		let views = funds_app::list_positions(self.state.positions.as_ref(), self.state.ledger.as_ref(), self.state.nav.as_ref(), user)
-			.await
-			.map_err(map_err)?;
+		let views = funds_app::list_positions(&self.state.fund_ports(), self.state.positions.as_ref(), user).await.map_err(map_err)?;
 		Ok(Response::new(pb::PositionList {
 			positions: views.iter().map(position_to_proto).collect(),
-		}))
-	}
-
-	async fn list_redemptions(&self, request: Request<pb::ListRedemptionsRequest>) -> Result<Response<pb::RedemptionList>, Status> {
-		let user = caller_id(&request)?;
-		let redemptions = funds_app::list_redemptions(self.state.redemptions.as_ref(), user).await.map_err(map_err)?;
-		Ok(Response::new(pb::RedemptionList {
-			redemptions: redemptions.iter().map(redemption_to_proto).collect(),
 		}))
 	}
 
@@ -124,19 +54,11 @@ impl FundsService for FundsSvc {
 		// unless they hold AllocationManage: a question, not a gate, since the handler
 		// serves everyone and merely widens for a manager.
 		let caller = caller_id(&request)?;
-		let unrestricted = holds_permission(&self.state, &request, bank::Allocation::Manage).await?;
+		let unrestricted = holds_permission(&self.state, &request, Permission::AllocationManage).await?;
 		let service = ServiceId::parse(&request.get_ref().service).map_err(map_err)?;
-		let view = funds_app::fund_nav_view(
-			self.state.allocations.as_ref(),
-			self.state.nav.as_ref(),
-			self.state.ledger.as_ref(),
-			service,
-			caller,
-			unrestricted,
-			unix_now(),
-		)
-		.await
-		.map_err(map_err)?;
+		let view = funds_app::fund_nav_view(&self.state.fund_ports(), service, caller, unrestricted, unix_now())
+			.await
+			.map_err(map_err)?;
 		Ok(Response::new(fund_nav_to_proto(&view)))
 	}
 
@@ -144,13 +66,11 @@ impl FundsService for FundsSvc {
 		// Gated exactly as `get_fund_nav`: the log of a price the caller may not see is
 		// NOT_FOUND. The request names the ALLOCATION; the registry key is the service id.
 		let caller = caller_id(&request)?;
-		let unrestricted = holds_permission(&self.state, &request, bank::Allocation::Manage).await?;
+		let unrestricted = holds_permission(&self.state, &request, Permission::AllocationManage).await?;
 		let req = request.get_ref();
 		let service = ServiceId::parse(&req.allocation).map_err(map_err)?;
 		let view = funds_app::fund_nav_history(
-			self.state.allocations.as_ref(),
-			self.state.nav.as_ref(),
-			self.state.ledger.as_ref(),
+			&self.state.fund_ports(),
 			self.state.positions.as_ref(),
 			service,
 			caller,
@@ -183,27 +103,34 @@ impl FundsService for FundsSvc {
 			truncated: view.truncated,
 		}))
 	}
-}
 
-fn subscription_to_proto(subscription: &Subscription) -> pb::Subscription {
-	pb::Subscription {
-		id: subscription.id().to_string(),
-		service: subscription.service().to_string(),
-		cash: subscription.cash().to_decimal_string(),
-		nav: subscription.nav().to_decimal_string(),
-		units: subscription.units().to_decimal_string(),
-	}
-}
-
-/// Shared with [`BalanceSvc`](super::balance::BalanceSvc)'s settlement RPCs.
-pub(super) fn redemption_to_proto(redemption: &Redemption) -> pb::Redemption {
-	pb::Redemption {
-		id: redemption.id().to_string(),
-		service: redemption.service().to_string(),
-		units: redemption.units().to_decimal_string(),
-		nav: redemption.nav().map(|n| n.to_decimal_string()).unwrap_or_default(),
-		cash: redemption.cash().map(|c| c.to_decimal_string()).unwrap_or_default(),
-		state: redemption.state().as_str().to_owned(),
+	async fn post_fund_valuation(&self, request: Request<pb::PostFundValuationRequest>) -> Result<Response<pb::FundNav>, Status> {
+		require_permission(&self.state, &request, Permission::ValuationPost).await?;
+		let caller = caller_id(&request)?;
+		// The token's `sub`, as recorded — the subject a redeem cooldown compares against
+		// (PR 1b), so the two spellings agree by construction.
+		let posted_by = claims_of(&request).ok_or_else(|| Status::unauthenticated("missing claims"))?.sub.clone();
+		let req = request.into_inner();
+		let service = ServiceId::parse(&req.service).map_err(map_err)?;
+		let aum = Usdt::parse_decimal(&req.aum).map_err(map_err)?;
+		funds_app::post_fund_valuation(
+			self.state.allocations.as_ref(),
+			self.state.nav.as_ref(),
+			self.state.ledger.as_ref(),
+			service.clone(),
+			aum,
+			&posted_by,
+			unix_now(),
+		)
+		.await
+		.map_err(map_err)?;
+		// Answer by re-reading the view rather than mapping the mark by hand: the response
+		// carries the allocation's supply headroom too, and one construction path is what
+		// keeps this route and `GetFundNav` from drifting apart field by field. Unrestricted:
+		// ValuationPost already admitted the caller to a product in any state, and the mark
+		// they just wrote must not vanish behind their own (possibly `hidden`) access level.
+		let view = funds_app::fund_nav_view(&self.state.fund_ports(), service, caller, true, unix_now()).await.map_err(map_err)?;
+		Ok(Response::new(fund_nav_to_proto(&view)))
 	}
 }
 
@@ -220,10 +147,10 @@ fn position_to_proto(view: &funds_app::PositionView) -> pb::Position {
 	}
 }
 
-/// The single place a `FundNav` is built. Shared with `BalanceService::PostFundValuation`,
-/// which answers with the same shape — two hand-rolled constructions of one message is how
-/// a field ends up populated on one route and empty on the other.
-pub(crate) fn fund_nav_to_proto(view: &funds_app::FundNavView) -> pb::FundNav {
+/// The single place a `FundNav` is built — `GetFundNav` and `PostFundValuation` answer with
+/// the same shape, and two hand-rolled constructions of one message is how a field ends up
+/// populated on one route and empty on the other.
+fn fund_nav_to_proto(view: &funds_app::FundNavView) -> pb::FundNav {
 	pb::FundNav {
 		service: view.service.to_string(),
 		nav: view.nav.to_decimal_string(),

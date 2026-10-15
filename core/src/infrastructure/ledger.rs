@@ -12,29 +12,25 @@
 use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use domain::{
+use invest_domain::{
 	architecture::Gateway,
 	balance::{AccountCode, LedgerAccountKey, Normal},
 };
-use sqlx::{PgConnection, PgPool};
+use sqlx::PgPool;
 use tigerbeetle as tb;
 use uuid::Uuid;
 
 use crate::{
-	infrastructure::{claims::TxReads, tigerbeetle::TigerBeetle},
-	ports::ledger::{CashInvariant, CashSide, CompletionKind, HoldingScope, Ledger, LedgerBalance, LedgerError, LedgerTransfer, LockedReads, PendingCompletion},
+	infrastructure::tigerbeetle::TigerBeetle,
+	ports::ledger::{CompletionKind, HoldingScope, Ledger, LedgerBalance, LedgerError, LedgerTransfer, PendingCompletion},
 };
 
-/// The USDT cash ledger id (`Ledger::Usdt`) — the plane `cash_invariant` scans; each
-/// row's `code` then says which side of the invariant it counts on (`CashSide`).
-const USDT_LEDGER_ID: i32 = 1;
 /// The Share ledger id (`Ledger::Share`) — the plane `share_holdings` scans.
 const SHARE_LEDGER_ID: i32 = 3;
 
 /// The TB client caps one `lookup_accounts` request at this many events; a larger request
 /// resolves to `Err(TooMuchData)` and returns none of the accounts (the client only merges
-/// multiple requests, it never splits one oversized one). `cash_invariant` chunks its id
-/// set by this so the global conservation check survives past the cap (see `cash_invariant`).
+/// multiple requests, it never splits one oversized one), so every bulk read chunks by it.
 const LOOKUP_ACCOUNTS_MAX: usize = 8189;
 
 /// Application-level deadline on a single TigerBeetle call. The TB client surfaces a
@@ -45,17 +41,14 @@ const LOOKUP_ACCOUNTS_MAX: usize = 8189;
 /// deterministic, so a re-submit after recovery returns `Exists`.
 const TB_CALL_TIMEOUT: Duration = Duration::from_secs(5);
 
-/// Deadline for the `cash_invariant` bulk-read. Unlike hot-path calls (post, reserve,
-/// complete, balance) which each touch one or two accounts, the cash-plane scan reads
-/// every USDT-ledger account in chunks of [`LOOKUP_ACCOUNTS_MAX`]. On a Raspberry Pi
-/// with many user-claim accounts, one chunk's `lookup_accounts` can legitimately exceed
-/// [`TB_CALL_TIMEOUT`] — especially during sweep/compaction. This longer bound keeps
-/// the conservation check alive at scale without touching the hot-path timeout.
-const TB_CASH_INVARIANT_TIMEOUT: Duration = Duration::from_secs(30);
+/// Deadline for a bulk scan (`share_holdings`). Unlike hot-path calls (post, reserve,
+/// complete, balance) which each touch one or two accounts, a scan reads every holding in
+/// chunks of [`LOOKUP_ACCOUNTS_MAX`]; on a Raspberry Pi one chunk's `lookup_accounts` can
+/// legitimately exceed [`TB_CALL_TIMEOUT`] — especially during compaction.
+const TB_SCAN_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// The TigerBeetle-backed [`Ledger`]. Holds the shared TB client and a Postgres pool
-/// for the `tb_accounts` id-map — and, for [`Ledger::spendable`], the debits recorded but
-/// not yet applied, which only the control plane knows of yet.
+/// for the `tb_accounts` id-map.
 pub struct TbLedger {
 	tb: Arc<TigerBeetle>,
 	pool: PgPool,
@@ -121,9 +114,8 @@ impl TbLedger {
 	}
 
 	/// Resolve the account id for `key`, minting and recording a fresh `u128` on
-	/// first use. Idempotent and race-safe (`ON CONFLICT DO NOTHING` + re-read),
-	/// mirroring [`PgUsers::provision`](crate::infrastructure::users). For an existing
-	/// row it also asserts the persisted derivation has not drifted (see
+	/// first use. Idempotent and race-safe (`ON CONFLICT DO NOTHING` + re-read). For an
+	/// existing row it also asserts the persisted derivation has not drifted (see
 	/// [`resolve_and_verify`](Self::resolve_and_verify)).
 	async fn resolve_or_allocate(&self, key: &LedgerAccountKey) -> Result<u128, LedgerError> {
 		let logical_key = key.logical_key();
@@ -133,13 +125,12 @@ impl TbLedger {
 		let fresh = Uuid::new_v4().as_u128();
 		let bytes = fresh.to_be_bytes();
 		let inserted = sqlx::query_scalar::<_, Vec<u8>>(
-			"INSERT INTO tb_accounts (logical_key, tb_account_id, ledger, code, network, flags) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (logical_key) DO NOTHING RETURNING tb_account_id",
+			"INSERT INTO tb_accounts (logical_key, tb_account_id, ledger, code, flags) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (logical_key) DO NOTHING RETURNING tb_account_id",
 		)
 		.bind(&logical_key)
 		.bind(&bytes[..])
 		.bind(key.ledger().id() as i32)
 		.bind(key.account_code().code() as i32)
-		.bind(key.network().map(|n| n.as_str()))
 		.bind(account_flags(key.normal()).bits() as i32)
 		.fetch_optional(&self.pool)
 		.await
@@ -218,18 +209,6 @@ impl TbLedger {
 	}
 }
 
-/// The id the map holds for `key`, read on `conn` — the connection a spend holds its
-/// claim's lock on ([`LockedReads::account_id`]). Ids are minted once and never rewritten,
-/// so this reads the same row [`TbLedger`] resolves through its pool.
-pub async fn account_id(conn: &mut PgConnection, key: &LedgerAccountKey) -> Result<Option<u128>, LedgerError> {
-	let row = sqlx::query_scalar::<_, Vec<u8>>("SELECT tb_account_id FROM tb_accounts WHERE logical_key = $1")
-		.bind(key.logical_key())
-		.fetch_optional(conn)
-		.await
-		.map_err(|e| LedgerError::Unavailable(format!("account map read: {e}")))?;
-	row.map(|bytes| u128_from_be(&bytes)).transpose()
-}
-
 impl Gateway for TbLedger {}
 
 #[async_trait]
@@ -241,31 +220,6 @@ impl Ledger for TbLedger {
 	async fn balance(&self, key: &LedgerAccountKey) -> Result<LedgerBalance, LedgerError> {
 		let id = self.resolve_id(&key.logical_key()).await?;
 		self.balance_of(key, id).await
-	}
-
-	async fn balance_locked(&self, key: &LedgerAccountKey, reads: &mut dyn LockedReads) -> Result<LedgerBalance, LedgerError> {
-		let id = reads.account_id(key).await?;
-		self.balance_of(key, id).await
-	}
-
-	async fn total_debits(&self, key: &LedgerAccountKey) -> Result<u128, LedgerError> {
-		let Some(id) = self.resolve_id(&key.logical_key()).await? else {
-			return Ok(0);
-		};
-		let call = self
-			.tb
-			.client()
-			.lookup_accounts(&[id])
-			.map_err(|e| LedgerError::Unavailable(format!("tigerbeetle closed: {e:?}")))?;
-		let accounts = deadline("lookup_accounts", call, TB_CALL_TIMEOUT)
-			.await?
-			.map_err(|e| LedgerError::Unavailable(format!("lookup_accounts: {e:?}")))?;
-		Ok(accounts.first().map_or(0, |account| account.debits_posted.saturating_add(account.debits_pending)))
-	}
-
-	async fn spendable(&self, key: &LedgerAccountKey) -> Result<u128, LedgerError> {
-		let mut conn = self.pool.acquire().await.map_err(|e| LedgerError::Unavailable(format!("control-plane connection: {e}")))?;
-		self.spendable_locked(key, &mut TxReads::new(&mut conn)).await
 	}
 
 	async fn balances(&self, keys: &[LedgerAccountKey]) -> Result<Vec<LedgerBalance>, LedgerError> {
@@ -303,10 +257,6 @@ impl Ledger for TbLedger {
 	}
 
 	async fn transfer_exists(&self, id: u128) -> Result<bool, LedgerError> {
-		Ok(self.transfer_amount(id).await?.is_some())
-	}
-
-	async fn transfer_amount(&self, id: u128) -> Result<Option<u128>, LedgerError> {
 		let call = self
 			.tb
 			.client()
@@ -315,7 +265,7 @@ impl Ledger for TbLedger {
 		let transfers = deadline("lookup_transfers", call, TB_CALL_TIMEOUT)
 			.await?
 			.map_err(|e| LedgerError::Unavailable(format!("lookup_transfers: {e:?}")))?;
-		Ok(transfers.first().map(|transfer| transfer.amount))
+		Ok(!transfers.is_empty())
 	}
 
 	async fn post(&self, transfer: &LedgerTransfer) -> Result<(), LedgerError> {
@@ -423,9 +373,8 @@ impl Ledger for TbLedger {
 		let mut wanted = std::collections::HashMap::with_capacity(rows.len());
 		let mut ids = Vec::with_capacity(rows.len());
 		for (logical_key, bytes, code) in &rows {
-			// A retired kind (the company stake, `shares_company:<svc>`, #245) is a row that
-			// exists for good and names no live account: skipped by its code, like the cash
-			// scan classifies by code, rather than parsed into a key nothing derives.
+			// A retired kind (banking's company stake, its cash escrow) is a row that names no
+			// live account: skipped by its code rather than parsed into a key nothing derives.
 			if u16::try_from(*code).ok().and_then(AccountCode::from_code).is_some_and(AccountCode::is_retired) {
 				continue;
 			}
@@ -437,8 +386,8 @@ impl Ledger for TbLedger {
 			ids.push(id);
 			wanted.insert(id, key);
 		}
-		// Chunked like `cash_invariant`: one `lookup_accounts` is capped at
-		// `LOOKUP_ACCOUNTS_MAX`, and a product's cap table grows one row per holder.
+		// One `lookup_accounts` is capped at `LOOKUP_ACCOUNTS_MAX`, and a product's cap
+		// table grows one row per holder.
 		let mut holdings = Vec::with_capacity(ids.len());
 		for chunk in ids.chunks(LOOKUP_ACCOUNTS_MAX) {
 			let call = self
@@ -446,7 +395,7 @@ impl Ledger for TbLedger {
 				.client()
 				.lookup_accounts(chunk)
 				.map_err(|e| LedgerError::Unavailable(format!("tigerbeetle closed: {e:?}")))?;
-			let accounts = deadline("lookup_accounts", call, TB_CASH_INVARIANT_TIMEOUT)
+			let accounts = deadline("lookup_accounts", call, TB_SCAN_TIMEOUT)
 				.await?
 				.map_err(|e| LedgerError::Unavailable(format!("lookup_accounts: {e:?}")))?;
 			for account in accounts {
@@ -465,89 +414,13 @@ impl Ledger for TbLedger {
 		holdings.extend(wanted.into_values().map(|key| (key, 0)));
 		Ok(holdings)
 	}
-
-	async fn cash_invariant(&self) -> Result<CashInvariant, LedgerError> {
-		// Every cash-plane account id lives in the id-map; pull the USDT-ledger rows with
-		// their code so we can split custody (wallet) from claims, then read the posted
-		// balances straight from TB (authoritative) and sum each side on its natural side.
-		// Keyed by the row's `code`, not by parsing its key: a row written under a key
-		// format this build no longer spells (the per-rail claims migration `0004` left
-		// behind) still carries the kind it was created with, and the conservation check
-		// must count it rather than fail on it.
-		let rows = sqlx::query_as::<_, (Vec<u8>, i32)>("SELECT tb_account_id, code FROM tb_accounts WHERE ledger = $1")
-			.bind(USDT_LEDGER_ID)
-			.fetch_all(&self.pool)
-			.await
-			.map_err(|e| LedgerError::Unavailable(format!("cash-plane account scan: {e}")))?;
-		if rows.is_empty() {
-			return Ok(CashInvariant::default());
-		}
-		let mut ids = Vec::with_capacity(rows.len());
-		let mut side_of = std::collections::HashMap::with_capacity(rows.len());
-		for (bytes, code) in &rows {
-			let id = u128_from_be(bytes)?;
-			ids.push(id);
-			let side = u16::try_from(*code).ok().and_then(AccountCode::from_code).and_then(CashSide::of);
-			side_of.insert(id, side);
-		}
-		// One `lookup_accounts` is capped at `LOOKUP_ACCOUNTS_MAX`; the cash plane grows
-		// one `UserClaim` account per user, so at scale this id set exceeds the cap. Chunk
-		// it and accumulate each side across pages — an unchunked read would fail wholesale
-		// and silently disable the only global conservation check.
-		let mut inv = CashInvariant::default();
-		for chunk in ids.chunks(LOOKUP_ACCOUNTS_MAX) {
-			let call = self
-				.tb
-				.client()
-				.lookup_accounts(chunk)
-				.map_err(|e| LedgerError::Unavailable(format!("tigerbeetle closed: {e:?}")))?;
-			let accounts = deadline("lookup_accounts", call, TB_CASH_INVARIANT_TIMEOUT)
-				.await?
-				.map_err(|e| LedgerError::Unavailable(format!("lookup_accounts: {e:?}")))?;
-			for account in accounts {
-				let side = side_of.get(&account.id).copied().flatten();
-				if side == Some(CashSide::Custody) {
-					// Custody is debit-normal: posted = debits − credits.
-					inv.custody = inv.custody.saturating_add(account.debits_posted.saturating_sub(account.credits_posted));
-					continue;
-				}
-				// Claims are credit-normal: posted = credits − debits. Every non-custody
-				// account is a claim for the global check; only the known kinds are also
-				// attributed, so an account of an unknown kind shows up as unclassified.
-				let posted = account.credits_posted.saturating_sub(account.debits_posted);
-				inv.claims = inv.claims.saturating_add(posted);
-				let bucket = match side {
-					Some(CashSide::UserClaims) => &mut inv.user_claims,
-					Some(CashSide::ServiceClaims) => &mut inv.service_claims,
-					Some(CashSide::Clearing) => &mut inv.clearing,
-					Some(CashSide::BookCash) => &mut inv.book_cash,
-					Some(CashSide::ScopeClaims) => &mut inv.scope_claims,
-					Some(CashSide::ScopeAccounts) => &mut inv.scope_accounts,
-					Some(CashSide::RetiredClaims) => &mut inv.retired_claims,
-					Some(CashSide::Custody) | None => continue,
-				};
-				*bucket = bucket.saturating_add(posted);
-			}
-		}
-		Ok(inv)
-	}
 }
 
-/// Ensure the singleton accounts exist at boot: a custody wallet per network (the
-/// per-rail treasury), the network-agnostic withdrawal-clearing account and the mocked
-/// bank custody. Per-user/-service claim accounts are created lazily on first transfer.
-///
-/// The retired `fund` and `fee` claims (#245) are not seeded and are never resolved: no
-/// live key names them. Production still has both (and `shares_company:service_arb`) in
-/// `tb_accounts`, at zero; the scans classify those rows by code.
-pub async fn seed_singletons(ledger: &dyn Ledger) -> Result<(), LedgerError> {
-	use domain::money::Network;
-	for network in Network::ALL {
-		ledger.ensure_account(&LedgerAccountKey::CryptoWallet(network)).await?;
-	}
-	ledger.ensure_account(&LedgerAccountKey::WithdrawalClearing).await?;
-	ledger.ensure_account(&LedgerAccountKey::BankCustody).await?;
-	Ok(())
+/// Whether the TigerBeetle replica answers at all — a lookup of a transfer id nothing ever
+/// carries. The boot and the test bring-up ask it, so an unreachable ledger is named at once
+/// instead of surfacing as the relay's first retry.
+pub async fn probe(ledger: &dyn Ledger) -> Result<(), LedgerError> {
+	ledger.transfer_exists(0).await.map(drop)
 }
 
 /// An account's balance on its natural side. `posted` is a real non-negative invariant (the
@@ -606,7 +479,7 @@ fn tb_account(id: u128, key: &LedgerAccountKey) -> tb::Account {
 }
 
 /// The non-negative guard for an account's natural side — set once at create and
-/// immutable thereafter, so a claim can never be over-spent nor custody go negative.
+/// immutable thereafter, so a holding can never be over-burnt nor the supply go negative.
 fn account_flags(normal: Normal) -> tb::AccountFlags {
 	match normal {
 		Normal::Debit => tb::AccountFlags::CreditsMustNotExceedDebits,

@@ -9,7 +9,7 @@
 //! while sitting outside a window that ends at N+1.
 
 use async_trait::async_trait;
-use domain::{
+use invest_domain::{
 	balance::{ServiceId, ValuationId},
 	error::DomainError,
 	money::{Nav, Shares, Usdt},

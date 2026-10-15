@@ -1,13 +1,12 @@
 //! Persistence + read port for the [`Allocation`] aggregate — the registry of
 //! investable products.
 //!
-//! Mirrors [`RedemptionRepository`](super::RedemptionRepository): each command is
-//! internally atomic and row-locked — load `FOR UPDATE`, apply the aggregate command
+//! Each command is internally atomic and row-locked — load `FOR UPDATE`, apply the aggregate command
 //! inside the lock, persist the transition with the drained events. Unlike the money
 //! aggregates the drained events go to `event_log` ONLY (`relay = false`): an
 //! allocation moves no value, so the relay has nothing to post.
 //!
-//! [`find`] and [`find_for`] are on the hot path — every subscribe and redeem resolves
+//! [`find`] and [`find_for`] are on the hot path — every deal and issuance resolves
 //! its service through one of them before touching money — so they take no lock and
 //! stay a single indexed read on the natural key. `find_for` additionally joins the
 //! caller's grant, because the subscribe gate needs the level the caller *effectively*
@@ -23,13 +22,13 @@
 //! [`find_for`]: AllocationRegistry::find_for
 
 use async_trait::async_trait;
-use domain::{
+use invest_domain::{
 	allocations::{Allocation, AllocationAccess, AllocationBacking, AllocationIcon},
 	architecture::{Reader, Repository},
 	balance::ServiceId,
 	error::DomainError,
 	money::Shares,
-	users::{ConciergeUserId, UserId},
+	users::UserId,
 };
 
 #[async_trait]
@@ -128,20 +127,14 @@ pub struct AllocationRecord {
 	pub updated_at: i64,
 }
 
-/// One investor raised above a product's default level.
-///
-/// `user_id` and `granted_by` are the hub's own ids — what the grants table stores and
-/// what the subscribe gate reads. The concierge mirrors ride along because the console
-/// names people by their identity-plane id, and answering "who is this" would otherwise
-/// cost a second read per row. `None` when the bridge has not mirrored the user yet.
+/// One investor raised above a product's default level. Both ids are concierge user ids
+/// — what the console names people by, so no mirror rides along.
 #[derive(Debug)]
 pub struct AllocationAccessGrant {
 	pub service: ServiceId,
 	pub user_id: UserId,
-	pub concierge_user_id: Option<ConciergeUserId>,
 	pub level: AllocationAccess,
 	pub granted_by: UserId,
-	pub granted_by_concierge_id: Option<ConciergeUserId>,
 	/// Unix seconds the grant was (last) written.
 	pub granted_at: i64,
 }

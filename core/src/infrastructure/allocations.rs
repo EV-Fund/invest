@@ -1,7 +1,7 @@
 //! Postgres adapter for the [`AllocationRegistry`] port.
 //!
-//! Mirrors [`PgRedemptions`](super::redemptions::PgRedemptions): row-locked commands
-//! that apply the aggregate transition and drain its events in one transaction. The
+//! Row-locked commands that apply the aggregate transition and drain its events in one
+//! transaction. The
 //! drain passes `relay = false` — an allocation moves no value, so its events are audit
 //! facts in `event_log` and must never reach the relay (which would park an event kind
 //! it has no ledger op for).
@@ -19,13 +19,13 @@
 //! a grant can carry nothing below `view`, so "has a grant" already means "may view".
 
 use async_trait::async_trait;
-use domain::{
+use invest_domain::{
 	allocations::{Allocation, AllocationAccess, AllocationBacking, AllocationIcon, AllocationId, AllocationSnapshot, AllocationState},
 	architecture::{EmitsEvents, Reader, Repository},
 	balance::ServiceId,
 	error::DomainError,
 	money::Shares,
-	users::{ConciergeUserId, UserId},
+	users::UserId,
 };
 use sqlx::{PgConnection, PgPool};
 use tracing::warn;
@@ -69,24 +69,12 @@ const SELECT_CATALOG_FOR_CALLER: &str = "SELECT a.id, a.service, a.title, a.summ
 	 LEFT JOIN allocation_access_grants g ON g.service = a.service AND g.user_id = $1 \
 	 WHERE $2 OR (a.state = 'open' AND (a.access <> 'hidden' OR g.level IS NOT NULL)) \
 	 ORDER BY a.service";
-/// Both user columns are joined back to `users` for their concierge mirror in the same
-/// read: the console names people by that id, and a lookup per row would be an N+1
-/// against the very table this one already references. `LEFT` because the mirror is
-/// nullable — the bridge fills it, and a row provisioned before it ran has none.
-const SELECT_GRANTS: &str = "SELECT g.service, g.user_id, g.level, g.granted_by, \
-	 u.concierge_user_id, b.concierge_user_id AS granted_by_concierge_id, \
-	 EXTRACT(EPOCH FROM g.granted_at)::bigint AS granted_at \
-	 FROM allocation_access_grants g \
-	 LEFT JOIN users u ON u.id = g.user_id \
-	 LEFT JOIN users b ON b.id = g.granted_by \
-	 WHERE g.service = $1 ORDER BY g.user_id";
-const SELECT_GRANT: &str = "SELECT g.service, g.user_id, g.level, g.granted_by, \
-	 u.concierge_user_id, b.concierge_user_id AS granted_by_concierge_id, \
-	 EXTRACT(EPOCH FROM g.granted_at)::bigint AS granted_at \
-	 FROM allocation_access_grants g \
-	 LEFT JOIN users u ON u.id = g.user_id \
-	 LEFT JOIN users b ON b.id = g.granted_by \
-	 WHERE g.service = $1 AND g.user_id = $2";
+const SELECT_GRANTS: &str = "SELECT service, user_id, level, granted_by, \
+	 EXTRACT(EPOCH FROM granted_at)::bigint AS granted_at \
+	 FROM allocation_access_grants WHERE service = $1 ORDER BY user_id";
+const SELECT_GRANT: &str = "SELECT service, user_id, level, granted_by, \
+	 EXTRACT(EPOCH FROM granted_at)::bigint AS granted_at \
+	 FROM allocation_access_grants WHERE service = $1 AND user_id = $2";
 /// The `WHERE` on the conflict arm makes a repeat grant at the same level touch no row,
 /// which is how the caller knows there is no fact to log. `granted_at` moves on a real
 /// change so the operator's list dates the level that stands, not the first contact.
@@ -155,10 +143,8 @@ struct AllocationForCallerRow {
 struct GrantRow {
 	service: String,
 	user_id: Uuid,
-	concierge_user_id: Option<Uuid>,
 	level: String,
 	granted_by: Uuid,
-	granted_by_concierge_id: Option<Uuid>,
 	granted_at: i64,
 }
 
@@ -173,11 +159,10 @@ impl AllocationRow {
 		// (`AllocationsSvc::parse_icon`). The asymmetry is the point: a *client* sending
 		// a value this build cannot draw is a request that can still be rejected, while a
 		// *row* holding one is already written — and this mapper is on both `find` (the
-		// gate every subscribe and redeem passes through) and `list` (the whole catalog),
-		// so refusing here would take the money plane down over a presentation column.
-		// The way that row appears is ordinary: widen the vocabulary, deploy, an operator
-		// picks the new value, roll the release back. The shipped client already falls
-		// back the same way (`shared/ui/icons/products.tsx`); the hub matches it.
+		// gate every deal and issuance passes through) and `list` (the whole catalog), so
+		// refusing here would take the registry down over a presentation column. The way
+		// that row appears is ordinary: widen the vocabulary, deploy, an operator picks
+		// the new value, roll the release back. The client falls back the same way.
 		let icon = AllocationIcon::parse(&self.icon).unwrap_or_else(|_| {
 			warn!(service = %self.service, icon = %self.icon, "allocations: stored icon is outside this build's vocabulary — rendering the default");
 			AllocationIcon::default()
@@ -218,10 +203,8 @@ impl GrantRow {
 		Ok(AllocationAccessGrant {
 			service: ServiceId::parse(&self.service)?,
 			user_id: UserId::from_raw(self.user_id),
-			concierge_user_id: self.concierge_user_id.map(ConciergeUserId::from_raw),
 			level: AllocationAccess::parse(&self.level)?,
 			granted_by: UserId::from_raw(self.granted_by),
-			granted_by_concierge_id: self.granted_by_concierge_id.map(ConciergeUserId::from_raw),
 			granted_at: self.granted_at,
 		})
 	}
@@ -438,25 +421,26 @@ impl AllocationRegistry for PgAllocations {
 
 #[cfg(test)]
 mod tests {
-	use domain::{
+	use invest_domain::{
 		allocations::{FEE_ALLOCATION_ID, FUND_ALLOCATION_ID, reserved_allocation_id},
 		balance::ServiceId,
 	};
 	use uuid::Uuid;
 
-	/// The reserved registry rows are written by migration `0045` with fixed ids, and the
-	/// domain spells the same ids as literals (it has no v5 feature). Three things must
-	/// agree: the literal, its derivation, and the bytes in the migration — a drift in any
-	/// one would make the hub look up a row the migration never wrote.
+	/// The reserved registry rows are written by migration `0001` with fixed ids — banking's,
+	/// so the data wave lands on the same rows — and the domain spells the same ids as
+	/// literals (it has no v5 feature). Three things must agree: the literal, its
+	/// derivation, and the bytes in the migration — a drift in any one would make invest
+	/// look up a row the migration never wrote.
 	#[test]
-	fn the_reserved_allocation_ids_are_derived_from_their_slugs_and_written_by_0045() {
-		const MIGRATION: &str = include_str!("../../migrations/0045_ownership_expand.sql");
+	fn the_reserved_allocation_ids_are_derived_from_their_slugs_and_written_by_0001() {
+		const MIGRATION: &str = include_str!("../../migrations/0001_allocation_registry.sql");
 		for (service, id) in [(ServiceId::fee(), FEE_ALLOCATION_ID), (ServiceId::fund(), FUND_ALLOCATION_ID)] {
 			let derived = Uuid::new_v5(&Uuid::NAMESPACE_OID, format!("evbanking:allocation:{service}").as_bytes());
 			assert_eq!(id.raw(), derived, "{service}: the literal is not uuid5(OID, evbanking:allocation:{service})");
 			assert_eq!(reserved_allocation_id(&service), Some(id));
 			let row = format!("('{}', '{service}',", id.raw());
-			assert!(MIGRATION.contains(&row), "0045 does not insert {service} under {}", id.raw());
+			assert!(MIGRATION.contains(&row), "0001 does not insert {service} under {}", id.raw());
 		}
 		assert!(MIGRATION.contains("ON CONFLICT (service) DO NOTHING"), "the reserved rows must be idempotent on re-run");
 	}
