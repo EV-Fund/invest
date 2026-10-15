@@ -93,6 +93,12 @@ impl ScopeId {
 		Self("invest".to_owned())
 	}
 
+	/// Whether this is invest's own scope. Only there do fees reach the `fee` allocation's
+	/// holders (D24(3)); a fee earned in any other scope is banking's.
+	pub fn is_invest(&self) -> bool {
+		self.0 == "invest"
+	}
+
 	pub fn as_str(&self) -> &str {
 		&self.0
 	}
