@@ -2,7 +2,7 @@
 //! **and** TigerBeetle (no mocks of either). They run when `DATABASE_URL` is set and a
 //! TigerBeetle replica is reachable (e.g. `nix run .#db` + `.#tb`), skip otherwise, and
 //! fail instead of skipping under `CI`. Cash is banking's and comes from the in-memory
-//! money ledger: nothing here moves any.
+//! money ledger.
 //!
 //! The load-bearing behaviour here is the **gate**: before this registry existed,
 //! `subscribe` accepted any well-formed slug and a service with no valuation bootstrapped
@@ -10,17 +10,15 @@
 //! tests pin that door shut at the gate every deal runs (`require_subscribable`), and pin
 //! the one door that must stay open: a `closed` allocation still redeems
 //! (`require_redeemable`), so winding a product down never traps an investor. The deals
-//! themselves arrive with PR 1b.
+//! themselves are `balance_allocations`'; the two here pin the unit cap against them.
 //!
-//! Moved from banking 9ffafce3 (`piggybank/core/tests/allocation_registry.rs`). The tests
-//! that drove a subscription or a redemption end to end are not here yet: they need the
-//! money sagas (PR 1b) — see the list in this crate's README.
+//! Moved from banking 9ffafce3 (`piggybank/core/tests/allocation_registry.rs`).
 
 use invest_core::{
 	application::{allocations as allocations_app, funds as funds_app, issuance as issuance_app},
 	infrastructure::allocations::PgAllocations,
 	ports::{
-		AllocationRegistry, FundPositionReader, MoneyLedger, MoneyLedgerError, UnitIssuanceRepository,
+		AllocationRegistry, FundPositionReader, MoneyLedger, MoneyLedgerError, SubscriptionRecord, UnitIssuanceRepository,
 		issuance::{IssueOutcome, UnitIssuanceRecord},
 		ledger::LedgerTransfer,
 		money::{AccountLabel, ScopeId},
@@ -77,7 +75,7 @@ async fn register(h: &Harness, service: &ServiceId) -> Allocation {
 /// Open for business AND to everyone: the two operator decisions a product dealing with
 /// the public needs. The lifecycle tests below are about `state`, so they take both.
 async fn open_to_everyone(h: &Harness, service: &ServiceId) {
-	h.allocations.open(service).await.unwrap();
+	allocations_app::open(&h.allocations, h.money.as_ref(), service).await.unwrap();
 	h.allocations.set_access(service, AllocationAccess::Invest).await.unwrap();
 }
 
@@ -88,7 +86,7 @@ async fn provisioned_user(h: &Harness) -> UserId {
 
 async fn register_with_icon(h: &Harness, service: &ServiceId, icon: AllocationIcon) -> Allocation {
 	let mut allocation = Allocation::register(AllocationId::new(), service.clone(), "EV Trading", "Systematic crypto", icon).unwrap();
-	h.allocations.register(&mut allocation).await.unwrap();
+	h.allocations.register(&mut allocation, &ScopeId::invest()).await.unwrap();
 	allocation
 }
 
@@ -217,7 +215,7 @@ async fn registering_twice_is_a_conflict_not_a_silent_reset() {
 	h.allocations.open(&service).await.unwrap();
 
 	let mut duplicate = Allocation::register(AllocationId::new(), service.clone(), "Impostor", "", AllocationIcon::Venture).unwrap();
-	let err = h.allocations.register(&mut duplicate).await.unwrap_err();
+	let err = h.allocations.register(&mut duplicate, &ScopeId::invest()).await.unwrap_err();
 	assert!(matches!(err, DomainError::Conflict(_)), "got {err:?}");
 
 	// The live product kept its identity and, crucially, its open state.
@@ -315,6 +313,70 @@ async fn registration_is_audited_but_never_reaches_the_relay() {
 	// no ledger op for it and would park the row.
 	let relayed: i64 = sqlx::query_scalar("SELECT count(*) FROM outbox WHERE aggregate = 'allocation'").fetch_one(&h.pool).await.unwrap();
 	assert_eq!(relayed, 0, "allocation events must never enter the outbox");
+}
+
+/// A holder with `cash` in their compartment of invest's scope.
+async fn funded_user(h: &Harness, cash: &str) -> UserId {
+	let user = provisioned_user(h).await;
+	h.money.fund(&ScopeId::invest(), &common::auth_subject(user), usdt(cash));
+	user
+}
+
+async fn subscribe(h: &Harness, user: UserId, service: &ServiceId, cash: &str) -> Result<SubscriptionRecord, DomainError> {
+	funds_app::subscribe(&fund_ports(h), &h.subscriptions, &h.users, user, service.clone(), usdt(cash), now_unix()).await
+}
+
+#[tokio::test]
+async fn a_subscription_past_the_unit_cap_is_refused_before_any_money_moves() {
+	let Some(h) = harness().await else { return };
+	let service = unique_service();
+	let user = funded_user(&h, "200").await;
+	register(&h, &service).await;
+	open_to_everyone(&h, &service).await;
+	// Sized to a hundred units — "open" and "unbounded" are different things.
+	h.allocations.set_unit_cap(&service, shares("100")).await.unwrap();
+
+	// At the seed NAV of 1.0 this mints exactly the cap. Landing on it is allowed.
+	subscribe(&h, user, &service, "100").await.unwrap();
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+
+	let err = subscribe(&h, user, &service, "1").await.unwrap_err();
+	assert!(matches!(err, DomainError::Validation(ref m) if m.contains("unit cap")), "got {err:?}");
+
+	// Refused before banking was asked to hold anything: the remaining 100 is still the
+	// user's, and the product did not quietly issue a 101st unit.
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	assert_eq!(
+		h.money.compartment(&ScopeId::invest(), &common::auth_subject(user)),
+		usdt("100"),
+		"the refused subscription held nothing"
+	);
+	assert_eq!(
+		units_of(&h, LedgerAccountKey::SharesOutstanding(service.clone())).await,
+		shares("100"),
+		"supply stopped at the cap"
+	);
+}
+
+#[tokio::test]
+async fn narrowing_the_cap_below_the_issued_supply_stops_issuance_without_trapping_anyone() {
+	let Some(h) = harness().await else { return };
+	let service = unique_service();
+	let user = funded_user(&h, "100").await;
+	register(&h, &service).await;
+	open_to_everyone(&h, &service).await;
+	subscribe(&h, user, &service, "100").await.unwrap();
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+
+	// Pulled in under what is already out: legal, and it means "no more units" — not
+	// "some units are now invalid".
+	h.allocations.set_unit_cap(&service, shares("10")).await.unwrap();
+	assert!(subscribe(&h, user, &service, "1").await.is_err(), "no further issuance");
+
+	// The asymmetry the lifecycle gate has: the holder still gets out in full.
+	funds_app::request_redemption(&fund_ports(&h), &h.redemptions, &h.users, user, service.clone(), shares("100"), now_unix())
+		.await
+		.expect("a narrowed cap must never block a redemption");
 }
 
 #[tokio::test]
@@ -585,7 +647,7 @@ async fn a_reserved_allocation_is_not_an_operators_to_manage_or_buy_into() {
 		// Locking the holders in, or out: state, access, backing, cap and presentation.
 		forbidden(allocations_app::set_access(&h.allocations, &reserved, AllocationAccess::Invest).await.unwrap_err(), "set_access");
 		forbidden(allocations_app::close(&h.allocations, &reserved).await.unwrap_err(), "close");
-		forbidden(allocations_app::open(&h.allocations, &reserved).await.unwrap_err(), "open");
+		forbidden(allocations_app::open(&h.allocations, h.money.as_ref(), &reserved).await.unwrap_err(), "open");
 		forbidden(
 			allocations_app::set_backing(&h.allocations, &reserved, AllocationBacking::InKind).await.unwrap_err(),
 			"set_backing",
@@ -691,7 +753,9 @@ async fn the_fee_allocation_holds_a_products_fee_class_and_nothing_holds_a_reser
 	assert_eq!(units_of(&h, LedgerAccountKey::UserShares(ServiceId::fee(), owner)).await, shares("10"));
 	assert_eq!(units_of(&h, LedgerAccountKey::UserShares(ServiceId::fund(), owner)).await, shares("10"));
 	// And the reserved slugs can never be registered again over those rows.
-	let err = allocations_app::register(&h.allocations, ServiceId::fee(), "Mine", "", AllocationIcon::Fund).await.unwrap_err();
+	let err = allocations_app::register(&h.allocations, ServiceId::fee(), &ScopeId::invest(), "Mine", "", AllocationIcon::Fund)
+		.await
+		.unwrap_err();
 	assert!(matches!(err, DomainError::Validation(ref m) if m.contains("reserved")), "got {err:?}");
 }
 
