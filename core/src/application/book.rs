@@ -248,6 +248,9 @@ pub async fn place_order(ports: &BookPorts<'_>, user: UserId, request: PlaceOrde
 	let nav = current_nav(ports.nav, ports.ledger, ports.money, &request.service).await?;
 	let (reserved, hold) = match request.side {
 		Side::Sell => {
+			// A fill pays the seller into the compartment banking names by this subject; a
+			// seller banking cannot name would only be found out by the relay, after the match.
+			funds_app::require_auth_subject(ports.users, user).await?;
 			let holding = ports.ledger.balance(&LedgerAccountKey::UserShares(request.service.clone(), user)).await?;
 			if Shares::from_base_units(holding.available()) < size.shares() {
 				return Err(DomainError::Validation("insufficient units to sell".into()));

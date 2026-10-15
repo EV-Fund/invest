@@ -1027,3 +1027,22 @@ async fn a_buy_that_fails_after_its_hold_releases_the_hold() {
 	assert!(book_app::list_order_history(&h.book, buyer, None, 10).await.unwrap().is_empty(), "nothing written");
 	assert_eq!(cash_of(&h, buyer), usdt("100"), "the hold was released");
 }
+
+/// A seller banking cannot name has nowhere to be paid: the sell is refused at the door,
+/// not matched and busted later.
+#[tokio::test]
+async fn a_seller_banking_cannot_name_may_not_sell() {
+	let Some(h) = harness().await else { return };
+	let service = tradable_product(&h, 0).await;
+	let seller = provisioned_user(&h).await;
+	issue_units(&h, &service, seller, "10").await;
+	sqlx::query("UPDATE users SET auth_subject = NULL WHERE id = $1")
+		.bind(seller.raw())
+		.execute(&h.pool)
+		.await
+		.unwrap();
+
+	let err = place(&h, seller, &service, Side::Sell, OrderKind::Limit, Tif::Gtc, Some("1"), "1").await.unwrap_err();
+	assert!(matches!(err, DomainError::Precondition(ref m) if m.contains("money ledger")), "{err:?}");
+	assert!(book_app::list_order_history(&h.book, seller, None, 10).await.unwrap().is_empty());
+}
