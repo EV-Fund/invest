@@ -75,11 +75,11 @@
         noWrapper = ''export RUSTC_WRAPPER=""'';
         # openssl-sys (native-tls under ev_lib's reqwest/sentry) finds OpenSSL through
         # pkg-config; a writeShellApplication puts openssl's binaries on PATH but not its
-        # .pc file, so a CI runner without a system libssl-dev fails the build script. The
-        # library path keeps the test binaries linked against the same OpenSSL at run time.
+        # .pc file, so a CI runner without a system libssl-dev fails the build script. No
+        # LD_LIBRARY_PATH: it would drag nixpkgs' glibc into binaries running on the host's
+        # libc (GLIBC_ABI_DT_X86_64_PLT not found); at run time libssl.so.3 is the runner's.
         opensslEnv = ''
           export PKG_CONFIG_PATH="${pkgs.openssl.dev}/lib/pkgconfig''${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
-          export LD_LIBRARY_PATH="${pkgs.openssl.out}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
         '';
 
         # ── TigerBeetle (server binary + Rust client) — the same 0.17.6 banking runs ──
