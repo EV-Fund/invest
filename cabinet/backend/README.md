@@ -70,9 +70,9 @@ nix run .#db                     # the shared Postgres + the `invest` database
 nix run .#cabinet-backend        # :50072; migrates the `cabinet` schema on boot
 ```
 
-The frontend's `CABINET_BACKEND_URL` is this server **with `/cabinet`**
-(`http://127.0.0.1:50072/cabinet`): Next rewrites `/cabinet/api/:path*` to
-`${CABINET_BACKEND_URL}/api/:path*`, and every route here lives under `/cabinet`.
+The frontend's `CABINET_BACKEND_URL` is this server's origin (`http://127.0.0.1:50072`):
+Next rewrites `/cabinet/api/:path*` and `/cabinet/auth/:path*` there with the path intact,
+since every route here lives under `/cabinet`.
 
 Tests (Postgres required; concierge and invest-core are fakes):
 

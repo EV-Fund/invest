@@ -19,17 +19,31 @@ All under `/cabinet/{locale}`; a request without a locale is redirected into one
 | `/` | Portfolio — positions across allocations, performance |
 | `/invest`, `/invest/[service]` | Allocations: the catalog, one product, subscribe and redeem |
 | `/invest/[service]/trade` | The order book terminal for one product |
-| `/wallet` | Banking's wallet element, `scope="invest"` (`@evinvest/wallet`) |
-| `/account` | Concierge's account element (`@evinvest/concierge`) |
+| `/wallet` | Banking's wallet element, `scope="invest"` (`@evinvest/wallet`) — the only place cash is shown |
+| `/account` | Concierge's account element (`@evinvest/concierge`): profile, security, identity verification |
 | `/admin/allocations` | Allocation registry; "Manage access" leads to `evinvest.ltd/admin/scopes`, where scope and panel grants live (§7) |
 | `/admin/valuation`, `/admin/fees`, `/admin/revenue` | Valuation and redemptions, fee terms, fund revenue |
+
+What is not here, and where it went: the cash balance and every money action (banking's
+wallet element on `/wallet`); identity verification (concierge's account element on
+`/account` — banking refuses an unverified subscriber's cash, and the subscription comes
+back `failed` with banking's reason); users, the owners and their consilium (the central
+admin, `evinvest.ltd/admin`, approvals at `/admin/approvals`); the platform banner and
+the valuation override.
 | `/login` | Not a page: redirects to the `returnTo` page with `?login`, which opens sign-in |
 
-The console (`/admin/*`) is shown when the session's `user.isAdmin` is true — the
-BFF derives it from the caller's `<scope>:admin` / `<scope>:operator` seats, since
-an admin of any scope that owns an allocation manages it here (§2). The investor
-pages need `invest:self:invest`. Both are cosmetic gates
-(`shared/config/route-permissions.ts`); the BFF is the boundary.
+The investor pages need a session and nothing more: invest-core admits any person it
+knows and decides per product from their access level. The console is gated on
+invest's own permissions, as the session lists them (`shared/config/route-permissions.ts`):
+
+| Section | Needs |
+|---|---|
+| `/admin/valuation` | `invest:allocation:manage` or `invest:valuation:post` (posting a mark is the second's act; the redemption queue beside it is the first's) |
+| every other `/admin/*` | `invest:allocation:manage` |
+
+The rail shows the console group when the session's `user.isAdmin` is true (the BFF sets
+it for either permission) and, inside it, only the rows the seat can open. Both are
+cosmetic: the BFF and invest-core re-check every request.
 
 ## Sign-in and session
 
@@ -39,44 +53,44 @@ pages need `invest:self:invest`. Both are cosmetic gates
   `https://evinvest.ltd/api/auth/mfe/registry.json`.
 - **After sign-in** (`ev:signed-in`) the page navigates to the BFF's RP login,
   `/cabinet/api/auth/login?return_to=<this page>`. The BFF runs concierge's
-  `authorize` → `code` → callback for the RP client `invest` and sets the session
-  cookie. An OAuth round trip (Google, GitHub) returns to the same RP login.
+  `authorize` → `code` → `/cabinet/auth/callback` for the RP client `invest` and sets the
+  session cookie. An OAuth round trip (Google, GitHub) returns to
+  `https://invest.evinvest.ltd/cabinet`: concierge accepts a `return_to` only when its path
+  is one of the `invest` scope's `return_paths`, which is `/cabinet` alone. The
+  evinvest.ltd session exists by then, so the next "Sign in" is silent.
 - **Session:** the BFF's `invest_session` cookie (`__Host-` in production) is the
   only credential this app forwards; `GET /cabinet/api/auth/session` returns the
   principal (`SessionInfo` in `shared/contracts/admin.ts`) and refreshes the tokens
   behind it. CSRF: double-submit, cookie `invest_csrf`, header `x-ev-csrf`.
 - **Sign-out** from the account element: `POST /cabinet/api/auth/logout`, then
   concierge's confirm page ends the evinvest.ltd session and returns to
-  `https://invest.evinvest.ltd/` — so the `invest` scope's `return_paths` in
-  concierge must list `/`.
+  `https://invest.evinvest.ltd/cabinet` (the cabinet navigates there itself; the element's
+  own sign-out would return to the host's `/`, which concierge refuses for `invest`).
 
-## What the invest BFF must serve
+## The BFF
 
-This app is the frontend only; the Rust BFF is not written yet. Everything below
-`/cabinet/api/*` is rewritten to `CABINET_BACKEND_URL` and must be answered there,
-in the shapes the banking cabinet BFF uses today:
+The invest BFF (`cabinet/backend`, its [README](../backend/README.md)) is the only server
+this app talks to. Two prefixes are its, both rewritten by `next.config.ts` to
+`${CABINET_BACKEND_URL}` with the path intact (`CABINET_BACKEND_URL` is the BFF's origin,
+`http://invest-cabinet-backend:50072` in the image), and kept out of `proxy.ts`:
 
-| Path | Origin today | Notes |
-|---|---|---|
-| `/api/auth/login`, `/api/auth/callback`, `/api/auth/logout`, `/api/auth/session` | new | RP session for client `invest` |
-| `/api/funds/*`, `/api/allocations*` | banking BFF | positions, NAV, fee policy, subscriptions, redemptions |
-| `/api/book/*`, `/api/book/ws` | banking BFF | order book, candles, orders, fills; websocket |
-| `/api/admin/allocations/*`, `/api/admin/valuation/*`, `/api/admin/fees/*`, `/api/admin/revenue` | banking BFF | the allocation console |
-| `/api/wallet` | banking BFF | read only: the balance available to deal with |
-| `/api/kyc/status`, `/api/kyc/start` | concierge (site-root) | relayed with the RP session's credential |
-| `/api/users` | banking BFF | the profile the KYC gate reads |
-| `/api/admin/users` | banking BFF | the user picker in issue/grant forms |
-| `/api/consilium/holder-grant`, `/api/owners*` | banking BFF | to concierge approvals (§4.4) |
-| `/api/platform` | banking BFF | maintenance / read-only / announcement banner |
+| Prefix | What |
+|---|---|
+| `/cabinet/api/*` | the JSON API and the book socket — auth, catalog, funds, book, the console, health |
+| `/cabinet/auth/*` | the sign-in callback, `/cabinet/auth/callback` — the redirect URI concierge registered, without `/api` |
+
+In production the ingress sends both prefixes to the BFF ahead of `/cabinet`; the
+rewrites are the same routing for `next dev` and a pod reached directly.
+
+The wire types in `shared/contracts` are hand-written against the BFF's DTOs
+(`cabinet/backend/src/dto.rs`, `routes/auth.rs::SessionInfo`). The BFF serialises its own
+serde structs and publishes no OpenAPI, so there is nothing to generate from: a DTO
+changed there is changed here in the same PR. What the BFF answers beyond banking's
+shapes: a subscription carries its saga `state` (`reserving`/`reserved` pending,
+`settled`, `failed`) and `failure_reason`; a fee settlement takes an `idempotency_key`;
+a registration may name the `scope` whose compartments hold the product's cash.
 
 ## Generated files
-
-`shared/contracts/gen/**` is generated — **do not edit it by hand**. It was copied
-as is from banking `cabinet/frontend/shared/contracts/gen` at `4f18800b`, where
-`@hey-api/openapi-ts` emits it from banking's `contracts/openapi.json`
-(`openapi-ts.config.ts`). Until invest publishes its own OpenAPI, regenerate in
-banking and copy the output; `npm run gen:api` here expects the spec at
-`../../contracts/openapi.json`, which this repo does not have yet.
 
 `messages/en/common.json` and `i18n-slices.json` are generated from the code
 (`npm run i18n:extract`, `npm run i18n:slices`).
@@ -84,12 +98,13 @@ banking and copy the output; `npm run gen:api` here expects the spec at
 ## Develop
 
 ```sh
-npm ci
-cp .env.example .env.local     # CABINET_BACKEND_URL is required
-npm run dev                    # http://localhost:3000/cabinet
-npm run check && npm run lint && npm run i18n:check
-npm run build
+nix run .#cabinet-frontend     # next dev on http://localhost:3000/cabinet, BFF at :50072
+nix run .#check-frontend       # tsc + eslint + i18n gates, as CI runs them
+nix build .#cabinet            # the standalone server the image runs
 ```
+
+or by hand inside `nix develop`: `npm ci`, `cp .env.example .env.local`, `npm run dev`.
+The whole stack (core + BFF + this) is in the repository's README, § Develop.
 
 Without a BFF every page still renders (as a guest, behind the sign-in wall);
 `/cabinet/api/*` answers 500 from the failed rewrite.
@@ -111,8 +126,7 @@ extractor refuses one, since it has no English to extract.
 English catalogue no longer matches the code, or on drift. The cabinet's own
 `scripts/i18n-check.mts` then holds every locale at 100 % coverage and refuses a
 translation identical to its English. The second checker
-runs under `tsx` rather than node's `--experimental-strip-types` (which the unit
-tests use) because it imports `shared/config/i18n.ts`, and that module loads the
+runs under `tsx` rather than node's `--experimental-strip-types` because it imports `shared/config/i18n.ts`, and that module loads the
 catalogues through the `@/messages/...` tsconfig path alias, which bare node
 does not resolve.
 
@@ -175,7 +189,7 @@ does **not** call an entity client from a `useEffect`; it declares what it reads
 and the cache decides whether that costs a request.
 
 ```ts
-const wallet = useResource(walletResource);          // no argument
+const positions = useResource(positionsResource);    // no argument
 const nav = useResource(fundNavResource, service);   // keyed per fund
 ```
 
@@ -200,9 +214,9 @@ Rules:
   window it stays fresh for and the tags its mutations move. Views import from
   `model/`, never from `api/`.
 - **A mutation names what it moved**, it does not refetch. A subscription names
-  `wallet · positions · fees`, so the figures on *every* open surface follow — no call
+  `positions · fees`, so the figures on *every* open surface follow — no call
   site has to know which screens are mounted. A write whose response IS the new
-  state (`saveProfile`, `postValuation`) publishes it rather than invalidating.
+  state (`postValuation`) publishes it rather than invalidating.
 - **`isLoading` is the only state that earns a skeleton.** It is true only when
   there is nothing to show and nothing has failed. Cached data renders on the
   first frame and refreshes behind itself; see the `Settled` rule below, which
