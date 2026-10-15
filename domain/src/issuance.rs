@@ -1,6 +1,6 @@
 //! `issuance` bounded context — an operator issuing fund units **in kind**.
 //!
-//! A [`Subscription`](crate::subscriptions::Subscription) is the only way units came
+//! A subscription is the only way units came
 //! into existence until now: cash leaves a user's claim, units arrive in their holding.
 //! That leaves no honest way to register a product against an asset the holders already
 //! own — a service whose valuation is known, whose supply is fixed, and where a named
@@ -26,10 +26,8 @@
 //! product units yet — its capital is cash on its own claim — so an issuance naming it is
 //! refused rather than aliased onto an account that does not exist.
 //!
-//! The company as a holder and the hand-over out of its stake were retired by #245 and
-//! are gone from this vocabulary. The two `unit_issuances` rows production still holds
-//! from them are history, read at the persistence boundary as such
-//! (`ports::issuance::RetiredCompanyIssuance` in the hub), never as a [`UnitIssuance`].
+//! The company as a holder and the hand-over out of its stake were retired by #245 in
+//! banking and are gone from this vocabulary; invest's `unit_issuances` never held them.
 //!
 //! The mirror of a mint is a **retirement** ([`UnitIssuance::retire`]) — units burnt out
 //! of a holder's account with no cash leg, the way they were minted with none. The relay
@@ -44,7 +42,7 @@
 //! aggregate is an immutable record with one relay-driven transition, `Queued` →
 //! `Applied`, stamped once the mint has posted.
 //!
-//! Pure and wasm-safe (mirrors [`Subscription`](crate::subscriptions::Subscription)):
+//! Pure and wasm-safe (mirrors banking's `Subscription`):
 //! ids are minted by the application layer, no clock, no I/O. NAV is supplied by the
 //! caller, never derived here.
 
@@ -66,7 +64,7 @@ pub struct UnitIssuanceTag;
 /// The longest accepted idempotency key.
 pub const MAX_IDEMPOTENCY_KEY_LEN: usize = 64;
 
-/// Who receives issued units. Tagged like [`Party`](crate::balance::Party) so the
+/// Who receives issued units. Tagged like banking's `Party` so the
 /// stored event payload is self-describing.
 ///
 /// An allocation is a holder in its own right rather than a user with a well-known id:
@@ -88,7 +86,7 @@ pub enum UnitHolder {
 
 impl UnitHolder {
 	/// The discriminator stored in the `holder_kind` column. Keep byte-identical with
-	/// `evbanking_contracts::allocation::holder` (`unit_holder_strings_are_canonical`
+	/// `invest_contracts::allocation::holder` (`unit_holder_strings_are_canonical`
 	/// guards this side).
 	pub fn kind_str(&self) -> &'static str {
 		match self {
@@ -114,8 +112,8 @@ impl UnitHolder {
 	}
 
 	/// Reconstruct from the `(kind, holder_id, holder_service)` column triple
-	/// (persistence adapter). The retired `company` kind is refused: the adapter reads
-	/// the historical rows that carry it as history before they ever reach here.
+	/// (persistence adapter). Banking's retired `company` kind is refused like any unknown
+	/// one.
 	pub fn from_parts(kind: &str, user: Option<UserId>, service: Option<ServiceId>) -> Result<Self, DomainError> {
 		match (kind, user, service) {
 			("user", Some(user), None) => Ok(Self::User(user)),
@@ -151,21 +149,12 @@ impl UnitHolder {
 	/// The inverse of [`Self::shares_key`], widened to the book's escrow: which product
 	/// and which holder a Share-ledger account's units belong to. `BookShares` is the
 	/// user's — units resting in a sell are still theirs and still count in the supply
-	/// invariant. `None` for `SharesOutstanding` (the supply belongs to nobody) and every
-	/// cash account.
+	/// invariant. `None` for `SharesOutstanding`: the supply belongs to nobody.
 	pub fn of_holding(key: &LedgerAccountKey) -> Option<(ServiceId, Self)> {
 		match key {
 			LedgerAccountKey::UserShares(service, user) | LedgerAccountKey::BookShares(service, user) => Some((service.clone(), Self::User(*user))),
 			LedgerAccountKey::FeeShares(service) => Some((service.clone(), Self::Allocation(ServiceId::fee()))),
-			LedgerAccountKey::SharesOutstanding(_)
-			| LedgerAccountKey::CryptoWallet(_)
-			| LedgerAccountKey::UserClaim(_)
-			| LedgerAccountKey::ServiceClaim(_)
-			| LedgerAccountKey::WithdrawalClearing
-			| LedgerAccountKey::BankCustody
-			| LedgerAccountKey::BookCash(_)
-			| LedgerAccountKey::ScopeClaim(..)
-			| LedgerAccountKey::ScopeAccount(..) => None,
+			LedgerAccountKey::SharesOutstanding(_) => None,
 		}
 	}
 
@@ -197,7 +186,7 @@ pub enum IssuanceState {
 
 impl IssuanceState {
 	/// The stored/wire discriminant. Keep byte-identical with
-	/// `evbanking_contracts::allocation::issuance_state`
+	/// `invest_contracts::allocation::issuance_state`
 	/// (`issuance_state_strings_are_canonical` guards this side).
 	pub fn as_str(self) -> &'static str {
 		match self {
@@ -233,7 +222,7 @@ pub enum IssuanceSource {
 
 impl IssuanceSource {
 	/// The stored/wire discriminant. Keep byte-identical with
-	/// `evbanking_contracts::allocation::issuance_source`
+	/// `invest_contracts::allocation::issuance_source`
 	/// (`issuance_source_strings_are_canonical` guards this side).
 	pub fn as_str(self) -> &'static str {
 		match self {
@@ -343,12 +332,11 @@ impl UnitIssuance {
 		Self::record(id, service, holder, IssuanceSource::Retire, units, nav, cost_basis, idempotency_key)
 	}
 
-	/// A mint recorded after its leg has already posted — the ownership data migration's
-	/// door (#245): it seats the reserved allocations' first holders by posting the mints
-	/// to the ledger itself, in one linked chain with the cash it moves, so the row it
-	/// then writes is born `Applied` and raises no event (there is no leg left for the
-	/// relay to post). The gates are [`Self::issue`]'s: positive units, a holder the
-	/// graph admits; the cost basis is `units × nav`.
+	/// A mint recorded after its leg has already posted — the door for a data move that
+	/// posts its mints to the ledger itself (banking's #245 ownership migration; invest's
+	/// final data wave), so the row it then writes is born `Applied` and raises no event
+	/// (there is no leg left for the relay to post). The gates are [`Self::issue`]'s:
+	/// positive units, a holder the graph admits; the cost basis is `units × nav`.
 	pub fn applied_mint(id: UnitIssuanceId, service: ServiceId, holder: UnitHolder, units: Shares, nav: Nav, idempotency_key: IdempotencyKey) -> Result<Self, DomainError> {
 		let mut issuance = Self::record(id, service, holder, IssuanceSource::Mint, units, nav, None, idempotency_key)?;
 		issuance.state = IssuanceState::Applied;
@@ -419,7 +407,7 @@ impl UnitIssuance {
 
 	/// Whether a retry under the same key is asking for the same thing. Holder, source
 	/// and units are the identity of the request; NAV and the defaulted cost basis are
-	/// what the hub computed for it, and a retry a minute later must not be refused
+	/// what invest computed for it, and a retry a minute later must not be refused
 	/// because the mark moved in between.
 	pub fn matches_request(&self, holder: &UnitHolder, source: IssuanceSource, units: Shares) -> bool {
 		self.holder == *holder && self.source == source && self.units == units
@@ -549,7 +537,7 @@ mod tests {
 
 	#[test]
 	fn unit_holder_strings_are_canonical() {
-		// Wire contract: these must match `evbanking_contracts::allocation::holder`.
+		// Wire contract: these must match `invest_contracts::allocation::holder`.
 		let user = UserId::new();
 		assert_eq!(UnitHolder::User(user).kind_str(), "user");
 		assert_eq!(fee().kind_str(), "allocation");
@@ -576,15 +564,13 @@ mod tests {
 		}
 		// ...and the book's escrow is the user's, not the book's.
 		assert_eq!(UnitHolder::of_holding(&LedgerAccountKey::BookShares(svc(), user)), Some((svc(), UnitHolder::User(user))));
-		// Supply and cash have no holder.
+		// Supply has no holder.
 		assert_eq!(UnitHolder::of_holding(&LedgerAccountKey::SharesOutstanding(svc())), None);
-		assert_eq!(UnitHolder::of_holding(&LedgerAccountKey::ServiceClaim(svc())), None);
-		assert_eq!(UnitHolder::of_holding(&LedgerAccountKey::UserClaim(user)), None);
 	}
 
 	#[test]
 	fn issuance_state_strings_are_canonical() {
-		// Wire contract: these must match `evbanking_contracts::allocation::issuance_state`.
+		// Wire contract: these must match `invest_contracts::allocation::issuance_state`.
 		assert_eq!(IssuanceState::Queued.as_str(), "queued");
 		assert_eq!(IssuanceState::Applied.as_str(), "applied");
 		for state in [IssuanceState::Queued, IssuanceState::Applied] {
@@ -596,7 +582,7 @@ mod tests {
 
 	#[test]
 	fn issuance_source_strings_are_canonical() {
-		// Wire contract: these must match `evbanking_contracts::allocation::issuance_source`.
+		// Wire contract: these must match `invest_contracts::allocation::issuance_source`.
 		assert_eq!(IssuanceSource::Mint.as_str(), "mint");
 		assert_eq!(IssuanceSource::Retire.as_str(), "retire");
 		for source in [IssuanceSource::Mint, IssuanceSource::Retire] {

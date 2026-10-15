@@ -21,9 +21,9 @@
 //! effective level for one investor — [`AllocationAccess::effective`] — is the higher
 //! of the two, and it is what the subscribe gate and the catalog are decided on.
 //!
-//! Pure and wasm-safe (mirrors [`Withdrawal`](crate::withdrawals::Withdrawal)): ids are
-//! minted by the application layer, no clock, no I/O. Timestamps are DB-stamped and
-//! surfaced by the read port, so they never enter the aggregate.
+//! Pure and wasm-safe: ids are minted by the application layer, no clock, no I/O.
+//! Timestamps are DB-stamped and surfaced by the read port, so they never enter the
+//! aggregate.
 
 use ev::architecture::{AggregateRoot, DomainEvent, EmitsEvents, Entity, Id};
 use serde::{Deserialize, Serialize};
@@ -59,10 +59,11 @@ pub struct AllocationTag;
 
 /// The surrogate id of the reserved **fee** allocation ([`ServiceId::fee`]).
 ///
-/// Fixed rather than minted, because the row is written by migration `0045`, not by an
-/// operator: the literal is `uuid5(NAMESPACE_OID, "evbanking:allocation:fee")`, spelled
-/// out here so the domain stays free of the v5 feature, and pinned by a hub test that
-/// re-derives it and greps the migration for the same bytes.
+/// Fixed rather than minted, because the row is written by migration `0001`, not by an
+/// operator: the literal is banking's `uuid5(NAMESPACE_OID, "evbanking:allocation:fee")`
+/// — the same row, so the data wave keeps its id — spelled out here so the domain stays
+/// free of the v5 feature, and pinned by a core test that re-derives it and greps the
+/// migration for the same bytes.
 pub const FEE_ALLOCATION_ID: AllocationId = AllocationId::from_raw(uuid::Uuid::from_u128(0x680240f5_1c41_58e2_987c_e52dbe2faa01));
 /// The surrogate id of the reserved **fund** allocation ([`ServiceId::fund`]):
 /// `uuid5(NAMESPACE_OID, "evbanking:allocation:fund")`. See [`FEE_ALLOCATION_ID`].
@@ -99,7 +100,7 @@ pub enum AllocationState {
 
 impl AllocationState {
 	/// The stored/wire discriminant. Keep byte-identical with
-	/// `evbanking_contracts::allocation::state` (`allocation_state_strings_are_canonical`
+	/// `invest_contracts::allocation::state` (`allocation_state_strings_are_canonical`
 	/// guards this side).
 	pub fn as_str(self) -> &'static str {
 		match self {
@@ -150,7 +151,7 @@ impl AllocationAccess {
 	pub const DEFAULT: Self = Self::View;
 
 	/// The stored/wire discriminant. Keep byte-identical with
-	/// `evbanking_contracts::allocation::access` (`allocation_access_strings_are_canonical`
+	/// `invest_contracts::allocation::access` (`allocation_access_strings_are_canonical`
 	/// guards this side).
 	pub fn as_str(self) -> &'static str {
 		match self {
@@ -220,7 +221,7 @@ impl AllocationIcon {
 	/// Every icon, in the order an operator's picker shows them — [`Self::Fund`] first,
 	/// because that is the one a product lands on when nobody chooses.
 	///
-	/// The set the DB CHECK in migration 0027 and `evbanking_contracts::allocation::
+	/// The set the DB CHECK in migration 0001 and `invest_contracts::allocation::
 	/// icon::ALL` must agree with, member for member — `domain_icons_match_the_wire_
 	/// contract` compares the two both ways, and
 	/// `every_icon_the_domain_knows_is_accepted_by_the_column` writes each of these into
@@ -269,7 +270,7 @@ impl AllocationIcon {
 	}
 
 	/// The stored/wire discriminant. Keep byte-identical with
-	/// `evbanking_contracts::allocation::icon` (`allocation_icon_strings_are_canonical`
+	/// `invest_contracts::allocation::icon` (`allocation_icon_strings_are_canonical`
 	/// guards this side).
 	pub fn as_str(self) -> &'static str {
 		match self {
@@ -292,7 +293,7 @@ impl AllocationIcon {
 	/// contract mismatch the operator has to see, and the request is still refusable.
 	///
 	/// The storage read path deliberately does not use it that way — see
-	/// `piggybank_core::infrastructure::allocations`, which degrades an unknown stored
+	/// `invest_core::infrastructure::allocations`, which degrades an unknown stored
 	/// value to [`Self::default`]. A row is already written; refusing it would take the
 	/// catalog down over a presentation column.
 	pub fn parse(raw: &str) -> Result<Self, DomainError> {
@@ -341,7 +342,7 @@ pub enum AllocationBacking {
 
 impl AllocationBacking {
 	/// The stored/wire discriminant. Keep byte-identical with
-	/// `evbanking_contracts::allocation::backing` (`allocation_backing_strings_are_canonical`
+	/// `invest_contracts::allocation::backing` (`allocation_backing_strings_are_canonical`
 	/// guards this side).
 	pub fn as_str(self) -> &'static str {
 		match self {
@@ -364,9 +365,8 @@ impl AllocationBacking {
 
 /// The stored shape of an [`Allocation`], as the persistence adapter reads it back —
 /// the input to [`Allocation::rehydrate`]. A struct rather than eight positional
-/// arguments for the same reason as [`UserSnapshot`](crate::users::UserSnapshot): the
-/// call site is a row-to-aggregate mapping, and named fields read against the `SELECT`
-/// beside it where a positional list has to be counted out.
+/// arguments because the call site is a row-to-aggregate mapping, and named fields read
+/// against the `SELECT` beside it where a positional list has to be counted out.
 pub struct AllocationSnapshot {
 	pub id: AllocationId,
 	pub service: ServiceId,
@@ -403,7 +403,7 @@ impl Allocation {
 	/// investors stay separate operator decisions. Raises `Registered`.
 	///
 	/// A reserved slug ([`ServiceId::is_reserved`]) is refused: the `fee` and `fund`
-	/// allocations are the platform's own, written once by migration `0045` with fixed
+	/// allocations are the platform's own, written once by migration `0001` with fixed
 	/// ids and hidden access, and an operator "registering" one would either collide with
 	/// that row or — on a database that predates it — create a public product wearing a
 	/// name every fee and seed leg is about to credit.
@@ -905,7 +905,7 @@ mod tests {
 
 	#[test]
 	fn allocation_state_strings_are_canonical() {
-		// Wire contract: these must match `evbanking_contracts::allocation::state`.
+		// Wire contract: these must match `invest_contracts::allocation::state`.
 		assert_eq!(AllocationState::Draft.as_str(), "draft");
 		assert_eq!(AllocationState::Open.as_str(), "open");
 		assert_eq!(AllocationState::Closed.as_str(), "closed");
@@ -917,7 +917,7 @@ mod tests {
 
 	#[test]
 	fn allocation_icon_strings_are_canonical() {
-		// Wire contract: these must match `evbanking_contracts::allocation::icon`.
+		// Wire contract: these must match `invest_contracts::allocation::icon`.
 		//
 		// Driven off `ALL` rather than off a literal list of pairs: the old shape was ten
 		// hand-written rows that would have gone on passing, unchanged and green, after an
@@ -1028,7 +1028,7 @@ mod tests {
 
 	#[test]
 	fn allocation_access_strings_are_canonical_and_ranked() {
-		// Wire contract: these must match `evbanking_contracts::allocation::access`.
+		// Wire contract: these must match `invest_contracts::allocation::access`.
 		assert_eq!(AllocationAccess::Hidden.as_str(), "hidden");
 		assert_eq!(AllocationAccess::View.as_str(), "view");
 		assert_eq!(AllocationAccess::Invest.as_str(), "invest");
@@ -1307,7 +1307,7 @@ mod tests {
 
 	#[test]
 	fn allocation_backing_strings_are_canonical() {
-		// Wire contract: these must match `evbanking_contracts::allocation::backing`.
+		// Wire contract: these must match `invest_contracts::allocation::backing`.
 		assert_eq!(AllocationBacking::Cash.as_str(), "cash");
 		assert_eq!(AllocationBacking::InKind.as_str(), "in_kind");
 		for backing in [AllocationBacking::Cash, AllocationBacking::InKind] {
