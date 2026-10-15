@@ -156,17 +156,26 @@ a key derived from the aggregate (`core/src/infrastructure/relay/sagas.rs`):
 | Flow | Cash in banking | Units in invest |
 | ---- | --------------- | --------------- |
 | Subscribe | `Reserve` on the subscriber's compartment (synchronous, TTL 1 h), then `Capture` into `(<scope>, alloc:<slug>)` | pending mint, posted after the capture; voided with the hold when banking refuses |
-| Redeem | `Payout` from `(<scope>, alloc:<slug>)` at settle, only once the burn is reserved | pending burn at request — admitted only for units free and not claimed by an undrained event — posted after the payout; voided when banking refuses |
-| Book buy | `Reserve` before the order is written; each fill `Capture`s to the seller, the release `Void`s the rest | sells escrow units, and only escrowed orders of active holders are matched; a fill is pending until its cash moved, and one that cannot settle is busted — the seller's units back, the buy's hold voided |
+| Redeem | `Payout` from `(<scope>, alloc:<slug>)` at settle, only once the burn is reserved; past the automatic ceilings (`approval_required`) a `RequestPayout` instead, the redemption `awaiting_approval` until banking's verdict | pending burn at request — admitted only for units free and not claimed by an undrained event — posted after the payout (or the executed approval); voided when banking refuses or the owners reject |
+| Book buy | `Reserve` before the order is written; each fill `Capture`s to the seller, the release `Void`s the rest | sells escrow units, and only escrowed orders of active holders are matched; a fill is pending until its cash moved, and one that cannot settle is busted — the seller's units back, the buy's hold voided; a buy whose hold banking voids or expires on its own comes off the book `rejected` |
 | Fees | the taker fee (at most 1 %) and a fee-class settlement go `alloc:<slug>` → `(<scope>, fee)`, which banking forwards to `(invest, alloc:fee)` from every scope | a charge moves units into the product's fee class; a settlement reserves their burn before the sweep and posts or voids it after; one settlement per product at a time, idempotent by its key |
 
 Opening a product (`SetAllocationState open`) opens its `alloc:<slug>` account in banking
-first. banking serves only `OpenAccount`, `GetBalances` and `Transfer` today; a saga step
-it does not serve yet retries from the same outbox row.
+first. A saga step banking does not serve yet (UNIMPLEMENTED) retries from the same outbox
+row.
+
+What banking does on its own reaches invest through its money-event log
+(`scope.v1.MoneyEvents`), pulled by one consumer under an advisory lock
+(`core/src/infrastructure/money_events.rs`): a voided or expired hold under a resting buy,
+and the owners' verdict on a requested payout (read back with `GetPendingOperation`, and
+re-asked every minute for redemptions still awaiting). It runs whenever `SCOPE_LEDGER_ADDR`
+is set — same listener, same credentials. `failure_reason` on a subscription or a redemption
+is a machine code: banking's refusal as banking names it, its verdict on an approval, or one
+of invest's own (`units_unavailable`, `money_ledger_unavailable`).
 
 Not here yet: the owners' approval of a fee change beyond the house envelope (refused until
 invest is a client of concierge's approvals), delivering holder notices of a fee change
-(recorded as given up; a dearer change binds once its requester acknowledges), and
-`RequestPayout` for a redemption past banking's automatic ceilings (fails the redemption).
+(recorded as given up; a dearer change binds once its requester acknowledges), and a reaper
+for a buy's hold whose `Reserve` answer was lost (`application/book.rs`).
 banking's `ownership_contract` suite pins banking's own migration 0047 over its production
 history and has no counterpart here.
