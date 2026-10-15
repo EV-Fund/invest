@@ -1,0 +1,18 @@
+[package]
+name = "invest_contracts"
+version = "0.1.0"
+edition = "2024"
+description = "gRPC wire contracts for invest-core (invest.v1) — generated tonic client+server stubs, plus the curated allocation facade."
+license = "BlueOak-1.0.0"
+publish = false
+
+[dependencies]
+prost.workspace = true
+tonic.workspace = true
+tonic-prost.workspace = true
+
+[build-dependencies]
+tonic-prost-build.workspace = true
+
+[lints]
+workspace = true

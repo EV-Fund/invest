@@ -1,0 +1,33 @@
+# HAND-WRITTEN — not generator output.
+#
+# warnings.yml, release-container.yml and the claude*.yml pair are written by v_flakes from
+# flake.nix on every `nix develop`. This file is not: the generator emits no clippy/test
+# job for this repo, and the workspace needs the devshell's TigerBeetle client and protoc.
+# v_flakes only `cp -f`s its own filenames, so this file survives. Keep it thin — the
+# checks live in flake.nix (`nix run .#check-rust`, which brings up a throwaway Postgres and
+# TigerBeetle and sets CI=true so no integration suite can skip).
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  rust:
+    name: Rust
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+        with:
+          extra-conf: lazy-trees = true
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+      - name: Cargo.lock matches the manifests
+        run: nix run .#drift-check
+      - name: clippy + tests (Postgres + TigerBeetle)
+        run: nix run .#check-rust
