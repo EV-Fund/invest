@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package banking.v1;
+package invest.v1;
 
 // FeesService — a fund's management and performance fee ("2 and 20").
 //
@@ -27,8 +27,9 @@ package banking.v1;
 //
 // SettleFeeShares is the one operation that crosses into cash, converting a whole
 // fund's accumulated fee units in one go rather than once per investor — at the NAV of
-// the day, out of the product's claim into the `fee` allocation's. Amounts and prices
-// are exact decimal strings. See piggybank/core/PATTERNS.md and docs/FEES.md.
+// the day, out of the product's account in banking into the scope's fee route, which
+// lands invest's own fees on the `fee` allocation's cash. Amounts and prices are exact
+// decimal strings. Permissions are `invest:*`.
 service FeesService {
   // One fund's terms, or an empty policy when the product charges nothing. Readable
   // by any authenticated user — an investor is entitled to know what they are paying.
@@ -46,21 +47,23 @@ service FeesService {
   // effect no earlier than 24h after it was scheduled while anyone holds units (at once
   // for a fund with no holders); `effective_from` may ask for later, never earlier. A
   // change that TIGHTENS the terms beyond the house envelope (2-and-20 on invested
-  // capital, annual) needs the owners' consilium, which the caller must be an owner to
-  // open, and `reason` is then required; every other change is scheduled at once. The
-  // holders are mailed when the change is scheduled. One pending change per fund: a
-  // second is refused with ALREADY_EXISTS until the first is cancelled.
+  // capital, annual) needs the owners' approval, which invest cannot ask concierge for
+  // yet: it is refused with FAILED_PRECONDITION. Every other change is scheduled at once,
+  // and a notice is recorded for every holder. invest has no channel to deliver those
+  // notices yet, so each counts as given up: a change that makes the terms DEARER binds
+  // only once its requester acknowledges them (AcknowledgeUndeliveredNotices); a cheaper
+  // one binds by itself. One pending change per fund: a second is refused with
+  // ALREADY_EXISTS until the first is cancelled.
   rpc ScheduleFeePolicy(ScheduleFeePolicyRequest) returns (FeePolicyChange);
 
-  // Withdraw a pending change (AllocationManage). One still awaiting the owners takes its
-  // consilium down with it. Idempotent on an already-cancelled change.
+  // Withdraw a pending change (AllocationManage). Idempotent on an already-cancelled change.
   rpc CancelFeePolicyChange(CancelFeePolicyChangeRequest) returns (FeePolicyChange);
 
   // Take responsibility for the holders of a scheduled change who could not be told
-  // (AllocationManage, AND the caller must be the one who requested the change or a fund
-  // owner). A change that TIGHTENS the terms does not bind while a holder's notice is
-  // undelivered; for a holder the identity plane can never reach that is forever. This
-  // records who acknowledged, when, and exactly which holders' notices the mailer had
+  // (AllocationManage, AND the caller must be the one who requested the change). A change
+  // that TIGHTENS the terms does not bind while a holder's notice is undelivered; for a
+  // holder nobody can reach that is forever. This
+  // records who acknowledged, when, and exactly which holders' notices had been
   // GIVEN UP on by that moment (`notices_given_up`, never a notice still being tried), and
   // the change then binds over those holders — and over nobody else who turns out untold
   // later. A later call ADDS the holders given up on since (`notices_unacknowledged`) and
@@ -68,8 +71,8 @@ service FeesService {
   // responsibility for the whole list. A repeat that would add nobody returns the record
   // unchanged. ALREADY_EXISTS when the change is not scheduled, only loosens the terms (it
   // binds by itself), or has no notice given up on yet that is not already covered —
-  // there is nothing to take responsibility for; PERMISSION_DENIED for a caller who is
-  // neither the requester nor an owner.
+  // there is nothing to take responsibility for; PERMISSION_DENIED for a caller who is not
+  // the requester.
   rpc AcknowledgeUndeliveredNotices(AcknowledgeUndeliveredNoticesRequest) returns (FeePolicyChange);
 
   // A fund's whole history of terms, newest version first. Readable by any
@@ -96,7 +99,7 @@ service FeesService {
 
   // Convert accumulated fee units into the `fee` allocation's cash (AllocationManage).
   // Omit `units` to settle the whole balance. Refused — never queued — when the fund's
-  // claim cannot cover the payout: nobody is waiting on this, and unconverted fee units
+  // account cannot cover the payout: nobody is waiting on this, and unconverted fee units
   // keep accumulating at no cost. The settler is the CALLER, never a field: whoever
   // posted the product's latest mark cannot settle its fee class for 7 days, so a
   // request cannot name somebody else to get past that.
@@ -152,7 +155,7 @@ message ScheduleFeePolicyRequest {
   // An earlier request than the notice allows is lifted to the minimum, not refused.
   int64 effective_from = 7;
   // Why, in the requester's words. Required and non-empty when the owners must approve
-  // (the approval mail is refused without one); optional otherwise. Shown verbatim.
+  // (invest refuses such a change today); optional otherwise. Shown verbatim.
   string reason = 8;
 }
 
@@ -172,7 +175,7 @@ message ListFeePolicyChangesRequest {
 
 // One row of a fund's fee-policy history. `state` is one of awaiting_consilium |
 // scheduled | active | superseded | rejected | cancelled; `requirement` is admin |
-// owner_consilium. See docs/FEES.md § "Changing the terms".
+// owner_consilium. invest records only `admin` changes until it can ask the owners.
 message FeePolicyChange {
   string id = 1;
   string service = 2;
@@ -187,7 +190,8 @@ message FeePolicyChange {
   // the change is scheduled.
   int64 effective_from = 10;
   string requirement = 11;
-  // The consilium this change waits on (or waited on); empty for an administrator's change.
+  // The owners' approval this change waits on (or waited on); empty for an administrator's
+  // change, which is every change invest records today.
   string consilium_id = 12;
   string requested_by = 13;
   int64 requested_at = 14;
@@ -205,11 +209,11 @@ message FeePolicyChange {
   // Unix seconds the (latest) acknowledgement was given; 0 when the notices were never
   // waived. Public like every other moment on the change.
   int64 notices_waived_at = 19;
-  // The ids of the holders whose notice the mailer had given up on by that moment — the
+  // The ids of the holders whose notice had been given up on by that moment — the
   // holders the change binds over untold. Operators only; empty for everyone else.
   repeated string notices_waived_users = 20;
-  // Notices of this change not yet delivered to a CURRENT holder, how many of those the
-  // mailer has given up on — the figures a tightening waits on — and how many of the
+  // Notices of this change not yet delivered to a CURRENT holder, how many of those have
+  // been given up on — the figures a tightening waits on — and how many of the
   // given-up ones the acknowledgement does not cover (all of them while there is none):
   // the holders a (further) AcknowledgeUndeliveredNotices would name, so it is worth
   // offering exactly while this is non-zero. Counted only while `scheduled` (0 in every

@@ -2,7 +2,7 @@
 //! secondary market in an allocation's units.
 //!
 //! A consumer imports this one module instead of hunting through the generated
-//! `banking::v1` namespace: it re-exports the book stubs and message types, and pins the
+//! `invest::v1` namespace: it re-exports the book stubs and message types, and pins the
 //! wire vocabularies the two sides must agree on ([`side`], [`kind`], [`tif`],
 //! [`state`], [`cancel_reason`], [`resolution`]).
 //!
@@ -11,7 +11,7 @@
 //! ```text
 //! operator ─ SetBookPolicy ──────▶ book_open, taker fee, tick, lot, slippage
 //! investor ─ GetBook / WatchBook ▶ the aggregated book, the tape, NAV for the ticker
-//! investor ─ PlaceOrder ─────────▶ escrow locked; fills settle DvP through the relay
+//! investor ─ PlaceOrder ─────────▶ escrow locked (a buy: a hold in banking); fills settle DvP through the relay
 //! investor ─ ListOpenOrders ─────▶ what is resting (refetch when `orders_revision` moves)
 //! investor ─ CancelOrder ────────▶ the unspent escrow comes back
 //! investor ─ ListUserTrades ─────▶ own fills, with the fee paid as taker
@@ -21,7 +21,7 @@
 //! and only while the policy says `book_open`. It never mints or burns: every unit that
 //! changes hands already existed, so the supply and the NAV are untouched by a trade.
 
-pub use crate::banking::v1::{
+pub use crate::invest::v1::{
 	BookEvent, BookLevel, BookPolicy, BookSnapshot, CancelOrderRequest, Candle, CandleList, GetBookPolicyRequest, GetBookRequest, ListCandlesRequest, ListOpenOrdersRequest,
 	ListOrderHistoryRequest, ListTradesRequest, ListUserTradesRequest, Order, OrderList, PlaceOrderRequest, SetBookPolicyRequest, Trade, TradeList, WatchBookRequest,
 	book_service_client::BookServiceClient,
@@ -43,7 +43,7 @@ pub mod side {
 /// The canonical `Order.kind` strings.
 pub mod kind {
 	pub const LIMIT: &str = "limit";
-	/// Priced by the hub from the best opposite quote ± slippage, then run as an IOC limit.
+	/// Priced by invest from the best opposite quote ± slippage, then run as an IOC limit.
 	pub const MARKET: &str = "market";
 
 	pub const ALL: [&str; 2] = [LIMIT, MARKET];
@@ -71,7 +71,7 @@ pub mod tif {
 
 /// The canonical `Order.state` strings.
 ///
-/// The hub's `domain::book::OrderState` stores exactly these (`book_strings_are_canonical`
+/// invest-core's `invest_domain::book::OrderState` stores exactly these (`book_strings_are_canonical`
 /// guards that side). `open` and `partially_filled` are the two RESTING states — an order
 /// in either sits on the book and can be cancelled; the other three are terminal.
 pub mod state {
@@ -101,9 +101,9 @@ pub mod state {
 pub mod cancel_reason {
 	/// The owner cancelled the order.
 	pub const USER: &str = "user";
-	/// An IOC limit order: the hub cancelled what did not fill at once (`filled` may be > 0).
+	/// An IOC limit order: invest cancelled what did not fill at once (`filled` may be > 0).
 	pub const IOC_REMAINDER: &str = "ioc_remainder";
-	/// A market order: the hub cancelled what its priced limit could not reach.
+	/// A market order: invest cancelled what its priced limit could not reach.
 	pub const MARKET_REMAINDER: &str = "market_remainder";
 
 	pub const ALL: [&str; 3] = [USER, IOC_REMAINDER, MARKET_REMAINDER];
@@ -136,7 +136,7 @@ mod tests {
 
 	#[test]
 	fn the_book_vocabularies_are_closed_and_canonical() {
-		// Byte-identical with `domain::book` (`book_strings_are_canonical` guards the other
+		// Byte-identical with `invest_domain::book` (`book_strings_are_canonical` guards the other
 		// side); a consumer matches on these constants rather than its own literals.
 		assert_eq!(side::ALL, ["buy", "sell"]);
 		assert_eq!(kind::ALL, ["limit", "market"]);

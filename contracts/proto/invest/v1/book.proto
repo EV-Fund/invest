@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package banking.v1;
+package invest.v1;
 
 // BookService — the secondary market in an allocation's units: holders trading with
 // each other on a central limit order book, price-time priority, in the shape of a spot
@@ -12,33 +12,34 @@ package banking.v1;
 // high-water mark are measured at it — and the book's last trade is a second, market
 // quote shown next to it (`BookSnapshot.nav` carries the mark so a ticker can show both).
 //
-// Money never leaves the ledger's custody: a resting order is an ESCROW inside it. A sell
-// moves its units from the holder's `shares` account into a per-user book escrow, a buy
-// moves its worst-case cash — size × price plus the taker fee it might owe — from the
-// user's claim into a per-user cash escrow. A fill is ONE linked TigerBeetle batch (units
-// to the buyer, cash to the seller, the taker's fee to the fund): delivery versus payment
-// or nothing. Whatever the escrow still holds when an order ends is handed back, so a buy
-// that filled below its limit, an IOC remainder and a cancel all release the difference.
-// The hub records the order and its fills first (Postgres, under one lock per book) and
-// the ledger moves follow through the same outbox relay as every other money event, so
-// the balances a client reads lag a placement by the relay's latency, exactly as after a
-// Subscribe.
+// A resting order is an ESCROW. A sell moves its units from the holder's `shares` account
+// into a per-user book escrow on invest's ledger; a buy has banking HOLD its worst-case
+// cash — size × price plus the taker fee it might owe — on the buyer's compartment in the
+// product's scope, before the order is recorded (a refusal, such as `mandate_required` or
+// `insufficient_funds`, is PlaceOrder's FAILED_PRECONDITION). A fill is delivery versus
+// payment across the two ledgers: the units are reserved out of the seller's escrow, the
+// cash is captured from the buyer's hold into the seller's compartment (the taker's fee
+// into the fee route), and only then are the units posted — a capture banking refuses
+// voids the units. Whatever the escrow still holds when an order ends is handed back, so
+// a buy that filled below its limit, an IOC remainder and a cancel all release the
+// difference. invest records the order and its fills first (Postgres, under one lock per
+// book) and the ledger moves follow through the outbox relay, so the balances a client
+// reads lag a placement by the relay's latency, exactly as after a Subscribe.
 //
 // Who may trade: any signed-in investor whose effective access on the allocation is
 // `invest` — the same gate as Subscribe, EXCEPT that the allocation's `state` does not
 // apply (a `closed` product's holders may still trade among themselves; only `book_open`
-// on the policy, `hidden` and `view` refuse). Placing is also refused while the money
-// plane is in read-only mode or the caller is frozen; cancelling never is, so a frozen
-// user can still unwind. The policy (fees, tick, lot, slippage, whether the book is open
+// on the policy, `hidden` and `view` refuse). Placing is also refused while the caller is
+// suspended; cancelling never is, so a suspended user can still unwind. The policy (fees, tick, lot, slippage, whether the book is open
 // at all) is set by an `AllocationManage` holder; a product with no policy row has a
 // closed book.
 //
 // Every amount, size and price is a decimal STRING (proto3 has no u128; a string is
 // lossless and matches proto-loader's `longs: String`). Enumerations are strings too,
-// pinned in `evbanking_contracts::book`. See piggybank/core/PATTERNS.md.
+// pinned in `invest_contracts::book`. Permissions are `invest:*`.
 service BookService {
   // Place an order for the caller. Limit orders carry a `price` on the policy's tick;
-  // market orders leave it empty and are priced by the hub from the best opposite quote
+  // market orders leave it empty and are priced by invest from the best opposite quote
   // ± the policy's slippage, then run as an IOC limit at that price (an empty opposite
   // side is FAILED_PRECONDITION). `size` is on the policy's lot.
   //
@@ -166,7 +167,7 @@ message SetBookPolicyRequest {
   bool allow_unbacked_trading = 7;
 }
 
-// One order. `price` is the limit — for a market order, the limit the hub derived from
+// One order. `price` is the limit — for a market order, the limit invest derived from
 // the quote at placement. `filled`, `remaining`, `avg_fill_price` and `fee_paid` grow as
 // fills land; `state` ends in `filled`, `cancelled` or `rejected` (`reject_reason` set —
 // the ledger refused the escrow after the order was recorded, a raced over-spend the
@@ -191,7 +192,7 @@ message Order {
   int64 created_at = 16;         // unix seconds
   int64 updated_at = 17;         // unix seconds
   // Set exactly when state = cancelled: "" | user | ioc_remainder | market_remainder.
-  // `user` is the owner's own cancel; the other two are the hub cancelling what an IOC
+  // `user` is the owner's own cancel; the other two are invest cancelling what an IOC
   // limit / a market order could not fill at once — such an order may still show
   // `filled > 0`, which is what makes the reason worth carrying.
   string cancel_reason = 18;
