@@ -1,0 +1,66 @@
+# Agent Instructions — invest
+
+> **Self-update rule:** if anything here becomes stale — layout, tooling, conventions —
+> update this file in the same change. It holds cross-cutting rules only; bring-up and the
+> `nix run` apps live in [`flake.nix`](./flake.nix) and [`README.md`](./README.md).
+
+The workspace-wide rules (`~/projects/ev/AGENTS.md`: our own libraries first, the uikit,
+the design source) apply here too.
+
+## What this repo is
+
+The allocation engine (plan §6, `~/projects/ev/ORG-RESTRUCTURE-PLAN.md`): the registry of
+investable products, the units in invest's **own** TigerBeetle cluster (D19), in-kind
+issuance, ownership, NAV. Moved from banking `9ffafce3` — the first commit is the verbatim
+copy; read `git log -p` against it before "fixing" something that looks odd, it may be
+banking's on purpose.
+
+| Path | What |
+| ---- | ---- |
+| `domain/` (`invest_domain`) | Pure, wasm-safe. No I/O, no clock, no `sqlx`/`tonic`/`tigerbeetle`. |
+| `contracts/` (`invest_contracts`) | `proto/invest/v1/*.proto` → tonic stubs. The wire is banking's `banking.v1` shape under `invest.v1`. |
+| `core/` (`invest-core`) | `services` (gRPC) → `application` (use cases) → `ports` → `infrastructure` (Postgres, TigerBeetle, banking). |
+
+## Invariants — what not to break
+
+- **Units in TigerBeetle, never in Postgres.** Postgres holds the registry, the records, the
+  outbox and projections; a balance is always read from the ledger. The ledger is written
+  **last**, by the relay, after the control-plane commit.
+- **Cash is banking's.** invest holds no cash and no cash ledger. Cash is read and moved
+  through the `MoneyLedger` port (`core/src/ports/money.rs`) only. An allocation's cash
+  lives on `(<scope>, alloc:<slug>)` in banking; the reserved `fee`/`fund` cash on
+  `(invest, alloc:fee|fund)`.
+- **The numbers are banking's.** Ledger id 3, account codes 60–65, transfer codes,
+  logical keys (`shares:<svc>:<user>` …), relay salts (`issue:mint` …) and the reserved
+  allocation ids are kept as banking had them so the data wave moves over with its history
+  readable. A code banking used — cash included — is never reused
+  (`every_account_and_transfer_code_is_unique`).
+- **Single relay.** The relay drains under a session `pg_advisory_lock`; do not add
+  `SKIP LOCKED`. Parked rows leave the drain; a compensated row is never unparked.
+- **A user is their concierge user id** (the `sub` of an `invest` access token). There is no
+  local account; `users` is a projection (status, `invest:*` permissions, banking's
+  `auth_subject`). No projection row ⇒ no permissions and no holding — fail closed.
+- **Health stays outside auth.** `grpc.health.v1` is not wrapped in the auth layer.
+
+## Database
+
+- Migrations: `core/migrations/`, applied on boot (`db::migrate`). Author with the CLI in the
+  dev shell: `sqlx migrate add --source core/migrations --sequential <name>`. A merged
+  migration is immutable; fix forward.
+- SQL is runtime `sqlx::query*` with `.bind()`, never the `query!` macros; every query must
+  be executed by a test against a real database.
+
+## Tests
+
+- Integration suites (`core/tests/`) use real Postgres **and** TigerBeetle — no mocks of
+  either. Banking's cash is the in-memory `MoneyLedger` fake
+  (`infrastructure::money::fake`), never wired into a running server.
+- Locally a missing `DATABASE_URL`/TigerBeetle **skips** a suite; with `CI=true` it fails.
+  Run with `CI=true` and read the counts — a green run that skipped is not a run.
+  `nix run .#check-rust` is the gate CI runs.
+
+## Commits
+
+`type(scope): description`, ≤72 chars, English, imperative. Commit from the dev shell
+(`nix develop -c git commit …`): the pre-commit hook runs treefmt (nightly rustfmt) and
+`git add -u`s what it formatted — check `git show --stat` afterwards.
