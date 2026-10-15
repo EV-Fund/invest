@@ -6,25 +6,30 @@ use axum::{
 use serde_json::json;
 use tonic::{Code, Status};
 
+use crate::session::SessionError;
+
 /// The BFF's HTTP error surface. Renders as `{ "error": <message> }` with a status
 /// mapped from the upstream gRPC code — matching the frontend's `httpStatusFor` /
 /// `errorDetail` helpers.
+#[derive(Debug)]
 pub enum ApiError {
-	/// No valid session / access token (401).
+	/// No valid session (401).
 	Unauthenticated,
-	/// CSRF double-submit check failed (403).
+	/// CSRF double-submit or `Origin` check failed (403).
 	Csrf,
 	/// Client input rejected before any upstream call (400).
 	BadRequest(String),
-	/// OAuth is not configured (no Google client id) (503).
-	NotConfigured,
-	/// A mutation failed upstream — surface the hub's client-safe detail.
+	/// The session needs concierge and concierge cannot be reached (503). Nothing was
+	/// closed: the next request may succeed.
+	SessionUnavailable,
+	/// A mutation failed upstream — surface invest-core's client-safe detail.
 	Grpc(Status),
 	/// A read failed upstream — map the code, but surface a fixed generic message
-	/// (GET reads never leak hub detail, e.g. "wallet unavailable").
+	/// (GET reads never leak upstream detail, e.g. "positions unavailable").
 	ReadFailed { code: Code, message: String },
-	/// An internal failure (e.g. registry file unreadable) (502).
-	Internal(String),
+	/// A failure on this side — the session store, randomness (500). The report is logged
+	/// and sent to error monitoring; the browser gets a fixed string.
+	Internal(color_eyre::Report),
 }
 
 impl ApiError {
@@ -37,7 +42,7 @@ impl ApiError {
 	}
 }
 
-/// Codes the hub uses for client-correctable conditions, whose `message()` is safe to
+/// Codes invest-core uses for client-correctable conditions, whose `message()` is safe to
 /// relay verbatim to the browser. Everything else (Internal/Unknown/Unavailable/DataLoss
 /// and transport errors) is replaced with a generic string so internal detail never leaks.
 fn client_safe(code: Code) -> bool {
@@ -57,13 +62,23 @@ fn http_status_for(code: Code) -> StatusCode {
 		Code::AlreadyExists => StatusCode::CONFLICT,
 		Code::FailedPrecondition => StatusCode::PRECONDITION_FAILED,
 		Code::ResourceExhausted => StatusCode::TOO_MANY_REQUESTS,
-		// The hub emits Unavailable on ledger/repository failure (context.rs:86,605) — a
-		// transient-retryable condition, distinct from a broken upstream protocol (502).
+		// invest-core answers Unavailable on a repository or ledger failure — transient and
+		// retryable, unlike a broken upstream protocol (502).
 		Code::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
 		Code::DeadlineExceeded => StatusCode::GATEWAY_TIMEOUT,
 		Code::Unimplemented => StatusCode::NOT_IMPLEMENTED,
 		// Unknown/Internal/DataLoss stay 502 — a genuine upstream protocol failure.
 		_ => StatusCode::BAD_GATEWAY,
+	}
+}
+
+impl From<SessionError> for ApiError {
+	fn from(err: SessionError) -> Self {
+		match err {
+			SessionError::Missing | SessionError::Rejected => ApiError::Unauthenticated,
+			SessionError::Unavailable => ApiError::SessionUnavailable,
+			SessionError::Internal(report) => ApiError::Internal(report),
+		}
 	}
 }
 
@@ -79,11 +94,14 @@ impl IntoResponse for ApiError {
 			ApiError::Unauthenticated => (StatusCode::UNAUTHORIZED, "unauthenticated".to_string()),
 			ApiError::Csrf => (StatusCode::FORBIDDEN, "csrf".to_string()),
 			ApiError::BadRequest(m) => (StatusCode::BAD_REQUEST, m),
-			ApiError::NotConfigured => (StatusCode::SERVICE_UNAVAILABLE, "auth not configured".to_string()),
-			ApiError::Internal(m) => (StatusCode::BAD_GATEWAY, m),
+			ApiError::SessionUnavailable => (StatusCode::SERVICE_UNAVAILABLE, "sign-in is unavailable, try again".to_string()),
+			ApiError::Internal(report) => {
+				tracing::error!(error = ?report, "internal error behind a cabinet request");
+				(StatusCode::INTERNAL_SERVER_ERROR, "internal error".to_string())
+			}
 			ApiError::ReadFailed { code, message } => (http_status_for(code), message),
 			ApiError::Grpc(s) => {
-				// Only codes the hub uses to express client-correctable conditions carry their
+				// Only codes invest-core uses to express client-correctable conditions carry their
 				// `message()` through to the browser; the rest (Internal/Unknown/Unavailable/
 				// DataLoss/transport errors) could embed DB/path/dependency detail, so they get
 				// a fixed generic string and the real detail is logged server-side. The gate is

@@ -1,41 +1,48 @@
 [package]
-name = "cabinet-backend"
+name = "invest-cabinet-backend"
 version = "0.1.0"
 edition = "2024"
-description = "The cabinet BFF — a standalone, stateless HTTP service that verifies the shell-set access-JWT cookie against the concierge JWKS and proxies the browser's JSON requests to the concierge identity plane and the piggybank money plane over gRPC."
+description = "The invest cabinet's BFF: signs people in as concierge's relying party `invest`, keeps the session server-side, and proxies the browser's `/cabinet/api/*` JSON to invest-core over gRPC with the user's access token."
 license = "BlueOak-1.0.0"
 publish = false
-default-run = "cabinet-backend"
+default-run = "invest-cabinet-backend"
+
+[lib]
+name = "invest_cabinet_backend"
+path = "src/lib.rs"
 
 [[bin]]
-name = "cabinet-backend"
+name = "invest-cabinet-backend"
 path = "src/main.rs"
 
 [dependencies]
-# `ws` for the governance socket only — the rest of the surface is plain JSON.
+async-trait.workspace = true
+# `ws` for the order book's live feed — the rest of the surface is plain JSON.
 axum = { workspace = true, features = ["ws"] }
-axum-extra = { workspace = true, features = ["cookie"] }
 color-eyre.workspace = true
-concierge_domain.workspace = true
-concierge_iam.workspace = true
 dotenvy.workspace = true
-ev = { workspace = true, features = ["analytics", "error_monitoring", "otel", "settings", "settings_drift"] }
-evbanking_contracts.workspace = true
-evconcierge_auth.workspace = true
-evconcierge_contracts.workspace = true
+ev = { workspace = true, features = ["error_monitoring", "otel", "settings"] }
+evconcierge_client.workspace = true
+getrandom.workspace = true
+invest_contracts.workspace = true
+invest_domain.workspace = true
+# The process-level crypto provider `main` installs before any TLS client is built (`crypto.rs`).
+rustls.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
+sqlx = { workspace = true, features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "migrate"] }
 subtle.workspace = true
-time.workspace = true
+thiserror.workspace = true
 tokio = { workspace = true, features = ["full"] }
 tonic.workspace = true
+tonic-health.workspace = true
 tower-http = { workspace = true, features = ["timeout", "trace"] }
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "json"] }
+uuid.workspace = true
 
 [dev-dependencies]
-jsonwebtoken.workspace = true
-prost.workspace = true
 tokio-stream.workspace = true
 tower = { workspace = true, features = ["util"] }
 
