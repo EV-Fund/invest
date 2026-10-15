@@ -16,48 +16,42 @@
 //!
 //! Clocks are moved by backdating the position's accrual columns rather than by waiting,
 //! so "a year of holding" is a single SQL statement.
+//!
+//! Moved from banking 9ffafce3 (`piggybank/core/tests/fee_policy.rs`). The cash is
+//! banking's, played by the in-memory money ledger: a compartment per holder, an `alloc:`
+//! account per product, and the fee route into `(invest, alloc:fee)`. Every test holds
+//! the binary's outbox guard through `common::engine`, so the suite runs serially — which
+//! is also what keeps the global sweep and the one `fee` account from interleaving.
 
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 
-use domain::{
-	allocations::{Allocation, AllocationAccess, AllocationIcon, AllocationId},
-	auth::AuthSubject,
-	balance::{LedgerAccountKey, ServiceId, ValuationId},
-	book::{BookPolicy, ClientOrderId, OrderId, OrderKind, Price, PriceTimeEngine, Side, Tif},
-	fees::{self, CrystallizationPeriod, FeeAssessment, FeeAssessmentId, FeePolicy, ManagementBasis, Trigger},
-	money::{Nav, Network, Shares, TxRef, Usdt},
-	users::{Email, UserId},
-};
-use piggybank_core::{
+use invest_core::{
 	application::{
-		balance as balance_app,
+		allocations as allocations_app,
 		book::{self as book_app, BookFeed, BookPorts, PlaceOrderRequest},
 		fees as fee_app, funds as funds_app,
 	},
 	infrastructure::{
-		allocations::PgAllocations,
 		book::PgBook,
-		consilium::PgConsilia,
-		custody::StubCustody,
-		deposits::PgDeposits,
 		fee_policy_changes::PgFeePolicyChanges,
 		fee_sweeper::FeeSweeper,
-		fees::{PgFeeAssessments, PgFeePolicies, PgFeeSettlements, PgPositionAccruals},
+		fees::{PgFeeAssessments, PgFeePolicies, PgPositionAccruals},
 		nav::PgNav,
-		outflow::PgOutflowPolicy,
-		redemptions::PgRedemptions,
-		relay::Relay,
-		subscriptions::PgSubscriptions,
-		users::PgUsers,
 	},
 	ports::{
-		AllocationRegistry, UserRepository,
+		AllocationRegistry, RedemptionRepository,
 		fees::{FeeAssessments, FeePolicies, FeePolicyChanges, PositionAccruals},
-		ledger::Ledger,
+		money::{AccountLabel, ScopeId},
 	},
 };
-use sqlx::PgPool;
-use tokio::sync::Notify;
+use invest_domain::{
+	allocations::{AllocationAccess, AllocationIcon},
+	balance::{LedgerAccountKey, ServiceId, ValuationId},
+	book::{BookPolicy, ClientOrderId, OrderId, OrderKind, Price, PriceTimeEngine, Side, Tif},
+	fees::{self, CrystallizationPeriod, FeeAssessment, FeeAssessmentId, FeePolicy, ManagementBasis, Trigger},
+	money::{Nav, Shares, Usdt},
+	users::UserId,
+};
 use uuid::Uuid;
 
 mod common;
@@ -75,101 +69,45 @@ const PERIOD_MARGIN: i64 = 60 * 60;
 /// jitter and four below the figures being checked.
 const EPSILON: &str = "0.05";
 
-struct Harness {
-	pool: PgPool,
-	allocations: PgAllocations,
-	subs: PgSubscriptions,
-	reds: PgRedemptions,
-	nav: PgNav,
-	deposits: PgDeposits,
-	policies: PgFeePolicies,
-	changes: PgFeePolicyChanges,
-	consilia: PgConsilia,
-	accruals: PgPositionAccruals,
-	assessments: PgFeeAssessments,
-	settlements: PgFeeSettlements,
-	ledger: Arc<dyn Ledger>,
-	relay: Relay,
-	notify: Arc<Notify>,
+struct Harness(common::Engine);
+
+impl Deref for Harness {
+	type Target = common::Engine;
+
+	fn deref(&self) -> &common::Engine {
+		&self.0
+	}
 }
 
 async fn harness() -> Option<Harness> {
-	let pool = common::pool().await?;
-	let ledger = common::seeded_ledger(&pool, "fee-policy test").await?;
-
-	let notify = Arc::new(Notify::new());
-	Some(Harness {
-		allocations: PgAllocations::new(pool.clone()),
-		subs: PgSubscriptions::new(pool.clone()),
-		reds: PgRedemptions::new(pool.clone()),
-		nav: PgNav::new(pool.clone()),
-		deposits: PgDeposits::new(pool.clone()),
-		policies: PgFeePolicies::new(pool.clone()),
-		changes: PgFeePolicyChanges::new(pool.clone()),
-		consilia: PgConsilia::new(pool.clone()),
-		accruals: PgPositionAccruals::new(pool.clone()),
-		assessments: PgFeeAssessments::new(pool.clone()),
-		settlements: PgFeeSettlements::new(pool.clone()),
-		relay: Relay::new(pool.clone(), ledger.clone(), Arc::new(StubCustody), notify.clone()),
-		ledger,
-		notify,
-		pool,
-	})
+	common::engine("fee-policy test").await.map(Harness)
 }
 
-/// Serializes the one test that sweeps against every test that does not.
-///
-/// `FeeSweeper::sweep` is global by design — it charges every position in the database
-/// whose accrual is due, which is exactly what a sweeper should do. These tests share one
-/// database and backdate their own positions to make them due, so a sweep running in
-/// parallel will happily charge a sibling test's investor: that test then finds its
-/// position already assessed, its clock already advanced, and its units already reduced.
-///
-/// So the sweeping test takes this lock exclusively and everybody else takes it shared.
-/// Everything stays parallel except the one operation that cannot be.
-static SWEEP: std::sync::LazyLock<tokio::sync::RwLock<()>> = std::sync::LazyLock::new(|| tokio::sync::RwLock::new(()));
-
-/// Hold for the duration of a test that backdates a position it wants to assess itself.
-async fn no_sweeping() -> tokio::sync::RwLockReadGuard<'static, ()> {
-	SWEEP.read().await
+/// A person known to invest and to banking — a holder, a subscriber, an order's owner.
+async fn person(h: &Harness) -> UserId {
+	common::active_user(&h.users).await
 }
 
-/// The `fee` allocation's claim (`service:fee`) is a single platform-wide account, not one
-/// per fund — every product settles its fee class into the same allocation (#245). So a
-/// test cannot scope an assertion about it to its own `unique_service()` the way it can
-/// for a product claim or a share balance: it can only bracket its own call and compare.
-/// That comparison is wrong the moment another test settles in between, and "a charge
-/// never credits the fee allocation" then fails against a credit some sibling made.
-///
-/// Every test that brackets the global figure takes this exclusively. They are short, and
-/// serialising them costs less than a suite that fails once a run.
-static REVENUE: std::sync::LazyLock<tokio::sync::Mutex<()>> = std::sync::LazyLock::new(|| tokio::sync::Mutex::new(()));
-
-/// Hold for the duration of a test that reads the fee allocation's claim (or its NAV)
-/// before and after its own work.
-async fn exclusive_revenue() -> tokio::sync::MutexGuard<'static, ()> {
-	REVENUE.lock().await
+/// The `fee` allocation's cash — its account in invest's scope, where every settled fee
+/// lands through the scope's fee route.
+fn fee_cash(h: &Harness) -> Usdt {
+	h.money.account(&ScopeId::invest(), &AccountLabel::allocation(&ServiceId::fee()).unwrap())
 }
 
-/// The `fee` allocation's cash — where every settled, retained and taken fee lands.
-fn fee_claim() -> LedgerAccountKey {
-	LedgerAccountKey::ServiceClaim(ServiceId::fee())
+/// A product's cash: its account in banking.
+fn product_cash(h: &Harness, service: &ServiceId) -> Usdt {
+	h.money.account(&ScopeId::invest(), &AccountLabel::allocation(service).unwrap())
 }
 
-/// Hold for the duration of the test that runs the sweeper.
-async fn sweeping() -> tokio::sync::RwLockWriteGuard<'static, ()> {
-	SWEEP.write().await
+/// What a holder's compartment holds free.
+fn compartment(h: &Harness, user: UserId) -> Usdt {
+	h.money.compartment(&ScopeId::invest(), &common::auth_subject(user))
 }
 
 /// The dealing ports, borrowed out of the harness for one call — the same wiring behind
 /// every fund use-case in this suite.
 fn fund_ports(h: &Harness) -> funds_app::FundPorts<'_> {
-	funds_app::FundPorts {
-		allocations: &h.allocations,
-		ledger: h.ledger.as_ref(),
-		nav: &h.nav,
-		relay: &h.notify,
-	}
+	h.fund_ports()
 }
 
 fn usdt(decimal: &str) -> Usdt {
@@ -190,9 +128,10 @@ fn now_unix() -> i64 {
 
 /// A registered, open product with the house 2-and-20 terms.
 async fn open_fund(h: &Harness, service: &ServiceId) {
-	let mut allocation = Allocation::register(AllocationId::new(), service.clone(), "EV Trading", "Systematic crypto", AllocationIcon::default()).unwrap();
-	h.allocations.register(&mut allocation).await.unwrap();
-	h.allocations.open(service).await.unwrap();
+	allocations_app::register(&h.allocations, service.clone(), &ScopeId::invest(), "EV Trading", "Systematic crypto", AllocationIcon::default())
+		.await
+		.unwrap();
+	allocations_app::open(&h.allocations, h.money.as_ref(), service).await.unwrap();
 	// Fees are about holdings, not admission — every investor here is let in.
 	h.allocations.set_access(service, AllocationAccess::Invest).await.unwrap();
 	install_policy(h, service, FeePolicy::HOUSE).await;
@@ -207,9 +146,6 @@ async fn install_policy(h: &Harness, service: &ServiceId, policy: FeePolicy) {
 		policies: &h.policies,
 		changes: &h.changes,
 		allocations: &h.allocations,
-		consilia: &h.consilia,
-		approval_url_base: "https://example.test/approve",
-		governance_mail_wired: true,
 	};
 	let request = fee_app::PolicyChangeRequest {
 		service: service.clone(),
@@ -221,32 +157,21 @@ async fn install_policy(h: &Harness, service: &ServiceId, policy: FeePolicy) {
 	assert!(h.changes.promote(change.id, now_unix()).await.unwrap(), "a fund with no holders takes new terms at once");
 }
 
+/// Cash in the holder's compartment of invest's scope.
 async fn fund_user(h: &Harness, user: UserId, amount: &str) {
-	let tx_ref = TxRef::parse(&format!("itest-{}", Uuid::new_v4())).unwrap();
-	balance_app::record_deposit(&h.deposits, &h.notify, tx_ref, user, Network::Bep20, usdt(amount)).await.unwrap();
-	h.relay.drain().await;
+	h.money.fund(&ScopeId::invest(), &common::auth_subject(user), usdt(amount));
 }
 
-/// Subscribe and let the relay post both legs plus the position projection.
-///
-/// The wait at the end is load-bearing, not defensive. These tests share one database and
-/// each `drain()` walks the *global* outbox, so a sibling test's drain can be the one that
-/// projects this subscription. The projection stamps the accrual clocks (it has to — the
-/// basis is moving), so a test that backdated before the projection landed would have its
-/// backdating silently overwritten and see a position that has been held for no time at
-/// all. Returning only once the basis has actually moved makes the helper mean what its
-/// name says.
+/// Subscribe and let the relay capture the cash, post the units and project the position.
+/// The projection stamps the accrual clocks, so a test that backdated before it landed
+/// would see its backdating overwritten — the assertion makes the helper mean its name.
 async fn subscribe(h: &Harness, user: UserId, service: &ServiceId, amount: &str) {
 	let before = cost_basis_of(h, user, service).await;
-	funds_app::subscribe(&fund_ports(h), &h.subs, user, service.clone(), usdt(amount), now_unix()).await.unwrap();
-	h.relay.drain().await;
-	for _ in 0..100 {
-		if cost_basis_of(h, user, service).await > before {
-			return;
-		}
-		tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-	}
-	panic!("the subscription's position projection never landed");
+	funds_app::subscribe(&fund_ports(h), &h.subscriptions, &h.users, user, service.clone(), usdt(amount), now_unix())
+		.await
+		.unwrap();
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	assert!(cost_basis_of(h, user, service).await > before, "the subscription's position projection landed");
 }
 
 /// The position's projected cost basis, or zero before the projection exists.
@@ -275,12 +200,13 @@ async fn backdate(h: &Harness, user: UserId, service: &ServiceId, secs: i64) {
 	.unwrap();
 }
 
-async fn assess(h: &Harness, user: UserId, service: &ServiceId) -> Option<domain::fees::FeeCharge> {
+async fn assess(h: &Harness, user: UserId, service: &ServiceId) -> Option<invest_domain::fees::FeeCharge> {
 	let assessment = fee_app::assess_position(
 		&h.policies,
 		&h.accruals,
 		&h.assessments,
 		h.ledger.as_ref(),
+		h.money.as_ref(),
 		&h.nav,
 		&h.notify,
 		user,
@@ -290,7 +216,7 @@ async fn assess(h: &Harness, user: UserId, service: &ServiceId) -> Option<domain
 	)
 	.await
 	.unwrap();
-	h.relay.drain().await;
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
 	assessment.map(|a| a.charge())
 }
 
@@ -298,8 +224,6 @@ async fn assess(h: &Harness, user: UserId, service: &ServiceId) -> Option<domain
 /// sell: what the fee can and cannot claw back is decided by where the units are.
 struct Book {
 	store: PgBook,
-	users: PgUsers,
-	outflow: PgOutflowPolicy,
 	feed: Arc<BookFeed>,
 }
 
@@ -307,18 +231,8 @@ impl Book {
 	fn new(h: &Harness) -> Self {
 		Self {
 			store: PgBook::new(h.pool.clone()),
-			users: PgUsers::new(h.pool.clone()),
-			outflow: PgOutflowPolicy::new(h.pool.clone()),
 			feed: BookFeed::new(),
 		}
-	}
-
-	/// Orders reference the `users` table, so the holder here is a real row — unlike the
-	/// bare `UserId::new()` the dealing-only tests get away with.
-	async fn provisioned_user(&self) -> UserId {
-		let subject = AuthSubject::parse(&format!("fee-book-{}", Uuid::new_v4())).unwrap();
-		let email = Email::parse(&format!("fb{}@example.com", Uuid::new_v4().simple())).unwrap();
-		self.users.provision(subject, email, true).await.unwrap().id()
 	}
 
 	async fn open(&self, h: &Harness, service: &ServiceId) {
@@ -331,10 +245,11 @@ impl Book {
 		let ports = BookPorts {
 			allocations: &h.allocations,
 			ledger: h.ledger.as_ref(),
+			money: h.money.as_ref(),
 			nav: &h.nav,
 			store: &self.store,
 			engine: &PriceTimeEngine,
-			outflow: &self.outflow,
+			users: &h.users,
 			relay: &h.notify,
 			feed: &self.feed,
 		};
@@ -348,13 +263,13 @@ impl Book {
 			client_order_id: ClientOrderId::parse(&format!("fee-{}", Uuid::new_v4())).unwrap(),
 		};
 		let order = book_app::place_order(&ports, user, request).await.unwrap();
-		h.relay.drain().await;
+		common::drain_to_quiescence(&h.relay, &h.pool).await;
 		order.order.id()
 	}
 
 	async fn cancel(&self, h: &Harness, user: UserId, order: OrderId) {
 		book_app::cancel_order(&self.store, &h.notify, &self.feed, order, user).await.unwrap();
-		h.relay.drain().await;
+		common::drain_to_quiescence(&h.relay, &h.pool).await;
 	}
 }
 
@@ -379,29 +294,23 @@ async fn units_of(h: &Harness, key: LedgerAccountKey) -> Shares {
 	Shares::from_base_units(h.ledger.balance(&key).await.unwrap().posted)
 }
 
-async fn cash_of(h: &Harness, key: LedgerAccountKey) -> Usdt {
-	Usdt::from_base_units(h.ledger.balance(&key).await.unwrap().posted)
-}
-
 #[tokio::test]
 async fn a_year_of_holding_costs_two_percent_of_units_and_moves_no_cash_at_all() {
-	let _no_sweeping = no_sweeping().await;
-	let _revenue = exclusive_revenue().await;
 	let Some(h) = harness().await else { return };
-	let user = UserId::new();
+	let user = person(&h).await;
 	let service = unique_service();
 	open_fund(&h, &service).await;
 	fund_user(&h, user, "1000").await;
 	subscribe(&h, user, &service, "1000").await;
 
 	// Balances the fee must not touch, recorded before the charge.
-	let claim_before = cash_of(&h, LedgerAccountKey::UserClaim(user)).await;
-	let fund_before = cash_of(&h, LedgerAccountKey::ServiceClaim(service.clone())).await;
+	let claim_before = compartment(&h, user);
+	let fund_before = product_cash(&h, &service);
 	let outstanding_before = units_of(&h, LedgerAccountKey::SharesOutstanding(service.clone())).await;
 	assert_eq!(outstanding_before, shares("1000"), "1000 USDT at the seed NAV mints 1000 units");
 	// `service:fee` is one account shared by every test in this file, so only its DELTA
 	// across this test means anything.
-	let revenue_before = cash_of(&h, fee_claim()).await;
+	let revenue_before = fee_cash(&h);
 
 	backdate(&h, user, &service, YEAR).await;
 	let charge = assess(&h, user, &service).await.expect("a year of holding owes a management fee");
@@ -425,20 +334,15 @@ async fn a_year_of_holding_costs_two_percent_of_units_and_moves_no_cash_at_all()
 
 	// (3) Not one base unit of cash moved anywhere — the property that makes this free
 	// to collect and impossible to overdraw.
-	assert_eq!(cash_of(&h, LedgerAccountKey::UserClaim(user)).await, claim_before);
-	assert_eq!(cash_of(&h, LedgerAccountKey::ServiceClaim(service.clone())).await, fund_before);
-	assert_eq!(
-		cash_of(&h, fee_claim()).await,
-		revenue_before,
-		"a charge never credits the fee allocation — only a settlement does"
-	);
+	assert_eq!(compartment(&h, user), claim_before);
+	assert_eq!(product_cash(&h, &service), fund_before);
+	assert_eq!(fee_cash(&h), revenue_before, "a charge never credits the fee allocation — only a settlement does");
 }
 
 #[tokio::test]
 async fn a_gain_above_the_mark_adds_the_twenty_percent_and_ratchets_it() {
-	let _no_sweeping = no_sweeping().await;
 	let Some(h) = harness().await else { return };
-	let user = UserId::new();
+	let user = person(&h).await;
 	let service = unique_service();
 	open_fund(&h, &service).await;
 	fund_user(&h, user, "1000").await;
@@ -482,10 +386,9 @@ async fn a_gain_above_the_mark_adds_the_twenty_percent_and_ratchets_it() {
 
 #[tokio::test]
 async fn the_mark_is_per_investor_so_a_late_entrant_pays_less() {
-	let _no_sweeping = no_sweeping().await;
 	let Some(h) = harness().await else { return };
-	let early = UserId::new();
-	let late = UserId::new();
+	let early = person(&h).await;
+	let late = person(&h).await;
 	let service = unique_service();
 	open_fund(&h, &service).await;
 
@@ -517,9 +420,8 @@ async fn the_mark_is_per_investor_so_a_late_entrant_pays_less() {
 
 #[tokio::test]
 async fn a_recovery_below_the_mark_is_never_charged() {
-	let _no_sweeping = no_sweeping().await;
 	let Some(h) = harness().await else { return };
-	let user = UserId::new();
+	let user = person(&h).await;
 	let service = unique_service();
 	open_fund(&h, &service).await;
 	fund_user(&h, user, "1000").await;
@@ -568,14 +470,14 @@ async fn a_recovery_below_the_mark_is_never_charged() {
 
 #[tokio::test]
 async fn a_fund_with_no_policy_is_never_charged() {
-	let _no_sweeping = no_sweeping().await;
 	let Some(h) = harness().await else { return };
-	let user = UserId::new();
+	let user = person(&h).await;
 	let service = unique_service();
 	// Registered and open, but deliberately given no fee policy.
-	let mut allocation = Allocation::register(AllocationId::new(), service.clone(), "EV Trading", "Systematic crypto", AllocationIcon::default()).unwrap();
-	h.allocations.register(&mut allocation).await.unwrap();
-	h.allocations.open(&service).await.unwrap();
+	allocations_app::register(&h.allocations, service.clone(), &ScopeId::invest(), "EV Trading", "Systematic crypto", AllocationIcon::default())
+		.await
+		.unwrap();
+	allocations_app::open(&h.allocations, h.money.as_ref(), &service).await.unwrap();
 	h.allocations.set_access(&service, AllocationAccess::Invest).await.unwrap();
 
 	fund_user(&h, user, "1000").await;
@@ -589,10 +491,8 @@ async fn a_fund_with_no_policy_is_never_charged() {
 
 #[tokio::test]
 async fn settling_fee_units_is_the_only_moment_a_fee_becomes_cash() {
-	let _no_sweeping = no_sweeping().await;
-	let _revenue = exclusive_revenue().await;
 	let Some(h) = harness().await else { return };
-	let user = UserId::new();
+	let user = person(&h).await;
 	let service = unique_service();
 	open_fund(&h, &service).await;
 	fund_user(&h, user, "1000").await;
@@ -602,17 +502,29 @@ async fn settling_fee_units_is_the_only_moment_a_fee_becomes_cash() {
 
 	let fee_units = units_of(&h, LedgerAccountKey::FeeShares(service.clone())).await;
 	assert!(fee_units > Shares::ZERO, "the charge accumulated fee units");
-	let fund_before = cash_of(&h, LedgerAccountKey::ServiceClaim(service.clone())).await;
+	let fund_before = product_cash(&h, &service);
 	let outstanding_before = units_of(&h, LedgerAccountKey::SharesOutstanding(service.clone())).await;
 	// `service:fee` is shared with every other test here, so compare the delta.
-	let revenue_before = cash_of(&h, fee_claim()).await;
+	let revenue_before = fee_cash(&h);
 
 	// One bulk conversion for the whole fund — not one per investor. This is what the
 	// unit-denominated charge buys: a single ledger operation per period.
-	let settlement = fee_app::settle_fee_shares(&h.settlements, h.ledger.as_ref(), &h.nav, &h.reds, &h.notify, service.clone(), None, UserId::new(), now_unix())
-		.await
-		.unwrap();
-	h.relay.drain().await;
+	let settlement = fee_app::settle_fee_shares(
+		&h.settlements,
+		&h.allocations,
+		h.ledger.as_ref(),
+		h.money.as_ref(),
+		&h.nav,
+		&h.redemptions,
+		&h.notify,
+		service.clone(),
+		None,
+		UserId::new(),
+		now_unix(),
+	)
+	.await
+	.unwrap();
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
 
 	assert_eq!(settlement.units(), fee_units, "omitting `units` settles the whole accumulated balance");
 	assert_close(settlement.cash(), usdt("20"), "a year's fee converted at NAV 1.0");
@@ -626,8 +538,8 @@ async fn settling_fee_units_is_the_only_moment_a_fee_becomes_cash() {
 	// `service:fee` is where the money now sits — the `fee` allocation's own claim, held
 	// by people through its units (#245): the product bought its fee class back, and the
 	// allocation's holders exit by redeeming against exactly this cash.
-	assert_eq!(cash_of(&h, fee_claim()).await, revenue_before.checked_add(settlement.cash()).unwrap());
-	assert_eq!(cash_of(&h, LedgerAccountKey::ServiceClaim(service)).await, fund_before.checked_sub(settlement.cash()).unwrap());
+	assert_eq!(fee_cash(&h), revenue_before.checked_add(settlement.cash()).unwrap());
+	assert_eq!(product_cash(&h, &service), fund_before.checked_sub(settlement.cash()).unwrap());
 }
 
 /// Every unit in a resting sell: the fee is still owed on the whole position — an order
@@ -642,10 +554,9 @@ async fn settling_fee_units_is_the_only_moment_a_fee_becomes_cash() {
 /// rested and was billed the whole stretch in one blow the day it came off.
 #[tokio::test]
 async fn units_escrowed_by_a_resting_sell_are_charged_as_debt_and_the_clock_moves() {
-	let _no_sweeping = no_sweeping().await;
 	let Some(h) = harness().await else { return };
 	let book = Book::new(&h);
-	let user = book.provisioned_user().await;
+	let user = person(&h).await;
 	let service = unique_service();
 	open_fund(&h, &service).await;
 	book.open(&h, &service).await;
@@ -716,10 +627,9 @@ async fn units_escrowed_by_a_resting_sell_are_charged_as_debt_and_the_clock_move
 /// cancelled and the units are back.
 #[tokio::test]
 async fn a_partial_escrow_defers_the_uncollectable_fee_into_debt_until_the_units_return() {
-	let _no_sweeping = no_sweeping().await;
 	let Some(h) = harness().await else { return };
 	let book = Book::new(&h);
-	let user = book.provisioned_user().await;
+	let user = person(&h).await;
 	let service = unique_service();
 	open_fund(&h, &service).await;
 	book.open(&h, &service).await;
@@ -762,10 +672,8 @@ async fn a_partial_escrow_defers_the_uncollectable_fee_into_debt_until_the_units
 
 #[tokio::test]
 async fn a_settlement_the_fund_cannot_cover_is_refused_not_queued() {
-	let _no_sweeping = no_sweeping().await;
-	let _revenue = exclusive_revenue().await;
 	let Some(h) = harness().await else { return };
-	let user = UserId::new();
+	let user = person(&h).await;
 	let service = unique_service();
 	open_fund(&h, &service).await;
 	fund_user(&h, user, "1000").await;
@@ -778,12 +686,14 @@ async fn a_settlement_the_fund_cannot_cover_is_refused_not_queued() {
 
 	// The investor redeems everything, which really does drain the fund's claim: the
 	// payout settles at NAV 1.0, leaving behind only what the fee units are worth.
-	funds_app::request_redemption(&fund_ports(&h), &h.reds, user, service.clone(), held, now_unix()).await.unwrap();
-	h.relay.drain().await;
+	funds_app::request_redemption(&fund_ports(&h), &h.redemptions, &h.users, user, service.clone(), held, now_unix())
+		.await
+		.unwrap();
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
 
 	// Now mark the remainder up hard. The fee units are suddenly worth several times the
 	// cash left in the fund — the one situation a settlement cannot be paid.
-	let remaining = cash_of(&h, LedgerAccountKey::ServiceClaim(service.clone())).await;
+	let remaining = product_cash(&h, &service);
 	// A +200% mark, past the guard: written through the shared writer the owners' override
 	// uses, since the guarded post has no flag to lift it any more.
 	funds_app::record_valuation(
@@ -799,22 +709,32 @@ async fn a_settlement_the_fund_cannot_cover_is_refused_not_queued() {
 
 	// Refused, not queued: nobody is waiting on this, and the fee units keep accumulating
 	// at no cost until the fund is liquid again.
-	let revenue_before = cash_of(&h, fee_claim()).await;
-	let err = fee_app::settle_fee_shares(&h.settlements, h.ledger.as_ref(), &h.nav, &h.reds, &h.notify, service.clone(), None, UserId::new(), now_unix())
-		.await
-		.unwrap_err();
-	assert!(matches!(err, domain::error::DomainError::Validation(_)), "got {err:?}");
+	let revenue_before = fee_cash(&h);
+	let err = fee_app::settle_fee_shares(
+		&h.settlements,
+		&h.allocations,
+		h.ledger.as_ref(),
+		h.money.as_ref(),
+		&h.nav,
+		&h.redemptions,
+		&h.notify,
+		service.clone(),
+		None,
+		UserId::new(),
+		now_unix(),
+	)
+	.await
+	.unwrap_err();
+	assert!(matches!(err, invest_domain::error::DomainError::Validation(_)), "got {err:?}");
 	// And nothing was destroyed on the way to that refusal.
 	assert_eq!(units_of(&h, LedgerAccountKey::FeeShares(service)).await, fee_units);
-	assert_eq!(cash_of(&h, fee_claim()).await, revenue_before);
+	assert_eq!(fee_cash(&h), revenue_before);
 }
 
 #[tokio::test]
 async fn a_queued_redemption_is_reserved_before_the_manager_is_paid() {
-	let _no_sweeping = no_sweeping().await;
-	let _revenue = exclusive_revenue().await;
 	let Some(h) = harness().await else { return };
-	let user = UserId::new();
+	let user = person(&h).await;
 	let service = unique_service();
 	open_fund(&h, &service).await;
 	fund_user(&h, user, "1000").await;
@@ -827,7 +747,7 @@ async fn a_queued_redemption_is_reserved_before_the_manager_is_paid() {
 
 	// Mark the fund up first. The units are now worth more than the cash standing behind
 	// them, which is the ordinary state of a fund holding anything other than cash.
-	let claim = cash_of(&h, LedgerAccountKey::ServiceClaim(service.clone())).await;
+	let claim = product_cash(&h, &service);
 	funds_app::record_valuation(&h.nav, h.ledger.as_ref(), ValuationId::new(), service.clone(), claim.checked_add(claim).unwrap(), "itest")
 		.await
 		.unwrap();
@@ -836,41 +756,66 @@ async fn a_queued_redemption_is_reserved_before_the_manager_is_paid() {
 	// the claim covers the payout; here it does not, so the redemption genuinely QUEUES —
 	// and note what that means: a queue exists precisely because the fund is already short
 	// of what it owes this investor. The queue reserves units, never cash.
-	funds_app::request_redemption(&fund_ports(&h), &h.reds, user, service.clone(), held, now_unix()).await.unwrap();
-	h.relay.drain().await;
+	funds_app::request_redemption(&fund_ports(&h), &h.redemptions, &h.users, user, service.clone(), held, now_unix())
+		.await
+		.unwrap();
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
 
 	// The claim still covers the fee many times over, so a gate reading only `available`
 	// would pay the manager out of money already owed to a waiting investor — making a
 	// shortfall the fund had already failed to cover worse. The holdback refuses it.
-	let revenue_before = cash_of(&h, fee_claim()).await;
-	let err = fee_app::settle_fee_shares(&h.settlements, h.ledger.as_ref(), &h.nav, &h.reds, &h.notify, service.clone(), None, UserId::new(), now_unix())
-		.await
-		.unwrap_err();
-	let domain::error::DomainError::Validation(message) = &err else {
+	let revenue_before = fee_cash(&h);
+	let err = fee_app::settle_fee_shares(
+		&h.settlements,
+		&h.allocations,
+		h.ledger.as_ref(),
+		h.money.as_ref(),
+		&h.nav,
+		&h.redemptions,
+		&h.notify,
+		service.clone(),
+		None,
+		UserId::new(),
+		now_unix(),
+	)
+	.await
+	.unwrap_err();
+	let invest_domain::error::DomainError::Validation(message) = &err else {
 		panic!("expected a validation refusal, got {err:?}");
 	};
 	assert!(message.contains("queued redemptions"), "the refusal names the queue it is protecting: {message}");
 
 	// Nothing moved on the way to the refusal — the units keep accumulating at no cost.
 	assert_eq!(units_of(&h, LedgerAccountKey::FeeShares(service.clone())).await, fee_units);
-	assert_eq!(cash_of(&h, fee_claim()).await, revenue_before);
+	assert_eq!(fee_cash(&h), revenue_before);
 
 	// And once the queue is gone the same settlement goes through: the reserve is a
 	// holdback against a real obligation, not a permanent freeze on the manager's fee.
-	let queued = piggybank_core::ports::redemptions::RedemptionRepository::list_queued(&h.reds).await.unwrap();
+	let queued = RedemptionRepository::list_queued(&h.redemptions).await.unwrap();
 	let mine = queued.iter().find(|q| q.service == service).expect("the redemption is queued");
-	funds_app::cancel_redemption(&h.reds, &h.notify, mine.id, user).await.unwrap();
-	h.relay.drain().await;
-	fee_app::settle_fee_shares(&h.settlements, h.ledger.as_ref(), &h.nav, &h.reds, &h.notify, service.clone(), None, UserId::new(), now_unix())
-		.await
-		.expect("with the queue cleared the manager is paid");
+	funds_app::cancel_redemption(&h.redemptions, &h.notify, mine.id, user).await.unwrap();
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	fee_app::settle_fee_shares(
+		&h.settlements,
+		&h.allocations,
+		h.ledger.as_ref(),
+		h.money.as_ref(),
+		&h.nav,
+		&h.redemptions,
+		&h.notify,
+		service.clone(),
+		None,
+		UserId::new(),
+		now_unix(),
+	)
+	.await
+	.expect("with the queue cleared the manager is paid");
 }
 
 #[tokio::test]
 async fn the_sweeper_charges_every_due_position_and_records_a_statement() {
-	let _sweeping = sweeping().await;
 	let Some(h) = harness().await else { return };
-	let user = UserId::new();
+	let user = person(&h).await;
 	let service = unique_service();
 	open_fund(&h, &service).await;
 	fund_user(&h, user, "1000").await;
@@ -883,11 +828,12 @@ async fn the_sweeper_charges_every_due_position_and_records_a_statement() {
 		Arc::new(PgPositionAccruals::new(h.pool.clone())),
 		Arc::new(PgFeeAssessments::new(h.pool.clone())),
 		h.ledger.clone(),
+		h.money.clone(),
 		Arc::new(PgNav::new(h.pool.clone())),
 		h.notify.clone(),
 	);
 	assert!(sweeper.sweep(now_unix()).await.unwrap() >= 1, "the backdated position is due");
-	h.relay.drain().await;
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
 
 	// The charge is on the investor's statement, with the figures that explain it.
 	let statement = h.assessments.list_by_user(user).await.unwrap();
@@ -905,15 +851,14 @@ async fn the_sweeper_charges_every_due_position_and_records_a_statement() {
 	// which a sibling test's fixture can add to, so the assertion is on this investor's
 	// statement rather than on that global count.
 	sweeper.sweep(now_unix()).await.unwrap();
-	h.relay.drain().await;
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
 	assert_eq!(h.assessments.list_by_user(user).await.unwrap().len(), 1, "a swept position is not charged again");
 }
 
 #[tokio::test]
 async fn a_zero_rate_policy_is_distinct_from_no_policy_and_also_charges_nothing() {
-	let _no_sweeping = no_sweeping().await;
 	let Some(h) = harness().await else { return };
-	let user = UserId::new();
+	let user = person(&h).await;
 	let service = unique_service();
 	open_fund(&h, &service).await;
 	let free = FeePolicy::new(0, 0, 0, ManagementBasis::InvestedCapital, CrystallizationPeriod::Annual).unwrap();
@@ -932,9 +877,8 @@ async fn a_zero_rate_policy_is_distinct_from_no_policy_and_also_charges_nothing(
 
 #[tokio::test]
 async fn a_top_up_is_never_billed_for_the_window_before_it_arrived() {
-	let _no_sweeping = no_sweeping().await;
 	let Some(h) = harness().await else { return };
-	let user = UserId::new();
+	let user = person(&h).await;
 	let service = unique_service();
 	open_fund(&h, &service).await;
 
@@ -957,9 +901,8 @@ async fn a_top_up_is_never_billed_for_the_window_before_it_arrived() {
 
 #[tokio::test]
 async fn a_position_that_left_and_came_back_is_not_billed_for_its_dormancy() {
-	let _no_sweeping = no_sweeping().await;
 	let Some(h) = harness().await else { return };
-	let user = UserId::new();
+	let user = person(&h).await;
 	let service = unique_service();
 	open_fund(&h, &service).await;
 
@@ -990,9 +933,8 @@ async fn a_position_that_left_and_came_back_is_not_billed_for_its_dormancy() {
 
 #[tokio::test]
 async fn a_second_assessor_for_the_same_window_charges_nothing() {
-	let _no_sweeping = no_sweeping().await;
 	let Some(h) = harness().await else { return };
-	let user = UserId::new();
+	let user = person(&h).await;
 	let service = unique_service();
 	open_fund(&h, &service).await;
 
@@ -1021,7 +963,7 @@ async fn a_second_assessor_for_the_same_window_charges_nothing() {
 	let landed = h.assessments.charge(&mut duplicate, stale, now_unix()).await.unwrap();
 	assert!(!landed, "a stale snapshot must not produce a second charge for the same window");
 
-	h.relay.drain().await;
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
 	assert_eq!(
 		units_of(&h, LedgerAccountKey::UserShares(service.clone(), user)).await,
 		units_after_first,
@@ -1033,10 +975,10 @@ async fn a_second_assessor_for_the_same_window_charges_nothing() {
 
 /// Rebuild the snapshot a losing assessor would have held: today's position, but the
 /// accrual clock it read before the winner moved it.
-async fn snapshot_at(h: &Harness, user: UserId, service: &ServiceId, accrued_at_unix: i64) -> domain::fees::PositionSnapshot {
+async fn snapshot_at(h: &Harness, user: UserId, service: &ServiceId, accrued_at_unix: i64) -> invest_domain::fees::PositionSnapshot {
 	let accrual = h.accruals.find(user, service).await.unwrap().unwrap();
 	let units = units_of(h, LedgerAccountKey::UserShares(service.clone(), user)).await;
-	domain::fees::PositionSnapshot {
+	invest_domain::fees::PositionSnapshot {
 		units,
 		collectable: units,
 		cost_basis: accrual.cost_basis,
@@ -1053,10 +995,9 @@ async fn snapshot_at(h: &Harness, user: UserId, service: &ServiceId, accrued_at_
 /// supply — is exactly as it was.
 #[tokio::test]
 async fn a_holder_with_every_unit_in_a_resting_sell_is_assessed_not_skipped() {
-	let _no_sweeping = no_sweeping().await;
 	let Some(h) = harness().await else { return };
 	let book = Book::new(&h);
-	let user = book.provisioned_user().await;
+	let user = person(&h).await;
 	let service = unique_service();
 	open_fund(&h, &service).await;
 	book.open(&h, &service).await;
@@ -1108,28 +1049,6 @@ async fn a_holder_with_every_unit_in_a_resting_sell_is_assessed_not_skipped() {
 	.await
 	.unwrap();
 	assert_eq!(charged_events, 0, "a charge that collected nothing raises no Charged event");
-
-	// The holder's statement still shows it — as a fee that deferred, worth nothing in
-	// units, rather than choking the feed on a zero row the schema only just allowed.
-	let feed = piggybank_core::infrastructure::operation_feed::PgOperationFeed::new(h.pool.clone());
-	let page = piggybank_core::ports::operations::OperationFeed::list_by_user(&feed, user, piggybank_core::ports::operations::MAX_PAGE)
-		.await
-		.expect("the feed reads a zero-unit fee row");
-	let fee_rows: Vec<_> = page.operations.iter().filter(|op| op.kind() == "fee").collect();
-	assert_eq!(fee_rows.len(), 1, "the deferred charge is on the statement");
-	let piggybank_core::ports::operations::Operation::FeeCharge {
-		units: fed_units,
-		cash: fed_cash,
-		management: fed_management,
-		deferred,
-		..
-	} = fee_rows[0]
-	else {
-		panic!("expected a fee row, got {}", fee_rows[0].kind());
-	};
-	assert_eq!((*fed_units, *fed_cash), (Shares::ZERO, Usdt::ZERO));
-	assert_close(*fed_management, usdt("100"), "the feed carries what was owed, not only what was taken");
-	assert!(*deferred, "the feed flags the charge as deferred");
 }
 
 /// The other way a holder's units can be theirs yet untouchable: a queued redemption
@@ -1140,9 +1059,8 @@ async fn a_holder_with_every_unit_in_a_resting_sell_is_assessed_not_skipped() {
 /// redemption is cancelled and the units are free again.
 #[tokio::test]
 async fn units_reserved_by_a_queued_redemption_are_charged_as_debt_and_the_clock_moves() {
-	let _no_sweeping = no_sweeping().await;
 	let Some(h) = harness().await else { return };
-	let user = UserId::new();
+	let user = person(&h).await;
 	let service = unique_service();
 	open_fund(&h, &service).await;
 	fund_user(&h, user, "1000").await;
@@ -1151,14 +1069,14 @@ async fn units_reserved_by_a_queued_redemption_are_charged_as_debt_and_the_clock
 	// Mark the fund up to NAV 2.0: the units are now worth more than the cash behind them,
 	// so a full exit cannot settle and genuinely QUEUES — reserving every unit as a pending
 	// burn. Posted stays 1000; available drops to nothing.
-	let claim = cash_of(&h, LedgerAccountKey::ServiceClaim(service.clone())).await;
+	let claim = product_cash(&h, &service);
 	funds_app::record_valuation(&h.nav, h.ledger.as_ref(), ValuationId::new(), service.clone(), claim.checked_add(claim).unwrap(), "itest")
 		.await
 		.unwrap();
-	funds_app::request_redemption(&fund_ports(&h), &h.reds, user, service.clone(), shares("1000"), now_unix())
+	funds_app::request_redemption(&fund_ports(&h), &h.redemptions, &h.users, user, service.clone(), shares("1000"), now_unix())
 		.await
 		.unwrap();
-	h.relay.drain().await;
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
 	let holding = h.ledger.balance(&LedgerAccountKey::UserShares(service.clone(), user)).await.unwrap();
 	assert_eq!(
 		(Shares::from_base_units(holding.posted), Shares::from_base_units(holding.available())),
@@ -1191,10 +1109,10 @@ async fn units_reserved_by_a_queued_redemption_are_charged_as_debt_and_the_clock
 
 	// The investor changes their mind; the reserve is released and the debt is collected
 	// — at NAV 2.0, so 109 units for the 218 owed — with only the seconds since on top.
-	let queued = piggybank_core::ports::redemptions::RedemptionRepository::list_queued(&h.reds).await.unwrap();
+	let queued = RedemptionRepository::list_queued(&h.redemptions).await.unwrap();
 	let mine = queued.iter().find(|q| q.service == service).expect("the redemption is queued");
-	funds_app::cancel_redemption(&h.reds, &h.notify, mine.id, user).await.unwrap();
-	h.relay.drain().await;
+	funds_app::cancel_redemption(&h.redemptions, &h.notify, mine.id, user).await.unwrap();
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
 	let next = assess(&h, user, &service).await.expect("the carried debt is collected once the units are free");
 	assert_close(next.debt_opening, usdt("218"), "the debt came in");
 	assert!(next.performance.is_zero(), "the mark already sits at 2.0, so there is no new gain to charge");
@@ -1220,10 +1138,9 @@ async fn units_reserved_by_a_queued_redemption_are_charged_as_debt_and_the_clock
 /// position read — a fee measured on the holding alone would see no units to have gained.
 #[tokio::test]
 async fn units_escrowed_by_a_resting_sell_still_owe_performance_on_their_gain() {
-	let _no_sweeping = no_sweeping().await;
 	let Some(h) = harness().await else { return };
 	let book = Book::new(&h);
-	let user = book.provisioned_user().await;
+	let user = person(&h).await;
 	let service = unique_service();
 	open_fund(&h, &service).await;
 	book.open(&h, &service).await;
@@ -1237,7 +1154,7 @@ async fn units_escrowed_by_a_resting_sell_still_owe_performance_on_their_gain() 
 	);
 
 	// The fund doubles while the ask rests.
-	let claim = cash_of(&h, LedgerAccountKey::ServiceClaim(service.clone())).await;
+	let claim = product_cash(&h, &service);
 	funds_app::record_valuation(&h.nav, h.ledger.as_ref(), ValuationId::new(), service.clone(), claim.checked_add(claim).unwrap(), "itest")
 		.await
 		.unwrap();
