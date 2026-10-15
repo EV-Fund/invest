@@ -231,6 +231,8 @@
               AUTH_ISSUER = "https://auth.concierge.ev";
               AUTH_AUDIENCE = "invest";
               AUTH_JWKS_GRPC_ENDPOINT = "http://concierge.ev-banking.svc.cluster.local:55670";
+              # CONCIERGE_GRPC_ADDR is deliberately absent too: set, it makes
+              # CONCIERGE_CLIENT_SECRET required at boot, so it ships with that secret.
               APP_ENV = "production";
             };
           };
