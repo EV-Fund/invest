@@ -1,8 +1,8 @@
 [package]
-name = "evbanking_contracts"
+name = "invest_contracts"
 version = "0.1.0"
 edition = "2024"
-description = "gRPC wire contracts for the EV banking hub — generated tonic client+server stubs. The dependency other service repos import by git, alongside evbanking_auth for the verify flow."
+description = "gRPC wire contracts for invest-core (invest.v1) — generated tonic client+server stubs, plus the curated allocation facade."
 license = "BlueOak-1.0.0"
 publish = false
 

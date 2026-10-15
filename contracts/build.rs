@@ -1,27 +1,19 @@
 use std::{fs, path::PathBuf};
 
-/// Compile every `proto/<pkg>/v1/*.proto` into Rust with tonic — BOTH client and
-/// server stubs. The backend includes the servers; other service repos that
-/// depend on this crate (by git) include the clients. Each package's generated
-/// module is pulled into `src/lib.rs` via `tonic::include_proto!("<pkg>.v1")`.
-///
-/// `banking.v1` is the cabinet-facing surface. `signer.v1` (the internal hub↔signer
-/// seam) and `scope.v1` (the service-facing scope money API and its event stream)
-/// are kept in separate packages so the OpenAPI/TS generation (`nix run .#gen-api`,
-/// which reads only `banking/v1`) never exposes them.
+/// Compile every `proto/invest/v1/*.proto` into Rust with tonic — BOTH client and server
+/// stubs. invest-core includes the servers; a consumer (the invest BFF) the clients. The
+/// generated module is pulled into `src/lib.rs` via `tonic::include_proto!("invest.v1")`.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let proto_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("proto");
 
+	let dir = proto_root.join("invest/v1");
+	println!("cargo:rerun-if-changed={}", dir.display());
 	let mut protos: Vec<PathBuf> = Vec::new();
-	for package in ["banking/v1", "scope/v1", "signer/v1"] {
-		let dir = proto_root.join(package);
-		println!("cargo:rerun-if-changed={}", dir.display());
-		for entry in fs::read_dir(&dir)? {
-			let path = entry?.path();
-			if path.extension().is_some_and(|ext| ext == "proto") {
-				println!("cargo:rerun-if-changed={}", path.display());
-				protos.push(path);
-			}
+	for entry in fs::read_dir(&dir)? {
+		let path = entry?.path();
+		if path.extension().is_some_and(|ext| ext == "proto") {
+			println!("cargo:rerun-if-changed={}", path.display());
+			protos.push(path);
 		}
 	}
 	protos.sort();

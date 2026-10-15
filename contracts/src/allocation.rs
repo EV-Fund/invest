@@ -2,7 +2,7 @@
 //! about an investable product.
 //!
 //! A consumer service repo imports this one module instead of hunting through the
-//! generated `banking::v1` namespace: it re-exports the allocation stubs and message
+//! generated `invest::v1` namespace: it re-exports the allocation stubs and message
 //! types, and pins the wire vocabularies the two sides must agree on ([`state`],
 //! [`icon`]).
 //!
@@ -35,8 +35,8 @@
 //! sized it. The access gate is on the way IN only — `Redeem` never consults it.
 //!
 //! Money is deliberately absent here. Units, NAV, positions and cash all belong to
-//! [`FundsService`](crate::banking::v1::funds_service_client::FundsServiceClient) and
-//! `BalanceService`, keyed by the same `service` slug this registry owns. The one
+//! [`FundsService`](crate::invest::v1::funds_service_client::FundsServiceClient) (cash to
+//! banking), keyed by the same `service` slug this registry owns. The one
 //! exception is `IssueUnits`: supply an operator mints **in kind** — no cash leg — to a
 //! person, for a product registered against an asset that already has owners — and
 //! `RetireUnits`, the mint's mirror. The other [`holder`] kind, a reserved allocation
@@ -46,7 +46,7 @@
 //! like the others, as is [`backing`]: whether a product's units have the fund's cash
 //! behind them, which is what decides whether `Redeem` may pay them out.
 
-pub use crate::banking::v1::{
+pub use crate::invest::v1::{
 	Allocation, AllocationAccessGrant, AllocationAccessGrantList, AllocationList, GetAllocationRequest, GrantAllocationAccessRequest, IssueUnitsRequest, ListAllocationAccessGrantsRequest,
 	ListAllocationsRequest, ListUnitHoldersRequest, RegisterAllocationRequest, RetireUnitsRequest, RevokeAllocationAccessRequest, RevokeAllocationAccessResponse, SetAllocationAccessRequest,
 	SetAllocationBackingRequest, SetAllocationStateRequest, SetAllocationUnitCapRequest, UnitHolderRef, UnitHolders, UnitHolding, UnitIssuance, UpdateAllocationRequest,
@@ -62,7 +62,7 @@ pub const DEFAULT_UNIT_CAP: &str = "100000000";
 
 /// The canonical `Allocation.state` strings.
 ///
-/// This is the cross-repo half of the contract: the hub's `domain::allocations::
+/// This is the cross-repo half of the contract: invest-core's `invest_domain::allocations::
 /// AllocationState` serializes to exactly these, and a consumer that matches on the
 /// wire string matches on these constants rather than its own literals. Adding a state
 /// means adding it here and to [`ALL`].
@@ -83,7 +83,7 @@ pub mod state {
 	}
 
 	/// Whether an allocation in `state` accepts new money. The authoritative check
-	/// still runs hub-side on `Subscribe`; this is for clients rendering the surface.
+	/// still runs server-side on `Subscribe`; this is for clients rendering the surface.
 	pub fn accepts_subscriptions(state: &str) -> bool {
 		state == OPEN
 	}
@@ -98,8 +98,8 @@ pub mod state {
 /// The canonical `Allocation.access` / `Allocation.caller_access` /
 /// `AllocationAccessGrant.level` strings.
 ///
-/// The second axis of the contract, orthogonal to [`state`]: the hub's
-/// `domain::allocations::AllocationAccess` serializes to exactly these
+/// The second axis of the contract, orthogonal to [`state`]: invest-core's
+/// `invest_domain::allocations::AllocationAccess` serializes to exactly these
 /// (`allocation_access_strings_are_canonical` and
 /// `domain_access_levels_match_the_wire_contract` guard the two sides), and a consumer
 /// matches on these constants rather than its own literals. Adding a level means adding
@@ -137,7 +137,7 @@ pub mod access {
 		GRANTABLE.contains(&level)
 	}
 
-	/// Whether an allocation at `level` shows in the caller's catalog. The hub applies
+	/// Whether an allocation at `level` shows in the caller's catalog. invest-core applies
 	/// the same rule; this is for a client deciding whether to draw a card it cached.
 	pub fn permits_viewing(level: &str) -> bool {
 		level == VIEW || level == INVEST
@@ -145,7 +145,7 @@ pub mod access {
 
 	/// Whether `level` lets the caller put money in — necessary alongside
 	/// [`super::state::accepts_subscriptions`], never sufficient on its own. The
-	/// authoritative check runs hub-side on `Subscribe`.
+	/// authoritative check runs server-side on `Subscribe`.
 	pub fn permits_investing(level: &str) -> bool {
 		level == INVEST
 	}
@@ -153,23 +153,23 @@ pub mod access {
 
 /// The canonical `Allocation.icon` strings.
 ///
-/// The third vocabulary of the contract, alongside [`state`] and [`access`]: the hub's
-/// `domain::allocations::AllocationIcon` serializes to exactly these, and a client
+/// The third vocabulary of the contract, alongside [`state`] and [`access`]: invest-core's
+/// `invest_domain::allocations::AllocationIcon` serializes to exactly these, and a client
 /// picks its SVG by matching one of these constants rather than its own literals.
 ///
-/// Presentation only — nothing here gates money or lifecycle, and the hub never
+/// Presentation only — nothing here gates money or lifecycle, and invest-core never
 /// branches on it. It exists so a product's card is a decision an operator made rather
 /// than a letter avatar derived from the title.
 ///
 /// Adding one means four edits, and each has a test standing behind it: here and in
-/// [`ALL`] (`domain_icons_match_the_wire_contract` compares this list with the hub's
+/// [`ALL`] (`domain_icons_match_the_wire_contract` compares this list with invest-core's
 /// `AllocationIcon::ALL` member for member, both ways), the domain enum (its `next`
 /// chain makes the compiler insist), a migration widening the `allocations.icon` CHECK
 /// (`every_icon_the_domain_knows_is_accepted_by_the_column` writes every variant into
 /// the column), and the client that has to draw it.
 ///
-/// Ship the client that knows a new value BEFORE the hub that can store it: a client
-/// reading one it does not know falls back to [`DEFAULT`], and so does the hub reading
+/// Ship the client that knows a new value BEFORE the server that can store it: a client
+/// reading one it does not know falls back to [`DEFAULT`], and so does invest-core reading
 /// such a row back out of storage, so neither direction can be brought down by a
 /// half-rolled deployment.
 pub mod icon {
@@ -201,7 +201,7 @@ pub mod icon {
 
 /// The canonical `Allocation.backing` strings — what stands behind a product's units.
 ///
-/// The fourth vocabulary of the contract. The hub's `domain::allocations::
+/// The fourth vocabulary of the contract. invest-core's `invest_domain::allocations::
 /// AllocationBacking` serializes to exactly these (`allocation_backing_strings_are_canonical`
 /// and `domain_backing_matches_the_wire_contract` guard the two sides). It gates money on
 /// the way OUT: `Redeem` pays cash out of the fund's claim, and a product whose units
@@ -229,23 +229,22 @@ pub mod backing {
 	}
 
 	/// Whether a product at `backing` lets holders redeem for cash. The authoritative
-	/// check runs hub-side on `Redeem`; this is for a client deciding which exit to draw.
+	/// check runs server-side on `Redeem`; this is for a client deciding which exit to draw.
 	pub fn permits_redemptions(backing: &str) -> bool {
 		backing == CASH
 	}
 }
 
 /// The canonical holder-kind strings — `UnitIssuance.holder_kind`, and
-/// `UnitHolderRef.kind` on the cap table (`UnitHolders.holders`) and the treasury
-/// (`AllocationTreasury.holders`).
+/// `UnitHolderRef.kind` on the cap table (`UnitHolders.holders`).
 ///
-/// The hub's `domain::issuance::UnitHolder` stores exactly these
+/// invest-core's `invest_domain::issuance::UnitHolder` stores exactly these
 /// (`unit_holder_strings_are_canonical` guards that side). Only a `user` row's id is a
 /// user: an `allocation` row's is the holding allocation's slug — a client must never
 /// resolve it as a user. (`company`, the retired company stake, left the vocabulary with
 /// #245; nothing on the wire carries it.)
 pub mod holder {
-	/// An investor; the id is their banking user id.
+	/// An investor; the id is their concierge user id.
 	pub const USER: &str = "user";
 	/// A reserved allocation (`fee` | `fund`) holding units of this product — the
 	/// product's fee class is held by `fee`; the id is that allocation's slug.
@@ -262,7 +261,7 @@ pub mod holder {
 
 /// The canonical `UnitIssuance.source` strings — where an issuance's units came from.
 ///
-/// The hub's `domain::issuance::IssuanceSource` stores exactly these
+/// invest-core's `invest_domain::issuance::IssuanceSource` stores exactly these
 /// (`issuance_source_strings_are_canonical` guards that side). A `mint` grew the
 /// supply by the row's `units`; a `retire` row burnt them and shrank the supply. `units`
 /// is always the magnitude — a client summing issuances into "units created" adds the
@@ -284,7 +283,7 @@ pub mod issuance_source {
 
 /// The canonical `UnitIssuance.state` strings.
 ///
-/// The hub's `domain::issuance::IssuanceState` stores exactly these
+/// invest-core's `invest_domain::issuance::IssuanceState` stores exactly these
 /// (`issuance_state_strings_are_canonical` guards that side). Two states only: an
 /// issuance is recorded (`queued`) and then minted by the relay (`applied`); there is
 /// no failure state because a mint that parks stays `queued` and is surfaced through
@@ -316,8 +315,8 @@ mod tests {
 
 	#[test]
 	fn the_access_vocabulary_is_ranked_closed_and_canonical() {
-		// Byte-identical with `domain::allocations::AllocationAccess::as_str`, and in the
-		// rank order the hub compares by (`domain_access_levels_match_the_wire_contract`
+		// Byte-identical with `invest_domain::allocations::AllocationAccess::as_str`, and in the
+		// rank order invest-core compares by (`domain_access_levels_match_the_wire_contract`
 		// guards the other side).
 		assert_eq!(access::ALL, ["hidden", "view", "invest"]);
 		assert!(access::ALL.iter().all(|l| access::is_known(l)));
@@ -362,8 +361,8 @@ mod tests {
 	}
 
 	#[test]
-	fn the_default_unit_cap_matches_the_hub() {
-		// Byte-identical with `domain::allocations::DEFAULT_UNIT_CAP` rendered to the wire
+	fn the_default_unit_cap_matches_the_domain() {
+		// Byte-identical with `invest_domain::allocations::DEFAULT_UNIT_CAP` rendered to the wire
 		// (`the_wire_default_cap_matches_the_domain` guards the other side).
 		assert_eq!(super::DEFAULT_UNIT_CAP, "100000000");
 	}
@@ -376,7 +375,7 @@ mod tests {
 
 	#[test]
 	fn the_icon_vocabulary_is_closed_and_canonical() {
-		// Byte-identical with `domain::allocations::AllocationIcon::as_str`
+		// Byte-identical with `invest_domain::allocations::AllocationIcon::as_str`
 		// (`domain_icons_match_the_wire_contract` guards the other side), and the exact
 		// set the client ships artwork for.
 		assert_eq!(
@@ -392,7 +391,7 @@ mod tests {
 
 	#[test]
 	fn the_holder_vocabulary_is_closed_and_canonical() {
-		// Byte-identical with `domain::issuance::UnitHolder::kind_str`
+		// Byte-identical with `invest_domain::issuance::UnitHolder::kind_str`
 		// (`unit_holder_strings_are_canonical` guards the other side).
 		assert_eq!(holder::ALL, ["user", "allocation"]);
 		assert!(holder::ALL.iter().all(|h| holder::is_known(h)));
@@ -408,7 +407,7 @@ mod tests {
 
 	#[test]
 	fn the_issuance_source_vocabulary_is_closed_and_canonical() {
-		// Byte-identical with `domain::issuance::IssuanceSource::as_str`
+		// Byte-identical with `invest_domain::issuance::IssuanceSource::as_str`
 		// (`issuance_source_strings_are_canonical` guards the other side).
 		assert_eq!(issuance_source::ALL, ["mint", "retire"]);
 		assert!(!issuance_source::is_known("company"), "the hand-over out of the company stake is history (#245)");
@@ -421,7 +420,7 @@ mod tests {
 
 	#[test]
 	fn the_issuance_state_vocabulary_is_closed_and_canonical() {
-		// Byte-identical with `domain::issuance::IssuanceState::as_str`
+		// Byte-identical with `invest_domain::issuance::IssuanceState::as_str`
 		// (`issuance_state_strings_are_canonical` guards the other side).
 		assert_eq!(issuance_state::ALL, ["queued", "applied"]);
 		assert!(issuance_state::ALL.iter().all(|s| issuance_state::is_known(s)));
@@ -432,7 +431,7 @@ mod tests {
 
 	#[test]
 	fn the_backing_vocabulary_is_closed_canonical_and_gates_the_exit() {
-		// Byte-identical with `domain::allocations::AllocationBacking::as_str`
+		// Byte-identical with `invest_domain::allocations::AllocationBacking::as_str`
 		// (`allocation_backing_strings_are_canonical` guards the other side).
 		assert_eq!(backing::ALL, ["cash", "in_kind"]);
 		assert!(backing::ALL.iter().all(|b| backing::is_known(b)));
@@ -447,7 +446,7 @@ mod tests {
 
 	#[test]
 	fn the_default_icon_is_a_member_of_the_set() {
-		// The hub lands an un-iconed registration here, so a client that cannot draw it
+		// invest-core lands an un-iconed registration here, so a client that cannot draw it
 		// would leave every fresh product blank.
 		assert_eq!(icon::DEFAULT, icon::FUND);
 		assert!(icon::is_known(icon::DEFAULT));

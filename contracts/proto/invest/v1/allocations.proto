@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package banking.v1;
+package invest.v1;
 
 // AllocationsService — the registry of investable products (the Allocation primitive).
 //
@@ -8,13 +8,12 @@ package banking.v1;
 // the ONLY way one comes into existence: `FundsService.Subscribe` refuses a service
 // with no registered, open allocation, so a user can never mint a fund by typing an
 // unknown slug. Money never flows through this service — amounts, units and NAV stay
-// on FundsService/BalanceService; here live identity, presentation, lifecycle and
-// access only.
+// on FundsService; here live identity, presentation, lifecycle and access only.
 //
 // Lifecycle: `draft` (registered, not yet accepting money) → `open` (subscribe +
 // redeem) → `closed` (redeem only, so a closed product never traps an investor).
 // `closed` → `open` re-opens. Registration and every transition require
-// `AllocationManage` (Admin/Owner) — the same trust seam as posting a valuation.
+// `invest:allocation:manage` ("AllocationManage" below).
 //
 // Access is a second axis, orthogonal to the lifecycle. `state` says whether the
 // product takes money at all; `access` says WHO may see it and who may put money in.
@@ -28,8 +27,10 @@ package banking.v1;
 // `GetAllocation` answers NOT_FOUND for one the caller may not — unless the caller
 // holds `AllocationManage`, who sees everything in every state. `Subscribe` refuses
 // (FAILED_PRECONDITION) unless the caller's effective level is `invest`; `Redeem` is
-// never gated on access, so locking a product cannot trap an investor. See
-// docs/ARCHITECTURE.md.
+// never gated on access, so locking a product cannot trap an investor.
+//
+// Users are named by their concierge user id — the `sub` of the caller's access token
+// for the `invest` relying party.
 //
 // The one place this service touches supply is `IssueUnits`: an operator minting units
 // IN KIND — to an investor — with no cash behind them, for a product registered against
@@ -184,7 +185,7 @@ message Allocation {
 // One investor raised above an allocation's default level.
 message AllocationAccessGrant {
   string service = 1;
-  string user_id = 2;    // the investor (banking user id)
+  string user_id = 2;    // the investor (concierge user id)
   string level = 3;      // view | invest
   string granted_by = 4; // the AllocationManage holder who granted it
   int64 granted_at = 5;  // unix seconds
@@ -260,7 +261,7 @@ message SetAllocationBackingRequest {
 
 message GrantAllocationAccessRequest {
   string service = 1;
-  string user_id = 2;  // the investor's banking user id
+  string user_id = 2;  // the investor's concierge user id
   string level = 3;    // view | invest (never hidden — a grant only ever adds)
 }
 
@@ -277,11 +278,10 @@ message ListAllocationAccessGrantsRequest {
 
 message IssueUnitsRequest {
   string service = 1;
-  // Who receives the units: a banking (or concierge) user id, resolved the way every
-  // admin RPC resolves a target. Required — a mint to nobody is a malformed request.
-  // Only a person: the company is not a holder (#245), and a reserved allocation is
-  // seated by the owners' consilium (`ConsiliumService.OpenHolderGrant`) or by the fee
-  // accrual, never by an operator's mint — so there is deliberately no arm for either.
+  // Who receives the units: a concierge user id. Required — a mint to nobody is a
+  // malformed request. Only a person: the company is not a holder (#245), and a reserved
+  // allocation is seated by the owners' approval (a holder grant) or by the fee accrual,
+  // never by an operator's mint — so there is deliberately no arm for either.
   string user_id = 2;
   // Field 3 was `bool company`, the other arm of a `oneof holder`. Reserved so no later
   // field can inherit its number and be read by an old client as "mint to the company".
@@ -299,8 +299,8 @@ message IssueUnitsRequest {
 
 message RetireUnitsRequest {
   string service = 1;
-  // Whose units are burnt: a banking (or concierge) user id, shaped as IssueUnits'
-  // holder is and for the same reason. Required — a burn of nobody's units is a
+  // Whose units are burnt: a concierge user id, shaped as IssueUnits' holder is and for
+  // the same reason. Required — a burn of nobody's units is a
   // malformed request.
   string user_id = 2;
   // Field 3 was `bool company` — see IssueUnitsRequest.
@@ -325,7 +325,7 @@ message UnitIssuance {
   // `user` | `allocation`. (The company stake's two historical rows never cross the
   // wire: a lookup that lands on one is refused as a conflict, #245.)
   string holder_kind = 3;
-  // The banking user id for `user`; the holding allocation's slug (`fee`) for
+  // The concierge user id for `user`; the holding allocation's slug (`fee`) for
   // `allocation`. A client must never resolve an `allocation` holder as a user.
   string holder_id = 4;
   string units = 5;           // decimal units minted or retired (always positive)
@@ -333,7 +333,7 @@ message UnitIssuance {
   string cost_basis = 7;      // decimal USDT
   // `queued` until the relay posts the leg, then `applied`. A client that needs the
   // units to be visible on the ledger polls for `applied`; a `queued` row is one the
-  // relay has not reached yet (or one it parked — see BalanceService.ListParkedEvents).
+  // relay has not reached yet (or one it parked — the outbox holds the reason).
   string state = 8;
   int64 created_at = 9;       // unix seconds
   // Where the units came from — or went: `mint` (IssueUnits or an executed holder
@@ -349,7 +349,7 @@ message ListUnitHoldersRequest {
 }
 
 // One holder of an allocation's units, as the cap table and the treasury name them.
-// `kind` is `user` (`id` is the banking user id) or `allocation` (`id` is the holding
+// `kind` is `user` (`id` is the concierge user id) or `allocation` (`id` is the holding
 // allocation's slug — the reserved `fee` allocation holding a product's fee class). The
 // reserved allocations' own holders are always people.
 message UnitHolderRef {
@@ -379,7 +379,6 @@ message UnitHolders {
   // relay. Once they land, `units_outstanding` grows by this much, so an operator
   // pinning the cap to what is issued must wait for it to read zero: a cap pinned to
   // the settled figure alone leaves the queued mint to land above it.
-  // TODO(#271): retire (PR #278) shrinks supply — subtract queued retires once it lands.
   string queued_units = 6;
   repeated UnitHolding holders = 7;
 }
