@@ -28,13 +28,14 @@ use invest_core::{
 	ports::{
 		AllocationRegistry,
 		book::{BookStore, OrderRecord},
+		ledger::LedgerTransfer,
 		money::{AccountLabel, HoldState, Refusal, ScopeId},
 		users::UserStanding,
 	},
 };
 use invest_domain::{
 	allocations::{AllocationAccess, AllocationBacking, AllocationIcon},
-	balance::{LedgerAccountKey, ServiceId},
+	balance::{LedgerAccountKey, ServiceId, TransferCode},
 	book::{BookPolicy, CancelReason, CandleResolution, ClientOrderId, Locked, OrderKind, OrderState, Price, PriceTimeEngine, Side, Tif},
 	error::DomainError,
 	issuance::{IdempotencyKey, UnitHolder},
@@ -207,6 +208,13 @@ async fn sell(h: &Harness, user: UserId, service: &ServiceId, at: &str, size: &s
 	place(h, user, service, Side::Sell, OrderKind::Limit, Tif::Gtc, Some(at), size).await.unwrap()
 }
 
+/// A sell the matcher can fill: placed, and its units escrowed by the relay.
+async fn sell_escrowed(h: &Harness, user: UserId, service: &ServiceId, at: &str, size: &str) -> OrderRecord {
+	let order = sell(h, user, service, at, size).await;
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	order
+}
+
 async fn buy(h: &Harness, user: UserId, service: &ServiceId, at: &str, size: &str) -> OrderRecord {
 	place(h, user, service, Side::Buy, OrderKind::Limit, Tif::Gtc, Some(at), size).await.unwrap()
 }
@@ -356,7 +364,7 @@ async fn a_partial_fill_leaves_the_maker_resting_with_the_rest() {
 	let (seller, buyer) = (provisioned_user(&h).await, provisioned_user(&h).await);
 	issue_units(&h, &service, seller, "10").await;
 	fund_user(&h, buyer, "100");
-	let ask = sell(&h, seller, &service, "1", "10").await;
+	let ask = sell_escrowed(&h, seller, &service, "1", "10").await;
 	let bid = buy(&h, buyer, &service, "1", "4").await;
 	assert_eq!(bid.order.state(), OrderState::Filled);
 	let ask = order(&h, &ask).await;
@@ -418,7 +426,7 @@ async fn a_post_only_order_rests_or_is_refused_and_a_self_trade_is_refused() {
 	issue_units(&h, &service, seller, "10").await;
 	fund_user(&h, buyer, "100");
 	fund_user(&h, seller, "100");
-	sell(&h, seller, &service, "1", "10").await;
+	sell_escrowed(&h, seller, &service, "1", "10").await;
 
 	// Post-only under the ask rests; at the ask it would take and is refused outright.
 	let posted = place(&h, buyer, &service, Side::Buy, OrderKind::Limit, Tif::Alo, Some("0.99"), "1").await.unwrap();
@@ -572,7 +580,7 @@ async fn a_rejected_buy_releases_the_hold_it_took() {
 	let trader = provisioned_user(&h).await;
 	issue_units(&h, &service, trader, "10").await;
 	fund_user(&h, trader, "100");
-	sell(&h, trader, &service, "1", "10").await;
+	sell_escrowed(&h, trader, &service, "1", "10").await;
 
 	let key = format!("self-{}", Uuid::new_v4());
 	let err = place_keyed(&h, trader, &service, Side::Buy, OrderKind::Limit, Tif::Gtc, Some("1"), "1", &key).await.unwrap_err();
@@ -597,7 +605,8 @@ async fn a_fill_banking_refuses_to_pay_voids_the_units_and_parks() {
 	sell(&h, seller, &service, "1", "10").await;
 	common::drain_to_quiescence(&h.relay, &h.pool).await;
 
-	buy(&h, buyer, &service, "1", "10").await;
+	// The bid is for 20: 10 fill against the ask, 10 rest on the book behind the same hold.
+	let bid = buy(&h, buyer, &service, "1", "20").await;
 	h.money.refuse("Capture", Refusal::HoldNotActive);
 	// The park IS what this test pins, so one pass instead of `drain_to_quiescence`.
 	h.relay.drain().await;
@@ -611,6 +620,91 @@ async fn a_fill_banking_refuses_to_pay_voids_the_units_and_parks() {
 	let buyer_pending = h.ledger.balance(&LedgerAccountKey::UserShares(service.clone(), buyer)).await.unwrap().pending;
 	assert_eq!(buyer_pending, 0, "and none left pending");
 	assert_eq!(cash_of(&h, seller), Usdt::ZERO, "the seller was not paid");
+	// The trade is busted, not left half-done: the seller's units come back out of the
+	// escrow, the rest of the buy comes off the book and its hold is released.
+	assert_eq!(
+		units_of(&h, LedgerAccountKey::UserShares(service.clone(), seller)).await,
+		shares("10"),
+		"the seller's units are theirs again"
+	);
+	assert_eq!(units_of(&h, LedgerAccountKey::BookShares(service.clone(), seller)).await, Shares::ZERO, "nothing stuck in escrow");
+	assert_eq!(busted_reason(&h, trade.trade.id.raw()).await.as_deref().map(|r| r.contains("hold_not_active")), Some(true));
+	assert_eq!(order(&h, &bid).await.order.state(), OrderState::Rejected, "no more fills against a hold that is gone");
+	assert_eq!(hold_of(&h, &bid).state, HoldState::Voided);
+	assert_eq!(cash_of(&h, buyer), usdt("100"), "the buyer's cash is free again");
+}
+
+/// Why a trade was busted, if it was.
+async fn busted_reason(h: &Harness, trade: Uuid) -> Option<String> {
+	sqlx::query_scalar::<_, Option<String>>("SELECT bust_reason FROM book_trades WHERE id = $1")
+		.bind(trade)
+		.fetch_one(&h.pool)
+		.await
+		.unwrap()
+}
+
+/// A fill that parks before any cash moved — here the seller's escrow never landed — must
+/// not leave the buyer's cash held behind an order that is done.
+#[tokio::test]
+async fn a_fill_that_parks_releases_the_buyers_hold() {
+	let Some(h) = harness().await else { return };
+	let service = tradable_product(&h, 0).await;
+	let (seller, buyer) = (provisioned_user(&h).await, provisioned_user(&h).await);
+	issue_units(&h, &service, seller, "10").await;
+	fund_user(&h, buyer, "100");
+	let bid = buy(&h, buyer, &service, "1", "10").await;
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+
+	// The seller takes the bid; before the relay escrows their units, they leave by
+	// another road, so the escrow and the fill both park.
+	sell(&h, seller, &service, "1", "10").await;
+	h.ledger
+		.post(&LedgerTransfer {
+			id: Uuid::new_v4().as_u128(),
+			debit: LedgerAccountKey::SharesOutstanding(service.clone()),
+			credit: LedgerAccountKey::UserShares(service.clone(), seller),
+			amount: shares("10").base_units(),
+			code: TransferCode::ShareBurn,
+			reference: 0,
+		})
+		.await
+		.unwrap();
+	h.relay.drain().await;
+
+	assert_eq!(hold_of(&h, &bid).state, HoldState::Voided, "the buyer's hold is released");
+	assert_eq!(cash_of(&h, buyer), usdt("100"));
+	assert_eq!(units_of(&h, LedgerAccountKey::UserShares(service.clone(), buyer)).await, Shares::ZERO);
+}
+
+/// The matcher fills only orders whose escrow is in place and whose owner may deal: a sell
+/// the relay has not escrowed yet, and any order of a suspended holder, stay out of it.
+#[tokio::test]
+async fn the_matcher_skips_unescrowed_sells_and_suspended_holders() {
+	let Some(h) = harness().await else { return };
+	let service = tradable_product(&h, 0).await;
+	let (seller, buyer) = (provisioned_user(&h).await, provisioned_user(&h).await);
+	issue_units(&h, &service, seller, "10").await;
+	fund_user(&h, buyer, "100");
+
+	// Not yet escrowed: the relay has not run.
+	let ask = sell(&h, seller, &service, "1", "5").await;
+	let early = buy(&h, buyer, &service, "1", "5").await;
+	assert_eq!(early.order.state(), OrderState::Open, "nothing to fill against yet");
+	book_app::cancel_order(&h.book, &h.notify, &h.feed, early.order.id(), buyer).await.unwrap();
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+
+	// Escrowed, but its owner is suspended.
+	let subject = common::auth_subject(seller);
+	h.users.record(seller, &UserStanding { active: false, permissions: None }, Some(&subject)).await.unwrap();
+	let blocked = buy(&h, buyer, &service, "1", "5").await;
+	assert_eq!(blocked.order.state(), OrderState::Open, "a suspended holder's ask is not filled");
+	book_app::cancel_order(&h.book, &h.notify, &h.feed, blocked.order.id(), buyer).await.unwrap();
+	h.users.record(seller, &UserStanding { active: true, permissions: None }, Some(&subject)).await.unwrap();
+
+	let filled = buy(&h, buyer, &service, "1", "5").await;
+	assert_eq!(filled.order.state(), OrderState::Filled, "escrowed and active: it fills");
+	assert_eq!(order(&h, &ask).await.order.state(), OrderState::Filled);
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
 }
 
 #[tokio::test]
@@ -755,11 +849,11 @@ async fn candles_aggregate_the_tape_by_bucket() {
 	issue_units(&h, &service, seller, "10").await;
 	fund_user(&h, buyer, "100");
 	// Three fills at 1.00, 1.10 and 0.90, in that order, all inside one minute.
-	sell(&h, seller, &service, "1", "1").await;
+	sell_escrowed(&h, seller, &service, "1", "1").await;
 	buy(&h, buyer, &service, "1", "1").await;
-	sell(&h, seller, &service, "1.1", "2").await;
+	sell_escrowed(&h, seller, &service, "1.1", "2").await;
 	buy(&h, buyer, &service, "1.1", "2").await;
-	sell(&h, seller, &service, "0.9", "3").await;
+	sell_escrowed(&h, seller, &service, "0.9", "3").await;
 	buy(&h, buyer, &service, "0.9", "3").await;
 
 	let now = now_unix();
@@ -797,7 +891,7 @@ async fn the_feed_frames_on_every_change_and_reports_where_the_callers_orders_mo
 	receiver.changed().await.unwrap();
 	receiver.borrow_and_update();
 
-	sell(&h, seller, &service, "1", "10").await;
+	sell_escrowed(&h, seller, &service, "1", "10").await;
 	receiver.changed().await.expect("a placement frames");
 	let after_ask = *receiver.borrow_and_update();
 	let frame = watch_frame(&h, &service, buyer).await;

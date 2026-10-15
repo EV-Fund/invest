@@ -38,10 +38,10 @@ const UNIT_FLOWS_SQL: &str = "SELECT FLOOR(EXTRACT(EPOCH FROM ts))::bigint AS at
       FROM unit_issuances WHERE holder_kind = 'user' AND holder_id = $1 AND service = $2 AND state = 'applied'
     UNION ALL
     SELECT executed_at, size
-      FROM book_trades WHERE buyer_id = $1 AND service = $2
+      FROM book_trades WHERE buyer_id = $1 AND service = $2 AND busted_at IS NULL
     UNION ALL
     SELECT executed_at, '-' || size
-      FROM book_trades WHERE seller_id = $1 AND service = $2
+      FROM book_trades WHERE seller_id = $1 AND service = $2 AND busted_at IS NULL
 ) AS flows
 ORDER BY ts ASC";
 

@@ -42,7 +42,7 @@ use uuid::Uuid;
 
 use super::{Outcome, Relay, record_saga_step, tid};
 use crate::{
-	infrastructure::{fee_accrual, now_unix, outbox::OutboxRow, redemptions},
+	infrastructure::{book, fee_accrual, now_unix, outbox::OutboxRow, redemptions},
 	ports::{
 		ledger::{CompletionKind, LedgerError, LedgerTransfer, PendingCompletion},
 		money::{AccountLabel, CaptureRequest, CaptureTo, FeeSweepRequest, HoldId, MoneyKey, MoneyLedgerError, PayoutLine, PayoutReason, PayoutRequest, ScopeId, SubjectRef, VoidRequest},
@@ -80,6 +80,8 @@ const BOOK_RELEASE: &[u8] = b"book:release";
 const BOOK_FILL_UNITS: &[u8] = b"book:fill:units";
 const BOOK_FILL_UNITS_POST: &[u8] = b"book:fill:units:post";
 const BOOK_FILL_UNITS_VOID: &[u8] = b"book:fill:units:void";
+/// A busted fill's units handed back to the seller out of the escrow.
+const BOOK_FILL_BUST_RELEASE: &[u8] = b"book:fill:bust:release";
 /// The trade's cost-basis projection marker (banking's).
 const BOOK_TRADE_POSITION: &[u8] = b"book:trade:position";
 
@@ -431,7 +433,10 @@ impl Relay {
 					reference,
 				};
 				step!(self.post_leg(row, 0, "book_lock", &lock, 0).await);
-				Outcome::Done
+				match book::mark_escrowed(&self.pool, order_id.raw()).await {
+					Ok(()) => Outcome::Done,
+					Err(err) => Outcome::Retry(format!("order escrow stamp: {err}")),
+				}
 			}
 			BookEvent::OrderReleased {
 				order_id,
@@ -470,6 +475,7 @@ impl Relay {
 				buyer,
 				seller,
 				buy_order_id,
+				sell_order_id,
 				taker_side,
 				size,
 				notional,
@@ -478,14 +484,25 @@ impl Relay {
 				..
 			} => {
 				let id = trade_id.raw();
+				// Everything before the units post can still be undone; a fill that cannot get
+				// there is busted, never left half-done (`bust_fill`).
+				let bust = Bust {
+					trade: id,
+					service: &service,
+					seller,
+					sell_order: sell_order_id.raw(),
+					buy_order: buy_order_id.raw(),
+					size,
+				};
 				let (scope, hold) = match order_escrow(&self.pool, buy_order_id.raw()).await {
 					Ok(Some(escrow)) => escrow,
-					Ok(None) => return Outcome::park("the buy order of this trade names no hold".into()),
+					Ok(None) => return self.bust_fill(row, &bust, None, "the buy order of this trade names no hold".into()).await,
 					Err(err) => return Outcome::Retry(format!("order escrow read: {err}")),
 				};
+				let escrow = Some((&scope, hold.as_str()));
 				let seller_subject = match auth_subject(&self.pool, seller).await {
 					Ok(Some(subject)) => subject,
-					Ok(None) => return Outcome::park("the seller has no banking subject".into()),
+					Ok(None) => return self.bust_fill(row, &bust, escrow, "the seller has no banking subject".into()).await,
 					Err(err) => return Outcome::Retry(format!("seller subject read: {err}")),
 				};
 				let units = TwoPhase {
@@ -498,7 +515,11 @@ impl Relay {
 						reference,
 					},
 				};
-				step!(self.reserve_leg(row, 0, "book_fill_pending", &units.pending, 0).await);
+				match self.reserve_leg(row, 0, "book_fill_pending", &units.pending, 0).await {
+					Ok(()) => {}
+					Err(Outcome::Park { reason, .. }) => return self.bust_fill(row, &bust, escrow, format!("the fill's units could not be reserved: {reason}")).await,
+					Err(outcome) => return outcome,
+				}
 
 				// A selling taker pays the fee out of what the buyer pays; a buying taker on
 				// top of it (its hold reserved notional plus the fee).
@@ -514,17 +535,20 @@ impl Relay {
 						subject_ref: step!(subject_ref("book_trade", id)),
 					};
 					if let Err(err) = self.money.capture(&capture).await {
-						let Some(reason) = refusal_reason(&err) else {
-							return money_failure("fill cash capture", err, 1);
+						let reason = match refusal_reason(&err) {
+							Some(reason) => reason,
+							None => match money_failure("fill cash capture", err, 1) {
+								Outcome::Park { reason, .. } => reason,
+								retry => return retry,
+							},
 						};
-						// The buyer's hold no longer stands behind the order (voided by a
-						// revoked mandate, or banking lost it): no cash, so no units. The trade
-						// stays on the tape and the orders filled — that is the operator's.
+						// No cash, so no units: the buyer's hold no longer stands behind the
+						// order (a revoked mandate, or banking lost it).
 						step!(
 							self.complete_leg(row, 1, "book_fill_void", &units.completion(tid(id, BOOK_FILL_UNITS_VOID), CompletionKind::Void), 1)
 								.await
 						);
-						return Outcome::park(format!("fill cash capture refused: {reason} — units voided, the trade needs an operator"));
+						return self.bust_fill(row, &bust, escrow, format!("fill cash capture refused: {reason}")).await;
 					}
 				}
 				step!(
@@ -540,6 +564,39 @@ impl Relay {
 				}
 			}
 		}
+	}
+
+	/// Undo a fill that could not settle, before its units moved: hand the seller's units back
+	/// out of the escrow (when the sell's lock ever landed — otherwise there is nothing of this
+	/// order's there, and another order's escrow is not this trade's to take), release the
+	/// buyer's hold, and record the trade busted with the buy taken off the book. Then park,
+	/// so an operator sees it. Every step is idempotent; a transient failure retries the event.
+	// TODO(banking MoneyEvents): a buy whose hold banking released on its own (a revoked
+	// mandate, an expired hold) keeps resting until a fill finds out and busts it; take it
+	// off the book when banking announces the release, once banking publishes such events.
+	async fn bust_fill(&self, row: &OutboxRow, bust: &Bust<'_>, escrow: Option<(&ScopeId, &str)>, reason: String) -> Outcome {
+		match book::is_escrowed(&self.pool, bust.sell_order).await {
+			Ok(true) => {
+				let release = LedgerTransfer {
+					id: tid(bust.trade, BOOK_FILL_BUST_RELEASE),
+					debit: LedgerAccountKey::UserShares(bust.service.clone(), bust.seller),
+					credit: LedgerAccountKey::BookShares(bust.service.clone(), bust.seller),
+					amount: bust.size.base_units(),
+					code: TransferCode::BookRelease,
+					reference: bust.trade.as_u128(),
+				};
+				step!(self.post_leg(row, 2, "book_fill_bust_release", &release, 0).await);
+			}
+			Ok(false) => {}
+			Err(err) => return Outcome::Retry(format!("sell order escrow read: {err}")),
+		}
+		if let Some((scope, hold)) = escrow {
+			step!(self.void_hold(scope, hold, "book_order", bust.buy_order).await);
+		}
+		if let Err(err) = book::bust_trade(&self.pool, bust.trade, bust.buy_order, &reason).await {
+			return Outcome::Retry(format!("trade bust record: {err}"));
+		}
+		Outcome::park(format!("trade busted: {reason}"))
 	}
 
 	/// The taker's fee on a fill: captured out of the buyer's hold into the product's
@@ -646,6 +703,16 @@ impl Relay {
 			}
 		}
 	}
+}
+
+/// What a fill's bust needs of the trade.
+struct Bust<'a> {
+	trade: Uuid,
+	service: &'a ServiceId,
+	seller: UserId,
+	sell_order: Uuid,
+	buy_order: Uuid,
+	size: Shares,
 }
 
 /// What the subscription saga needs of its row.
