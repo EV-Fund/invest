@@ -39,6 +39,9 @@ getrandom = { version = "0.3", features = ["wasm_js"] }
 invest_contracts = { path = "contracts" }
 invest_domain = { path = "domain" }
 prost = "0.14"
+# HKDF + ChaCha20-Poly1305 for the cabinet BFF's sealed session tokens. Already linked by
+# the TLS stack (tonic `tls-ring`, rustls), so no new crate.
+ring = "0.17"
 # Only to name a process-level crypto provider: tonic carries `ring`, and rustls refuses
 # to guess when two providers are linked (see `core/src/crypto.rs`).
 rustls = { version = "0.23", default-features = false, features = ["ring"] }

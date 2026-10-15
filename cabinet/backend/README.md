@@ -29,7 +29,7 @@ Cookies (`__Host-` prefixed and `Secure` in production, bare in dev):
 
 | Cookie | HttpOnly | What |
 | ------ | -------- | ---- |
-| `invest_session` | yes | 256 random bits, hex. The database holds its hash and concierge's tokens; the tokens never reach the browser. `SameSite=Lax`, lives as long as concierge's refresh token. |
+| `invest_session` | yes | 256 random bits, hex. The database holds its hash and concierge's tokens sealed (ChaCha20-Poly1305 under HKDF-SHA256 of the cookie, `session/seal.rs`): a dump alone opens no session, and the tokens never reach the browser. `SameSite=Lax`; lives until the deadline the callback set, which a rotation never extends. |
 | `invest_csrf` | no | The double-submit token, echoed in `x-ev-csrf` on every mutation. |
 | `invest_sign_in` | yes | The state of a sign-in in flight; ten minutes, cleared by the callback. |
 

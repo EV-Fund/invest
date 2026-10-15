@@ -13,11 +13,11 @@
 //! ```
 //!
 //! The browser holds a random session id and nothing else: the database holds its hash and
-//! concierge's tokens, which never leave the server. The tokens are stored as issued, not
-//! sealed — the refresh token is bound to the client and useless without
-//! `RP_CLIENT_SECRET_INVEST`, and the access token lives fifteen minutes (concierge's
-//! access TTL, 900 s).
+//! concierge's tokens, which never leave the server, sealed under a key derived from the
+//! cookie ([`seal`]) — a database dump alone opens no session. The access token lives
+//! fifteen minutes (concierge's access TTL, 900 s).
 
+pub mod seal;
 pub mod store;
 
 use std::{
@@ -32,6 +32,7 @@ use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use self::seal::{TokenKey, Which};
 use crate::concierge::IdentityPlane;
 
 /// How long a sign-in may take at concierge, Google and GitHub round trips included.
@@ -207,7 +208,8 @@ impl Sessions {
 		}
 		let cookie = random_token()?;
 		let key = SessionKey::of_cookie(&cookie).ok_or_else(|| eyre!("a fresh session id is not one"))?;
-		store::insert_session(&self.pool, key.as_bytes(), tokens.user_id, &new_tokens(tokens), now).await?;
+		let (access, refresh) = seal_pair(&TokenKey::of_cookie(&cookie)?, &key, tokens)?;
+		store::insert_session(&self.pool, key.as_bytes(), tokens.user_id, &new_tokens(&access, &refresh, tokens), now).await?;
 		Ok(Opened {
 			cookie,
 			csrf: random_token()?,
@@ -225,16 +227,17 @@ impl Sessions {
 	/// session closes: it fails closed, never open.
 	pub async fn resolve(&self, cookie: &str, now: i64) -> Result<Session, SessionError> {
 		let key = SessionKey::of_cookie(cookie).ok_or(SessionError::Missing)?;
+		let tokens = TokenKey::of_cookie(cookie)?;
 		let row = self.live_row(&key, now).await?;
 		if row.access_expires_at > now + REFRESH_AHEAD_SECS {
-			return Ok(session(key, row));
+			return self.live(key, &tokens, row).await;
 		}
 		let flight = {
 			let mut map = self.rotations.lock().unwrap_or_else(PoisonError::into_inner);
 			map.entry(key).or_default().clone()
 		};
 		let turn = flight.lock().await;
-		let result = self.rotate(key, now).await;
+		let result = self.rotate(key, &tokens, now).await;
 		drop(turn);
 		{
 			let mut map = self.rotations.lock().unwrap_or_else(PoisonError::into_inner);
@@ -255,13 +258,36 @@ impl Sessions {
 		Ok(row)
 	}
 
-	async fn rotate(&self, key: SessionKey, now: i64) -> Result<Session, SessionError> {
+	/// The session of a live row, its access token opened. A row that does not open under
+	/// the cookie that names it was altered, or written by something else: it is closed,
+	/// never served.
+	async fn live(&self, key: SessionKey, tokens: &TokenKey, row: store::SessionRow) -> Result<Session, SessionError> {
+		match tokens.open(Which::Access, key.as_bytes(), &row.access_sealed) {
+			Ok(access_token) => Ok(Session {
+				key,
+				user_id: row.user_id,
+				access_token,
+				access_expires_at: row.access_expires_at,
+			}),
+			Err(err) => Err(self.unreadable(&key, err).await),
+		}
+	}
+
+	async fn unreadable(&self, key: &SessionKey, err: Report) -> SessionError {
+		tracing::error!(error = ?err, "a session row does not open under its own cookie; closed");
+		match self.close(key).await {
+			Ok(_) => SessionError::Missing,
+			Err(close) => SessionError::Internal(close),
+		}
+	}
+
+	async fn rotate(&self, key: SessionKey, tokens: &TokenKey, now: i64) -> Result<Session, SessionError> {
 		let waited = Instant::now();
 		let row = loop {
 			let row = self.live_row(&key, now).await?;
 			if row.access_expires_at > now + REFRESH_AHEAD_SECS {
 				// Rotated while this request waited: here, or by another replica.
-				return Ok(session(key, row));
+				return self.live(key, tokens, row).await;
 			}
 			if store::claim_rotation(&self.pool, key.as_bytes(), row.access_expires_at, now, now + ROTATION_LEASE_SECS).await? {
 				break row;
@@ -273,13 +299,18 @@ impl Sessions {
 			tokio::time::sleep(ROTATION_POLL).await;
 		};
 		let seen = row.access_expires_at;
-		match self.concierge.refresh(&row.refresh_token).await {
-			Ok(tokens) => {
-				if tokens.user_id != row.user_id {
+		let refresh_token = match tokens.open(Which::Refresh, key.as_bytes(), &row.refresh_sealed) {
+			Ok(token) => token,
+			Err(err) => return Err(self.unreadable(&key, err).await),
+		};
+		match self.concierge.refresh(&refresh_token).await {
+			Ok(rotated) => {
+				if rotated.user_id != row.user_id {
 					store::delete_refused(&self.pool, key.as_bytes(), seen).await?;
 					return Err(SessionError::Internal(eyre!("concierge rotated a session into another user")));
 				}
-				if !store::set_tokens(&self.pool, key.as_bytes(), seen, &new_tokens(&tokens)).await? {
+				let (access, refresh) = seal_pair(tokens, &key, &rotated)?;
+				if !store::set_tokens(&self.pool, key.as_bytes(), seen, &new_tokens(&access, &refresh, &rotated)).await? {
 					// The lease was taken over while concierge answered: that holder's pair,
 					// from the same refresh token, is the one concierge keeps.
 					tracing::warn!(user_id = %row.user_id, "a session was rotated twice; keeping the row's pair");
@@ -288,8 +319,8 @@ impl Sessions {
 				Ok(Session {
 					key,
 					user_id: row.user_id,
-					access_token: tokens.access_token,
-					access_expires_at: tokens.access_expires_at,
+					access_token: rotated.access_token,
+					access_expires_at: rotated.access_expires_at,
 				})
 			}
 			Err(ConciergeError::Refused { code }) => {
@@ -373,20 +404,18 @@ pub struct SignInTarget<'a> {
 	pub redirect_uri: &'a str,
 }
 
-fn session(key: SessionKey, row: store::SessionRow) -> Session {
-	Session {
-		key,
-		user_id: row.user_id,
-		access_token: row.access_token,
-		access_expires_at: row.access_expires_at,
-	}
+fn seal_pair(key: &TokenKey, session: &SessionKey, tokens: &ClientTokens) -> Result<(Vec<u8>, Vec<u8>), Report> {
+	Ok((
+		key.seal(Which::Access, session.as_bytes(), &tokens.access_token)?,
+		key.seal(Which::Refresh, session.as_bytes(), &tokens.refresh_token)?,
+	))
 }
 
-fn new_tokens(tokens: &ClientTokens) -> store::NewTokens<'_> {
+fn new_tokens<'a>(access: &'a [u8], refresh: &'a [u8], tokens: &ClientTokens) -> store::NewTokens<'a> {
 	store::NewTokens {
-		access_token: &tokens.access_token,
+		access_sealed: access,
 		access_expires_at: tokens.access_expires_at,
-		refresh_token: &tokens.refresh_token,
+		refresh_sealed: refresh,
 		expires_at: tokens.refresh_expires_at,
 	}
 }

@@ -565,6 +565,24 @@ mod flow_tests {
 		assert!(session.access_token.contains("-rotated-"), "the row holds the rotated pair");
 	}
 
+	/// The database alone opens no session: the tokens are sealed under the cookie.
+	#[tokio::test]
+	async fn the_store_holds_no_token_in_clear() {
+		let Some(h) = Harness::new(None).await else { return };
+		let signed = h.sign_in(INVESTOR).await;
+		let key = crate::session::SessionKey::of_cookie(&signed.session).unwrap();
+		let (access, refresh): (Vec<u8>, Vec<u8>) = sqlx::query_as("SELECT access_sealed, refresh_sealed FROM cabinet.sessions WHERE id_hash = $1")
+			.bind(key.as_bytes())
+			.fetch_one(h.state.sessions.pool())
+			.await
+			.unwrap();
+		for sealed in [&access, &refresh] {
+			assert!(!sealed.windows(7).any(|w| w == b"refresh") && !sealed.windows(6).any(|w| w == b"invest"), "a token in clear");
+		}
+		let session = h.state.sessions.resolve(&signed.session, now_secs()).await.unwrap();
+		assert_eq!(session.access_token, crate::routes::test_support::ACCESS_TOKEN, "and it opens under the cookie");
+	}
+
 	/// A rotation renews the tokens, not the session: the cookie dies at the deadline the
 	/// callback gave it, so the row must not outlive it holding a live refresh token
 	/// (security review F2).

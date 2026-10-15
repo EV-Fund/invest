@@ -2557,6 +2557,7 @@ dependencies = [
  "getrandom 0.3.4",
  "invest_contracts",
  "invest_domain",
+ "ring",
  "rustls",
  "serde",
  "serde_json",

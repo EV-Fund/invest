@@ -28,6 +28,7 @@ invest_contracts.workspace = true
 invest_domain.workspace = true
 # The process-level crypto provider `main` installs before any TLS client is built (`crypto.rs`).
 rustls.workspace = true
+ring.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
