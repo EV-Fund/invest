@@ -415,7 +415,7 @@ mod flow_tests {
 		let authorize = location(&headers);
 		assert!(authorize.starts_with("https://concierge.test/api/auth/authorize?"), "{authorize}");
 		assert_eq!(query_param(&authorize, "client_id"), "invest");
-		assert_eq!(query_param(&authorize, "redirect_uri"), "https%3A%2F%2Finvest.test%2Fcabinet%2Fauth%2Fcallback");
+		assert_eq!(query_param(&authorize, "redirect_uri"), "http%3A%2F%2Finvest.test%2Fcabinet%2Fauth%2Fcallback");
 		assert_eq!(query_param(&authorize, "code_challenge_method"), "S256");
 		let state = query_param(&authorize, "state");
 		assert_eq!(set_cookies(&headers).get("invest_sign_in"), Some(&state), "the browser carries the state it was sent with");

@@ -109,7 +109,7 @@ it on every run.
 | `CONCIERGE_CLIENT_SECRET` | — | secret; concierge's `RP_CLIENT_SECRET_INVEST` |
 | `CONCIERGE_PUBLIC_ORIGIN` | `https://evinvest.ltd` | where the browser authorizes |
 | `CABINET_PUBLIC_ORIGIN` | — | `https://invest.evinvest.ltd`; the redirect URI's origin and the only accepted `Origin` |
-| `AUTH_COOKIE_SECURE` | from `APP_ENV` | `__Host-` + `Secure` cookies; must match the frontend's |
+| `AUTH_COOKIE_SECURE` | from the origin's scheme | `__Host-` + `Secure` cookies; must match the frontend's. `false` with an https origin exits 78 |
 | `APP_ENV` | — | `development` / `production` |
 | `SENTRY_DSN` | — | required in production |
 

@@ -33,7 +33,7 @@ ev::settings! {
 		/// `<origin>/cabinet/auth/callback`, byte for byte as concierge registered it, and the
 		/// only `Origin` a mutation or the book socket is accepted from.
 		cabinet_public_origin: String,
-		/// Explicit override for cookie hardening; unset ⇒ inferred from `app_env`
+		/// Explicit override for cookie hardening; unset ⇒ inferred from the cabinet's origin
 		/// (`__Host-` + `Secure` need HTTPS, which dev lacks). See [`Self::cookie_secure`].
 		auth_cookie_secure: Option<bool>,
 		app_env: String,
@@ -45,9 +45,23 @@ ev::settings! {
 }
 
 impl AppConfig {
-	/// Whether cookies are `__Host-`-prefixed and `Secure` (production over HTTPS).
+	/// Whether cookies are `__Host-`-prefixed and `Secure`. Follows the scheme the cabinet is
+	/// served on, not `APP_ENV`: an https stand left on `development` must still lock its
+	/// cookies to its host (security review F5).
 	pub fn cookie_secure(&self) -> bool {
-		self.auth_cookie_secure.unwrap_or(self.app_env == "production")
+		self.auth_cookie_secure.unwrap_or_else(|| self.cabinet_origin().starts_with("https://"))
+	}
+
+	/// What the per-field checks cannot see: an https cabinet told to hand out cookies a
+	/// sibling subdomain of evinvest.ltd could set or shadow. `main` exits 78 on it.
+	pub fn validate(&self) -> Result<(), String> {
+		if self.cabinet_origin().starts_with("https://") && !self.cookie_secure() {
+			return Err(format!(
+				"AUTH_COOKIE_SECURE=false with CABINET_PUBLIC_ORIGIN={}: an https cabinet must use __Host- Secure cookies",
+				self.cabinet_origin()
+			));
+		}
+		Ok(())
 	}
 
 	/// The origin without a trailing slash — what a browser sends as `Origin`.
@@ -122,6 +136,42 @@ mod tests {
 			.filter(|var| !AppConfig::required_var_names("development").contains(var))
 			.collect();
 		assert_eq!(extra, vec!["SENTRY_DSN"]);
+	}
+
+	fn load(pairs: &[(&str, &str)]) -> AppConfig {
+		let mut env = minimal_env();
+		for (k, v) in pairs {
+			env.insert((*k).into(), (*v).into());
+		}
+		AppConfig::from_source(|var| env.get(var).cloned()).expect("env loads")
+	}
+
+	/// An https cabinet gets `__Host-` + `Secure` cookies whatever `APP_ENV` says: a staging
+	/// stand left on `development` must not hand out cookies a sibling subdomain can shadow
+	/// (security review F5).
+	#[test]
+	fn cookie_hardening_follows_the_public_origin() {
+		assert!(load(&[("CABINET_PUBLIC_ORIGIN", "https://invest.evinvest.ltd")]).cookie_secure());
+		assert!(!load(&[("CABINET_PUBLIC_ORIGIN", "http://localhost:3000")]).cookie_secure());
+		assert!(
+			!load(&[
+				("CABINET_PUBLIC_ORIGIN", "http://localhost:3000"),
+				("APP_ENV", "production"),
+				("SENTRY_DSN", "https://k@s.invalid/1")
+			])
+			.cookie_secure()
+		);
+	}
+
+	#[test]
+	fn an_https_cabinet_with_insecure_cookies_refuses_to_boot() {
+		let config = load(&[("CABINET_PUBLIC_ORIGIN", "https://invest.evinvest.ltd"), ("AUTH_COOKIE_SECURE", "false")]);
+		assert!(config.validate().is_err());
+		assert!(load(&[("CABINET_PUBLIC_ORIGIN", "https://invest.evinvest.ltd")]).validate().is_ok());
+		assert!(
+			load(&[("AUTH_COOKIE_SECURE", "true")]).validate().is_ok(),
+			"secure cookies over http are the browser's problem, not a leak"
+		);
 	}
 
 	/// The redirect URI is the registered one byte for byte, whatever the operator typed
