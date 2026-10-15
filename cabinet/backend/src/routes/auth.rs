@@ -565,6 +565,38 @@ mod flow_tests {
 		assert!(session.access_token.contains("-rotated-"), "the row holds the rotated pair");
 	}
 
+	/// A rotation renews the tokens, not the session: the cookie dies at the deadline the
+	/// callback gave it, so the row must not outlive it holding a live refresh token
+	/// (security review F2).
+	#[tokio::test]
+	async fn a_rotation_never_extends_the_sessions_deadline() {
+		let Some(h) = Harness::new(None).await else { return };
+		h.concierge.grant(INVESTOR);
+		let deadline = now_secs() + 3_600;
+		let tokens = evconcierge_client::ClientTokens {
+			user_id: USER,
+			access_token: "lapsing".into(),
+			access_expires_at: now_secs() + 5,
+			refresh_token: "refresh".into(),
+			refresh_expires_at: deadline,
+		};
+		let opened = h.state.sessions.open(&tokens, now_secs()).await.unwrap();
+		let signed = crate::routes::test_support::Signed {
+			cookie: format!("invest_session={}; invest_csrf={CSRF}", opened.cookie),
+			session: opened.cookie,
+		};
+		let (status, _, _) = h.send(request("GET", "/cabinet/api/auth/session", Some(&signed), None, false)).await;
+		assert_eq!(status, StatusCode::OK);
+		assert_eq!(h.concierge.refreshes(), 1, "the session rotated");
+		let key = crate::session::SessionKey::of_cookie(&signed.session).unwrap();
+		let expires_at: i64 = sqlx::query_scalar("SELECT expires_at FROM cabinet.sessions WHERE id_hash = $1")
+			.bind(key.as_bytes())
+			.fetch_one(h.state.sessions.pool())
+			.await
+			.expect("the row is still there");
+		assert_eq!(expires_at, deadline, "the rotated refresh token's later expiry is not the session's");
+	}
+
 	/// concierge refusing the refresh (signed out on evinvest.ltd, suspended) ends the session
 	/// here too: a guest answer, cookies cleared, the row gone.
 	#[tokio::test]

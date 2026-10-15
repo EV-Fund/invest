@@ -130,11 +130,14 @@ pub async fn claim_rotation(pool: &PgPool, id_hash: &[u8], seen_access_expires_a
 }
 
 /// Write the rotated pair, only over the pair the rotation started from. `false` when a
-/// taken-over lease already wrote another.
+/// taken-over lease already wrote another. The session's deadline only ever shortens:
+/// concierge slides the refresh token's expiry on every rotation, but the browser's cookie
+/// dies at the deadline the callback gave it, and a row past that would be an orphan
+/// holding a live refresh token (security review F2).
 pub async fn set_tokens(pool: &PgPool, id_hash: &[u8], seen_access_expires_at: i64, tokens: &NewTokens<'_>) -> Result<bool> {
 	let written = sqlx::query(
 		"UPDATE cabinet.sessions
-		 SET access_token = $3, access_expires_at = $4, refresh_token = $5, expires_at = $6, rotating_until = NULL
+		 SET access_token = $3, access_expires_at = $4, refresh_token = $5, expires_at = LEAST(expires_at, $6), rotating_until = NULL
 		 WHERE id_hash = $1 AND access_expires_at = $2",
 	)
 	.bind(id_hash)

@@ -15,7 +15,8 @@
 //! The browser holds a random session id and nothing else: the database holds its hash and
 //! concierge's tokens, which never leave the server. The tokens are stored as issued, not
 //! sealed — the refresh token is bound to the client and useless without
-//! `RP_CLIENT_SECRET_INVEST`, and the access token lives five minutes.
+//! `RP_CLIENT_SECRET_INVEST`, and the access token lives fifteen minutes (concierge's
+//! access TTL, 900 s).
 
 pub mod store;
 
