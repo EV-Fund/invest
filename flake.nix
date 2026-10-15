@@ -73,6 +73,14 @@
         # cache costs GBs at a near-zero hit rate on this machine. An empty RUSTC_WRAPPER is
         # cargo's documented off switch and wins over the config file.
         noWrapper = ''export RUSTC_WRAPPER=""'';
+        # openssl-sys (native-tls under ev_lib's reqwest/sentry) finds OpenSSL through
+        # pkg-config; a writeShellApplication puts openssl's binaries on PATH but not its
+        # .pc file, so a CI runner without a system libssl-dev fails the build script. The
+        # library path keeps the test binaries linked against the same OpenSSL at run time.
+        opensslEnv = ''
+          export PKG_CONFIG_PATH="${pkgs.openssl.dev}/lib/pkgconfig''${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+          export LD_LIBRARY_PATH="${pkgs.openssl.out}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+        '';
 
         # ── TigerBeetle (server binary + Rust client) — the same 0.17.6 banking runs ──
         # Upstream's precompiled zig instead of nixpkgs zig, whose dynamic libLLVM turns
@@ -320,6 +328,7 @@
             ${dyldFallback}
             ${protocEnv}
             ${noWrapper}
+            ${opensslEnv}
             repo="$(git rev-parse --show-toplevel)"
             cd "$repo"
             ${linkTbClient}
@@ -388,6 +397,7 @@
             ${linkTbClient}
             ${protocEnv}
             ${noWrapper}
+            ${opensslEnv}
 
             echo "▶ clippy (workspace, all targets, warnings denied)"
             cargo clippy --workspace --all-targets -- -D warnings
