@@ -73,14 +73,6 @@
         # cache costs GBs at a near-zero hit rate on this machine. An empty RUSTC_WRAPPER is
         # cargo's documented off switch and wins over the config file.
         noWrapper = ''export RUSTC_WRAPPER=""'';
-        # openssl-sys (native-tls under ev_lib's reqwest/sentry) finds OpenSSL through
-        # pkg-config; a writeShellApplication puts openssl's binaries on PATH but not its
-        # .pc file, so a CI runner without a system libssl-dev fails the build script. No
-        # LD_LIBRARY_PATH: it would drag nixpkgs' glibc into binaries running on the host's
-        # libc (GLIBC_ABI_DT_X86_64_PLT not found); at run time libssl.so.3 is the runner's.
-        opensslEnv = ''
-          export PKG_CONFIG_PATH="${pkgs.openssl.dev}/lib/pkgconfig''${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
-        '';
 
         # ── TigerBeetle (server binary + Rust client) — the same 0.17.6 banking runs ──
         # Upstream's precompiled zig instead of nixpkgs zig, whose dynamic libLLVM turns
@@ -328,7 +320,6 @@
             ${dyldFallback}
             ${protocEnv}
             ${noWrapper}
-            ${opensslEnv}
             repo="$(git rev-parse --show-toplevel)"
             cd "$repo"
             ${linkTbClient}
@@ -391,13 +382,16 @@
           # mold: the generated .cargo/config.toml links x86_64-linux with `-fuse-ld=mold`,
           # and a CI runner has no linker of that name outside the dev shell (banking's gate
           # carries it for the same reason).
-          runtimeInputs = (with pkgs; [ rust git protobuf pkg-config openssl mold postgresql coreutils ]) ++ [ tigerbeetleBin ];
+          # No pkg-config/openssl here, as in banking: nixpkgs' pkg-config searches only the
+          # store, so openssl-sys (native-tls under ev_lib's reqwest and sentry) would build
+          # against nixpkgs' openssl and load its glibc at test time beside the runner's
+          # (GLIBC_ABI_DT_X86_64_PLT not found). The runner's own pkg-config finds its libssl.
+          runtimeInputs = (with pkgs; [ rust git protobuf mold postgresql coreutils ]) ++ [ tigerbeetleBin ];
           text = ''
             cd "$(git rev-parse --show-toplevel)"
             ${linkTbClient}
             ${protocEnv}
             ${noWrapper}
-            ${opensslEnv}
 
             echo "▶ clippy (workspace, all targets, warnings denied)"
             cargo clippy --workspace --all-targets -- -D warnings
