@@ -36,7 +36,7 @@ use invest_domain::{
 	allocations::{AllocationAccess, AllocationIcon},
 	balance::{LedgerAccountKey, ServiceId, ValuationId},
 	error::DomainError,
-	fees::{FeePolicy, Trigger},
+	fees::FeePolicy,
 	issuance::UnitHolder,
 	money::{Nav, Shares, Usdt},
 	redemptions::RedemptionState,
@@ -172,42 +172,13 @@ async fn charge_a_year(h: &Harness, investor: UserId, service: &ServiceId) -> Sh
 	.execute(&h.pool)
 	.await
 	.unwrap();
-	let assessment = fee_app::assess_position(
-		&h.policies,
-		&h.accruals,
-		&h.assessments,
-		h.ledger.as_ref(),
-		h.money.as_ref(),
-		&h.nav,
-		&h.notify,
-		investor,
-		service.clone(),
-		Trigger::Period,
-		now_unix(),
-	)
-	.await
-	.unwrap()
-	.expect("a year owes a fee");
+	let assessment = common::assess_period(h, investor, service, now_unix()).await.unwrap().expect("a year owes a fee");
 	common::drain_to_quiescence(&h.relay, &h.pool).await;
 	assessment.charge().charged_units
 }
 
 async fn settle_fee_shares(h: &Harness, service: &ServiceId, settler: UserId) -> Result<invest_domain::fees::FeeSettlement, DomainError> {
-	let settlement = fee_app::settle_fee_shares(
-		&h.settlements,
-		&h.allocations,
-		h.ledger.as_ref(),
-		h.money.as_ref(),
-		&h.nav,
-		&h.redemptions,
-		&h.notify,
-		service.clone(),
-		None,
-		&invest_domain::issuance::IdempotencyKey::parse(&format!("settle-{}", uuid::Uuid::new_v4())).unwrap(),
-		settler,
-		now_unix(),
-	)
-	.await?;
+	let settlement = common::settle_fee_class(h, service, None, &common::fresh_key(), settler).await?;
 	common::drain_to_quiescence(&h.relay, &h.pool).await;
 	Ok(settlement)
 }
@@ -433,22 +404,7 @@ async fn a_refused_fee_sweep_parks_the_settlement_and_burns_nothing() {
 	let cash_before = fee_cash(&h);
 
 	h.money.refuse("Transfer", invest_core::ports::money::Refusal::ScopeFrozen);
-	let settlement = fee_app::settle_fee_shares(
-		&h.settlements,
-		&h.allocations,
-		h.ledger.as_ref(),
-		h.money.as_ref(),
-		&h.nav,
-		&h.redemptions,
-		&h.notify,
-		service.clone(),
-		None,
-		&invest_domain::issuance::IdempotencyKey::parse(&format!("settle-{}", uuid::Uuid::new_v4())).unwrap(),
-		UserId::new(),
-		now_unix(),
-	)
-	.await
-	.unwrap();
+	let settlement = common::settle_fee_class(&h, &service, None, &common::fresh_key(), UserId::new()).await.unwrap();
 	// The park IS what this test pins, so one pass instead of `drain_to_quiescence`, which
 	// reports a park raised during the call as a failure.
 	h.relay.drain().await;
@@ -661,21 +617,7 @@ async fn a_settlement_whose_fee_units_are_gone_sweeps_nothing() {
 }
 
 async fn settle_without_draining(h: &Harness, service: &ServiceId) -> Result<invest_domain::fees::FeeSettlement, DomainError> {
-	fee_app::settle_fee_shares(
-		&h.settlements,
-		&h.allocations,
-		h.ledger.as_ref(),
-		h.money.as_ref(),
-		&h.nav,
-		&h.redemptions,
-		&h.notify,
-		service.clone(),
-		None,
-		&invest_domain::issuance::IdempotencyKey::parse(&format!("settle-{}", uuid::Uuid::new_v4())).unwrap(),
-		UserId::new(),
-		now_unix(),
-	)
-	.await
+	common::settle_fee_class(h, service, None, &common::fresh_key(), UserId::new()).await
 }
 
 /// A retried settlement — the same idempotency key — is the settlement the first call made,
@@ -690,22 +632,7 @@ async fn a_retried_settlement_returns_the_first_and_sweeps_once() {
 	charge_a_year(&h, investor, &service).await;
 	let product_before = product_cash(&h, &scope, &service);
 	let key = invest_domain::issuance::IdempotencyKey::parse(&format!("retry-{}", Uuid::new_v4())).unwrap();
-	let settle = || {
-		fee_app::settle_fee_shares(
-			&h.settlements,
-			&h.allocations,
-			h.ledger.as_ref(),
-			h.money.as_ref(),
-			&h.nav,
-			&h.redemptions,
-			&h.notify,
-			service.clone(),
-			None,
-			&key,
-			UserId::new(),
-			now_unix(),
-		)
-	};
+	let settle = || common::settle_fee_class(&h, &service, None, &key, UserId::new());
 	let first = settle().await.unwrap();
 	let again = settle().await.unwrap();
 	assert_eq!(again.id(), first.id(), "the key names the settlement");

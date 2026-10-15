@@ -24,7 +24,7 @@ use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
 use crate::{
-	infrastructure::{fee_accrual, now_unix, outbox},
+	infrastructure::{fee_accrual, now_unix, outbox, positions},
 	ports::issuance::{IssueOutcome, UnitIssuanceRecord, UnitIssuanceRepository},
 };
 
@@ -224,21 +224,7 @@ pub(crate) async fn project_holder_position(
 		.map_err(|err| sqlx::Error::Protocol(format!("carry fee accrual before an issuance moves the basis: {err}")))?;
 	match source {
 		IssuanceSource::Mint => {
-			sqlx::query(
-				"INSERT INTO fund_positions (user_id, service, cost_basis, units, high_water_mark) VALUES ($1, $2, $3, $4, $5) \
-				 ON CONFLICT (user_id, service) DO UPDATE SET \
-				 cost_basis = (fund_positions.cost_basis::numeric + EXCLUDED.cost_basis::numeric)::text, \
-				 units = (fund_positions.units::numeric + EXCLUDED.units::numeric)::text, \
-				 high_water_mark = GREATEST(fund_positions.high_water_mark::numeric, EXCLUDED.high_water_mark::numeric)::text, \
-				 updated_at = now()",
-			)
-			.bind(user.raw())
-			.bind(service.as_str())
-			.bind(cost_basis.base_units().to_string())
-			.bind(units.base_units().to_string())
-			.bind(nav.base_units().to_string())
-			.execute(&mut *tx)
-			.await?;
+			positions::add_to_position(&mut *tx, *user, service, cost_basis, units, nav).await?;
 		}
 		// The row's own `cost_basis` is the book value the operator wrote off for the
 		// record; the projection sheds its basis pro rata to the units retired, exactly as

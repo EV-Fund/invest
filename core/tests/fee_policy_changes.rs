@@ -33,7 +33,7 @@ use invest_domain::{
 	allocations::{AllocationAccess, AllocationIcon},
 	balance::{LedgerAccountKey, ServiceId},
 	error::DomainError,
-	fees::{ChangeRequirement, CrystallizationPeriod, FeePolicy, FeePolicyChangeId, FeePolicyChangeState, MAX_EFFECTIVE_FROM_HORIZON_SECS, MIN_NOTICE_SECS, ManagementBasis, Trigger},
+	fees::{ChangeRequirement, CrystallizationPeriod, FeePolicy, FeePolicyChangeId, FeePolicyChangeState, MAX_EFFECTIVE_FROM_HORIZON_SECS, MIN_NOTICE_SECS, ManagementBasis},
 	money::{Shares, Usdt},
 	users::UserId,
 };
@@ -952,22 +952,7 @@ async fn promotion_settles_the_elapsed_window_at_the_old_rate_before_the_new_one
 	// The next assessment collects the carried 20 plus an hour at the NEW 1% — a hair over
 	// 20, nowhere near the 30 a year at 1% plus a re-priced year would be, and nowhere near
 	// the 40 of two years at 2%.
-	let charge = fee_app::assess_position(
-		&h.policies,
-		&h.accruals,
-		&h.assessments,
-		h.ledger.as_ref(),
-		h.money.as_ref(),
-		&h.nav,
-		&h.notify,
-		investor,
-		service.clone(),
-		Trigger::Period,
-		now(),
-	)
-	.await
-	.unwrap()
-	.expect("the carried debt is collectable");
+	let charge = common::assess_period(&h, investor, &service, now()).await.unwrap().expect("the carried debt is collectable");
 	common::drain_to_quiescence(&h.relay, &h.pool).await;
 	assert_close(charge.charge().due, usdt("20"), "carried debt plus an hour at the new rate");
 	assert_close(charge.charge().debt_opening, usdt("20"), "the carried year is the opening debt");

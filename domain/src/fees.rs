@@ -104,22 +104,10 @@ pub enum ManagementBasis {
 	MarketValue,
 }
 
-impl ManagementBasis {
-	pub const fn as_str(self) -> &'static str {
-		match self {
-			Self::InvestedCapital => "invested_capital",
-			Self::MarketValue => "market_value",
-		}
-	}
-
-	pub fn parse(raw: &str) -> Result<Self, DomainError> {
-		match raw {
-			"invested_capital" => Ok(Self::InvestedCapital),
-			"market_value" => Ok(Self::MarketValue),
-			other => Err(DomainError::Validation(format!("unknown management basis: {other}"))),
-		}
-	}
-}
+wire_vocabulary!(ManagementBasis, "management basis", {
+	InvestedCapital => "invested_capital",
+	MarketValue => "market_value",
+});
 
 /// How often the performance fee crystallizes — the moment a gain above the mark stops
 /// being paper and becomes a charge, and the mark ratchets up.
@@ -308,22 +296,10 @@ pub enum ChangeRequirement {
 	OwnerConsilium,
 }
 
-impl ChangeRequirement {
-	pub const fn as_str(self) -> &'static str {
-		match self {
-			Self::Admin => "admin",
-			Self::OwnerConsilium => "owner_consilium",
-		}
-	}
-
-	pub fn parse(raw: &str) -> Result<Self, DomainError> {
-		match raw {
-			"admin" => Ok(Self::Admin),
-			"owner_consilium" => Ok(Self::OwnerConsilium),
-			other => Err(DomainError::Validation(format!("unknown fee-policy change requirement: {other}"))),
-		}
-	}
-}
+wire_vocabulary!(ChangeRequirement, "fee-policy change requirement", {
+	Admin => "admin",
+	OwnerConsilium => "owner_consilium",
+});
 
 /// The one rule deciding who approves a change of terms: the owners, exactly when the
 /// change TIGHTENS the terms AND lands OUTSIDE the house envelope — or LOWERS the hurdle,

@@ -42,7 +42,7 @@ use uuid::Uuid;
 
 use super::{Outcome, Relay, record_saga_step, tid};
 use crate::{
-	infrastructure::{book, fee_accrual, now_unix, outbox::OutboxRow, redemptions},
+	infrastructure::{book, fee_accrual, now_unix, outbox::OutboxRow, positions, redemptions},
 	ports::{
 		ledger::{CompletionKind, LedgerError, LedgerTransfer, PendingCompletion},
 		money::{AccountLabel, CaptureRequest, CaptureTo, FeeSweepRequest, HoldId, MoneyKey, MoneyLedgerError, PayoutLine, PayoutReason, PayoutRequest, ScopeId, SubjectRef, VoidRequest},
@@ -754,21 +754,7 @@ async fn settle_subscription(pool: &PgPool, row: &OutboxRow, user: UserId, servi
 		fee_accrual::carry_accrual(&mut tx, user.raw(), service.as_str(), now_unix())
 			.await
 			.map_err(|err| sqlx::Error::Protocol(format!("carry fee accrual before subscribe basis change: {err}")))?;
-		sqlx::query(
-			"INSERT INTO fund_positions (user_id, service, cost_basis, units, high_water_mark) VALUES ($1, $2, $3, $4, $5) \
-			 ON CONFLICT (user_id, service) DO UPDATE SET \
-			 cost_basis = (fund_positions.cost_basis::numeric + EXCLUDED.cost_basis::numeric)::text, \
-			 units = (fund_positions.units::numeric + EXCLUDED.units::numeric)::text, \
-			 high_water_mark = GREATEST(fund_positions.high_water_mark::numeric, EXCLUDED.high_water_mark::numeric)::text, \
-			 updated_at = now()",
-		)
-		.bind(user.raw())
-		.bind(service.as_str())
-		.bind(cash.base_units().to_string())
-		.bind(units.base_units().to_string())
-		.bind(nav.base_units().to_string())
-		.execute(&mut *tx)
-		.await?;
+		positions::add_to_position(&mut tx, user, service, cash, units, nav).await?;
 	}
 	sqlx::query("UPDATE subscriptions SET state = 'settled', updated_at = now() WHERE id = $1 AND state = 'reserved'")
 		.bind(row.aggregate_id)
@@ -884,21 +870,7 @@ async fn project_trade(
 		fee_accrual::carry_accrual(&mut tx, buyer.raw(), service.as_str(), now)
 			.await
 			.map_err(|err| sqlx::Error::Protocol(format!("carry fee accrual before buy basis change: {err}")))?;
-		sqlx::query(
-			"INSERT INTO fund_positions (user_id, service, cost_basis, units, high_water_mark) VALUES ($1, $2, $3, $4, $5) \
-			 ON CONFLICT (user_id, service) DO UPDATE SET \
-			 cost_basis = (fund_positions.cost_basis::numeric + EXCLUDED.cost_basis::numeric)::text, \
-			 units = (fund_positions.units::numeric + EXCLUDED.units::numeric)::text, \
-			 high_water_mark = GREATEST(fund_positions.high_water_mark::numeric, EXCLUDED.high_water_mark::numeric)::text, \
-			 updated_at = now()",
-		)
-		.bind(buyer.raw())
-		.bind(service.as_str())
-		.bind(buyer_paid.base_units().to_string())
-		.bind(size.base_units().to_string())
-		.bind(nav.base_units().to_string())
-		.execute(&mut *tx)
-		.await?;
+		positions::add_to_position(&mut tx, buyer, service, buyer_paid, size, nav).await?;
 		fee_accrual::carry_accrual(&mut tx, seller.raw(), service.as_str(), now)
 			.await
 			.map_err(|err| sqlx::Error::Protocol(format!("carry fee accrual before sell basis change: {err}")))?;

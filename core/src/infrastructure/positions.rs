@@ -107,3 +107,33 @@ fn parse_base_units(raw: String) -> Result<u128, DomainError> {
 fn repo_err(err: sqlx::Error) -> DomainError {
 	DomainError::Repository(err.to_string())
 }
+
+/// A holder's position gains `units` bought for `cost_basis` at `nav`, on the caller's
+/// transaction: basis and units add up, and the high-water mark is the higher of the two —
+/// the one writer of a position's growth, for a subscription, an in-kind mint and a buy.
+/// The caller has carried the accrual of the old basis first (`fee_accrual`).
+pub(crate) async fn add_to_position(
+	conn: &mut sqlx::PgConnection,
+	user: UserId,
+	service: &ServiceId,
+	cost_basis: Usdt,
+	units: invest_domain::money::Shares,
+	nav: Nav,
+) -> Result<(), sqlx::Error> {
+	sqlx::query(
+		"INSERT INTO fund_positions (user_id, service, cost_basis, units, high_water_mark) VALUES ($1, $2, $3, $4, $5) \
+		 ON CONFLICT (user_id, service) DO UPDATE SET \
+		 cost_basis = (fund_positions.cost_basis::numeric + EXCLUDED.cost_basis::numeric)::text, \
+		 units = (fund_positions.units::numeric + EXCLUDED.units::numeric)::text, \
+		 high_water_mark = GREATEST(fund_positions.high_water_mark::numeric, EXCLUDED.high_water_mark::numeric)::text, \
+		 updated_at = now()",
+	)
+	.bind(user.raw())
+	.bind(service.as_str())
+	.bind(cost_basis.base_units().to_string())
+	.bind(units.base_units().to_string())
+	.bind(nav.base_units().to_string())
+	.execute(conn)
+	.await?;
+	Ok(())
+}

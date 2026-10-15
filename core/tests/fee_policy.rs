@@ -201,21 +201,7 @@ async fn backdate(h: &Harness, user: UserId, service: &ServiceId, secs: i64) {
 }
 
 async fn assess(h: &Harness, user: UserId, service: &ServiceId) -> Option<invest_domain::fees::FeeCharge> {
-	let assessment = fee_app::assess_position(
-		&h.policies,
-		&h.accruals,
-		&h.assessments,
-		h.ledger.as_ref(),
-		h.money.as_ref(),
-		&h.nav,
-		&h.notify,
-		user,
-		service.clone(),
-		Trigger::Period,
-		now_unix(),
-	)
-	.await
-	.unwrap();
+	let assessment = common::assess_period(h, user, service, now_unix()).await.unwrap();
 	common::drain_to_quiescence(&h.relay, &h.pool).await;
 	assessment.map(|a| a.charge())
 }
@@ -509,22 +495,7 @@ async fn settling_fee_units_is_the_only_moment_a_fee_becomes_cash() {
 
 	// One bulk conversion for the whole fund — not one per investor. This is what the
 	// unit-denominated charge buys: a single ledger operation per period.
-	let settlement = fee_app::settle_fee_shares(
-		&h.settlements,
-		&h.allocations,
-		h.ledger.as_ref(),
-		h.money.as_ref(),
-		&h.nav,
-		&h.redemptions,
-		&h.notify,
-		service.clone(),
-		None,
-		&invest_domain::issuance::IdempotencyKey::parse(&format!("settle-{}", uuid::Uuid::new_v4())).unwrap(),
-		UserId::new(),
-		now_unix(),
-	)
-	.await
-	.unwrap();
+	let settlement = common::settle_fee_class(&h, &service, None, &common::fresh_key(), UserId::new()).await.unwrap();
 	common::drain_to_quiescence(&h.relay, &h.pool).await;
 
 	assert_eq!(settlement.units(), fee_units, "omitting `units` settles the whole accumulated balance");
@@ -711,22 +682,7 @@ async fn a_settlement_the_fund_cannot_cover_is_refused_not_queued() {
 	// Refused, not queued: nobody is waiting on this, and the fee units keep accumulating
 	// at no cost until the fund is liquid again.
 	let revenue_before = fee_cash(&h);
-	let err = fee_app::settle_fee_shares(
-		&h.settlements,
-		&h.allocations,
-		h.ledger.as_ref(),
-		h.money.as_ref(),
-		&h.nav,
-		&h.redemptions,
-		&h.notify,
-		service.clone(),
-		None,
-		&invest_domain::issuance::IdempotencyKey::parse(&format!("settle-{}", uuid::Uuid::new_v4())).unwrap(),
-		UserId::new(),
-		now_unix(),
-	)
-	.await
-	.unwrap_err();
+	let err = common::settle_fee_class(&h, &service, None, &common::fresh_key(), UserId::new()).await.unwrap_err();
 	assert!(matches!(err, invest_domain::error::DomainError::Validation(_)), "got {err:?}");
 	// And nothing was destroyed on the way to that refusal.
 	assert_eq!(units_of(&h, LedgerAccountKey::FeeShares(service)).await, fee_units);
@@ -767,22 +723,7 @@ async fn a_queued_redemption_is_reserved_before_the_manager_is_paid() {
 	// would pay the manager out of money already owed to a waiting investor — making a
 	// shortfall the fund had already failed to cover worse. The holdback refuses it.
 	let revenue_before = fee_cash(&h);
-	let err = fee_app::settle_fee_shares(
-		&h.settlements,
-		&h.allocations,
-		h.ledger.as_ref(),
-		h.money.as_ref(),
-		&h.nav,
-		&h.redemptions,
-		&h.notify,
-		service.clone(),
-		None,
-		&invest_domain::issuance::IdempotencyKey::parse(&format!("settle-{}", uuid::Uuid::new_v4())).unwrap(),
-		UserId::new(),
-		now_unix(),
-	)
-	.await
-	.unwrap_err();
+	let err = common::settle_fee_class(&h, &service, None, &common::fresh_key(), UserId::new()).await.unwrap_err();
 	let invest_domain::error::DomainError::Validation(message) = &err else {
 		panic!("expected a validation refusal, got {err:?}");
 	};
@@ -798,22 +739,9 @@ async fn a_queued_redemption_is_reserved_before_the_manager_is_paid() {
 	let mine = queued.iter().find(|q| q.service == service).expect("the redemption is queued");
 	funds_app::cancel_redemption(&h.redemptions, &h.notify, mine.id, user).await.unwrap();
 	common::drain_to_quiescence(&h.relay, &h.pool).await;
-	fee_app::settle_fee_shares(
-		&h.settlements,
-		&h.allocations,
-		h.ledger.as_ref(),
-		h.money.as_ref(),
-		&h.nav,
-		&h.redemptions,
-		&h.notify,
-		service.clone(),
-		None,
-		&invest_domain::issuance::IdempotencyKey::parse(&format!("settle-{}", uuid::Uuid::new_v4())).unwrap(),
-		UserId::new(),
-		now_unix(),
-	)
-	.await
-	.expect("with the queue cleared the manager is paid");
+	common::settle_fee_class(&h, &service, None, &common::fresh_key(), UserId::new())
+		.await
+		.expect("with the queue cleared the manager is paid");
 }
 
 #[tokio::test]
