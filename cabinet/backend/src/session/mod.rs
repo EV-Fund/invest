@@ -145,10 +145,35 @@ pub enum SessionError {
 	Internal(#[from] Report),
 }
 
+/// How many book sockets one session may hold open: a terminal, a portfolio, a couple of
+/// tabs. Each holds an upstream stream at invest-core (security review F3).
+pub const MAX_SOCKETS_PER_SESSION: usize = 4;
+
+type SocketCounts = Arc<Mutex<HashMap<SessionKey, usize>>>;
+
+/// A session's place among its open sockets; given back on drop.
+pub struct SocketSlot {
+	counts: SocketCounts,
+	key: SessionKey,
+}
+
+impl Drop for SocketSlot {
+	fn drop(&mut self) {
+		let mut counts = self.counts.lock().unwrap_or_else(PoisonError::into_inner);
+		if let Some(n) = counts.get_mut(&self.key) {
+			*n -= 1;
+			if *n == 0 {
+				counts.remove(&self.key);
+			}
+		}
+	}
+}
+
 /// Where the sign-in endpoints meet concierge and the `cabinet` tables.
 pub struct Sessions {
 	pool: PgPool,
 	concierge: Arc<dyn IdentityPlane>,
+	sockets: SocketCounts,
 	/// One rotation per session at a time in this process; across replicas the row's lease.
 	rotations: Mutex<HashMap<SessionKey, Arc<tokio::sync::Mutex<()>>>>,
 	me: Mutex<HashMap<SessionKey, (Instant, Me)>>,
@@ -161,7 +186,26 @@ impl Sessions {
 			concierge,
 			rotations: Mutex::default(),
 			me: Mutex::default(),
+			sockets: SocketCounts::default(),
 		}
+	}
+
+	/// A place for one more socket of this session, or `None` at [`MAX_SOCKETS_PER_SESSION`].
+	/// Per replica: the bound is on what one process holds open.
+	pub fn claim_socket(&self, key: SessionKey) -> Option<SocketSlot> {
+		let mut counts = self.sockets.lock().unwrap_or_else(PoisonError::into_inner);
+		let n = counts.entry(key).or_default();
+		if *n >= MAX_SOCKETS_PER_SESSION {
+			return None;
+		}
+		*n += 1;
+		Some(SocketSlot { counts: self.sockets.clone(), key })
+	}
+
+	/// Whether the session still stands — not closed, not past its deadline. A cheap read
+	/// for a socket's keepalive; it rotates nothing.
+	pub async fn is_live(&self, key: &SessionKey, now: i64) -> Result<bool, Report> {
+		Ok(store::get_session(&self.pool, key.as_bytes()).await?.is_some_and(|row| row.expires_at > now))
 	}
 
 	pub fn pool(&self) -> &PgPool {

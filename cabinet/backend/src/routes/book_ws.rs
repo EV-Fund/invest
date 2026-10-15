@@ -35,6 +35,7 @@ use crate::{
 		origin_allowed, require_session,
 		ws::{CLOSE_FEED_UNAVAILABLE, CLOSE_NORMAL, CLOSE_TOKEN_EXPIRED, HEARTBEAT, close, time_left},
 	},
+	session::{Session, SocketSlot},
 	state::{AppState, Grpc},
 };
 
@@ -53,14 +54,18 @@ pub async fn upgrade(State(st): State<AppState>, jar: Cookies, headers: HeaderMa
 	// The session also tells how long its token is good for, which is how long the socket
 	// may stay open.
 	let session = require_session(&st, &jar).await?;
+	// Taken before the upgrade and held by the socket's task, so a refused fifth socket costs
+	// no upstream stream, and a socket that never upgrades frees its place on drop.
+	let slot = st.sessions.claim_socket(session.key).ok_or(ApiError::TooMany)?;
 	let depth = q.depth.unwrap_or(0);
-	Ok(ws.on_upgrade(move |socket| serve(st, socket, session.access_token, service, depth, session.access_expires_at)))
+	Ok(ws.on_upgrade(move |socket| serve(st, socket, session, slot, service, depth)))
 }
 
 /// One task per socket, holding both ends of the bridge; it returns — dropping the
 /// upstream subscription with it — on client disconnect, upstream end, or token expiry.
-async fn serve(st: AppState, mut socket: WebSocket, token: String, service: String, depth: u32, expires_at: i64) {
-	let mut feed = match watch(&st.grpc, &token, &service, depth).await {
+async fn serve(st: AppState, mut socket: WebSocket, session: Session, _slot: SocketSlot, service: String, depth: u32) {
+	let (token, expires_at) = (&session.access_token, session.access_expires_at);
+	let mut feed = match watch(&st.grpc, token, &service, depth).await {
 		Ok(feed) => feed,
 		// The page still works without the socket: it polls. Saying so beats a socket that
 		// looks alive and silently never moves.
@@ -95,7 +100,17 @@ async fn serve(st: AppState, mut socket: WebSocket, token: String, service: Stri
 
 		let frame = match event {
 			Event::Upstream(event) => book_frame(&(*event).into()),
-			Event::Heartbeat => heartbeat_frame(now_secs()),
+			// The session is re-read on the keepalive: signed out, or closed by concierge,
+			// the feed ends with it instead of running on for the token's last minutes
+			// (security review F3). A store that cannot answer leaves the socket be.
+			Event::Heartbeat => match st.sessions.is_live(&session.key, now_secs()).await {
+				Ok(false) => return close(socket, CLOSE_TOKEN_EXPIRED, "session ended").await,
+				Ok(true) => heartbeat_frame(now_secs()),
+				Err(err) => {
+					tracing::warn!(error = ?err, "could not re-read a book socket's session");
+					heartbeat_frame(now_secs())
+				}
+			},
 			// An ended upstream is a normal event (an invest-core replica rolling); the client
 			// reconnects, and the first frame of the new subscription is a full snapshot.
 			Event::UpstreamEnded => return close(socket, CLOSE_NORMAL, "feed ended").await,

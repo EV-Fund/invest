@@ -240,7 +240,7 @@ mod book_route_tests {
 		io::{AsyncReadExt, AsyncWriteExt},
 		net::{TcpListener, TcpStream},
 	};
-	use tokio_stream::Stream;
+	use tokio_stream::{Stream, StreamExt};
 	use tonic::{Code, Request as GrpcRequest, Response as GrpcResponse, Status, transport::Server};
 
 	use super::*;
@@ -271,6 +271,8 @@ mod book_route_tests {
 	struct Hub {
 		/// When set, every book RPC fails with this code (the upstream-refusal cases).
 		fail_with: Option<Code>,
+		/// The feed stays open after its first frame, as a live book does.
+		hold_open: bool,
 		seen: Arc<Mutex<Seen>>,
 	}
 
@@ -475,7 +477,11 @@ mod book_route_tests {
 				trades: vec![stub_trade(false)],
 				orders_revision: 7,
 			};
-			Ok(GrpcResponse::new(Box::pin(tokio_stream::iter(vec![Ok(frame)]))))
+			let first = tokio_stream::iter(vec![Ok(frame)]);
+			if self.hold_open {
+				return Ok(GrpcResponse::new(Box::pin(first.chain(tokio_stream::pending()))));
+			}
+			Ok(GrpcResponse::new(Box::pin(first)))
 		}
 
 		async fn get_book_policy(&self, request: GrpcRequest<iv::GetBookPolicyRequest>) -> Result<GrpcResponse<iv::BookPolicy>, Status> {
@@ -1077,5 +1083,65 @@ mod book_route_tests {
 		let seen = seen.lock().unwrap();
 		let watched = seen.watch.as_ref().expect("invest-core saw the subscription, with the session's token");
 		assert_eq!((watched.service.as_str(), watched.depth), (SERVICE, 10));
+	}
+
+	fn live_book() -> Hub {
+		Hub { hold_open: true, ..Hub::default() }
+	}
+
+	/// The next close frame's code, skipping keepalives; `None` when none came in `within`.
+	async fn close_code(socket: &mut TcpStream, within: std::time::Duration) -> Option<u16> {
+		tokio::time::timeout(within, async {
+			loop {
+				let (opcode, payload) = read_frame(socket).await;
+				if opcode == OPCODE_CLOSE {
+					return u16::from_be_bytes([payload[0], payload[1]]);
+				}
+			}
+		})
+		.await
+		.ok()
+	}
+
+	/// Signing out ends the feed too: the socket does not outlive the session that opened it
+	/// (security review F3). The client reads 4401 as "sign in again".
+	#[tokio::test]
+	async fn a_socket_closes_once_its_session_is_gone() {
+		let Some(f) = fixture(live_book(), INVESTOR).await else { return };
+		let addr = listen(&f).await;
+		let (status, mut socket) = handshake(addr, "/cabinet/api/book/ws?service=quy-nhon", Some(&f.signed.cookie), Some(ORIGIN)).await;
+		assert_eq!(status, 101);
+		assert_eq!(read_frame(&mut socket).await.0, OPCODE_TEXT, "the book");
+
+		let (status, _) = send(&f, signed(&f, "POST", "/cabinet/api/auth/logout", None, true)).await;
+		assert_eq!(status, StatusCode::NO_CONTENT);
+		assert_eq!(close_code(&mut socket, std::time::Duration::from_secs(5)).await, Some(4401));
+	}
+
+	/// One session holds a handful of feeds, not an unbounded number of upstream streams.
+	#[tokio::test]
+	async fn a_session_holds_at_most_four_book_sockets() {
+		let Some(f) = fixture(live_book(), INVESTOR).await else { return };
+		let addr = listen(&f).await;
+		let uri = "/cabinet/api/book/ws?service=quy-nhon";
+		let mut open = Vec::new();
+		for _ in 0..4 {
+			let (status, socket) = handshake(addr, uri, Some(&f.signed.cookie), Some(ORIGIN)).await;
+			assert_eq!(status, 101);
+			open.push(socket);
+		}
+		let (status, _) = handshake(addr, uri, Some(&f.signed.cookie), Some(ORIGIN)).await;
+		assert_eq!(status, 429, "a fifth socket for the same session");
+
+		drop(open.pop());
+		let mut admitted = false;
+		for _ in 0..40 {
+			if handshake(addr, uri, Some(&f.signed.cookie), Some(ORIGIN)).await.0 == 101 {
+				admitted = true;
+				break;
+			}
+			tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+		}
+		assert!(admitted, "a closed socket frees its place");
 	}
 }

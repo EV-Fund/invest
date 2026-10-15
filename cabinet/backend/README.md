@@ -39,6 +39,9 @@ The login is anonymous and writes a `cabinet.sign_ins` row; without a limit a fl
 the table and drains the pool (`DB_MAX_CONNECTIONS`, 3 s acquire timeout). Expired
 sign-ins are pruned when a session opens, not by the login.
 
+The book socket closes with 4401 when its access token lapses or, checked on each
+keepalive (25 s), when its session is gone; one session holds at most 4 sockets (429).
+
 Every mutating route (and the book socket's handshake) also requires
 `Origin == CABINET_PUBLIC_ORIGIN`; a request without `Origin` is refused.
 
