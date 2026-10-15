@@ -8,17 +8,21 @@
 use std::{future::Future, net::SocketAddr};
 
 use evconcierge_auth::{Verifier, grpc_auth_layer};
-use invest_contracts::invest::v1::{allocations_service_server::AllocationsServiceServer, funds_service_server::FundsServiceServer};
+use invest_contracts::invest::v1::{
+	allocations_service_server::AllocationsServiceServer, book_service_server::BookServiceServer, fees_service_server::FeesServiceServer, funds_service_server::FundsServiceServer,
+};
 use tonic::transport::Server;
 use tower::Layer;
 use tower_http::trace::{DefaultOnFailure, TraceLayer};
 
 use crate::{
 	AppState,
-	services::{allocations::AllocationsSvc, funds::FundsSvc},
+	services::{allocations::AllocationsSvc, book::BookSvc, fees::FeesSvc, funds::FundsSvc},
 };
 
 pub mod allocations;
+pub mod book;
+pub mod fees;
 pub mod funds;
 pub(crate) mod support;
 
@@ -40,7 +44,9 @@ pub async fn serve(addr: SocketAddr, state: AppState, verifier: Verifier, shutdo
 		.layer(TraceLayer::new_for_grpc().on_failure(DefaultOnFailure::new().level(tracing::Level::WARN)))
 		.add_service(std_health)
 		.add_service(auth.layer(AllocationsServiceServer::new(AllocationsSvc::new(state.clone()))))
-		.add_service(auth.layer(FundsServiceServer::new(FundsSvc::new(state))))
+		.add_service(auth.layer(FundsServiceServer::new(FundsSvc::new(state.clone()))))
+		.add_service(auth.layer(BookServiceServer::new(BookSvc::new(state.clone()))))
+		.add_service(auth.layer(FeesServiceServer::new(FeesSvc::new(state))))
 		.serve_with_shutdown(addr, shutdown)
 		.await
 }

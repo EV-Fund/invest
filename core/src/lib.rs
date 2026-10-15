@@ -14,8 +14,12 @@
 
 use std::sync::Arc;
 
-use application::funds::FundPorts;
-use ports::{AllocationRegistry, FundPositionReader, Ledger, MoneyLedger, NavMarks, UnitIssuanceRepository, UserDirectory};
+use application::{book::BookFeed, funds::FundPorts};
+use invest_domain::book::MatchingEngine;
+use ports::{
+	AllocationRegistry, FundPositionReader, Ledger, MoneyLedger, NavMarks, RedemptionRepository, SubscriptionRepository, UnitIssuanceRepository, UserDirectory, book::BookStore,
+	fees::FeePorts,
+};
 use sqlx::PgPool;
 use tokio::sync::Notify;
 
@@ -43,6 +47,21 @@ pub struct AppState {
 	pub allocations: Arc<dyn AllocationRegistry>,
 	/// An operator's in-kind mints and retirements, idempotent by key.
 	pub issuances: Arc<dyn UnitIssuanceRepository>,
+	/// The subscription saga's records — a mint paid for by a hold banking captures.
+	pub subscriptions: Arc<dyn SubscriptionRepository>,
+	/// The redemption saga's records — accept-and-queue, paid out at settle.
+	pub redemptions: Arc<dyn RedemptionRepository>,
+	/// The allocation book — orders, fills and per-product terms; the escrow and the
+	/// settlement of every fill go through the relay.
+	pub book: Arc<dyn BookStore>,
+	/// The matching rule the book runs under its write lock. Wired here so the composition
+	/// root, not the store, decides how orders match.
+	pub book_engine: Arc<dyn MatchingEngine>,
+	/// The in-process fan-out every `WatchBook` subscriber hangs on.
+	pub book_feed: Arc<BookFeed>,
+	/// The fee plane — a product's terms and their history, the accrual clocks, the
+	/// charges and the settlement of fee units into cash.
+	pub fees: FeePorts,
 	/// Valuation marks → the derived NAV (the operator-posted AUM history).
 	pub nav: Arc<dyn NavMarks>,
 	/// The per-holder cost-basis projection.
