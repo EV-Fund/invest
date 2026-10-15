@@ -314,7 +314,7 @@ impl Relay {
 		// would otherwise keep filling an order whose settlement is bound to park too.
 		if row.kind == BookEvent::KIND
 			&& let Ok(BookEvent::OrderPlaced { order_id, .. }) = serde_json::from_str::<BookEvent>(&row.payload)
-			&& let Err(err) = book::mark_rejected(&self.pool, order_id.raw(), &format!("ledger refused the escrow: {reason}")).await
+			&& let Err(err) = book::mark_rejected(&self.pool, order_id.raw(), "escrow_refused").await
 		{
 			error!(seq = row.seq, order = %order_id, "relay: failed to mark the order rejected after its lock parked: {err}");
 		}

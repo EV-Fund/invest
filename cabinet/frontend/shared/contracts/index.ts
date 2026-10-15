@@ -26,6 +26,7 @@ export type {
   FeePolicy,
   FundNav,
   Redemption,
+  RedemptionState,
   UnitHolderKind,
   UnitHolderRef,
   UnitHolding,

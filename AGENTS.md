@@ -46,6 +46,10 @@ banking's on purpose.
   `evconcierge_projection` under a session advisory lock (`infrastructure/concierge.rs`).
   Its bookkeeping (`concierge_projection_*`) is created at boot by the crate, versioned
   apart from `core/migrations/`; truncate it together with `users` or not at all.
+- **Single money-event consumer.** banking's `MoneyEvents` are pulled under their own session
+  advisory lock (`infrastructure/money_events.rs`); an event's effect, its dedupe row and the
+  cursor commit in one transaction. A redemption's approval verdict is always read back with
+  `GetPendingOperation` — the event is only the nudge.
 - **Health stays outside auth.** `grpc.health.v1` is not wrapped in the auth layer.
 - **The browser holds no token.** The cabinet BFF keeps concierge's tokens sealed (key
   derived from the cookie) in `cabinet.sessions`, keyed by the hash of the session cookie. Every mutating route calls

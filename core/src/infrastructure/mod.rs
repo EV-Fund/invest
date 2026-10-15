@@ -5,7 +5,8 @@
 //! - [`ledger`] — the unit `Ledger` [`Gateway`](invest_domain::architecture::Gateway) over
 //!   TigerBeetle (the Share chart of accounts, transfers, two-phase ops).
 //! - [`money`] — the `MoneyLedger` gateway: banking's scope ledger over gRPC, and the
-//!   in-memory fake the tests use.
+//!   in-memory fake the tests use; [`money_events`] — the consumer of banking's money-event
+//!   log (a released hold under a resting buy, the owners' verdict on a payout).
 //! - [`allocations`] / [`issuance`] — repositories for the registry and the in-kind mint
 //!   (atomic state + drained events); [`nav`] — the valuation marks; [`positions`] — the
 //!   cost-basis projection; [`users`] — the projection of the people concierge knows;
@@ -32,11 +33,13 @@ pub mod fees;
 pub mod issuance;
 pub mod ledger;
 pub mod money;
+pub mod money_events;
 pub mod nav;
 pub mod outbox;
 pub mod positions;
 pub mod redemptions;
 pub mod relay;
+pub mod singleton;
 pub mod subscriptions;
 pub mod tigerbeetle;
 pub mod users;

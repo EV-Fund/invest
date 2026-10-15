@@ -434,11 +434,20 @@ export interface RedemptionQueue {
   items: RedemptionQueueItem[];
 }
 
+/**
+ * A redemption as the saga records it: `queued`, `settling` and `awaiting_approval` (past
+ * banking's automatic ceilings, before the owners) are in flight; `completed`, `failed` and
+ * `cancelled` are terminal. A wire value this build does not name is kept as a string.
+ */
+export type RedemptionState = "queued" | "settling" | "awaiting_approval" | "completed" | "failed" | "cancelled";
+
 export interface Redemption {
   id: string;
   service: string;
   units: string;
   nav: string;
   cash: string;
-  state: string;
+  state: RedemptionState | (string & {});
+  /** A machine code (`insufficient_funds`, `approval_rejected`, …); `""` unless `failed`. */
+  failure_reason: string;
 }

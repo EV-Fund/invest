@@ -27,19 +27,19 @@ use invest_core::{
 	infrastructure::book::PgBook,
 	ports::{
 		AllocationRegistry,
-		book::{BookStore, OrderRecord},
+		book::{BookStore, OrderEscrow, OrderRecord, PlaceOutcome},
 		ledger::LedgerTransfer,
-		money::{AccountLabel, HoldState, Refusal, ScopeId},
+		money::{AccountLabel, HoldState, MoneyEventKind, MoneyKey, MoneyLedger, Refusal, ReserveRequest, ScopeId, SubjectRef},
 		users::UserStanding,
 	},
 };
 use invest_domain::{
 	allocations::{AllocationAccess, AllocationBacking, AllocationIcon},
 	balance::{LedgerAccountKey, ServiceId, TransferCode},
-	book::{BookPolicy, CancelReason, CandleResolution, ClientOrderId, Locked, OrderKind, OrderState, Price, PriceTimeEngine, Side, Tif},
+	book::{BookPolicy, CancelReason, CandleResolution, ClientOrderId, Locked, Order, OrderId, OrderKind, OrderState, Price, PriceTimeEngine, Side, Tif},
 	error::DomainError,
 	issuance::{IdempotencyKey, UnitHolder},
-	money::{Shares, Usdt},
+	money::{Nav, Shares, Usdt},
 	users::UserId,
 };
 use uuid::Uuid;
@@ -630,6 +630,7 @@ async fn a_fill_banking_refuses_to_pay_voids_the_units_and_parks() {
 	assert_eq!(units_of(&h, LedgerAccountKey::BookShares(service.clone(), seller)).await, Shares::ZERO, "nothing stuck in escrow");
 	assert_eq!(busted_reason(&h, trade.trade.id.raw()).await.as_deref().map(|r| r.contains("hold_not_active")), Some(true));
 	assert_eq!(order(&h, &bid).await.order.state(), OrderState::Rejected, "no more fills against a hold that is gone");
+	assert_eq!(order(&h, &bid).await.order.reject_reason(), Some("fill_busted"), "a code for the owner, not banking's words");
 	assert_eq!(hold_of(&h, &bid).state, HoldState::Voided);
 	assert_eq!(cash_of(&h, buyer), usdt("100"), "the buyer's cash is free again");
 }
@@ -1047,4 +1048,214 @@ async fn a_seller_banking_cannot_name_may_not_sell() {
 	let err = place(&h, seller, &service, Side::Sell, OrderKind::Limit, Tif::Gtc, Some("1"), "1").await.unwrap_err();
 	assert!(matches!(err, DomainError::Precondition(ref m) if m.contains("money ledger")), "{err:?}");
 	assert!(book_app::list_order_history(&h.book, seller, None, 10).await.unwrap().is_empty());
+}
+
+/// How many `order_released` facts the book wrote for an order — each one a void the relay
+/// would ask banking for.
+async fn releases(h: &Harness, order: &OrderRecord) -> i64 {
+	sqlx::query_scalar("SELECT count(*) FROM outbox WHERE kind = 'book' AND payload->>'type' = 'order_released' AND payload->>'order_id' = $1")
+		.bind(order.order.id().raw().to_string())
+		.fetch_one(&h.pool)
+		.await
+		.unwrap()
+}
+
+/// The book revision an order last moved at.
+async fn order_revision(h: &Harness, order: &OrderRecord) -> i64 {
+	sqlx::query_scalar("SELECT revision FROM book_orders WHERE id = $1")
+		.bind(order.order.id().raw())
+		.fetch_one(&h.pool)
+		.await
+		.unwrap()
+}
+
+/// banking voids a resting buy's hold on its own — the buyer revoked the mandate it stood
+/// on: the money event takes the buy off the book `rejected`, nothing asks banking to void
+/// it again, and the same event delivered twice changes nothing more. A kind of event this
+/// build cannot name is parked on the way, without holding the cursor up.
+#[tokio::test]
+async fn a_hold_banking_voids_takes_the_resting_buy_off_the_book_once() {
+	let Some(h) = harness().await else { return };
+	let consumer = h.money_events(h.feed.clone());
+	let service = tradable_product(&h, 0).await;
+	let buyer = provisioned_user(&h).await;
+	fund_user(&h, buyer, "100");
+	let bid = buy(&h, buyer, &service, "1.2", "10").await;
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	let before = consumer.pass().await.unwrap();
+	assert_eq!(before.applied, 0, "a placed hold asks nothing of invest");
+
+	h.money.emit_unknown(&ScopeId::invest(), 4242);
+	h.money.void_by_banking(&hold_of(&h, &bid).id, "");
+	let mut watching = h.feed.subscribe(&service);
+	watching.borrow_and_update();
+	let pass = consumer.pass().await.unwrap();
+	assert_eq!((pass.applied, pass.parked), (1, 1), "{pass:?}");
+
+	let rejected = order(&h, &bid).await;
+	assert_eq!((rejected.order.state(), rejected.order.reject_reason()), (OrderState::Rejected, Some("hold_voided")));
+	assert!(watching.has_changed().unwrap(), "a watcher of the book is told");
+	assert_eq!(cash_of(&h, buyer), usdt("100"), "banking gave the cash back");
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	assert_eq!(releases(&h, &bid).await, 0, "a rejected buy releases nothing: no second void");
+	let voids = h
+		.money
+		.events()
+		.iter()
+		.filter(|event| event.ref_id == hold_of(&h, &bid).id.0 && event.kind == MoneyEventKind::HoldVoided)
+		.count();
+	assert_eq!(voids, 1, "banking was asked for nothing more");
+	let parked: Vec<i32> = sqlx::query_scalar("SELECT kind FROM money_events_parked").fetch_all(&h.pool).await.unwrap();
+	assert_eq!(parked, vec![4242]);
+
+	// At-least-once: the void again, at a later position.
+	let void_position = h.money.events().iter().find(|event| event.kind == MoneyEventKind::HoldVoided).unwrap().position;
+	h.money.redeliver(void_position);
+	let revision = order_revision(&h, &bid).await;
+	let again = consumer.pass().await.unwrap();
+	assert_eq!((again.applied, again.duplicates), (0, 1), "{again:?}");
+	assert_eq!(order_revision(&h, &bid).await, revision, "nothing moved twice");
+
+	// Off the book for good: a sell at the buy's price finds nobody.
+	let seller = provisioned_user(&h).await;
+	issue_units(&h, &service, seller, "10").await;
+	let ask = sell_escrowed(&h, seller, &service, "1.2", "10").await;
+	assert_eq!(order(&h, &ask).await.order.state(), OrderState::Open);
+}
+
+/// A buy that filled in part and rests with the rest: when banking's TTL releases what its
+/// hold still holds, the rest comes off the book; what filled stays filled.
+#[tokio::test]
+async fn an_expired_hold_takes_the_rest_of_a_partly_filled_buy_off_the_book() {
+	let Some(h) = harness().await else { return };
+	let consumer = h.money_events(h.feed.clone());
+	let service = tradable_product(&h, 0).await;
+	let (seller, buyer) = (provisioned_user(&h).await, provisioned_user(&h).await);
+	issue_units(&h, &service, seller, "10").await;
+	fund_user(&h, buyer, "100");
+	sell_escrowed(&h, seller, &service, "1", "4").await;
+	let bid = buy(&h, buyer, &service, "1", "10").await;
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	assert_eq!(order(&h, &bid).await.order.state(), OrderState::PartiallyFilled);
+
+	h.money.expire_hold(&hold_of(&h, &bid).id);
+	consumer.pass().await.unwrap();
+
+	let rejected = order(&h, &bid).await;
+	assert_eq!((rejected.order.state(), rejected.order.reject_reason()), (OrderState::Rejected, Some("hold_expired")));
+	assert_eq!(rejected.order.filled(), shares("4"), "the fill stands");
+	assert_eq!(units_of(&h, LedgerAccountKey::UserShares(service.clone(), buyer)).await, shares("4"));
+	assert_eq!(cash_of(&h, buyer), usdt("96"), "the 6 the hold still held came back");
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	assert_eq!(releases(&h, &bid).await, 0);
+}
+
+/// invest's own void — a cancel — comes back as a money event too; the buy is cancelled
+/// already, and stays so.
+#[tokio::test]
+async fn the_void_of_a_cancelled_buy_leaves_it_cancelled() {
+	let Some(h) = harness().await else { return };
+	let consumer = h.money_events(h.feed.clone());
+	let service = tradable_product(&h, 0).await;
+	let buyer = provisioned_user(&h).await;
+	fund_user(&h, buyer, "100");
+	let bid = buy(&h, buyer, &service, "1", "10").await;
+	book_app::cancel_order(&h.book, &h.notify, &h.feed, bid.order.id(), buyer).await.unwrap();
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	assert_eq!(hold_of(&h, &bid).state, HoldState::Voided);
+
+	consumer.pass().await.unwrap();
+	let cancelled = order(&h, &bid).await;
+	assert_eq!((cancelled.order.state(), cancelled.order.cancel_reason()), (OrderState::Cancelled, Some(CancelReason::User)));
+	assert_eq!(cash_of(&h, buyer), usdt("100"));
+}
+
+/// banking voids the hold between `Reserve` and the order's insert: the event reaches the
+/// consumer while there is no order to take off the book. The order written afterwards must
+/// not stand on the dead hold — the book refuses it, for the buy would only be busted by the
+/// first taker.
+#[tokio::test]
+async fn a_hold_banking_voided_before_the_order_exists_cannot_back_one() {
+	let Some(h) = harness().await else { return };
+	let consumer = h.money_events(h.feed.clone());
+	let service = tradable_product(&h, 0).await;
+	let buyer = provisioned_user(&h).await;
+	fund_user(&h, buyer, "100");
+	let id = OrderId::from_raw(Uuid::new_v4());
+	let hold = h
+		.money
+		.reserve(&ReserveRequest {
+			scope: ScopeId::invest(),
+			auth_subject: common::auth_subject(buyer),
+			amount: usdt("12"),
+			ttl_seconds: None,
+			key: MoneyKey::parse(&format!("book_order:{}:hold", id.raw().hyphenated())).unwrap(),
+			subject_ref: SubjectRef::new("book_order", id.raw()).unwrap(),
+		})
+		.await
+		.unwrap();
+	h.money.void_by_banking(&hold.id, "ledger_refused");
+	consumer.pass().await.unwrap();
+
+	let policy = book_app::policy(&h.book, &service).await.unwrap().policy;
+	let size = policy.size(shares("10")).unwrap();
+	let limit = policy.price(price("1.2")).unwrap();
+	let order = Order::place(
+		id,
+		service.clone(),
+		buyer,
+		ClientOrderId::parse("c-dead-hold").unwrap(),
+		Side::Buy,
+		OrderKind::Limit,
+		Tif::Gtc,
+		limit,
+		size,
+		Locked::Cash(policy.buy_reserve(size.shares(), limit).unwrap()),
+	);
+	let escrow = OrderEscrow {
+		scope: ScopeId::invest(),
+		hold: Some(hold.id.clone()),
+	};
+	let outcome = h.book.place(order, &PriceTimeEngine, &policy, Nav::SEED, &escrow).await.unwrap();
+	assert!(matches!(outcome, PlaceOutcome::Rejected(_)), "{outcome:?}");
+	assert!(h.book.find_order(id).await.unwrap().is_none(), "nothing was written");
+}
+
+/// An event the consumer cannot apply (here: its dedupe table is away) is retried, then
+/// parked with a loud error, and the stream moves on to the events behind it.
+#[tokio::test]
+async fn an_event_that_keeps_failing_is_parked_and_the_stream_moves_on() {
+	use invest_core::infrastructure::money_events::MAX_EVENT_ATTEMPTS;
+	let Some(h) = harness().await else { return };
+	let consumer = h.money_events(h.feed.clone());
+	let service = tradable_product(&h, 0).await;
+	let buyer = provisioned_user(&h).await;
+	fund_user(&h, buyer, "100");
+	let poisoned = buy(&h, buyer, &service, "1", "10").await;
+	let healthy = buy(&h, buyer, &service, "1", "10").await;
+	h.money.void_by_banking(&hold_of(&h, &poisoned).id, "");
+
+	sqlx::query("ALTER TABLE money_events_applied RENAME TO money_events_applied_away")
+		.execute(&h.pool)
+		.await
+		.unwrap();
+	for attempt in 1..MAX_EVENT_ATTEMPTS {
+		assert!(consumer.pass().await.is_err(), "attempt {attempt} fails and is retried");
+	}
+	let last = consumer.pass().await;
+	sqlx::query("ALTER TABLE money_events_applied_away RENAME TO money_events_applied")
+		.execute(&h.pool)
+		.await
+		.unwrap();
+	last.expect("the last attempt parks the event and goes on");
+	let parked: i64 = sqlx::query_scalar("SELECT count(*) FROM money_events_parked WHERE reason LIKE 'failed %'")
+		.fetch_one(&h.pool)
+		.await
+		.unwrap();
+	assert_eq!(parked, 1);
+	assert_eq!(order(&h, &poisoned).await.order.state(), OrderState::Open, "the parked event moved nothing");
+
+	h.money.void_by_banking(&hold_of(&h, &healthy).id, "");
+	consumer.pass().await.unwrap();
+	assert_eq!(order(&h, &healthy).await.order.state(), OrderState::Rejected, "the event behind it was applied");
 }

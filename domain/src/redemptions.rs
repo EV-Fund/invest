@@ -11,8 +11,13 @@
 //! - **Settle is a step, not a moment** — the payout is banking's (`Payout`), the burn is
 //!   invest's, and they cannot share a transaction. `settle` prices the redemption and
 //!   moves it to `Settling`; the relay pays out, then posts the burn and stamps it
-//!   `Completed`. A payout banking refuses (the account is short, the amount is past the
-//!   automatic ceilings) voids the burn and stamps it `Failed`: the units go back.
+//!   `Completed`. A payout banking refuses (the account is short, the holder is frozen)
+//!   voids the burn and stamps it `Failed`: the units go back.
+//! - **Past the automatic ceilings the owners decide.** banking answers such a payout
+//!   `approval_required`; the relay asks for it instead (`RequestPayout`) and parks the
+//!   redemption `AwaitingApproval`, the burn still pending. banking's verdict comes back
+//!   through its money events: executed → [`Redemption::payout_executed`] (the relay posts
+//!   the burn), rejected or failed → [`Redemption::payout_refused`] (the relay voids it).
 //! - **Settle-time pricing** — `units` are fixed at request, but `cash = units × NAV` is
 //!   computed from the NAV *at settle* (execution-day pricing), so a queue that drains
 //!   after a NAV drop doesn't overpay the redeeming holder at the others' expense.
@@ -35,10 +40,10 @@ pub type RedemptionId = Id<RedemptionTag>;
 /// Phantom tag making [`RedemptionId`] a distinct, incompatible identity type.
 pub struct RedemptionTag;
 
-/// Lifecycle of a redemption. `Queued` and `Settling` are in flight (the units are
-/// reserved as a TB pending burn); the rest are terminal. Cancel/fail are legal **only
-/// while queued** — once settling, the payout may already have left, and only the relay,
-/// which knows, may roll it back.
+/// Lifecycle of a redemption. `Queued`, `Settling` and `AwaitingApproval` are in flight
+/// (the units are reserved as a TB pending burn); the rest are terminal. Cancel/fail are
+/// legal **only while queued** — once settling, the payout may already have left (or be
+/// before the owners), and only banking's answer may roll it back.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RedemptionState {
@@ -46,6 +51,9 @@ pub enum RedemptionState {
 	Queued,
 	/// Priced; the relay is paying out and burning.
 	Settling,
+	/// The payout is past banking's automatic ceilings and waits on the owners' approval
+	/// (`RequestPayout`); the burn is still pending.
+	AwaitingApproval,
 	/// Paid out and burned (terminal).
 	Completed,
 	/// Released by an operator while queued, or the payout was refused at settle; the
@@ -60,6 +68,7 @@ impl RedemptionState {
 		match self {
 			Self::Queued => "queued",
 			Self::Settling => "settling",
+			Self::AwaitingApproval => "awaiting_approval",
 			Self::Completed => "completed",
 			Self::Failed => "failed",
 			Self::Cancelled => "cancelled",
@@ -70,6 +79,7 @@ impl RedemptionState {
 		match raw {
 			"queued" => Ok(Self::Queued),
 			"settling" => Ok(Self::Settling),
+			"awaiting_approval" => Ok(Self::AwaitingApproval),
 			"completed" => Ok(Self::Completed),
 			"failed" => Ok(Self::Failed),
 			"cancelled" => Ok(Self::Cancelled),
@@ -135,11 +145,11 @@ impl Redemption {
 	}
 
 	/// Settle a queued redemption at the **settle-time** `nav`: prices
-	/// `cash = units × nav` and hands it to the relay. Idempotent once settling or
-	/// completed; only a queued redemption can be settled. Raises `Settled` (relay: pay
-	/// the cash out first, then post the pending burn).
+	/// `cash = units × nav` and hands it to the relay. Idempotent once past pricing
+	/// (settling, awaiting approval, completed); only a queued redemption can be settled.
+	/// Raises `Settled` (relay: pay the cash out first, then post the pending burn).
 	pub fn settle(&mut self, nav: Nav) -> Result<(), DomainError> {
-		if matches!(self.state, RedemptionState::Settling | RedemptionState::Completed) {
+		if self.is_priced() {
 			return Ok(());
 		}
 		if self.state != RedemptionState::Queued {
@@ -161,6 +171,54 @@ impl Redemption {
 			cash,
 		});
 		Ok(())
+	}
+
+	/// Whether the cash is already priced and handed to banking — a settle repeat is a no-op.
+	pub fn is_priced(&self) -> bool {
+		matches!(self.state, RedemptionState::Settling | RedemptionState::AwaitingApproval | RedemptionState::Completed)
+	}
+
+	/// banking executed the approved payout: the cash has left, so the burn is owed. Raises
+	/// `PayoutExecuted` (relay: post the pending burn) and moves back to `Settling` until the
+	/// relay stamps it `Completed`. Idempotent once settling or completed; legal only while
+	/// awaiting approval.
+	pub fn payout_executed(&mut self) -> Result<(), DomainError> {
+		match self.state {
+			RedemptionState::Settling | RedemptionState::Completed => Ok(()),
+			RedemptionState::AwaitingApproval => {
+				self.state = RedemptionState::Settling;
+				self.pending.push(RedemptionEvent::PayoutExecuted {
+					redemption_id: self.id,
+					user: self.user,
+					service: self.service.clone(),
+					units: self.units,
+				});
+				Ok(())
+			}
+			RedemptionState::Queued | RedemptionState::Failed | RedemptionState::Cancelled =>
+				Err(DomainError::Conflict(format!("redemption is {}, not awaiting approval", self.state.as_str()))),
+		}
+	}
+
+	/// The approval said no, lapsed, or the approved payout could not execute: nothing left,
+	/// so the units go back. Raises `Failed` (relay: void the pending burn). Idempotent once
+	/// failed; legal only while awaiting approval.
+	pub fn payout_refused(&mut self) -> Result<(), DomainError> {
+		match self.state {
+			RedemptionState::Failed => Ok(()),
+			RedemptionState::AwaitingApproval => {
+				self.state = RedemptionState::Failed;
+				self.pending.push(RedemptionEvent::Failed {
+					redemption_id: self.id,
+					user: self.user,
+					service: self.service.clone(),
+					units: self.units,
+				});
+				Ok(())
+			}
+			RedemptionState::Queued | RedemptionState::Settling | RedemptionState::Completed | RedemptionState::Cancelled =>
+				Err(DomainError::Conflict(format!("redemption is {}, not awaiting approval", self.state.as_str()))),
+		}
 	}
 
 	/// Fail a queued redemption (operator): void the reservation, returning the units.
@@ -270,7 +328,8 @@ pub enum RedemptionEvent {
 		nav: Nav,
 		cash: Usdt,
 	},
-	/// Released while queued — void the pending burn (units returned).
+	/// Released while queued, or its approved payout refused — void the pending burn
+	/// (units returned).
 	Failed {
 		redemption_id: RedemptionId,
 		user: UserId,
@@ -279,6 +338,14 @@ pub enum RedemptionEvent {
 	},
 	/// Cancelled while queued — void the pending burn (units returned).
 	Cancelled {
+		redemption_id: RedemptionId,
+		user: UserId,
+		service: ServiceId,
+		units: Shares,
+	},
+	/// banking executed the payout the owners approved — the cash has left; post the
+	/// pending burn and reduce the cost basis.
+	PayoutExecuted {
 		redemption_id: RedemptionId,
 		user: UserId,
 		service: ServiceId,
@@ -356,6 +423,41 @@ mod tests {
 		assert!(r.drain_events().is_empty());
 		assert!(r.settle(Nav::SEED).is_err());
 		assert!(r.fail().is_err());
+	}
+
+	fn awaiting(r: &Redemption) -> Redemption {
+		Redemption::rehydrate(r.id(), r.user(), r.service().clone(), r.units(), r.nav(), r.cash(), RedemptionState::AwaitingApproval)
+	}
+
+	#[test]
+	fn an_approved_payout_settles_once_and_a_refused_one_fails_once() {
+		let mut r = Redemption::request(RedemptionId::new(), user(), svc(), units("100")).unwrap();
+		r.settle(Nav::SEED).unwrap();
+		let mut approved = awaiting(&r);
+		// Past pricing: a repeated settle changes nothing, and the holder cannot pull out.
+		approved.settle(Nav::parse_decimal("2").unwrap()).unwrap();
+		assert!(approved.cancel().is_err());
+		assert!(approved.fail().is_err());
+		approved.payout_executed().unwrap();
+		assert_eq!(approved.state(), RedemptionState::Settling);
+		assert!(matches!(approved.drain_events()[..], [RedemptionEvent::PayoutExecuted { .. }]));
+		approved.payout_executed().unwrap();
+		assert!(approved.drain_events().is_empty(), "a repeat raises nothing");
+		assert!(approved.payout_refused().is_err(), "the cash has left");
+
+		let mut refused = awaiting(&r);
+		refused.payout_refused().unwrap();
+		assert_eq!(refused.state(), RedemptionState::Failed);
+		assert!(matches!(refused.drain_events()[..], [RedemptionEvent::Failed { .. }]));
+		refused.payout_refused().unwrap();
+		assert!(refused.drain_events().is_empty(), "a repeat raises nothing");
+		assert!(refused.payout_executed().is_err(), "the units went back");
+	}
+
+	#[test]
+	fn awaiting_approval_round_trips_as_a_state() {
+		assert_eq!(RedemptionState::parse("awaiting_approval").unwrap(), RedemptionState::AwaitingApproval);
+		assert_eq!(RedemptionState::AwaitingApproval.as_str(), "awaiting_approval");
 	}
 
 	#[test]

@@ -173,6 +173,82 @@ pub(crate) async fn reduce_cost_basis(conn: &mut PgConnection, user: UserId, ser
 	Ok(())
 }
 
+/// banking's verdict on a redemption's requested payout (`RequestPayout`).
+#[derive(Clone, Copy, Debug)]
+pub enum PayoutVerdict<'a> {
+	/// Executed: the cash has left — raise `PayoutExecuted`, the relay posts the burn.
+	Executed,
+	/// Rejected, lapsed or failed, with banking's machine reason — fail the redemption and
+	/// raise `Failed`, the relay voids the burn.
+	Refused(&'a str),
+}
+
+/// Apply `verdict` to the redemption waiting on `operation`, on the caller's transaction
+/// (the money-event consumer's, which moves its cursor in the same commit). `false` when no
+/// redemption waits on it any more — the verdict landed before, so a repeat does nothing.
+pub(crate) async fn apply_payout_verdict(conn: &mut PgConnection, operation: &str, verdict: PayoutVerdict<'_>) -> Result<bool, DomainError> {
+	let id: Option<Uuid> = sqlx::query_scalar("SELECT id FROM redemptions WHERE payout_operation_id = $1 AND state = 'awaiting_approval' FOR UPDATE")
+		.bind(operation)
+		.fetch_optional(&mut *conn)
+		.await
+		.map_err(repo_err)?;
+	let Some(id) = id else {
+		return Ok(false);
+	};
+	let mut redemption = load_for_update(conn, RedemptionId::from_raw(id)).await?;
+	match verdict {
+		PayoutVerdict::Executed => redemption.payout_executed()?,
+		PayoutVerdict::Refused(reason) => {
+			redemption.payout_refused()?;
+			sqlx::query("UPDATE redemptions SET failure_reason = $2 WHERE id = $1")
+				.bind(id)
+				.bind(reason)
+				.execute(&mut *conn)
+				.await
+				.map_err(repo_err)?;
+		}
+	}
+	update_row(conn, &redemption).await?;
+	outbox::drain_to_outbox(conn, &mut redemption, true).await?;
+	Ok(true)
+}
+
+/// A redemption waiting on the owners: its id, and the scope and operation to ask banking
+/// about.
+#[derive(Clone, Debug)]
+pub struct AwaitingPayout {
+	pub id: Uuid,
+	pub scope: String,
+	pub operation: String,
+}
+
+/// Every redemption awaiting approval, oldest first — what the consumer re-asks banking
+/// about when no event has told it the verdict.
+pub(crate) async fn awaiting_payouts(pool: &PgPool) -> Result<Vec<AwaitingPayout>, DomainError> {
+	let rows: Vec<(Uuid, String, String)> = sqlx::query_as(
+		"SELECT r.id, a.scope, r.payout_operation_id FROM redemptions r JOIN allocations a ON a.service = r.service \
+		 WHERE r.state = 'awaiting_approval' ORDER BY r.updated_at, r.id",
+	)
+	.fetch_all(pool)
+	.await
+	.map_err(repo_err)?;
+	Ok(rows.into_iter().map(|(id, scope, operation)| AwaitingPayout { id, scope, operation }).collect())
+}
+
+/// The redemption a payout's `subject_ref` names, when it waits on an operation: the scope
+/// and operation to ask banking about.
+pub(crate) async fn awaiting_payout(pool: &PgPool, id: Uuid) -> Result<Option<AwaitingPayout>, DomainError> {
+	let row: Option<(Uuid, String, String)> = sqlx::query_as(
+		"SELECT r.id, a.scope, r.payout_operation_id FROM redemptions r JOIN allocations a ON a.service = r.service \
+		 WHERE r.id = $1 AND r.state = 'awaiting_approval'",
+	)
+	.bind(id)
+	.fetch_optional(pool)
+	.await
+	.map_err(repo_err)?;
+	Ok(row.map(|(id, scope, operation)| AwaitingPayout { id, scope, operation }))
+}
+
 #[async_trait]
 impl RedemptionRepository for PgRedemptions {
 	async fn open(&self, redemption: &mut Redemption) -> Result<(), DomainError> {
@@ -204,7 +280,7 @@ impl RedemptionRepository for PgRedemptions {
 		let mut tx = self.pool.begin().await.map_err(repo_err)?;
 		let mut redemption = load_for_update(&mut tx, id).await?;
 		// A repeat settle is a full no-op under the row lock: the price is fixed by the first.
-		if matches!(redemption.state(), RedemptionState::Settling | RedemptionState::Completed) {
+		if redemption.is_priced() {
 			return Ok(redemption);
 		}
 		redemption.settle(nav)?;

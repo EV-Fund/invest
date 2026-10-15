@@ -71,7 +71,7 @@ export interface Subscription {
   nav: Decimal;
   units: Decimal;
   state: SubscriptionState | (string & {});
-  /** banking's refusal or the relay's rollback, in their words; `""` unless `failed`. */
+  /** A machine code — banking's refusal (`mandate_required`, …) or invest's own; `""` unless `failed`. */
   failure_reason: string;
 }
 

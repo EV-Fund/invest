@@ -10,9 +10,9 @@
 //! idempotent by a key the caller stored before the first try.
 //!
 //! The adapter speaks `scope.v1.ScopeLedgerService` over mTLS with a service token; a
-//! fake answers the same contract in memory for tests. banking serves only `OpenAccount`,
-//! `GetBalances` and `Transfer` today — every other RPC answers UNIMPLEMENTED, which the
-//! adapter reports as [`MoneyLedgerError::Unimplemented`] ("not yet"), never as a refusal.
+//! fake answers the same contract in memory for tests. An RPC banking does not serve yet
+//! (`Charge`, as of the pinned contracts) answers UNIMPLEMENTED, which the adapter reports
+//! as [`MoneyLedgerError::Unimplemented`] ("not yet"), never as a refusal.
 //!
 //! Amounts cross as [`Usdt`]; users as their concierge `auth_subject`, the name banking
 //! keys compartments by.
@@ -51,6 +51,27 @@ pub trait MoneyLedger: Gateway {
 	/// Sweep fees from an account invest owns into the scope's `fee` collector — the one
 	/// automatic transfer between accounts (`FEE_SWEEP`).
 	async fn sweep_fees(&self, request: &FeeSweepRequest) -> Result<Transfer, MoneyLedgerError>;
+
+	/// Ask for a payout past the automatic ceilings: banking stores it, opens the owners'
+	/// approval itself and executes it once approved. The answer is the stored operation,
+	/// normally still awaiting approval.
+	async fn request_payout(&self, request: &RequestPayoutRequest) -> Result<PendingOperation, MoneyLedgerError>;
+
+	/// One operation invest requested, as it stands now — the authoritative verdict a money
+	/// event only announces.
+	async fn pending_operation(&self, scope: &ScopeId, operation_id: &OperationId) -> Result<PendingOperation, MoneyLedgerError>;
+}
+
+/// banking's money-event log (`scope.v1.MoneyEvents`) as invest reads it: what happened to
+/// the holds it placed, the payouts it made and the operations it requested — including
+/// what banking did on its own (a hold expired, a revoked mandate voiding it, the owners
+/// deciding). Pulled, never pushed; a [`Gateway`] like the ledger it reports on.
+#[async_trait]
+pub trait MoneyEventSource: Gateway {
+	/// Events after `after_position`, oldest first, at most `limit`, of every scope invest
+	/// holds a grant in. `next_position` is the cursor to store — it may run past the last
+	/// event when banking filtered the rest out.
+	async fn pull(&self, after_position: i64, limit: u32) -> Result<MoneyEventPage, MoneyLedgerError>;
 }
 
 /// A scope: concierge's tenant name, `[a-z][a-z0-9_]{0,31}`.
@@ -153,6 +174,11 @@ impl SubjectRef {
 /// A hold's id, as banking minted it. Opaque.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct HoldId(pub String);
+
+/// An operation banking stored for an approval (`RequestPayout`), as banking minted it — a
+/// lowercase UUID, kept opaque.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct OperationId(pub String);
 
 /// A scope account invest owns, as banking reports it.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -258,6 +284,42 @@ pub struct Payout {
 	pub total: Usdt,
 }
 
+/// A payout the owners decide — the same lines as a [`PayoutRequest`], with no automatic
+/// reason to claim.
+#[derive(Clone, Debug)]
+pub struct RequestPayoutRequest {
+	pub scope: ScopeId,
+	pub from: AccountLabel,
+	pub lines: Vec<PayoutLine>,
+	pub key: MoneyKey,
+	pub subject_ref: SubjectRef,
+	/// Shown on the approval and in the users' wallet history, at most 140 chars.
+	pub memo: String,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PendingOperationState {
+	/// Stored; the approval is open (or about to be).
+	AwaitingApproval,
+	/// Approved and executed, once; the cash has moved.
+	Executed,
+	/// The approvers said no, or the approval lapsed or was never opened.
+	Rejected,
+	/// Approved, but banking could not execute it.
+	Failed,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PendingOperation {
+	pub id: OperationId,
+	pub state: PendingOperationState,
+	/// invest's own ref, as requested.
+	pub subject_ref: String,
+	/// banking's machine reason for `Rejected` (`approval_rejected`, `approval_expired`,
+	/// `proposal_refused`, …) or `Failed` (`insufficient_funds`, `approval_mismatch`, …).
+	pub failure_reason: String,
+}
+
 #[derive(Clone, Debug)]
 pub struct FeeSweepRequest {
 	pub scope: ScopeId,
@@ -271,6 +333,57 @@ pub struct FeeSweepRequest {
 pub struct Transfer {
 	pub id: String,
 	pub amount: Usdt,
+}
+
+/// What banking's money-event log says happened (`scope.v1.MoneyEvent.Kind`). The kinds
+/// invest has no use for are named all the same, so that a kind this build does NOT know is
+/// [`MoneyEventKind::Unknown`] — parked, never mistaken for one it can ignore.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MoneyEventKind {
+	AccountOpened,
+	CompartmentIn,
+	CompartmentOut,
+	HoldPlaced,
+	HoldCaptured,
+	HoldVoided,
+	HoldExpired,
+	Charged,
+	PaidOut,
+	Transferred,
+	InvoiceCreated,
+	InvoicePaid,
+	InvoiceCancelled,
+	InvoiceExpired,
+	MandateGranted,
+	MandateRevoked,
+	OperationRequested,
+	OperationRejected,
+	OperationFailed,
+	/// A wire value this build cannot name, kept as sent.
+	Unknown(i32),
+}
+
+/// One money event, with the fields invest reads. Amounts and balances stay with banking:
+/// the consumer acts on what happened to a hold or an operation, never on a figure.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MoneyEvent {
+	/// The unit of at-least-once delivery; dedupe by it.
+	pub event_id: String,
+	pub position: i64,
+	pub scope: String,
+	pub kind: MoneyEventKind,
+	/// The aggregate: a hold id, a payout id, an operation id, …
+	pub ref_id: String,
+	/// invest's own ref of the call that caused it (`book_order:<uuid>`, `redemption:<uuid>`);
+	/// empty when the user or banking itself did.
+	pub subject_ref: String,
+	pub failure_reason: String,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct MoneyEventPage {
+	pub events: Vec<MoneyEvent>,
+	pub next_position: i64,
 }
 
 /// The machine reasons banking refuses with (`scope/v1/ledger.proto`, REFUSALS) — the
@@ -349,13 +462,39 @@ pub enum MoneyLedgerError {
 	Protocol(String),
 }
 
+/// The `failure_reason` a subscription or redemption records when a money step did not go
+/// through — a short machine code the cabinet can branch on, never prose. banking's refusal
+/// reason is kept as banking spelled it (`user_frozen`, `mandate_required`,
+/// `hold_not_active`, `insufficient_funds`, `scope_frozen`, …); anything else is one of a
+/// fixed few. The detail behind a non-refusal goes to the log, not to the holder.
+pub fn failure_reason(err: &MoneyLedgerError) -> String {
+	match err {
+		MoneyLedgerError::Refused(refusal) => machine_reason(refusal.reason(), "refused"),
+		MoneyLedgerError::NotFound => "not_found".to_owned(),
+		MoneyLedgerError::IdempotencyConflict(_) => "conflict".to_owned(),
+		MoneyLedgerError::Invalid(_) => "invalid_request".to_owned(),
+		MoneyLedgerError::Unimplemented { .. } | MoneyLedgerError::Unavailable(_) => "money_ledger_unavailable".to_owned(),
+		MoneyLedgerError::Protocol(_) => "protocol_error".to_owned(),
+	}
+}
+
+/// `raw` when it reads as a machine reason (`[a-z][a-z0-9_]{0,63}`, the shape every reason
+/// banking names has), else `fallback` — a reason the holder sees is never free text from
+/// the wire.
+pub fn machine_reason(raw: &str, fallback: &str) -> String {
+	let mut bytes = raw.bytes();
+	let machine = raw.len() <= 64 && bytes.next().is_some_and(|b| b.is_ascii_lowercase()) && bytes.all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_');
+	if machine { raw.to_owned() } else { fallback.to_owned() }
+}
+
 impl From<MoneyLedgerError> for DomainError {
 	/// For a read on a request path: a refusal is the state standing in the way, an
 	/// unknown account is not found; everything else is infrastructure and never reaches
 	/// a client verbatim.
 	fn from(err: MoneyLedgerError) -> Self {
 		match err {
-			MoneyLedgerError::Refused(refusal) => DomainError::Precondition(refusal.reason().to_owned()),
+			// A reason banking sends that is not a machine code never reaches a client verbatim.
+			MoneyLedgerError::Refused(refusal) => DomainError::Precondition(machine_reason(refusal.reason(), "refused")),
 			MoneyLedgerError::NotFound => DomainError::NotFound {
 				entity: "scope account",
 				id: "money ledger".into(),
@@ -404,6 +543,28 @@ mod tests {
 			assert_eq!(refusal.reason(), reason);
 		}
 		assert_eq!(Refusal::parse("over_budget"), Refusal::Other("over_budget".into()));
+	}
+
+	#[test]
+	fn a_failure_reason_is_a_machine_code_never_prose() {
+		for (err, reason) in [
+			(MoneyLedgerError::Refused(Refusal::UserFrozen), "user_frozen"),
+			(MoneyLedgerError::Refused(Refusal::MandateRequired), "mandate_required"),
+			(MoneyLedgerError::Refused(Refusal::HoldNotActive), "hold_not_active"),
+			(MoneyLedgerError::Refused(Refusal::InsufficientFunds), "insufficient_funds"),
+			(MoneyLedgerError::Refused(Refusal::ScopeFrozen), "scope_frozen"),
+			(MoneyLedgerError::Refused(Refusal::ApprovalRequired), "approval_required"),
+			(MoneyLedgerError::Refused(Refusal::Other("scope_closed".into())), "scope_closed"),
+			(MoneyLedgerError::Refused(Refusal::Other("Not a <reason>".into())), "refused"),
+			(MoneyLedgerError::NotFound, "not_found"),
+			(MoneyLedgerError::Unavailable("connection reset by 10.0.0.7".into()), "money_ledger_unavailable"),
+			(MoneyLedgerError::Unimplemented { rpc: "Payout" }, "money_ledger_unavailable"),
+			(MoneyLedgerError::Protocol("amount 'x'".into()), "protocol_error"),
+		] {
+			assert_eq!(failure_reason(&err), reason, "{err:?}");
+		}
+		assert_eq!(machine_reason("approval_expired", "x"), "approval_expired");
+		assert_eq!(machine_reason("", "approval_rejected"), "approval_rejected");
 	}
 
 	#[test]

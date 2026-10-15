@@ -19,7 +19,7 @@
 use std::sync::{Arc, LazyLock};
 
 use invest_core::{
-	application::{fees as fee_app, funds::FundPorts, issuance::IssueUnitsRequest},
+	application::{book::BookFeed, fees as fee_app, funds::FundPorts, issuance::IssueUnitsRequest},
 	infrastructure::{
 		allocations::PgAllocations,
 		db,
@@ -28,6 +28,7 @@ use invest_core::{
 		issuance::PgUnitIssuances,
 		ledger::{self, TbLedger},
 		money::fake::InMemoryMoneyLedger,
+		money_events::MoneyEventsConsumer,
 		nav::PgNav,
 		positions::PgFundPositions,
 		redemptions::PgRedemptions,
@@ -436,6 +437,7 @@ pub async fn engine(suite: &str) -> Option<Engine> {
 	let pool = pool().await?;
 	let ledger = reachable_ledger(&pool, suite).await?;
 	set_aside_leftovers(&pool).await;
+	forget_money_events(&pool).await;
 	let notify = Arc::new(Notify::new());
 	let money = Arc::new(InMemoryMoneyLedger::new());
 	Some(Engine {
@@ -461,6 +463,12 @@ pub async fn engine(suite: &str) -> Option<Engine> {
 }
 
 impl Engine {
+	/// The money-event consumer over this test's in-memory banking, nudging this relay and
+	/// telling `feed` what it took off a book.
+	pub fn money_events(&self, feed: Arc<BookFeed>) -> MoneyEventsConsumer {
+		MoneyEventsConsumer::new(self.pool.clone(), self.money.clone(), self.money.clone(), self.notify.clone(), feed)
+	}
+
 	/// The dealing ports, borrowed for one call — the wiring behind every fund use case.
 	pub fn fund_ports(&self) -> FundPorts<'_> {
 		FundPorts {
@@ -490,6 +498,17 @@ async fn set_aside_leftovers(pool: &PgPool) {
 	if !left.is_empty() {
 		eprintln!("outbox rows left undrained by an earlier test, set aside: {left:?}");
 	}
+}
+
+/// Every test brings its own in-memory banking, whose event log starts again at position 1:
+/// a cursor or a park an earlier test left would skip this test's events, or replay that
+/// test's. The dedupe ids are kept — they are UUIDs, so no test meets another's.
+async fn forget_money_events(pool: &PgPool) {
+	sqlx::query("DELETE FROM money_events_cursor").execute(pool).await.expect("reset the money-event cursor");
+	sqlx::query("DELETE FROM money_events_parked").execute(pool).await.expect("clear the parked money events");
+	// The in-memory banking numbers its holds from 1 in every test; banking's own ids never repeat.
+	sqlx::query("DELETE FROM money_events_voided_holds").execute(pool).await.expect("clear the noted voided holds");
+	sqlx::query("DELETE FROM money_events_attempts").execute(pool).await.expect("clear the event attempts");
 }
 
 /// One mint as an operator or an approval asks for it, in decimal strings.

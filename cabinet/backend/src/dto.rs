@@ -385,7 +385,11 @@ pub struct Redemption {
 	pub units: String,
 	pub nav: String,
 	pub cash: String,
+	/// `queued`, `settling`, `awaiting_approval` (past banking's automatic ceilings, before
+	/// the owners), `completed`, `failed` or `cancelled`.
 	pub state: String,
+	/// Why it failed after settle, as a machine code; empty otherwise.
+	pub failure_reason: String,
 }
 
 impl From<iv::Redemption> for Redemption {
@@ -397,6 +401,7 @@ impl From<iv::Redemption> for Redemption {
 			nav: r.nav,
 			cash: r.cash,
 			state: r.state,
+			failure_reason: r.failure_reason,
 		}
 	}
 }
@@ -1005,6 +1010,27 @@ mod tests {
 			(issuance.units.as_str(), issuance.cost_basis.as_str(), issuance.created_at.as_str()),
 			("13000", "16250", "1700000000")
 		);
+	}
+
+	/// A redemption waiting on the owners, and one they turned down, reach the cabinet as
+	/// invest-core named them.
+	#[test]
+	fn a_redemption_carries_its_state_and_failure_reason() {
+		let redemption = |state: &str, failure_reason: &str| {
+			Redemption::from(iv::Redemption {
+				id: "r1".into(),
+				service: "service_arb".into(),
+				units: "10".into(),
+				nav: "1.5".into(),
+				cash: "15".into(),
+				state: state.into(),
+				failure_reason: failure_reason.into(),
+			})
+		};
+		let awaiting = redemption("awaiting_approval", "");
+		assert_eq!((awaiting.state.as_str(), awaiting.failure_reason.as_str()), ("awaiting_approval", ""));
+		let rejected = redemption("failed", "approval_rejected");
+		assert_eq!((rejected.state.as_str(), rejected.failure_reason.as_str()), ("failed", "approval_rejected"));
 	}
 
 	/// The cap table crosses line by line, in invest-core's order, with nothing summed.

@@ -20,8 +20,17 @@ package invest.v1;
 //     hold and the units (`failed`, with `failure_reason`).
 //   - Redeem is accept-and-queue: the units are reserved at once, the cash priced at the
 //     settle-time NAV and paid out of the product's account into the caller's compartment
-//     (`settling` → `completed`); a payout banking refuses — the account is short, or the
-//     amount is past the automatic ceilings — returns the units (`failed`).
+//     (`settling` → `completed`); a payout banking refuses — the account is short, the
+//     holder frozen — returns the units (`failed`). Past banking's automatic ceilings the
+//     payout goes to the owners' approval (`awaiting_approval`), the units still reserved:
+//     approved and paid → `completed`; rejected, lapsed or not executable → `failed`, the
+//     units back.
+//
+// `failure_reason` is a machine code, never prose: banking's refusal as banking names it
+// (`insufficient_funds`, `mandate_required`, `user_frozen`, `hold_not_active`,
+// `scope_frozen`, …), its verdict on an approval (`approval_rejected`, `approval_expired`,
+// `proposal_refused`, …), or one of invest's own (`units_unavailable`,
+// `money_ledger_unavailable`, `not_found`, `refused`).
 service FundsService {
   // Subscribe `amount` of the caller's compartment in the product's scope into a fund,
   // minting units at the current NAV. Returns the subscription; its units land once the
@@ -169,7 +178,7 @@ message Subscription {
   string nav = 4;
   string units = 5;
   string state = 6;
-  // Why it failed — banking's refusal reason, or the relay's rollback; empty otherwise.
+  // Why it failed — a machine code (see the service comment); empty otherwise.
   string failure_reason = 7;
   int64 created_at = 8;  // unix seconds
 }
@@ -179,8 +188,8 @@ message SubscriptionList {
 }
 
 // A redemption in the accept-and-queue saga. `units` are fixed at request; `nav`/`cash`
-// are empty until settle (settle-time pricing). State ∈ {queued, settling, completed,
-// failed, cancelled}.
+// are empty until settle (settle-time pricing). State ∈ {queued, settling,
+// awaiting_approval, completed, failed, cancelled}.
 message Redemption {
   string id = 1;
   string service = 2;
@@ -188,7 +197,8 @@ message Redemption {
   string nav = 4;    // settle NAV (empty until settled)
   string cash = 5;   // cash priced at settle (empty until settled)
   string state = 6;
-  // Why banking refused the payout (`failed` after settle); empty otherwise.
+  // Why it failed after settle — a machine code (see the service comment); empty for an
+  // operator's fail and every other state.
   string failure_reason = 7;
 }
 

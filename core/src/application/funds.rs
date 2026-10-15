@@ -21,7 +21,7 @@ use invest_domain::{
 	error::DomainError,
 	issuance::UnitHolder,
 	money::{Nav, Shares, Usdt},
-	redemptions::{Redemption, RedemptionId, RedemptionState},
+	redemptions::{Redemption, RedemptionId},
 	subscriptions::{Subscription, SubscriptionId},
 	users::UserId,
 };
@@ -33,7 +33,7 @@ use crate::{
 		FundPositionReader, RedemptionRecord, RedemptionRepository, SubscriptionRecord, SubscriptionRepository, UnitFlow,
 		allocations::{AllocationRecord, AllocationRegistry},
 		ledger::{HoldingScope, Ledger},
-		money::{AccountLabel, MoneyKey, MoneyLedger, MoneyLedgerError, ReserveRequest, ScopeId, SubjectRef},
+		money::{AccountLabel, MoneyKey, MoneyLedger, MoneyLedgerError, ReserveRequest, ScopeId, SubjectRef, failure_reason},
 		nav::{NavMarks, Valuation},
 		users::UserDirectory,
 	},
@@ -369,11 +369,7 @@ pub async fn subscribe(
 			ports.relay.notify_one();
 		}
 		Err(err) => {
-			let reason = match &err {
-				MoneyLedgerError::Refused(refusal) => format!("hold refused: {}", refusal.reason()),
-				other => format!("hold not placed: {other}"),
-			};
-			subscriptions.refused(&mut subscription, &reason).await?;
+			subscriptions.refused(&mut subscription, &failure_reason(&err)).await?;
 			return Err(err.into());
 		}
 	}
@@ -469,11 +465,11 @@ pub async fn settle_redemption(ports: &FundPorts<'_>, redemptions: &dyn Redempti
 		entity: "redemption",
 		id: id.to_string(),
 	})?;
-	// Settling or completed is past pricing, so this unlocked read is safe to short-circuit
-	// on: the documented-idempotent retry must not re-check NAV freshness (a mark gone stale
-	// since the real settle would fail it). Concurrent settles that both pass this
+	// Settling, awaiting approval or completed is past pricing, so this unlocked read is safe
+	// to short-circuit on: the documented-idempotent retry must not re-check NAV freshness (a
+	// mark gone stale since the real settle would fail it). Concurrent settles that both pass this
 	// pre-check serialize on the repo's row lock, where the same guard is authoritative.
-	if matches!(existing.state(), RedemptionState::Settling | RedemptionState::Completed) {
+	if existing.is_priced() {
 		return Ok(existing);
 	}
 	// Checked at settle too, not only at request: a queued redemption can outlive a mark

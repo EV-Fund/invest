@@ -28,7 +28,7 @@ use async_trait::async_trait;
 use invest_domain::{
 	balance::ServiceId,
 	book::{
-		BookEvent, BookPolicy, CancelReason, CandleResolution, ClientOrderId, IncomingOrder, Locked, MatchingEngine, Order, OrderId, OrderKind, OrderSnapshot, OrderState, Price,
+		BookEvent, BookPolicy, CancelReason, CandleResolution, ClientOrderId, IncomingOrder, Locked, MatchingEngine, Order, OrderId, OrderKind, OrderSnapshot, OrderState, Price, Rejection,
 		RestingOrder, Side, Tif, Trade, TradeId,
 	},
 	error::DomainError,
@@ -295,6 +295,19 @@ async fn lock_book(conn: &mut PgConnection, service: &ServiceId) -> Result<(), D
 	Ok(())
 }
 
+/// Serialize on one banking hold, before the book's lock (every path takes them in that
+/// order). A buy's placement and the consumer's note that banking released its hold meet
+/// here: whichever comes second sees the other, so an order can never be written on a hold
+/// already known to be dead.
+async fn lock_hold(conn: &mut PgConnection, scope: &str, hold_id: &str) -> Result<(), sqlx::Error> {
+	sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('hold:' || $1 || ':' || $2, 0))")
+		.bind(scope)
+		.bind(hold_id)
+		.execute(&mut *conn)
+		.await?;
+	Ok(())
+}
+
 /// Bump the book's revision inside the writing transaction and return the new value.
 async fn bump_revision(conn: &mut PgConnection, service: &ServiceId) -> Result<i64, DomainError> {
 	sqlx::query_scalar::<_, i64>(
@@ -552,6 +565,9 @@ impl BookStore for PgBook {
 			return Err(DomainError::Repository("a buy's escrow is a hold in banking, and only a buy's".into()));
 		}
 		let mut tx = self.pool.begin().await.map_err(repo_err)?;
+		if let Some(hold) = &escrow.hold {
+			lock_hold(&mut tx, escrow.scope.as_str(), &hold.0).await.map_err(repo_err)?;
+		}
 		lock_book(&mut tx, &service).await?;
 		// A sell spends units, which redemptions serialize on the position row. A buy's cash
 		// is already held in banking, which serializes it there.
@@ -568,6 +584,19 @@ impl BookStore for PgBook {
 		// here must find the first's row rather than trip the unique constraint.
 		if let Some(existing) = find_by_client_id(&mut tx, order.user(), order.client_order_id()).await? {
 			return Ok(PlaceOutcome::Existing(existing));
+		}
+		// banking may have released the hold between the use case's read and this lock; its
+		// money event reached the consumer while there was no order to take off the book.
+		if let Some(hold) = &escrow.hold {
+			let released: bool = sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM money_events_voided_holds WHERE scope = $1 AND hold_id = $2)")
+				.bind(escrow.scope.as_str())
+				.bind(&hold.0)
+				.fetch_one(&mut *tx)
+				.await
+				.map_err(repo_err)?;
+			if released {
+				return Ok(PlaceOutcome::Rejected(Rejection::HoldReleased));
+			}
 		}
 
 		let (sql, side) = match order.side() {
@@ -845,14 +874,14 @@ impl BookStore for PgBook {
 /// Take a resting order off the book as `rejected`, under the book's lock — the matcher
 /// reads the resting side under the same lock, so it never fills an order this is taking
 /// off. A no-op for an order no longer resting. Bumps the book's revision so a watching
-/// client refetches.
-async fn reject_resting(conn: &mut PgConnection, order_id: Uuid, reason: &str) -> Result<(), sqlx::Error> {
+/// client refetches, and answers the book and its new revision when it took one off.
+async fn reject_resting(conn: &mut PgConnection, order_id: Uuid, reason: &str) -> Result<Option<(String, i64)>, sqlx::Error> {
 	let service: Option<String> = sqlx::query_scalar("SELECT service FROM book_orders WHERE id = $1")
 		.bind(order_id)
 		.fetch_optional(&mut *conn)
 		.await?;
 	let Some(service) = service else {
-		return Ok(());
+		return Ok(None);
 	};
 	sqlx::query("SELECT pg_advisory_xact_lock(hashtext($1))").bind(&service).execute(&mut *conn).await?;
 	let resting: Option<Uuid> = sqlx::query_scalar("SELECT id FROM book_orders WHERE id = $1 AND state IN ('open', 'partially_filled') FOR UPDATE")
@@ -860,7 +889,7 @@ async fn reject_resting(conn: &mut PgConnection, order_id: Uuid, reason: &str) -
 		.fetch_optional(&mut *conn)
 		.await?;
 	if resting.is_none() {
-		return Ok(());
+		return Ok(None);
 	}
 	let revision: i64 = sqlx::query_scalar(
 		"INSERT INTO book_revisions (service, revision) VALUES ($1, 1) \
@@ -875,7 +904,42 @@ async fn reject_resting(conn: &mut PgConnection, order_id: Uuid, reason: &str) -
 		.bind(revision)
 		.execute(&mut *conn)
 		.await?;
-	Ok(())
+	Ok(Some((service, revision)))
+}
+
+/// banking released a buy's hold on its own — expired, voided under a revoked mandate, or
+/// refused by its ledger: the buy comes off the book `rejected`, on the caller's
+/// transaction. Nothing is voided again — a rejected order releases nothing (`Order::release`)
+/// and the hold is gone already. `None` when no resting buy stands on that hold (a cancel or
+/// a fill finished it first, or the hold was never an order's).
+///
+/// When there is no order row at all the release came before the order was written (between
+/// `Reserve` and the insert): the hold is noted, and [`PgBook::place`] refuses an order that
+/// names it. Both sides hold the hold's lock, so one of them always sees the other.
+pub(crate) async fn reject_buy_on_released_hold(conn: &mut PgConnection, order_id: Uuid, scope: &str, hold_id: &str, reason: &str) -> Result<Option<(String, i64)>, sqlx::Error> {
+	lock_hold(conn, scope, hold_id).await?;
+	let written: bool = sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM book_orders WHERE id = $1)")
+		.bind(order_id)
+		.fetch_one(&mut *conn)
+		.await?;
+	if !written {
+		sqlx::query("INSERT INTO money_events_voided_holds (scope, hold_id) VALUES ($1, $2) ON CONFLICT DO NOTHING")
+			.bind(scope)
+			.bind(hold_id)
+			.execute(&mut *conn)
+			.await?;
+		return Ok(None);
+	}
+	let on_this_hold: Option<Uuid> = sqlx::query_scalar("SELECT id FROM book_orders WHERE id = $1 AND side = 'buy' AND scope = $2 AND hold_id = $3")
+		.bind(order_id)
+		.bind(scope)
+		.bind(hold_id)
+		.fetch_optional(&mut *conn)
+		.await?;
+	if on_this_hold.is_none() {
+		return Ok(None);
+	}
+	reject_resting(conn, order_id, reason).await
 }
 
 /// Mark an order the ledger refused to escrow as `rejected` — the relay's write, after
@@ -916,7 +980,9 @@ pub async fn bust_trade(pool: &PgPool, trade_id: Uuid, buy_order_id: Uuid, reaso
 		.bind(reason)
 		.execute(&mut *tx)
 		.await?;
-	reject_resting(&mut tx, buy_order_id, &format!("a fill of this order was busted: {reason}")).await?;
+	// The buy's reason is shown to its owner, so it is a code; the trade's own `bust_reason`
+	// keeps the detail for an operator and is not served to any client.
+	reject_resting(&mut tx, buy_order_id, "fill_busted").await?;
 	tx.commit().await
 }
 

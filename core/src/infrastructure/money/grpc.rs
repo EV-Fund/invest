@@ -14,7 +14,7 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
-use evbanking_contracts::scope::v1::{self as pb, scope_ledger_service_client::ScopeLedgerServiceClient};
+use evbanking_contracts::scope::v1::{self as pb, money_event::Kind, money_events_client::MoneyEventsClient, scope_ledger_service_client::ScopeLedgerServiceClient};
 use invest_domain::{architecture::Gateway, money::Usdt};
 use tonic::{
 	Code, Request, Status,
@@ -23,8 +23,9 @@ use tonic::{
 };
 
 use crate::ports::money::{
-	AccountLabel, CaptureRequest, CaptureTo, FeeSweepRequest, Hold, HoldId, HoldState, MoneyKey, MoneyLedger, MoneyLedgerError, Payout, PayoutLine, PayoutReason, PayoutRequest, Refusal,
-	ReserveRequest, ScopeAccount, ScopeId, Transfer, VoidRequest,
+	AccountLabel, CaptureRequest, CaptureTo, FeeSweepRequest, Hold, HoldId, HoldState, MoneyEvent, MoneyEventKind, MoneyEventPage, MoneyEventSource, MoneyKey, MoneyLedger, MoneyLedgerError,
+	OperationId, Payout, PayoutLine, PayoutReason, PayoutRequest, PendingOperation, PendingOperationState, Refusal, RequestPayoutRequest, ReserveRequest, ScopeAccount, ScopeId, Transfer,
+	VoidRequest,
 };
 
 /// Deadline on one call. A saga step that times out is retried with the same key, so a
@@ -50,6 +51,9 @@ pub struct ScopeLedgerConfig {
 
 pub struct ScopeLedgerClient {
 	client: ScopeLedgerServiceClient<Channel>,
+	/// banking serves `MoneyEvents` on the scope ledger's listener, behind the same mTLS
+	/// identity and token.
+	events: MoneyEventsClient<Channel>,
 	authorization: MetadataValue<tonic::metadata::Ascii>,
 }
 
@@ -72,7 +76,8 @@ impl ScopeLedgerClient {
 	pub fn with_channel(channel: Channel, service_token: &str) -> color_eyre::Result<Self> {
 		let authorization = MetadataValue::try_from(format!("Bearer {service_token}")).map_err(|_| color_eyre::eyre::eyre!("SCOPE_LEDGER_SERVICE_TOKEN is not a valid header value"))?;
 		Ok(Self {
-			client: ScopeLedgerServiceClient::new(channel),
+			client: ScopeLedgerServiceClient::new(channel.clone()),
+			events: MoneyEventsClient::new(channel),
 			authorization,
 		})
 	}
@@ -184,14 +189,7 @@ impl MoneyLedger for ScopeLedgerClient {
 		let message = pb::PayoutRequest {
 			scope: request.scope.as_str().to_owned(),
 			from_label: request.from.as_str().to_owned(),
-			lines: request
-				.lines
-				.iter()
-				.map(|line: &PayoutLine| pb::PayoutLine {
-					auth_subject: line.auth_subject.clone(),
-					amount: line.amount.to_decimal_string(),
-				})
-				.collect(),
+			lines: request.lines.iter().map(line_to_proto).collect(),
 			idempotency_key: request.key.as_str().to_owned(),
 			subject_ref: request.subject_ref.as_str().to_owned(),
 			memo: String::new(),
@@ -233,6 +231,135 @@ impl MoneyLedger for ScopeLedgerClient {
 			amount: amount(&transfer.amount)?,
 		})
 	}
+
+	async fn request_payout(&self, request: &RequestPayoutRequest) -> Result<PendingOperation, MoneyLedgerError> {
+		let message = pb::RequestPayoutRequest {
+			scope: request.scope.as_str().to_owned(),
+			from_label: request.from.as_str().to_owned(),
+			lines: request.lines.iter().map(line_to_proto).collect(),
+			distribution: false,
+			idempotency_key: request.key.as_str().to_owned(),
+			subject_ref: request.subject_ref.as_str().to_owned(),
+			memo: request.memo.clone(),
+		};
+		let operation = self
+			.client
+			.clone()
+			.request_payout(self.request(message))
+			.await
+			.map_err(|status| match status.code() {
+				// banking's cap on a client's operations awaiting approval in one scope: not
+				// transient on a relay's clock — it frees only as the owners decide — so the
+				// saga reads it as a refusal rather than retrying ahead of every later event.
+				Code::ResourceExhausted => MoneyLedgerError::Refused(Refusal::Other(APPROVAL_QUEUE_FULL.to_owned())),
+				_ => from_status("RequestPayout", status),
+			})?
+			.into_inner();
+		operation_from_proto(operation)
+	}
+
+	async fn pending_operation(&self, scope: &ScopeId, operation_id: &OperationId) -> Result<PendingOperation, MoneyLedgerError> {
+		let message = pb::GetPendingOperationRequest {
+			scope: scope.as_str().to_owned(),
+			operation_id: operation_id.0.clone(),
+		};
+		let operation = self
+			.client
+			.clone()
+			.get_pending_operation(self.request(message))
+			.await
+			.map_err(|status| from_status("GetPendingOperation", status))?
+			.into_inner();
+		operation_from_proto(operation)
+	}
+}
+
+#[async_trait]
+impl MoneyEventSource for ScopeLedgerClient {
+	async fn pull(&self, after_position: i64, limit: u32) -> Result<MoneyEventPage, MoneyLedgerError> {
+		let message = pb::PullRequest {
+			// Every scope invest holds a grant in: one cursor over `invest` and `sa` alike.
+			scope: String::new(),
+			after_position,
+			limit,
+		};
+		let page = self.events.clone().pull(self.request(message)).await.map_err(|status| from_status("Pull", status))?.into_inner();
+		Ok(MoneyEventPage {
+			events: page.events.into_iter().map(event_from_proto).collect::<Result<_, _>>()?,
+			next_position: page.next_position,
+		})
+	}
+}
+
+/// What [`ScopeLedgerClient::request_payout`] calls banking's RESOURCE_EXHAUSTED: too many
+/// of invest's operations already wait on an approval in the scope.
+pub const APPROVAL_QUEUE_FULL: &str = "approval_queue_full";
+
+fn line_to_proto(line: &PayoutLine) -> pb::PayoutLine {
+	pb::PayoutLine {
+		auth_subject: line.auth_subject.clone(),
+		amount: line.amount.to_decimal_string(),
+	}
+}
+
+fn operation_from_proto(operation: pb::PendingOperation) -> Result<PendingOperation, MoneyLedgerError> {
+	let state = match pb::PendingOperationState::try_from(operation.state) {
+		Ok(pb::PendingOperationState::AwaitingApproval) => PendingOperationState::AwaitingApproval,
+		Ok(pb::PendingOperationState::Executed) => PendingOperationState::Executed,
+		Ok(pb::PendingOperationState::Rejected) => PendingOperationState::Rejected,
+		Ok(pb::PendingOperationState::Failed) => PendingOperationState::Failed,
+		Ok(pb::PendingOperationState::Unspecified) | Err(_) => return Err(MoneyLedgerError::Protocol(format!("operation {} carries state {}", operation.operation_id, operation.state))),
+	};
+	if operation.operation_id.is_empty() {
+		return Err(MoneyLedgerError::Protocol("an operation without an id".into()));
+	}
+	Ok(PendingOperation {
+		id: OperationId(operation.operation_id),
+		state,
+		subject_ref: operation.subject_ref,
+		failure_reason: operation.failure_reason,
+	})
+}
+
+/// An event the consumer can key a dedupe on: banking's `event_id` is the unit of delivery
+/// and positions start at 1, so an empty id (every such event would collapse into one
+/// "duplicate") or a position below 1 is a broken answer, not an event.
+fn event_from_proto(event: pb::MoneyEvent) -> Result<MoneyEvent, MoneyLedgerError> {
+	if event.event_id.is_empty() || event.position < 1 {
+		return Err(MoneyLedgerError::Protocol(format!("Pull: an event with id {:?} at position {}", event.event_id, event.position)));
+	}
+	let kind = match Kind::try_from(event.kind) {
+		Ok(Kind::AccountOpened) => MoneyEventKind::AccountOpened,
+		Ok(Kind::CompartmentIn) => MoneyEventKind::CompartmentIn,
+		Ok(Kind::CompartmentOut) => MoneyEventKind::CompartmentOut,
+		Ok(Kind::HoldPlaced) => MoneyEventKind::HoldPlaced,
+		Ok(Kind::HoldCaptured) => MoneyEventKind::HoldCaptured,
+		Ok(Kind::HoldVoided) => MoneyEventKind::HoldVoided,
+		Ok(Kind::HoldExpired) => MoneyEventKind::HoldExpired,
+		Ok(Kind::Charged) => MoneyEventKind::Charged,
+		Ok(Kind::PaidOut) => MoneyEventKind::PaidOut,
+		Ok(Kind::Transferred) => MoneyEventKind::Transferred,
+		Ok(Kind::InvoiceCreated) => MoneyEventKind::InvoiceCreated,
+		Ok(Kind::InvoicePaid) => MoneyEventKind::InvoicePaid,
+		Ok(Kind::InvoiceCancelled) => MoneyEventKind::InvoiceCancelled,
+		Ok(Kind::InvoiceExpired) => MoneyEventKind::InvoiceExpired,
+		Ok(Kind::MandateGranted) => MoneyEventKind::MandateGranted,
+		Ok(Kind::MandateRevoked) => MoneyEventKind::MandateRevoked,
+		Ok(Kind::OperationRequested) => MoneyEventKind::OperationRequested,
+		Ok(Kind::OperationRejected) => MoneyEventKind::OperationRejected,
+		Ok(Kind::OperationFailed) => MoneyEventKind::OperationFailed,
+		// UNSPECIFIED names nothing either: parked like a kind from a newer banking.
+		Ok(Kind::Unspecified) | Err(_) => MoneyEventKind::Unknown(event.kind),
+	};
+	Ok(MoneyEvent {
+		event_id: event.event_id,
+		position: event.position,
+		scope: event.scope,
+		kind,
+		ref_id: event.ref_id,
+		subject_ref: event.subject_ref,
+		failure_reason: event.failure_reason,
+	})
 }
 
 /// The scope's fee collector — banking's own account in every scope, the only credit a
@@ -303,6 +430,52 @@ mod tests {
 		assert!(matches!(from_status("GetBalances", Status::not_found("x")), MoneyLedgerError::NotFound));
 		assert!(matches!(from_status("OpenAccount", Status::already_exists("x")), MoneyLedgerError::IdempotencyConflict(_)));
 		assert!(matches!(from_status("Payout", Status::unavailable("down")), MoneyLedgerError::Unavailable(_)));
+	}
+
+	#[test]
+	fn an_event_kind_this_build_cannot_name_is_unknown_not_ignored() {
+		let kind_of = |kind: i32| {
+			event_from_proto(pb::MoneyEvent {
+				event_id: "e".into(),
+				position: 1,
+				kind,
+				..Default::default()
+			})
+			.unwrap()
+			.kind
+		};
+		assert_eq!(kind_of(Kind::HoldVoided as i32), MoneyEventKind::HoldVoided);
+		assert_eq!(kind_of(Kind::OperationFailed as i32), MoneyEventKind::OperationFailed);
+		assert_eq!(kind_of(99), MoneyEventKind::Unknown(99));
+		assert_eq!(kind_of(0), MoneyEventKind::Unknown(0));
+	}
+
+	#[test]
+	fn an_event_without_an_id_or_a_position_is_a_protocol_violation() {
+		let event = |event_id: &str, position: i64| pb::MoneyEvent {
+			event_id: event_id.into(),
+			position,
+			kind: Kind::HoldVoided as i32,
+			..Default::default()
+		};
+		assert!(event_from_proto(event("e", 1)).is_ok());
+		assert!(matches!(event_from_proto(event("", 1)), Err(MoneyLedgerError::Protocol(_))));
+		assert!(matches!(event_from_proto(event("e", 0)), Err(MoneyLedgerError::Protocol(_))));
+		assert!(matches!(event_from_proto(event("e", -4)), Err(MoneyLedgerError::Protocol(_))));
+	}
+
+	#[test]
+	fn an_operation_s_state_must_be_named() {
+		let operation = |state: i32| pb::PendingOperation {
+			operation_id: "op".into(),
+			state,
+			..Default::default()
+		};
+		assert_eq!(
+			operation_from_proto(operation(pb::PendingOperationState::Rejected as i32)).unwrap().state,
+			PendingOperationState::Rejected
+		);
+		assert!(matches!(operation_from_proto(operation(0)), Err(MoneyLedgerError::Protocol(_))));
 	}
 
 	#[test]
