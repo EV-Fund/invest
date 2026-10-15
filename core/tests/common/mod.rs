@@ -19,18 +19,29 @@
 use std::sync::{Arc, LazyLock};
 
 use invest_core::{
+	application::{funds::FundPorts, issuance::IssueUnitsRequest},
 	infrastructure::{
+		allocations::PgAllocations,
 		db,
+		issuance::PgUnitIssuances,
 		ledger::{self, TbLedger},
+		money::fake::InMemoryMoneyLedger,
+		nav::PgNav,
+		positions::PgFundPositions,
 		relay::Relay,
 		tigerbeetle::TigerBeetle,
 		users::PgUsers,
 	},
 	ports::{ledger::Ledger, users::UserStanding},
 };
-use invest_domain::users::UserId;
+use invest_domain::{
+	balance::ServiceId,
+	issuance::{IdempotencyKey, UnitHolder},
+	money::{Shares, Usdt},
+	users::UserId,
+};
 use sqlx::{AssertSqlSafe, Connection, PgConnection, PgPool, migrate::MigrateError, postgres::PgPoolOptions};
-use tokio::sync::OnceCell;
+use tokio::sync::{MutexGuard, Notify, OnceCell};
 
 /// Serializes every test that works this binary's outbox — the one rule production gets
 /// from the relay's advisory lock, restated for a process that runs several relays.
@@ -371,4 +382,68 @@ pub async fn active_user(users: &PgUsers) -> UserId {
 		.await
 		.expect("record a user in the projection");
 	user
+}
+
+/// invest-core's adapters over this binary's database and the TigerBeetle replica, with
+/// banking's cash in the in-memory money ledger — the harness of the suites that drive the
+/// registry, issuance and prices end to end.
+pub struct Engine {
+	pub pool: PgPool,
+	pub allocations: PgAllocations,
+	pub users: PgUsers,
+	pub issuances: PgUnitIssuances,
+	pub positions: PgFundPositions,
+	pub nav: PgNav,
+	pub ledger: Arc<dyn Ledger>,
+	pub money: InMemoryMoneyLedger,
+	pub relay: Relay,
+	pub notify: Arc<Notify>,
+	/// Held for the test's whole life — declared last so it is released after the relay.
+	_serial: MutexGuard<'static, ()>,
+}
+
+/// An [`Engine`], or `None` where [`pool`] or [`reachable_ledger`] skip; `suite` names the
+/// suite in the skip notice.
+pub async fn engine(suite: &str) -> Option<Engine> {
+	let serial = outbox_serial().await;
+	let pool = pool().await?;
+	let ledger = reachable_ledger(&pool, suite).await?;
+	let notify = Arc::new(Notify::new());
+	Some(Engine {
+		allocations: PgAllocations::new(pool.clone()),
+		users: PgUsers::new(pool.clone()),
+		issuances: PgUnitIssuances::new(pool.clone()),
+		positions: PgFundPositions::new(pool.clone()),
+		nav: PgNav::new(pool.clone()),
+		money: InMemoryMoneyLedger::new(),
+		relay: Relay::new(pool.clone(), ledger.clone(), notify.clone()),
+		ledger,
+		notify,
+		pool,
+		_serial: serial,
+	})
+}
+
+impl Engine {
+	/// The dealing ports, borrowed for one call — the wiring behind every fund use case.
+	pub fn fund_ports(&self) -> FundPorts<'_> {
+		FundPorts {
+			allocations: &self.allocations,
+			ledger: self.ledger.as_ref(),
+			money: &self.money,
+			nav: &self.nav,
+			relay: &self.notify,
+		}
+	}
+}
+
+/// One mint as an operator or an approval asks for it, in decimal strings.
+pub fn mint_request(service: &ServiceId, holder: UnitHolder, units: &str, cost_basis: Option<&str>, key: &str) -> IssueUnitsRequest {
+	IssueUnitsRequest {
+		service: service.clone(),
+		holder,
+		units: Shares::parse_decimal(units).unwrap(),
+		cost_basis: cost_basis.map(|basis| Usdt::parse_decimal(basis).unwrap()),
+		idempotency_key: IdempotencyKey::parse(key).unwrap(),
+	}
 }

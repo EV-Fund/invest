@@ -13,6 +13,31 @@
 //! Moved from banking 9ffafce3 (`domain`), cut down to units: cash, wallets, payments
 //! and the consilium stay in banking or move to concierge.
 
+/// `as_str` / `parse` for a closed string vocabulary — an enum stored in a column and
+/// sent on the wire, whose strings `invest_contracts` pins on the other side. Spelled once
+/// so every such enum answers an unknown value the same way: an error naming the
+/// vocabulary, never a silent default (a corrupt row must not read as a legal state).
+macro_rules! wire_vocabulary {
+	($ty:ty, $what:literal, { $($variant:ident => $wire:literal),+ $(,)? }) => {
+		impl $ty {
+			/// The stored/wire discriminant.
+			pub fn as_str(self) -> &'static str {
+				match self {
+					$(Self::$variant => $wire,)+
+				}
+			}
+
+			/// Parse the stored/wire form; an unrecognized value is an error.
+			pub fn parse(raw: &str) -> Result<Self, $crate::error::DomainError> {
+				match raw {
+					$($wire => Ok(Self::$variant),)+
+					other => Err($crate::error::DomainError::Validation(format!(concat!("unknown ", $what, ": {}"), other))),
+				}
+			}
+		}
+	};
+}
+
 pub mod error;
 
 pub mod allocations;

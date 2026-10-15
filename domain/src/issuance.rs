@@ -184,27 +184,12 @@ pub enum IssuanceState {
 	Applied,
 }
 
-impl IssuanceState {
-	/// The stored/wire discriminant. Keep byte-identical with
-	/// `invest_contracts::allocation::issuance_state`
-	/// (`issuance_state_strings_are_canonical` guards this side).
-	pub fn as_str(self) -> &'static str {
-		match self {
-			Self::Queued => "queued",
-			Self::Applied => "applied",
-		}
-	}
-
-	/// Parse the stored/wire form. An unrecognized value is an error rather than a
-	/// silent default, so a corrupt row never reads as minted when it was not.
-	pub fn parse(raw: &str) -> Result<Self, DomainError> {
-		match raw {
-			"queued" => Ok(Self::Queued),
-			"applied" => Ok(Self::Applied),
-			other => Err(DomainError::Validation(format!("unknown issuance state: {other}"))),
-		}
-	}
-}
+// Byte-identical with `invest_contracts::allocation::issuance_state`
+// (`issuance_state_strings_are_canonical`). Strict so a corrupt row never reads as minted.
+wire_vocabulary!(IssuanceState, "issuance state", {
+	Queued => "queued",
+	Applied => "applied",
+});
 
 /// Where an issuance's units come from — or go. `Mint` grows supply; `Retire` shrinks
 /// supply by burning a holder's units. The ledger leg differs, the record does not, and `units`
@@ -220,28 +205,13 @@ pub enum IssuanceSource {
 	Retire,
 }
 
-impl IssuanceSource {
-	/// The stored/wire discriminant. Keep byte-identical with
-	/// `invest_contracts::allocation::issuance_source`
-	/// (`issuance_source_strings_are_canonical` guards this side).
-	pub fn as_str(self) -> &'static str {
-		match self {
-			Self::Mint => "mint",
-			Self::Retire => "retire",
-		}
-	}
-
-	/// Parse the stored/wire form. An unrecognized value — the retired `company` among
-	/// them — is an error rather than a silent default, so a row that moved units without
-	/// minting them never reads as a mint.
-	pub fn parse(raw: &str) -> Result<Self, DomainError> {
-		match raw {
-			"mint" => Ok(Self::Mint),
-			"retire" => Ok(Self::Retire),
-			other => Err(DomainError::Validation(format!("unknown issuance source: {other}"))),
-		}
-	}
-}
+// Byte-identical with `invest_contracts::allocation::issuance_source`
+// (`issuance_source_strings_are_canonical`). Strict — banking's retired `company` among the
+// refused — so a row that moved units without minting them never reads as a mint.
+wire_vocabulary!(IssuanceSource, "issuance source", {
+	Mint => "mint",
+	Retire => "retire",
+});
 
 /// The operator's retry key for one issuance, unique per service. Trimmed, 1..=64
 /// chars: long enough for a UUID, short enough to index.

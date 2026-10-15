@@ -17,21 +17,10 @@
 //! settlement, the withdrawal-fee and the redemption tests of that suite need the fee plane
 //! and the money sagas (PR 1b); the treasury one stays in banking (D17).
 
-use std::sync::Arc;
-
 use invest_core::{
 	application::{allocations as allocations_app, funds as funds_app, issuance as issuance_app},
-	infrastructure::{
-		allocations::PgAllocations,
-		issuance::PgUnitIssuances,
-		money::{Unconfigured, fake::InMemoryMoneyLedger},
-		nav::PgNav,
-		positions::PgFundPositions,
-		relay::Relay,
-		users::PgUsers,
-	},
+	infrastructure::money::Unconfigured,
 	ports::{
-		ledger::Ledger,
 		money::{AccountLabel, ScopeId},
 		nav::NavMarks,
 	},
@@ -40,58 +29,24 @@ use invest_domain::{
 	allocations::AllocationAccess,
 	balance::{LedgerAccountKey, ServiceId},
 	error::DomainError,
-	issuance::{IdempotencyKey, UnitHolder},
+	issuance::UnitHolder,
 	money::{Nav, Shares, Usdt},
 	users::UserId,
 };
-use tokio::sync::{MutexGuard, Notify};
 use uuid::Uuid;
 
 mod common;
 
-struct Harness {
-	allocations: PgAllocations,
-	users: PgUsers,
-	issuances: PgUnitIssuances,
-	positions: PgFundPositions,
-	nav: PgNav,
-	ledger: Arc<dyn Ledger>,
-	money: InMemoryMoneyLedger,
-	relay: Relay,
-	notify: Arc<Notify>,
-	pool: sqlx::PgPool,
-	/// Held for the test's whole life — declared last so it is released after the relay.
-	_serial: MutexGuard<'static, ()>,
-}
+const SUITE: &str = "ownership fee test";
+
+type Harness = common::Engine;
 
 async fn harness() -> Option<Harness> {
-	let serial = common::outbox_serial().await;
-	let pool = common::pool().await?;
-	let ledger = common::reachable_ledger(&pool, "ownership fee test").await?;
-	let notify = Arc::new(Notify::new());
-	Some(Harness {
-		allocations: PgAllocations::new(pool.clone()),
-		users: PgUsers::new(pool.clone()),
-		issuances: PgUnitIssuances::new(pool.clone()),
-		positions: PgFundPositions::new(pool.clone()),
-		nav: PgNav::new(pool.clone()),
-		money: InMemoryMoneyLedger::new(),
-		relay: Relay::new(pool.clone(), ledger.clone(), notify.clone()),
-		ledger,
-		notify,
-		pool,
-		_serial: serial,
-	})
+	common::engine(SUITE).await
 }
 
 fn fund_ports(h: &Harness) -> funds_app::FundPorts<'_> {
-	funds_app::FundPorts {
-		allocations: &h.allocations,
-		ledger: h.ledger.as_ref(),
-		money: &h.money,
-		nav: &h.nav,
-		relay: &h.notify,
-	}
+	h.fund_ports()
 }
 
 fn usdt(decimal: &str) -> Usdt {
@@ -131,21 +86,8 @@ async fn fund_fee_claim(h: &Harness, amount: &str) {
 /// an approved holder grant use (the operator's `issue_units` refuses a reserved
 /// allocation) — priced at the allocation's own computed NAV.
 async fn grant_fee_units(h: &Harness, holder: UserId, units: &str) {
-	issuance_app::grant_units(
-		&fund_ports(h),
-		&h.issuances,
-		&h.users,
-		issuance_app::IssueUnitsRequest {
-			service: ServiceId::fee(),
-			holder: UnitHolder::User(holder),
-			units: shares(units),
-			cost_basis: None,
-			idempotency_key: IdempotencyKey::parse(&format!("grant-{}", Uuid::new_v4())).unwrap(),
-		},
-		now_unix(),
-	)
-	.await
-	.unwrap();
+	let request = common::mint_request(&ServiceId::fee(), UnitHolder::User(holder), units, None, &format!("grant-{}", Uuid::new_v4()));
+	issuance_app::grant_units(&fund_ports(h), &h.issuances, &h.users, request, now_unix()).await.unwrap();
 	common::drain_to_quiescence(&h.relay, &h.pool).await;
 }
 

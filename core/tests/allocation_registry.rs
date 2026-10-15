@@ -16,15 +16,13 @@
 //! that drove a subscription or a redemption end to end are not here yet: they need the
 //! money sagas (PR 1b) — see the list in this crate's README.
 
-use std::sync::Arc;
-
 use invest_core::{
 	application::{allocations as allocations_app, funds as funds_app, issuance as issuance_app},
-	infrastructure::{allocations::PgAllocations, issuance::PgUnitIssuances, money::fake::InMemoryMoneyLedger, nav::PgNav, positions::PgFundPositions, relay::Relay, users::PgUsers},
+	infrastructure::allocations::PgAllocations,
 	ports::{
 		AllocationRegistry, FundPositionReader, MoneyLedger, MoneyLedgerError, UnitIssuanceRepository,
 		issuance::{IssueOutcome, UnitIssuanceRecord},
-		ledger::{Ledger, LedgerTransfer},
+		ledger::LedgerTransfer,
 		money::{AccountLabel, ScopeId},
 	},
 };
@@ -37,59 +35,23 @@ use invest_domain::{
 	users::UserId,
 };
 use sqlx::{
-	AssertSqlSafe, PgPool,
+	AssertSqlSafe,
 	postgres::{PgConnectOptions, PgPoolOptions},
 };
-use tokio::sync::{MutexGuard, Notify};
 use uuid::Uuid;
 
 mod common;
 
-struct Harness {
-	pool: PgPool,
-	allocations: PgAllocations,
-	users: PgUsers,
-	issuances: PgUnitIssuances,
-	positions: PgFundPositions,
-	nav: PgNav,
-	ledger: Arc<dyn Ledger>,
-	money: InMemoryMoneyLedger,
-	relay: Relay,
-	notify: Arc<Notify>,
-	/// Held for the test's whole life — declared last so it is released after the relay.
-	_serial: MutexGuard<'static, ()>,
-}
+const SUITE: &str = "allocation-registry test";
+
+type Harness = common::Engine;
 
 async fn harness() -> Option<Harness> {
-	let serial = common::outbox_serial().await;
-	let pool = common::pool().await?;
-	let ledger = common::reachable_ledger(&pool, "allocation-registry test").await?;
-	let notify = Arc::new(Notify::new());
-	Some(Harness {
-		allocations: PgAllocations::new(pool.clone()),
-		users: PgUsers::new(pool.clone()),
-		issuances: PgUnitIssuances::new(pool.clone()),
-		positions: PgFundPositions::new(pool.clone()),
-		nav: PgNav::new(pool.clone()),
-		money: InMemoryMoneyLedger::new(),
-		relay: Relay::new(pool.clone(), ledger.clone(), notify.clone()),
-		ledger,
-		notify,
-		pool,
-		_serial: serial,
-	})
+	common::engine(SUITE).await
 }
 
-/// The dealing ports, borrowed out of the harness for one call — the same wiring behind
-/// every fund use-case in this suite.
 fn fund_ports(h: &Harness) -> funds_app::FundPorts<'_> {
-	funds_app::FundPorts {
-		allocations: &h.allocations,
-		ledger: h.ledger.as_ref(),
-		money: &h.money,
-		nav: &h.nav,
-		relay: &h.notify,
-	}
+	h.fund_ports()
 }
 
 fn usdt(decimal: &str) -> Usdt {
@@ -143,39 +105,15 @@ async fn redeemable(h: &Harness, service: &ServiceId) -> Result<(), DomainError>
 
 /// An operator's in-kind mint through the use case, keyed by `key`.
 async fn issue(h: &Harness, service: &ServiceId, holder: UnitHolder, units: &str, cost_basis: Option<&str>, key: &str) -> Result<UnitIssuanceRecord, DomainError> {
-	issuance_app::issue_units(
-		&fund_ports(h),
-		&h.issuances,
-		&h.users,
-		issuance_app::IssueUnitsRequest {
-			service: service.clone(),
-			holder,
-			units: shares(units),
-			cost_basis: cost_basis.map(usdt),
-			idempotency_key: IdempotencyKey::parse(key).unwrap(),
-		},
-		now_unix(),
-	)
-	.await
+	let request = common::mint_request(service, holder, units, cost_basis, key);
+	issuance_app::issue_units(&fund_ports(h), &h.issuances, &h.users, request, now_unix()).await
 }
 
 /// The owners' mint into a RESERVED allocation — the door a holder-grant consilium's
 /// execution and the data migration use; the operator's `issue_units` refuses it.
 async fn grant(h: &Harness, service: &ServiceId, holder: UnitHolder, units: &str, cost_basis: Option<&str>, key: &str) -> Result<UnitIssuanceRecord, DomainError> {
-	issuance_app::grant_units(
-		&fund_ports(h),
-		&h.issuances,
-		&h.users,
-		issuance_app::IssueUnitsRequest {
-			service: service.clone(),
-			holder,
-			units: shares(units),
-			cost_basis: cost_basis.map(usdt),
-			idempotency_key: IdempotencyKey::parse(key).unwrap(),
-		},
-		now_unix(),
-	)
-	.await
+	let request = common::mint_request(service, holder, units, cost_basis, key);
+	issuance_app::grant_units(&fund_ports(h), &h.issuances, &h.users, request, now_unix()).await
 }
 
 /// The person the asset behind an in-kind product belongs to — minted the 80 % of a

@@ -340,28 +340,14 @@ pub enum AllocationBacking {
 	InKind,
 }
 
-impl AllocationBacking {
-	/// The stored/wire discriminant. Keep byte-identical with
-	/// `invest_contracts::allocation::backing` (`allocation_backing_strings_are_canonical`
-	/// guards this side).
-	pub fn as_str(self) -> &'static str {
-		match self {
-			Self::Cash => "cash",
-			Self::InKind => "in_kind",
-		}
-	}
-
-	/// Parse the stored/wire form. An unrecognized value is an error rather than a
-	/// silent default, because the default is the permissive side: a corrupt row must
-	/// never quietly let a redemption price units the fund holds no cash for.
-	pub fn parse(raw: &str) -> Result<Self, DomainError> {
-		match raw {
-			"cash" => Ok(Self::Cash),
-			"in_kind" => Ok(Self::InKind),
-			other => Err(DomainError::Validation(format!("unknown allocation backing: {other}"))),
-		}
-	}
-}
+// Byte-identical with `invest_contracts::allocation::backing`
+// (`allocation_backing_strings_are_canonical`). Strict on parse because the default is the
+// permissive side: a corrupt row must never let a redemption price units the fund holds no
+// cash for.
+wire_vocabulary!(AllocationBacking, "allocation backing", {
+	Cash => "cash",
+	InKind => "in_kind",
+});
 
 /// The stored shape of an [`Allocation`], as the persistence adapter reads it back —
 /// the input to [`Allocation::rehydrate`]. A struct rather than eight positional
