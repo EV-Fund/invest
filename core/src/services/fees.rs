@@ -211,6 +211,7 @@ impl FeesService for FeesSvc {
 		let unrestricted = holds_permission(&self.state, &request, Permission::AllocationManage).await?;
 		allocations_app::get_for(self.state.allocations.as_ref(), &service, caller, unrestricted).await.map_err(map_err)?;
 		let accrued = fee_app::accrued_fees(
+			self.state.allocations.as_ref(),
 			self.state.fees.policies.as_ref(),
 			self.state.fees.accruals.as_ref(),
 			self.state.ledger.as_ref(),

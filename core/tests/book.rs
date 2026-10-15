@@ -284,7 +284,7 @@ async fn a_crossing_limit_buy_settles_delivery_versus_payment_with_the_takers_fe
 	common::drain_to_quiescence(&h.relay, &h.pool).await;
 
 	// Delivery versus payment: 10 units to the buyer, 15 USDT to the seller, 0.15 through
-	// the product's account and the scope's fee route to the `fee` allocation — and nothing
+	// the product's account and invest's fee collector to the `fee` allocation — and nothing
 	// left in either escrow.
 	assert_eq!(units_of(&h, LedgerAccountKey::UserShares(service.clone(), buyer)).await, shares("10"));
 	assert_eq!(units_of(&h, LedgerAccountKey::UserShares(service.clone(), seller)).await, shares("90"));
@@ -1258,4 +1258,41 @@ async fn an_event_that_keeps_failing_is_parked_and_the_stream_moves_on() {
 	h.money.void_by_banking(&hold_of(&h, &healthy).id, "");
 	consumer.pass().await.unwrap();
 	assert_eq!(order(&h, &healthy).await.order.state(), OrderState::Rejected, "the event behind it was applied");
+}
+
+/// D24(3): a taker fee earned in another scope (`sa`) is swept into that scope's fee
+/// collector and ends in banking's treasury — never on invest's `fee` allocation, whose
+/// holders are paid invest's own fees only. The parties settle exactly as in invest's scope.
+#[tokio::test]
+async fn a_taker_fee_outside_invest_ends_in_the_treasury_not_on_the_fee_allocation() {
+	let Some(h) = harness().await else { return };
+	let sa = ScopeId::parse("sa").unwrap();
+	let service = unique_service();
+	allocations_app::register(&h.allocations, service.clone(), &sa, "Service Arb", "Arbitrage", AllocationIcon::Arbitrage)
+		.await
+		.unwrap();
+	allocations_app::open(&h.allocations, h.money.as_ref(), &service).await.unwrap();
+	h.allocations.set_access(&service, AllocationAccess::Invest).await.unwrap();
+	open_book(&h, &service, 100).await;
+	let (seller, buyer) = (provisioned_user(&h).await, provisioned_user(&h).await);
+	issue_units(&h, &service, seller, "10").await;
+	h.money.fund(&sa, &common::auth_subject(buyer), usdt("100"));
+	let revenue_before = fee_cash(&h);
+
+	sell_escrowed(&h, seller, &service, "1.5", "10").await;
+	let bid = buy(&h, buyer, &service, "1.5", "10").await;
+	assert_eq!((bid.order.state(), bid.order.fee_paid()), (OrderState::Filled, usdt("0.15")));
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+
+	assert_eq!(units_of(&h, LedgerAccountKey::UserShares(service.clone(), buyer)).await, shares("10"));
+	assert_eq!(h.money.compartment(&sa, &common::auth_subject(seller)), usdt("15"), "the seller was paid in sa");
+	assert_eq!(h.money.collected(&sa), usdt("0.15"), "the fee went through sa's collector");
+	assert_eq!(h.money.treasury(), usdt("0.15"), "and ended in banking's treasury");
+	assert_eq!(fee_cash(&h), revenue_before, "none of it on the fee allocation");
+	assert_eq!(h.money.collected(&ScopeId::invest()), Usdt::ZERO);
+	assert_eq!(
+		h.money.account(&sa, &AccountLabel::allocation(&service).unwrap()),
+		Usdt::ZERO,
+		"the product's account only passed it on"
+	);
 }

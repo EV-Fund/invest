@@ -6,8 +6,9 @@
 //! original answer, other terms → ALREADY_EXISTS), a hold that cannot be over-captured,
 //! a compartment that cannot go below zero, NOT_FOUND for an account invest does not own —
 //! and none of banking's policy (mandates, ceilings, grants). Banking's side of a fee sweep
-//! is played too: what lands on a scope's `fee` collector moves on to `(invest, alloc:fee)`
-//! at once, from every scope (plan §3.9).
+//! is played too, as ledger.proto promises it (D24(3)) — banking does not yet run it:
+//! what lands on `(invest, fee)` moves on to `(invest, alloc:fee)` at once, and what lands on
+//! any other scope's `fee` collector moves on to `(main, treasury)`, never to invest.
 //!
 //! A test steers it with [`InMemoryMoneyLedger::unimplemented`] (an RPC banking does not
 //! serve), [`InMemoryMoneyLedger::refuse`] (a refusal banking would give) and
@@ -48,6 +49,8 @@ struct State {
 	accounts: HashMap<(ScopeId, AccountLabel), Usdt>,
 	/// What each scope's `fee` collector received from sweeps (before banking forwarded it).
 	collected: HashMap<ScopeId, Usdt>,
+	/// `(main, treasury)`: banking's own, where every other scope's collected fees end.
+	treasury: Usdt,
 	compartments: HashMap<(ScopeId, String), Usdt>,
 	holds: HashMap<HoldId, Hold>,
 	/// (rpc, scope, key) → (the terms first asked, the answer given).
@@ -134,6 +137,12 @@ impl InMemoryMoneyLedger {
 	/// A user's compartment balance in `scope`.
 	pub fn compartment(&self, scope: &ScopeId, auth_subject: &str) -> Usdt {
 		self.lock().compartments.get(&(scope.clone(), auth_subject.to_owned())).copied().unwrap_or_default()
+	}
+
+	/// What banking's treasury `(main, treasury)` has received from non-invest scopes' fee
+	/// collectors.
+	pub fn treasury(&self) -> Usdt {
+		self.lock().treasury
 	}
 
 	/// What `scope`'s `fee` collector has received, all of it since forwarded.
@@ -531,11 +540,16 @@ impl MoneyLedger for InMemoryMoneyLedger {
 		state.debit_account(&request.scope, &request.from, request.amount)?;
 		let collected = state.collected.entry(request.scope.clone()).or_default();
 		*collected = collected.checked_add(request.amount).ok_or_else(|| MoneyLedgerError::Invalid("collector overflows".into()))?;
-		// banking's whitelisted route: every scope's fee collector forwards to invest's `fee`
-		// allocation, which banking opens for invest if it has to.
-		let fee_label = AccountLabel::allocation(&ServiceId::fee()).map_err(|err| MoneyLedgerError::Invalid(err.to_string()))?;
-		let forwarded = state.accounts.entry((ScopeId::invest(), fee_label)).or_default();
-		*forwarded = forwarded.checked_add(request.amount).ok_or_else(|| MoneyLedgerError::Invalid("alloc:fee overflows".into()))?;
+		// banking's route out of a collector (ledger.proto, D24(3)): invest's own goes to the
+		// `fee` allocation, which banking opens for invest if it has to; any other scope's goes
+		// to banking's treasury, never into invest.
+		if request.scope.is_invest() {
+			let fee_label = AccountLabel::allocation(&ServiceId::fee()).map_err(|err| MoneyLedgerError::Invalid(err.to_string()))?;
+			let forwarded = state.accounts.entry((ScopeId::invest(), fee_label)).or_default();
+			*forwarded = forwarded.checked_add(request.amount).ok_or_else(|| MoneyLedgerError::Invalid("alloc:fee overflows".into()))?;
+		} else {
+			state.treasury = state.treasury.checked_add(request.amount).ok_or_else(|| MoneyLedgerError::Invalid("treasury overflows".into()))?;
+		}
 		let transfer = Transfer {
 			id: state.mint_id("transfer"),
 			amount: request.amount,
@@ -737,10 +751,10 @@ mod tests {
 		assert!(matches!(ledger.reserve(&reserve).await, Err(MoneyLedgerError::Unimplemented { rpc: "Reserve" })));
 	}
 
-	// plan §3.9: a fee swept in any scope — `sa` as much as `invest` — ends on invest's own
-	// `fee` allocation, never in banking's treasury.
+	// D24(3): invest's own fee ends on the `fee` allocation; a fee swept in any other scope —
+	// `sa` — ends in banking's treasury and never reaches invest.
 	#[tokio::test]
-	async fn a_fee_swept_in_any_scope_lands_on_invest_s_fee_allocation() {
+	async fn a_fee_swept_outside_invest_ends_in_the_treasury_not_on_the_fee_allocation() {
 		let ledger = InMemoryMoneyLedger::new();
 		let sa = ScopeId::parse("sa").unwrap();
 		let fee = AccountLabel::allocation(&ServiceId::fee()).unwrap();
@@ -756,7 +770,18 @@ mod tests {
 		ledger.sweep_fees(&sweep).await.unwrap();
 		assert_eq!(ledger.account(&sa, &alloc()), usdt("6"), "the retry moved nothing");
 		assert_eq!(ledger.collected(&sa), usdt("4"));
-		assert_eq!(ledger.account(&ScopeId::invest(), &fee), usdt("4"));
+		assert_eq!(ledger.treasury(), usdt("4"));
+		assert_eq!(ledger.account(&ScopeId::invest(), &fee), Usdt::ZERO, "none of it reaches the fee allocation");
+
+		ledger.credit(&ScopeId::invest(), &alloc(), usdt("10"));
+		let own = FeeSweepRequest {
+			scope: ScopeId::invest(),
+			key: key("s2"),
+			..sweep
+		};
+		ledger.sweep_fees(&own).await.unwrap();
+		assert_eq!(ledger.account(&ScopeId::invest(), &fee), usdt("4"), "invest's own fee does");
+		assert_eq!(ledger.treasury(), usdt("4"), "and the treasury is unchanged");
 	}
 
 	// What banking does on its own reaches invest only as events: a hold's whole life, and a

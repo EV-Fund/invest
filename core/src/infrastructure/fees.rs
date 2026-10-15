@@ -179,11 +179,12 @@ impl PositionAccruals for PgPositionAccruals {
 
 	async fn due(&self, accrued_before_unix: i64, limit: i64) -> Result<Vec<PositionAccrual>, DomainError> {
 		let rows = sqlx::query(
-			"SELECT user_id, service, cost_basis, high_water_mark, fee_debt, \
-			 EXTRACT(EPOCH FROM fees_accrued_at)::bigint AS accrued_at_unix, \
-			 EXTRACT(EPOCH FROM crystallized_at)::bigint AS crystallized_at_unix \
-			 FROM fund_positions WHERE units <> '0' AND fees_accrued_at < to_timestamp($1) \
-			 ORDER BY fees_accrued_at LIMIT $2",
+			"SELECT p.user_id, p.service, p.cost_basis, p.high_water_mark, p.fee_debt, \
+			 EXTRACT(EPOCH FROM p.fees_accrued_at)::bigint AS accrued_at_unix, \
+			 EXTRACT(EPOCH FROM p.crystallized_at)::bigint AS crystallized_at_unix \
+			 FROM fund_positions p JOIN allocations a ON a.service = p.service \
+			 WHERE a.scope = 'invest' AND p.units <> '0' AND p.fees_accrued_at < to_timestamp($1) \
+			 ORDER BY p.fees_accrued_at LIMIT $2",
 		)
 		.bind(accrued_before_unix)
 		.bind(limit)

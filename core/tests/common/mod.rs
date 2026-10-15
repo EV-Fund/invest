@@ -551,6 +551,7 @@ pub async fn settle_fee_class(e: &Engine, service: &ServiceId, units: Option<Sha
 /// without draining the relay.
 pub async fn assess_period(e: &Engine, user: UserId, service: &ServiceId, now: i64) -> Result<Option<FeeAssessment>, DomainError> {
 	fee_app::assess_position(
+		&e.allocations,
 		&e.policies,
 		&e.accruals,
 		&e.assessments,

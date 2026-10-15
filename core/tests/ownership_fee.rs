@@ -13,10 +13,10 @@
 //! Every test here reads the one `fee` supply of this binary's database, so the suite runs
 //! serially under the shared outbox guard, and each test brackets its own effect.
 //!
-//! The fee chain itself runs here too: a product's fee class is swept, at settlement, out
-//! of `(<scope>, alloc:<product>)` into the scope's fee collector, which banking forwards
-//! to `(invest, alloc:fee)` from every scope (plan §3.9) — the in-memory ledger plays that
-//! route.
+//! The fee chain itself runs here too: an invest product's fee class is swept, at
+//! settlement, out of `(invest, alloc:<product>)` into `(invest, fee)`, which banking
+//! forwards to `(invest, alloc:fee)` — the in-memory ledger plays that route. A product in
+//! another scope (`sa`) charges the `fee` holders nothing: its fees are banking's (D24(3)).
 //!
 //! Moved from banking 9ffafce3 (`piggybank/core/tests/ownership_fee.rs`). The
 //! withdrawal-fee test stays in banking: a withdrawal and its retained fee are banking's
@@ -116,14 +116,17 @@ fn product_cash(h: &Harness, scope: &ScopeId, service: &ServiceId) -> Usdt {
 	h.money.account(scope, &AccountLabel::allocation(service).unwrap())
 }
 
-/// A registered, open product in `scope` with the house 2-and-20 terms, admitting every
-/// investor.
+/// A registered, open product in `scope` admitting every investor, with the house 2-and-20
+/// terms when it is in invest's scope — a product elsewhere takes no fee terms.
 async fn open_fund(h: &Harness, scope: &ScopeId, service: &ServiceId) {
 	allocations_app::register(&h.allocations, service.clone(), scope, "EV Trading", "Systematic crypto", AllocationIcon::default())
 		.await
 		.unwrap();
 	allocations_app::open(&h.allocations, h.money.as_ref(), service).await.unwrap();
 	allocations_app::set_access(&h.allocations, service, AllocationAccess::Invest).await.unwrap();
+	if !scope.is_invest() {
+		return;
+	}
 	let request = fee_app::PolicyChangeRequest {
 		service: service.clone(),
 		policy: FeePolicy::HOUSE,
@@ -366,29 +369,75 @@ async fn settled_fee_cash_lands_in_the_fee_allocation_and_its_holders_nav_rises(
 	assert_eq!(h.settlements.list_by_service(&service).await.unwrap().len(), 1);
 }
 
-/// plan §3.9: a product in another scope pays its fees the same way — swept into that
-/// scope's collector, forwarded by banking into invest's own `fee` allocation. Nothing of
-/// an invest product's fee goes to banking's treasury.
+/// D24(3): only invest's own fees reach the `fee` allocation. A product in another scope
+/// (`sa`) is never assessed — no fee units move to the fee class its `fee` holders own, even
+/// where a fee policy came in with the data — its terms are refused, and a settlement
+/// burns nothing: the holders would lose units against cash that goes to banking's treasury.
 #[tokio::test]
-async fn a_fee_settled_in_another_scope_lands_on_the_fee_allocation_too() {
+async fn a_product_in_another_scope_charges_the_fee_holders_nothing() {
 	let Some(h) = harness().await else { return };
 	let sa = ScopeId::parse("sa").unwrap();
 	let service = unique_service();
 	open_fund(&h, &sa, &service).await;
-	let investor = invest(&h, &sa, &service, "1000").await;
-	let fee_class = charge_a_year(&h, investor, &service).await;
-	let cash_before = fee_cash(&h);
 
-	let settlement = settle_fee_shares(&h, &service, UserId::new()).await.unwrap();
-	assert_eq!(settlement.units(), fee_class);
+	let request = fee_app::PolicyChangeRequest {
+		service: service.clone(),
+		policy: FeePolicy::HOUSE,
+		requested_effective_from_unix: 0,
+		reason: String::new(),
+	};
+	let err = fee_app::schedule_policy(&fee_ports(&h), UserId::new(), request, now_unix()).await.unwrap_err();
+	assert!(matches!(err, DomainError::Precondition(ref reason) if reason.contains("outside invest's scope")), "{err:?}");
+
+	// Terms that came in with the data are never charged.
+	sqlx::query(
+		"INSERT INTO fee_policies (service, management_bps, performance_bps, hurdle_bps, basis, crystallization, updated_by) \
+		 VALUES ($1, 200, 2000, 0, 'invested_capital', 'annual', 'data wave')",
+	)
+	.bind(service.as_str())
+	.execute(&h.pool)
+	.await
+	.unwrap();
+	let investor = invest(&h, &sa, &service, "1000").await;
+	sqlx::query("UPDATE fund_positions SET fees_accrued_at = now() - make_interval(secs => $3), crystallized_at = now() - make_interval(secs => $3) WHERE user_id = $1 AND service = $2")
+		.bind(investor.raw())
+		.bind(service.as_str())
+		.bind(YEAR as f64)
+		.execute(&h.pool)
+		.await
+		.unwrap();
+	let charged = common::assess_period(&h, investor, &service, now_unix()).await.unwrap();
+	assert!(charged.is_none(), "a year on 1000 owes the fee holders nothing: {charged:?}");
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	assert_eq!(units_of(&h, LedgerAccountKey::FeeShares(service.clone())).await, Shares::ZERO, "no fee class");
 	assert_eq!(
-		product_cash(&h, &sa, &service),
-		usdt("1000").checked_sub(settlement.cash()).unwrap(),
-		"out of the sa product's account"
+		units_of(&h, LedgerAccountKey::UserShares(service.clone(), investor)).await,
+		shares("1000"),
+		"the investor keeps every unit"
 	);
-	assert_eq!(h.money.collected(&sa), settlement.cash(), "through sa's fee collector");
-	assert_eq!(h.money.collected(&ScopeId::invest()), Usdt::ZERO, "not invest's collector");
-	assert_eq!(fee_cash(&h), cash_before.checked_add(settlement.cash()).unwrap(), "onto (invest, alloc:fee)");
+	let disclosed = fee_app::accrued_fees(
+		&h.allocations,
+		&h.policies,
+		&h.accruals,
+		h.ledger.as_ref(),
+		h.money.as_ref(),
+		&h.nav,
+		investor,
+		&service,
+		now_unix(),
+	)
+	.await
+	.unwrap();
+	assert!(disclosed.is_none(), "and is shown no fee to net off");
+	let due = h.accruals.due(now_unix() + 1, 500).await.unwrap();
+	assert!(due.iter().all(|accrual| accrual.service != service), "the sweeper's queue never lists it");
+
+	// Nothing to settle, and a settlement is refused outright rather than burning anything.
+	let err = settle_fee_shares(&h, &service, UserId::new()).await.unwrap_err();
+	assert!(matches!(err, DomainError::Precondition(ref reason) if reason.contains("banking's treasury")), "{err:?}");
+	assert_eq!(h.money.collected(&sa), Usdt::ZERO);
+	assert_eq!(h.money.treasury(), Usdt::ZERO);
+	assert_eq!(fee_cash(&h), Usdt::ZERO, "nothing reached the fee allocation");
 }
 
 /// banking refusing the sweep leaves the fee class whole: the burn comes after the sweep,

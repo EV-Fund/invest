@@ -182,8 +182,10 @@ pub trait PositionAccruals: Send + Sync {
 	/// One holding's accrual state, or `None` if the investor has no position.
 	async fn find(&self, user: UserId, service: &ServiceId) -> Result<Option<PositionAccrual>, DomainError>;
 
-	/// Unit-holding positions whose management fee has not been accrued since
-	/// `accrued_before_unix`, oldest first, capped at `limit`. The sweeper's work queue:
+	/// Unit-holding positions in invest's own scope whose management fee has not been accrued
+	/// since `accrued_before_unix`, oldest first, capped at `limit`. Other scopes' positions
+	/// owe no fee to the `fee` allocation and are left out here, so they can never crowd
+	/// the work queue. The sweeper's work queue:
 	/// bounded per cycle so one pass can never monopolise the pool, and ordered so the
 	/// longest-unaccrued holding is always served first.
 	async fn due(&self, accrued_before_unix: i64, limit: i64) -> Result<Vec<PositionAccrual>, DomainError>;

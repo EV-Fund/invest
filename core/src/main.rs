@@ -201,7 +201,9 @@ async fn run(config: config::AppConfig, scope_ledger: Option<ScopeLedgerConfig>,
 		settlements: Arc::new(PgFeeSettlements::new(pool.clone(), ledger.clone())),
 	};
 	let nav = Arc::new(PgNav::new(pool.clone()));
+	let allocations = Arc::new(PgAllocations::new(pool.clone()));
 	let fee_sweeper = FeeSweeper::new(
+		allocations.clone(),
 		fees.policies.clone(),
 		fees.changes.clone(),
 		fees.accruals.clone(),
@@ -216,7 +218,7 @@ async fn run(config: config::AppConfig, scope_ledger: Option<ScopeLedgerConfig>,
 		ledger: ledger.clone(),
 		money,
 		users: Arc::new(PgUsers::new(pool.clone())),
-		allocations: Arc::new(PgAllocations::new(pool.clone())),
+		allocations,
 		issuances: Arc::new(PgUnitIssuances::new(pool.clone())),
 		subscriptions: Arc::new(PgSubscriptions::new(pool.clone())),
 		redemptions: Arc::new(PgRedemptions::new(pool.clone(), ledger.clone())),

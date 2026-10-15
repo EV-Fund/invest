@@ -32,6 +32,9 @@ banking's on purpose.
   through the `MoneyLedger` port (`core/src/ports/money.rs`) only. An allocation's cash
   lives on `(<scope>, alloc:<slug>)` in banking; the reserved `fee`/`fund` cash on
   `(invest, alloc:fee|fund)`.
+- **Fees reach the `fee` holders from invest's own scope only (D24(3)).** A product whose
+  scope is not `invest` (`sa`) is never charged in units, takes no fee terms and has no fee
+  class to settle; its taker fee is swept to `(<scope>, fee)` and is banking's treasury's.
 - **The numbers are banking's.** Ledger id 3, account codes 60–65, transfer codes,
   logical keys (`shares:<svc>:<user>` …), relay salts (`issue:mint` …) and the reserved
   allocation ids are kept as banking had them so the data wave moves over with its history
