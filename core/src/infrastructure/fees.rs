@@ -23,12 +23,14 @@
 //! (management accrues continuously), `crystallized_at` only when the performance fee
 //! actually crystallized — so a mid-period charge cannot silently restart the period.
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use invest_domain::{
 	architecture::Repository,
-	balance::ServiceId,
+	balance::{LedgerAccountKey, ServiceId},
 	error::DomainError,
-	fees::{CrystallizationPeriod, FeeAssessment, FeePolicy, FeeSettlement, ManagementBasis, Trigger},
+	fees::{CrystallizationPeriod, FeeAssessment, FeePolicy, FeeSettlement, FeeSettlementId, ManagementBasis, Trigger},
 	money::{Nav, Shares, Usdt},
 	users::UserId,
 };
@@ -37,7 +39,10 @@ use uuid::Uuid;
 
 use crate::{
 	infrastructure::outbox,
-	ports::fees::{AssessmentRecord, FeeAssessments, FeePolicies, FeeSettlements, PolicyRecord, PositionAccrual, PositionAccruals, SettlementRecord},
+	ports::{
+		fees::{AssessmentRecord, FeeAssessments, FeePolicies, FeeSettlements, PolicyRecord, PositionAccrual, PositionAccruals, SettlementRecord},
+		ledger::Ledger,
+	},
 };
 
 /// Cap on a returned history page. The fee statement grows by one row per position per
@@ -373,12 +378,46 @@ impl FeeAssessments for PgFeeAssessments {
 
 pub struct PgFeeSettlements {
 	pool: PgPool,
+	/// Read under the product's settlement lock: the fee units a settlement is judged against.
+	ledger: Arc<dyn Ledger>,
 }
 
 impl PgFeeSettlements {
-	pub fn new(pool: PgPool) -> Self {
-		Self { pool }
+	pub fn new(pool: PgPool, ledger: Arc<dyn Ledger>) -> Self {
+		Self { pool, ledger }
 	}
+}
+
+async fn find_settlement(conn: &mut PgConnection, id: FeeSettlementId) -> Result<Option<FeeSettlement>, DomainError> {
+	let row = sqlx::query("SELECT service, units, nav, cash FROM fee_settlements WHERE id = $1")
+		.bind(id.raw())
+		.fetch_optional(&mut *conn)
+		.await
+		.map_err(repo_err)?;
+	row.map(|row| {
+		Ok(FeeSettlement::rehydrate(
+			id,
+			ServiceId::parse(row.try_get::<String, _>("service").map_err(repo_err)?.as_str())?,
+			Shares::from_base_units(parse_units(&row.try_get::<String, _>("units").map_err(repo_err)?, "settlement units")?),
+			Nav::from_base_units(parse_units(&row.try_get::<String, _>("nav").map_err(repo_err)?, "settlement nav")?),
+			Usdt::from_base_units(parse_units(&row.try_get::<String, _>("cash").map_err(repo_err)?, "settlement cash")?),
+		))
+	})
+	.transpose()
+}
+
+/// Fee units of `service` that undrained settlements already claim — the ledger still shows
+/// them free until the relay reserves their burn.
+async fn settling_in_flight(conn: &mut PgConnection, service: &ServiceId) -> Result<u128, DomainError> {
+	let total: String = sqlx::query_scalar(
+		"SELECT COALESCE(SUM((payload->>'units')::numeric), 0)::text FROM outbox \
+		 WHERE dispatched_at IS NULL AND parked_at IS NULL AND kind = 'fees' AND payload->>'type' = 'shares_settled' AND payload->>'service' = $1",
+	)
+	.bind(service.as_str())
+	.fetch_one(&mut *conn)
+	.await
+	.map_err(repo_err)?;
+	parse_units(&total, "fee units settling")
 }
 
 impl Repository for PgFeeSettlements {
@@ -387,8 +426,25 @@ impl Repository for PgFeeSettlements {
 
 #[async_trait]
 impl FeeSettlements for PgFeeSettlements {
-	async fn settle(&self, settlement: &mut FeeSettlement, settled_by: &str) -> Result<(), DomainError> {
+	async fn settle(&self, settlement: &mut FeeSettlement, settled_by: &str) -> Result<FeeSettlement, DomainError> {
 		let mut tx = self.pool.begin().await.map_err(repo_err)?;
+		// One settlement of a product at a time: the next one is judged once this one's
+		// claim on the fee units is visible — as its outbox row, or in the ledger once relayed.
+		sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('fee_settle:' || $1, 0))")
+			.bind(settlement.service().as_str())
+			.execute(&mut *tx)
+			.await
+			.map_err(repo_err)?;
+		if let Some(existing) = find_settlement(&mut tx, settlement.id()).await? {
+			return Ok(existing);
+		}
+		let held = self.ledger.balance(&LedgerAccountKey::FeeShares(settlement.service().clone())).await?.available();
+		let settling = settling_in_flight(&mut tx, settlement.service()).await?;
+		if held.saturating_sub(settling) < settlement.units().base_units() {
+			return Err(DomainError::Validation(
+				"these fee units are already being settled — wait for that settlement, or settle fewer units".into(),
+			));
+		}
 		sqlx::query("INSERT INTO fee_settlements (id, service, units, nav, cash, settled_by) VALUES ($1, $2, $3, $4, $5, $6)")
 			.bind(settlement.id().raw())
 			.bind(settlement.service().as_str())
@@ -401,7 +457,12 @@ impl FeeSettlements for PgFeeSettlements {
 			.map_err(repo_err)?;
 		outbox::drain_to_outbox(&mut tx, settlement, true).await?;
 		tx.commit().await.map_err(repo_err)?;
-		Ok(())
+		Ok(settlement.clone())
+	}
+
+	async fn find(&self, id: FeeSettlementId) -> Result<Option<FeeSettlement>, DomainError> {
+		let mut conn = self.pool.acquire().await.map_err(repo_err)?;
+		find_settlement(&mut conn, id).await
 	}
 
 	async fn list_by_service(&self, service: &ServiceId) -> Result<Vec<SettlementRecord>, DomainError> {

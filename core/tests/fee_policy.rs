@@ -519,6 +519,7 @@ async fn settling_fee_units_is_the_only_moment_a_fee_becomes_cash() {
 		&h.notify,
 		service.clone(),
 		None,
+		&invest_domain::issuance::IdempotencyKey::parse(&format!("settle-{}", uuid::Uuid::new_v4())).unwrap(),
 		UserId::new(),
 		now_unix(),
 	)
@@ -720,6 +721,7 @@ async fn a_settlement_the_fund_cannot_cover_is_refused_not_queued() {
 		&h.notify,
 		service.clone(),
 		None,
+		&invest_domain::issuance::IdempotencyKey::parse(&format!("settle-{}", uuid::Uuid::new_v4())).unwrap(),
 		UserId::new(),
 		now_unix(),
 	)
@@ -775,6 +777,7 @@ async fn a_queued_redemption_is_reserved_before_the_manager_is_paid() {
 		&h.notify,
 		service.clone(),
 		None,
+		&invest_domain::issuance::IdempotencyKey::parse(&format!("settle-{}", uuid::Uuid::new_v4())).unwrap(),
 		UserId::new(),
 		now_unix(),
 	)
@@ -805,6 +808,7 @@ async fn a_queued_redemption_is_reserved_before_the_manager_is_paid() {
 		&h.notify,
 		service.clone(),
 		None,
+		&invest_domain::issuance::IdempotencyKey::parse(&format!("settle-{}", uuid::Uuid::new_v4())).unwrap(),
 		UserId::new(),
 		now_unix(),
 	)

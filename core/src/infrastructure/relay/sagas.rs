@@ -18,8 +18,8 @@
 //!   buyer's hold into the seller's compartment (the notional, less a selling taker's
 //!   fee), post the units; then the taker's fee: captured into the product's account and
 //!   swept on into the scope's fee route. A refused cash capture voids the units leg.
-//! - **Fee settlement** — sweep the fee class's value out of the product's account into
-//!   `(<scope>, fee)`, then burn the fee units.
+//! - **Fee settlement** — reserve the burn of the fee units, sweep their value out of the
+//!   product's account into `(<scope>, fee)`, post the burn; a refused sweep voids it.
 //!
 //! Every step is idempotent on redelivery: a TigerBeetle leg by its deterministic id
 //! (derived from the aggregate id and a FROZEN salt — banking's where banking had the
@@ -66,8 +66,11 @@ const BURN_VOID_REFUSED: &[u8] = b"redeem:burn:void:refused";
 /// The redemption's cost-basis reduction marker.
 const REDEEM_POSITION: &[u8] = b"redeem:position";
 
-/// The fee class burnt by a settlement (banking's).
+/// The fee class burnt by a settlement — banking's salt, now the pending burn's — and the
+/// burn's post or void.
 const FEE_SETTLE_BURN: &[u8] = b"fee:settle:burn";
+const FEE_SETTLE_BURN_POST: &[u8] = b"fee:settle:burn:post";
+const FEE_SETTLE_BURN_VOID: &[u8] = b"fee:settle:burn:void";
 
 /// The book: an order's lock and release (banking's, derived from the ORDER id), a
 /// fill's pending units leg (banking's salt, then a posted leg of a linked chain) and its
@@ -611,20 +614,34 @@ impl Relay {
 					key: step!(money_key("fee_settlement", id, "sweep")),
 					subject_ref: step!(subject_ref("fee_settlement", id)),
 				};
-				// Pay first: the sweep is the leg banking may refuse, and a refused one must
-				// leave the fee class unburned.
-				if let Err(err) = self.money.sweep_fees(&sweep).await {
-					return money_failure("fee settlement sweep", err, 0);
-				}
-				let burn = LedgerTransfer {
-					id: tid(id, FEE_SETTLE_BURN),
-					debit: LedgerAccountKey::SharesOutstanding(service.clone()),
-					credit: LedgerAccountKey::FeeShares(service),
-					amount: units.base_units(),
-					code: TransferCode::FeeSettle,
-					reference,
+				// The burn is reserved before the sweep, so cash leaves only for fee units that
+				// are there and now held for this settlement; the sweep — the leg banking may
+				// refuse — comes while the burn can still be voided.
+				let burn = TwoPhase {
+					pending: LedgerTransfer {
+						id: tid(id, FEE_SETTLE_BURN),
+						debit: LedgerAccountKey::SharesOutstanding(service.clone()),
+						credit: LedgerAccountKey::FeeShares(service),
+						amount: units.base_units(),
+						code: TransferCode::FeeSettle,
+						reference,
+					},
 				};
-				step!(self.post_leg(row, 0, "fee_burn", &burn, 1).await);
+				step!(self.reserve_leg(row, 0, "fee_burn_pending", &burn.pending, 0).await);
+				if let Err(err) = self.money.sweep_fees(&sweep).await {
+					let Some(reason) = refusal_reason(&err) else {
+						return money_failure("fee settlement sweep", err, 1);
+					};
+					step!(
+						self.complete_leg(row, 1, "fee_burn_void", &burn.completion(tid(id, FEE_SETTLE_BURN_VOID), CompletionKind::Void), 1)
+							.await
+					);
+					return Outcome::park(format!("fee settlement sweep refused: {reason} — the fee units were released, nothing moved"));
+				}
+				step!(
+					self.complete_leg(row, 1, "fee_burn_post", &burn.completion(tid(id, FEE_SETTLE_BURN_POST), CompletionKind::Post), 1)
+						.await
+				);
 				Outcome::Done
 			}
 		}

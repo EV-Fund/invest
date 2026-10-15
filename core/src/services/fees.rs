@@ -25,6 +25,7 @@ use invest_domain::{
 	authz::Permission,
 	balance::ServiceId,
 	fees::{CrystallizationPeriod, FeePolicy, FeePolicyChangeId, ManagementBasis},
+	issuance::IdempotencyKey,
 	money::Shares,
 };
 use tonic::{Request, Response, Status};
@@ -262,6 +263,7 @@ impl FeesService for FeesSvc {
 			"" => None,
 			raw => Some(Shares::parse_decimal(raw).map_err(map_err)?),
 		};
+		let idempotency_key = IdempotencyKey::parse(&req.idempotency_key).map_err(map_err)?;
 		let settlement = fee_app::settle_fee_shares(
 			self.state.fees.settlements.as_ref(),
 			self.state.allocations.as_ref(),
@@ -272,6 +274,7 @@ impl FeesService for FeesSvc {
 			&self.state.relay_notify,
 			service,
 			units,
+			&idempotency_key,
 			settler,
 			unix_now(),
 		)

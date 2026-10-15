@@ -440,7 +440,7 @@ pub async fn engine(suite: &str) -> Option<Engine> {
 		changes: PgFeePolicyChanges::new(pool.clone()),
 		accruals: PgPositionAccruals::new(pool.clone()),
 		assessments: PgFeeAssessments::new(pool.clone()),
-		settlements: PgFeeSettlements::new(pool.clone()),
+		settlements: PgFeeSettlements::new(pool.clone(), ledger.clone()),
 		relay: Relay::new(pool.clone(), ledger.clone(), money.clone(), notify.clone()),
 		money,
 		ledger,

@@ -23,10 +23,12 @@ use invest_domain::{
 	balance::{LedgerAccountKey, ServiceId},
 	error::DomainError,
 	fees::{self, ChangeRequirement, FeeAssessment, FeeAssessmentId, FeeCharge, FeePolicy, FeePolicyChangeId, FeeSettlement, FeeSettlementId, PositionSnapshot, Trigger},
+	issuance::IdempotencyKey,
 	money::{Nav, Shares, Usdt},
 	users::UserId,
 };
 use tokio::sync::Notify;
+use uuid::Uuid;
 
 use crate::{
 	application::{
@@ -447,9 +449,23 @@ pub async fn settle_fee_shares(
 	relay: &Notify,
 	service: ServiceId,
 	units: Option<Shares>,
+	idempotency_key: &IdempotencyKey,
 	settler: UserId,
 	now_unix: i64,
 ) -> Result<FeeSettlement, DomainError> {
+	// The key names the settlement: a retried request asks for the one it already made,
+	// and gets it back without a second sweep.
+	let id = settlement_id(&service, idempotency_key);
+	if let Some(existing) = settlements.find(id).await? {
+		if units.is_some_and(|asked| asked != existing.units()) {
+			return Err(DomainError::Conflict(format!(
+				"idempotency key '{}' already settled {} fee units of '{service}'",
+				idempotency_key.as_str(),
+				existing.units()
+			)));
+		}
+		return Ok(existing);
+	}
 	let held = Shares::from_base_units(ledger.balance(&LedgerAccountKey::FeeShares(service.clone())).await?.available());
 	let units = units.unwrap_or(held);
 	if units.is_zero() {
@@ -460,7 +476,7 @@ pub async fn settle_fee_shares(
 	}
 	refuse_recent_poster(nav, ledger, &service, settler, now_unix).await?;
 	let price = dealing_nav(nav, ledger, money, &service, now_unix).await?;
-	let mut settlement = FeeSettlement::record(FeeSettlementId::new(), service.clone(), units, price)?;
+	let mut settlement = FeeSettlement::record(id, service.clone(), units, price)?;
 	let scope = allocations.scope(&service).await?;
 	let fund = account_cash(money, &scope, &service).await?;
 	let reserved = queued_redemption_cash(redemptions, &service, price).await?;
@@ -478,9 +494,17 @@ pub async fn settle_fee_shares(
 			)
 		}));
 	}
-	settlements.settle(&mut settlement, &settler.to_string()).await?;
+	let stored = settlements.settle(&mut settlement, &settler.to_string()).await?;
 	relay.notify_one();
-	Ok(settlement)
+	Ok(stored)
+}
+
+/// The settlement an idempotency key names in a product: a name-based UUID, so the same
+/// key always names the same settlement and two products never share one.
+fn settlement_id(service: &ServiceId, key: &IdempotencyKey) -> FeeSettlementId {
+	// Fixed forever: changing it would let a retry across the change settle twice.
+	const NAMESPACE: Uuid = Uuid::from_u128(0x6665_655f_7365_7474_6c65_6d65_6e74_0001);
+	FeeSettlementId::from_raw(Uuid::new_v5(&NAMESPACE, format!("{service}:{}", key.as_str()).as_bytes()))
 }
 
 /// What the queued redemptions for one fund would cost at `price`.

@@ -128,7 +128,7 @@ async fn run(config: config::AppConfig) -> color_eyre::Result<()> {
 		changes: Arc::new(PgFeePolicyChanges::new(pool.clone())),
 		accruals: Arc::new(PgPositionAccruals::new(pool.clone())),
 		assessments: Arc::new(PgFeeAssessments::new(pool.clone())),
-		settlements: Arc::new(PgFeeSettlements::new(pool.clone())),
+		settlements: Arc::new(PgFeeSettlements::new(pool.clone(), ledger.clone())),
 	};
 	let nav = Arc::new(PgNav::new(pool.clone()));
 	let fee_sweeper = FeeSweeper::new(

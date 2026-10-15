@@ -282,6 +282,9 @@ message FeeShares {
 message SettleFeeSharesRequest {
   string service = 1;
   string units = 2;  // decimal units; empty settles the whole accumulated balance
+  // Required, 1..128 chars. Names the settlement: a retry with the same key returns the
+  // settlement the first call made and moves no cash again.
+  string idempotency_key = 3;
 }
 
 message FeeSettlement {

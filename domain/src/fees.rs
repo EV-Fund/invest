@@ -802,6 +802,18 @@ impl FeeSettlement {
 		Ok(settlement)
 	}
 
+	/// A settlement as the store recorded it — no events, they were drained when it was.
+	pub fn rehydrate(id: FeeSettlementId, service: ServiceId, units: Shares, nav: Nav, cash: Usdt) -> Self {
+		Self {
+			id,
+			service,
+			units,
+			nav,
+			cash,
+			pending: Vec::new(),
+		}
+	}
+
 	pub fn id(&self) -> FeeSettlementId {
 		self.id
 	}
