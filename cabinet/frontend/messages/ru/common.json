@@ -191,6 +191,10 @@
     "en": "Icon",
     "t": "Иконка"
   },
+  "admin.alloc.field.scope": {
+    "en": "Scope",
+    "t": "Скоуп"
+  },
   "admin.alloc.field.summary": {
     "en": "Summary",
     "t": "Описание"
@@ -230,14 +234,6 @@
   "admin.alloc.grants.field.user": {
     "en": "Investor",
     "t": "Инвестор"
-  },
-  "admin.alloc.grants.noUserMatch": {
-    "en": "No investors match",
-    "t": "Совпадений не найдено"
-  },
-  "admin.alloc.grants.pickUser": {
-    "en": "Search investors…",
-    "t": "Поиск инвесторов…"
   },
   "admin.alloc.grants.raise": {
     "en": "Raise access",
@@ -491,6 +487,10 @@
     "en": "Retire",
     "t": "Списать"
   },
+  "admin.alloc.scopeHint": {
+    "en": "Whose compartments hold the cash; empty for invest. Fixed once registered.",
+    "t": "Чьи отсеки держат деньги; пусто — invest. После регистрации не меняется."
+  },
   "admin.alloc.slugHint": {
     "en": "Permanent — every fund RPC keys on it",
     "t": "Неизменяем — по нему работают все RPC фонда"
@@ -502,6 +502,10 @@
   "admin.alloc.subtitle": {
     "en": "The registry of investable products — a fund exists only once it is registered here",
     "t": "Каталог инвестиционных продуктов — фонд существует только после регистрации здесь"
+  },
+  "admin.alloc.userIdPlaceholder": {
+    "en": "Concierge user id",
+    "t": "ID пользователя в Concierge"
   },
   "admin.col.actions": {
     "en": "Actions",
@@ -522,30 +526,6 @@
   "admin.col.when": {
     "en": "When",
     "t": "Когда"
-  },
-  "admin.consilium.open": {
-    "en": "Open the consilium",
-    "t": "Открыть консилиум"
-  },
-  "admin.consilium.openedId": {
-    "en": "Consilium {id}",
-    "t": "Консилиум {id}"
-  },
-  "admin.consilium.openedTitle": {
-    "en": "Opened — nothing has moved",
-    "t": "Открыто — ничего не сдвинулось"
-  },
-  "admin.env.dev": {
-    "en": "DEV",
-    "t": "DEV"
-  },
-  "admin.env.prod": {
-    "en": "PROD",
-    "t": "PROD"
-  },
-  "admin.env.staging": {
-    "en": "STAGING",
-    "t": "STAGING"
   },
   "admin.eyebrow.administer": {
     "en": "Administer",
@@ -1067,70 +1047,6 @@
     "en": "TRC20 · TRON",
     "t": "TRC20 · TRON"
   },
-  "admin.refusal.coolingBody": {
-    "en": "The list of owners changed within the last 48 hours. Payouts resume at {at}. The pause is deliberate: it keeps a change of ownership and a payout as two separate, visible events rather than one motion.",
-    "t": "Список владельцев менялся в последние 48 часов. Выплаты возобновятся {at}. Пауза сделана намеренно: она разделяет смену состава владельцев и выплату на два отдельных заметных события вместо одного слитного действия."
-  },
-  "admin.refusal.coolingBodyNoTime": {
-    "en": "The list of owners changed within the last 48 hours, and payouts stay paused until that period lifts. The pause is deliberate: it keeps a change of ownership and a payout as two separate, visible events rather than one motion.",
-    "t": "Список владельцев менялся в последние 48 часов, и выплаты остаются приостановленными, пока этот срок не истечёт. Пауза сделана намеренно: она разделяет смену состава владельцев и выплату на два отдельных заметных события вместо одного слитного действия."
-  },
-  "admin.refusal.coolingTitle": {
-    "en": "Payouts are paused while the roster settles",
-    "t": "Выплаты приостановлены, пока состав владельцев не устоится"
-  },
-  "admin.refusal.feePolicy.coolingBody": {
-    "en": "The list of owners changed within the last 48 hours. The owners can be asked again at {at}. The pause is deliberate: it keeps a change of ownership and a change of terms as two separate, visible events rather than one motion.",
-    "t": "Состав владельцев менялся в последние 48 часов. Снова спросить владельцев можно с {at}. Пауза сделана намеренно: смена владельца и изменение условий остаются двумя отдельными, заметными событиями, а не одним движением."
-  },
-  "admin.refusal.feePolicy.coolingBodyNoTime": {
-    "en": "The list of owners changed within the last 48 hours, and changes of terms stay paused until that period lifts. The pause is deliberate: it keeps a change of ownership and a change of terms as two separate, visible events rather than one motion.",
-    "t": "Состав владельцев менялся в последние 48 часов, и изменения условий приостановлены, пока этот срок не истечёт. Пауза сделана намеренно: смена владельца и изменение условий остаются двумя отдельными, заметными событиями, а не одним движением."
-  },
-  "admin.refusal.feePolicy.coolingTitle": {
-    "en": "Changes of terms are paused while the roster settles",
-    "t": "Изменения условий приостановлены, пока состав владельцев не устоится"
-  },
-  "admin.refusal.feePolicy.floorBody": {
-    "en": "Tightening the terms beyond the house envelope needs more than half of the owners to agree, and with {n, plural, one {# owner} other {# owners}} that bar can never be met. Adding owners restores it; a change within the envelope needs no vote.",
-    "t": "Для ужесточения условий сверх домашнего конверта нужно согласие больше половины владельцев, а при {n, plural, one {# владельце} few {# владельцах} many {# владельцах} other {# владельцах}} этот порог недостижим. Добавление владельцев вернёт эту возможность; изменение в пределах конверта голосования не требует."
-  },
-  "admin.refusal.feePolicy.floorBodyNoCount": {
-    "en": "Tightening the terms beyond the house envelope needs more than half of the owners to agree, and this fund has too few owners for that bar to be met. Adding owners restores it; a change within the envelope needs no vote.",
-    "t": "Для ужесточения условий сверх домашнего конверта нужно согласие больше половины владельцев, а владельцев в этом фонде слишком мало, чтобы его достичь. Добавление владельцев вернёт эту возможность; изменение в пределах конверта голосования не требует."
-  },
-  "admin.refusal.feePolicy.floorTitle": {
-    "en": "This fund cannot put a change of terms to its owners",
-    "t": "Этот фонд не может вынести изменение условий на владельцев"
-  },
-  "admin.refusal.feePolicy.mailBody": {
-    "en": "Owners receive their approval link by email, and no mailer is wired — so a proposal opened now could never be voted on and would simply expire. This has to be configured before the owners can be asked about a change of terms.",
-    "t": "Владельцы получают ссылку для одобрения по электронной почте, а рассылка не подключена — открытое сейчас предложение никто не смог бы одобрить, и оно просто истекло бы. Это нужно настроить, прежде чем спрашивать владельцев об изменении условий."
-  },
-  "admin.refusal.floorBody": {
-    "en": "A payout needs more than half of the owners to agree, and with {n, plural, one {# owner} other {# owners}} that bar can never be met. Adding owners restores it.",
-    "t": "Для выплаты нужно согласие больше половины владельцев, а при {n, plural, one {# владельце} few {# владельцах} many {# владельцах} other {# владельцах}} этот порог недостижим. Добавление владельцев вернёт эту возможность."
-  },
-  "admin.refusal.floorBodyNoCount": {
-    "en": "A payout needs more than half of the owners to agree, and this fund has too few owners for that bar to be met. Adding owners restores it.",
-    "t": "Для выплаты нужно согласие больше половины владельцев, а владельцев в этом фонде слишком мало, чтобы его достичь. Добавление владельцев вернёт эту возможность."
-  },
-  "admin.refusal.floorTitle": {
-    "en": "This fund cannot authorise a payout",
-    "t": "Этот фонд не может авторизовать выплату"
-  },
-  "admin.refusal.mailBody": {
-    "en": "Owners receive their approval link by email, and no mailer is wired — so a proposal opened now could never be voted on and would simply expire. This has to be configured before the fund can pay itself out.",
-    "t": "Владельцы получают ссылку для подтверждения по электронной почте, а отправка не настроена — поэтому за поданное сейчас предложение никто не смог бы проголосовать, и оно просто истекло бы. Это нужно настроить, прежде чем фонд сможет выплачивать свои средства."
-  },
-  "admin.refusal.mailTitle": {
-    "en": "Governance mail is not configured",
-    "t": "Служебная почта не настроена"
-  },
-  "admin.revenue.bankingTreasuryNote": {
-    "en": "Withdrawal fees land here, not in the fee allocation: banking's own cash, held by no one through units. Nothing is paid out of it until scope approvals cover treasury spending.",
-    "t": "Комиссии за вывод поступают сюда, а не в аллокацию комиссий: это собственные деньги banking, ни у кого нет на них паёв. Выплат отсюда нет, пока траты казны не перейдут на согласования scope."
-  },
   "admin.revenue.cashAvailable": {
     "en": "Cash · available",
     "t": "Деньги · доступно"
@@ -1151,18 +1067,6 @@
     "en": "The fee allocation",
     "t": "Аллокация комиссий"
   },
-  "admin.revenue.grant.intro": {
-    "en": "Seat a person on the fee allocation. The owners are asked; the units are minted only when more than half of them agree.",
-    "t": "Назначить человека держателем аллокации комиссий. Решают владельцы: юниты выпускаются, только когда согласится больше половины."
-  },
-  "admin.revenue.grant.opened": {
-    "en": "The owners have each been emailed a link. No units are minted until more than half of them confirm from their own mailboxes; the cap table above follows once the relay posts the grant.",
-    "t": "Каждому владельцу отправлена ссылка. Юниты не выпускаются, пока больше половины не подтвердит из своей почты; таблица держателей выше обновится, когда реле проведёт выпуск."
-  },
-  "admin.revenue.grant.submit": {
-    "en": "Propose holder grant",
-    "t": "Предложить назначение держателя"
-  },
   "admin.revenue.navPosted": {
     "en": "marked {ago}",
     "t": "оценено {ago}"
@@ -1175,6 +1079,10 @@
     "en": "What the platform earned — the fee allocation: its cash, its units and who holds them",
     "t": "Что заработала платформа — аллокация комиссий: её деньги, её юниты и кто их держит"
   },
+  "admin.revenue.toApprovals": {
+    "en": "Seating a person on the fee allocation is the owners' decision. Propose it there; the units appear here once their vote carries.",
+    "t": "Включить человека в комиссионную аллокацию решают владельцы. Предложите это там; паи появятся здесь, когда голосование пройдёт."
+  },
   "admin.revenue.toPayments": {
     "en": "Moving the platform's earnings — into a product, or to an investor — is a payment order the owners authorise. Open one there. Cash reaches the chain only through a holder's redemption and their own withdrawal.",
     "t": "Перемещение заработанного платформой — в продукт или инвестору — это платёжное поручение, которое одобряют владельцы. Открывайте его там. В сеть деньги уходят только через погашение держателем и его собственный вывод."
@@ -1182,10 +1090,6 @@
   "admin.revenue.toTreasury": {
     "en": "The fee allocation beside the platform's other balances: custody per rail, user claims, every allocation and its holders.",
     "t": "Аллокация комиссий рядом с остальными балансами платформы: кастодия по сетям, требования пользователей, каждая аллокация и её держатели."
-  },
-  "admin.revenue.treasuryPostedHint": {
-    "en": "retained withdrawal fees, reserved included",
-    "t": "удержанные комиссии за вывод, включая зарезервированное"
   },
   "admin.revenue.unitsHint": {
     "en": "units of the fee allocation, held by people",
@@ -1291,17 +1195,9 @@
     "en": "not yet marked",
     "t": "ещё не оценено"
   },
-  "admin.treasury.bankingTreasury": {
-    "en": "Banking treasury",
-    "t": "Казна banking"
-  },
   "admin.users.kycLevelShort": {
     "en": "L{n}",
     "t": "ур. {n}"
-  },
-  "admin.users.searchPlaceholder": {
-    "en": "Search email or user id…",
-    "t": "Поиск по email или user id…"
   },
   "admin.valuation.allocationLabel": {
     "en": "{title} ({service})",
@@ -1351,6 +1247,10 @@
     "en": "Fund (service)",
     "t": "Фонд (сервис)"
   },
+  "admin.valuation.guardHint": {
+    "en": "A move past the NAV guard is refused; the owners cannot be asked to lift it from here yet.",
+    "t": "Сдвиг сверх ограничителя NAV отклоняется; попросить владельцев снять его отсюда пока нельзя."
+  },
   "admin.valuation.issuedOfCap": {
     "en": "{issued} / {cap} units",
     "t": "{issued} / {cap} паёв"
@@ -1375,10 +1275,6 @@
     "en": "No units outstanding — NAV is {formula}, so it is undefined until someone subscribes. The fund prices at the seed NAV 1.0 until the first subscription; there is nothing to mark yet.",
     "t": "Паёв в обращении нет — NAV равен {formula}, поэтому он не определён, пока никто не подписался. До первой подписки фонд оценивается по начальному NAV 1.0; оценивать пока нечего."
   },
-  "admin.valuation.openConsilium": {
-    "en": "Open the consilium",
-    "t": "Открыть консилиум"
-  },
   "admin.valuation.pickAFund": {
     "en": "Pick a fund above to see and resize its authorised unit supply.",
     "t": "Выберите фонд выше, чтобы посмотреть и изменить разрешённый выпуск паёв."
@@ -1394,22 +1290,6 @@
   "admin.valuation.postedTitle": {
     "en": "Marked",
     "t": "Оценка записана"
-  },
-  "admin.valuation.propose": {
-    "en": "Propose to the owners",
-    "t": "Предложить владельцам"
-  },
-  "admin.valuation.proposeHint": {
-    "en": "A move past the guard is put to the owners' vote instead of being posted.",
-    "t": "Сдвиг за пределами защиты выносится на голосование владельцев вместо публикации."
-  },
-  "admin.valuation.proposedBody": {
-    "en": "Nothing is marked yet. Every owner has been emailed a link; once more than half of them agree, {service} is marked at {aum} USDT. The live tally is in the consilium.",
-    "t": "Оценка пока не записана. Каждому владельцу отправлена ссылка; когда согласится больше половины, {service} будет оценён в {aum} USDT. Текущий подсчёт — в консилиуме."
-  },
-  "admin.valuation.proposedTitle": {
-    "en": "Proposed to the owners",
-    "t": "Предложено владельцам"
   },
   "admin.valuation.queueEmpty": {
     "en": "The redemption queue is empty",
@@ -1470,10 +1350,6 @@
   "auth.continue": {
     "en": "Continue to sign in",
     "t": "Перейти ко входу"
-  },
-  "auth.email.verify": {
-    "en": "Verify",
-    "t": "Подтвердить"
   },
   "auth.wall.action": {
     "en": "Sign in",
@@ -1711,14 +1587,6 @@
     "en": "Amount (USDT)",
     "t": "Сумма (USDT)"
   },
-  "invest.availableToInvest": {
-    "en": "Available to invest",
-    "t": "Доступно для инвестирования"
-  },
-  "invest.availableUsdt": {
-    "en": "Available: {amount} USDT",
-    "t": "Доступно: {amount} USDT"
-  },
   "invest.awaitingSettlement": {
     "en": "Awaiting settlement",
     "t": "Ожидает исполнения"
@@ -1887,10 +1755,6 @@
     "en": "{pct} p.a. first",
     "t": "сначала {pct} годовых"
   },
-  "invest.insufficientHint": {
-    "en": "That is more than your available balance.",
-    "t": "Это больше вашего доступного баланса."
-  },
   "invest.investAmount": {
     "en": "Invest {amount} USDT",
     "t": "Инвестировать {amount} USDT"
@@ -2023,6 +1887,14 @@
     "en": "Units are priced at the current NAV; the unit count is fixed at purchase and does not grow.",
     "t": "Паи покупаются по текущему NAV; их количество фиксируется при покупке и не растёт."
   },
+  "invest.subscribePending": {
+    "en": "Subscription pending",
+    "t": "Подписка в обработке"
+  },
+  "invest.subscribePendingBody": {
+    "en": "Your cash is on hold. {n, plural, one {{units} unit} other {{units} units}} at {nav} USDT NAV are minted once it is captured — your position updates then.",
+    "t": "Ваши деньги заблокированы. {n, plural, one {{units} пай} few {{units} пая} many {{units} паёв} other {{units} пая}} по NAV {nav} USDT будут выпущены после их списания — тогда позиция и обновится."
+  },
   "invest.subscribeReceiptBody": {
     "en": "Minted {n, plural, one {{units} unit} other {{units} units}} at {nav} USDT NAV — your position updates shortly.",
     "t": "{n, plural, one {Выпущен {units} пай} few {Выпущено {units} пая} many {Выпущено {units} паёв} other {Выпущено {units} пая}} по NAV {nav} USDT — позиция обновится в ближайшее время."
@@ -2031,13 +1903,9 @@
     "en": "Subscription received",
     "t": "Подписка принята"
   },
-  "invest.subscribeVerifyBody": {
-    "en": "Subscriptions open once your identity is verified. Your balance is untouched in the meantime.",
-    "t": "Подписка откроется после подтверждения личности. Ваш баланс при этом не затрагивается."
-  },
-  "invest.subscribeVerifyTitle": {
-    "en": "Verify your identity to invest",
-    "t": "Подтвердите личность, чтобы инвестировать"
+  "invest.subscribeRefused": {
+    "en": "The cash for this subscription was not taken, and nothing moved.",
+    "t": "Деньги для этой подписки не списаны, ничего не изменилось."
   },
   "invest.supplyNote": {
     "en": "Subscriptions mint units at the current NAV. Once the cap is reached the fund stops accepting new money; redemptions are unaffected.",
@@ -2095,70 +1963,6 @@
     "en": "Your units",
     "t": "Ваши паи"
   },
-  "kyc.chip.attention": {
-    "en": "Needs attention",
-    "t": "Нужно действие"
-  },
-  "kyc.chip.notStarted": {
-    "en": "Not verified",
-    "t": "Не проверен"
-  },
-  "kyc.chip.review": {
-    "en": "In review",
-    "t": "На проверке"
-  },
-  "kyc.chip.reviewEta": {
-    "en": "Most checks are decided within the hour.",
-    "t": "Большинство проверок решается в течение часа."
-  },
-  "kyc.chip.verified": {
-    "en": "Verified",
-    "t": "Проверен"
-  },
-  "kyc.custodyNote": {
-    "en": "Deposits are held in Turnkey custody under your identity verified by Didit; nothing moves without it.",
-    "t": "Депозиты хранятся в кастодиальном кошельке Turnkey под вашей личностью, проверенной через Didit; без неё ничего не перемещается."
-  },
-  "kyc.dialog.action": {
-    "en": "Start verification",
-    "t": "Начать проверку"
-  },
-  "kyc.dialog.afterBody": {
-    "en": "We'll email you the result. You can close the tab — the check keeps running without it.",
-    "t": "Результат пришлём на почту. Вкладку можно закрыть — проверка продолжится без неё."
-  },
-  "kyc.dialog.afterTitle": {
-    "en": "What happens next",
-    "t": "Что дальше"
-  },
-  "kyc.dialog.intro": {
-    "en": "A short identity check by our verification provider. Your deposit address and withdrawals open once it is done.",
-    "t": "Короткая проверка личности у нашего провайдера. После неё откроются адрес для пополнения и вывод средств."
-  },
-  "kyc.dialog.needBody": {
-    "en": "A government-issued ID, and a phone or webcam for a selfie.",
-    "t": "Документ, удостоверяющий личность, и телефон или веб-камера для селфи."
-  },
-  "kyc.dialog.needTitle": {
-    "en": "What you'll need",
-    "t": "Что понадобится"
-  },
-  "kyc.dialog.timeBody": {
-    "en": "A few minutes to submit. Most checks are decided within the hour.",
-    "t": "Несколько минут на отправку. Большинство проверок решаются в течение часа."
-  },
-  "kyc.dialog.timeTitle": {
-    "en": "How long it takes",
-    "t": "Сколько это займёт"
-  },
-  "kyc.dialog.title": {
-    "en": "Verify your identity",
-    "t": "Подтверждение личности"
-  },
-  "kyc.verifyNow": {
-    "en": "Verify now",
-    "t": "Подтвердить"
-  },
   "meta.description": {
     "en": "Your investor cabinet — portfolio, funds and wallet.",
     "t": "Ваш инвесторский кабинет — портфель, фонды и кошелёк."
@@ -2186,6 +1990,10 @@
   "nav.allocations": {
     "en": "Allocations",
     "t": "Продукты"
+  },
+  "nav.approvals": {
+    "en": "Approvals",
+    "t": "Одобрения"
   },
   "nav.fees": {
     "en": "Fees",
@@ -2231,61 +2039,9 @@
     "en": "Wallet",
     "t": "Кошелёк"
   },
-  "profile.kyc.casePill": {
-    "en": "In review",
-    "t": "На проверке"
-  },
-  "profile.kyc.caseResumeSub": {
-    "en": "You've already started — pick up where you left off",
-    "t": "Вы уже начали — продолжите с того же места"
-  },
-  "profile.kyc.caseReviewSub": {
-    "en": "Your documents are with our reviewers — we'll email you the decision",
-    "t": "Документы у проверяющих — решение пришлём на почту"
-  },
-  "profile.kyc.caseTitle": {
-    "en": "Verification in progress",
-    "t": "Проверка идёт"
-  },
   "profile.kyc.contact": {
     "en": "Contact {contact}",
     "t": "Написать на {contact}"
-  },
-  "profile.kyc.continue": {
-    "en": "Continue",
-    "t": "Продолжить"
-  },
-  "profile.kyc.emailUnverified": {
-    "en": "Verify your email first — Settings → Security.",
-    "t": "Сначала подтвердите почту — Настройки → Безопасность."
-  },
-  "profile.kyc.start": {
-    "en": "Start",
-    "t": "Начать"
-  },
-  "profile.kyc.startSub": {
-    "en": "A photo of your ID and a selfie — a few minutes",
-    "t": "Фото документа и селфи — несколько минут"
-  },
-  "profile.kyc.startTitle": {
-    "en": "Verify your identity",
-    "t": "Подтвердите личность"
-  },
-  "profile.kyc.tooManyAttempts": {
-    "en": "You've already started verification several times today. Please try again tomorrow.",
-    "t": "Сегодня вы уже начинали верификацию несколько раз. Попробуйте завтра."
-  },
-  "profile.kyc.unavailable": {
-    "en": "Automatic verification is temporarily out of service — write to us and we'll raise your level by hand.",
-    "t": "Автоматическая проверка временно не работает — напишите нам, и мы поднимем уровень вручную."
-  },
-  "profile.kyc.verifyEmailSub": {
-    "en": "Identity checks open once your address is confirmed",
-    "t": "Проверка личности откроется, когда адрес будет подтверждён"
-  },
-  "profile.kyc.verifyEmailTitle": {
-    "en": "Verify your email first",
-    "t": "Сначала подтвердите почту"
   },
   "status.backHome": {
     "en": "Back to home",
@@ -2370,18 +2126,6 @@
   "status.unauthorized.subtext": {
     "en": "You need to be signed in to view this page. Sign in and we'll bring you right back.",
     "t": "Чтобы открыть эту страницу, нужно войти. Войдите — и мы вернём вас сюда же."
-  },
-  "sys.a11y.dismiss": {
-    "en": "Dismiss announcement",
-    "t": "Закрыть объявление"
-  },
-  "sys.maintenance": {
-    "en": "Scheduled maintenance — some actions may be briefly unavailable.",
-    "t": "Плановое обслуживание — некоторые действия могут быть ненадолго недоступны."
-  },
-  "sys.readOnly": {
-    "en": "Withdrawals and investments are temporarily paused (read-only mode). Balances are unaffected.",
-    "t": "Выводы и инвестиции временно приостановлены (режим только для чтения). Балансы не затронуты."
   },
   "tips.a11y.about": {
     "en": "About: {title}",
@@ -2618,14 +2362,6 @@
   "tips.admin.valuation.post.nav-guard.title": {
     "en": "NAV-move guard",
     "t": "Защита от скачка NAV"
-  },
-  "tips.admin.valuation.post.propose.body": {
-    "en": "Opens a consilium instead of posting. The owners answer from their mailboxes; if more than half agree, the fund is marked at this AUM regardless of the NAV-move guard. Nothing changes until then.",
-    "t": "Открывает консилиум вместо публикации. Владельцы отвечают из своей почты; если согласится больше половины, фонд будет оценён в этот AUM независимо от защиты от скачка NAV. До тех пор ничего не меняется."
-  },
-  "tips.admin.valuation.post.propose.title": {
-    "en": "Propose to the owners",
-    "t": "Предложить владельцам"
   },
   "tips.admin.valuation.queue.est-cash.body": {
     "en": "A preview only — approximately units × current NAV. The actual payout settles at the settle-time NAV, not this figure.",
@@ -3158,10 +2894,6 @@
   "trade.form.fee": {
     "en": "Taker fee",
     "t": "Комиссия тейкера"
-  },
-  "trade.form.inOrders": {
-    "en": "In orders",
-    "t": "В заявках"
   },
   "trade.form.kind": {
     "en": "Order type",

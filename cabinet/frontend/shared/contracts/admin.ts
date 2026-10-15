@@ -1,8 +1,7 @@
-// Admin-console response types — the shapes the BFF's `/api/admin/*` handlers emit
-// (see `cabinet/backend/src/dto.rs`). These are hand-written to match the BFF DTOs
-// rather than re-exported from `./gen`, because the admin DTOs diverge from the raw
-// proto (64-bit ints rendered as strings, the derived `isAdmin` flag, and the combined
-// cabinet-config response). Import these from `@/shared/contracts/admin`.
+// Admin-console response types — the shapes the BFF's `/api/admin/*` handlers emit, and
+// the session principal. Hand-written against the BFF's DTOs (`cabinet/backend/src/dto.rs`,
+// `routes/auth.rs::SessionInfo`): snake_case, 64-bit values as strings — except the session,
+// which is camelCase. Import these from `@/shared/contracts/admin`.
 
 export interface SessionUser {
   userId: string;
@@ -12,22 +11,13 @@ export interface SessionUser {
   /** A handle beside the email; absent when the account has none. */
   username?: string;
   status: string;
-  role: string;
+  /** Derived by the BFF from the seat's `invest:*` permissions: `admin` with
+   *  `invest:allocation:manage`, `operator` with only `invest:valuation:post`, else
+   *  `investor`. A label, not a gate — gates read `permissions`. */
+  role: "admin" | "operator" | "investor" | (string & {});
+  /** `invest:allocation:manage` or `invest:valuation:post`: the console is shown. */
   isAdmin: boolean;
-  /**
-   * `role` above came from the `OWNER_SUBJECTS` emergency allowlist, not from the
-   * persisted `users.role`.
-   *
-   * camelCase, unlike its snake_case twin on {@link AdminUserSummary} below, and the
-   * difference is not a typo. This shape is NOT one of the BFF's: `/api/auth/session` is
-   * the site-root auth surface, and ingress sends `/api/auth/*` straight to concierge,
-   * whose `SessionUser` carries `#[serde(rename_all = "camelCase")]`. The admin DTOs come
-   * from the cabinet's own BFF (`cabinet/backend/src/dto.rs`), which renames nothing.
-   *
-   * True only while the fund has no persisted owner — the window closes on the first
-   * genesis seeding and cannot reopen. Render it as a warning, never as ownership: it is
-   * real authority over the console and it seats nobody.
-   */
+  /** Always `false` from the invest BFF: break-glass is banking's and concierge's. */
   roleIsBreakGlass: boolean;
 }
 
@@ -42,131 +32,6 @@ export interface SessionInfo {
   permissions: string[];
 }
 
-// ── users ─────────────────────────────────────────────────────────────────────
-export interface AdminUserSummary {
-  user_id: string;
-  email: string;
-  status: string;
-  kyc_level: number;
-  role: string;
-  /** @see SessionUser.roleIsBreakGlass — same flag, the BFF's snake_case spelling. */
-  role_is_break_glass: boolean;
-  token_version: string;
-  created_at: string;
-  /**
-   * WHY the account is disabled — and therefore which control the console may offer.
-   * THREE cases, not two:
-   *
-   *   · `"admin_hold"`  — one operator's brake. Lapses by itself at {@link hold_expires_at},
-   *                       and `/api/admin/users/reinstate` lifts it in one act.
-   *   · `"governance"`  — the owners' ratified verdict. Never lapses; reinstatement is a
-   *                       proposal, and the one-act route refuses it.
-   *   · `""`            — empty on an ACTIVE user, and also on one suspended before this
-   *                       field existed. Those keep the old one-act, never-lapsing
-   *                       semantics they were actually suspended under, so an empty string
-   *                       is not a synonym for "active": read it together with `status`.
-   *
-   * Which is why this is a string and not a boolean. A two-way branch files the third case
-   * under whichever of the other two it happened to be compared against, and the account it
-   * mis-files is the one nobody can act on correctly.
-   */
-  suspended_by: string;
-  /** Unix seconds an `admin_hold` lapses; `"0"` when nothing lapses. Format through
-   *  `shared/lib/datetime`, which is where this wire shape (seconds-as-string, `"0"` for
-   *  absent) is already understood. */
-  hold_expires_at: string;
-}
-
-export interface AdminUserList {
-  users: AdminUserSummary[];
-  total: string;
-}
-
-export interface AdminUserProfile {
-  user_id: string;
-  email: string;
-  email_verified: boolean;
-  status: string;
-  token_version: string;
-  legal_name: string;
-  preferred_name: string;
-  phone: string;
-  date_of_birth: string;
-  nationality: string;
-  tax_residence: string;
-  residential_address: string;
-  language: string;
-  base_currency: string;
-  timezone: string;
-  kyc_level: number;
-  role: string;
-  /** @see SessionUser.roleIsBreakGlass — same flag, the BFF's snake_case spelling. */
-  role_is_break_glass: boolean;
-  /**
-   * WHY the account is disabled — and therefore which control the console may offer.
-   * THREE cases, not two:
-   *
-   *   · `"admin_hold"`  — one operator's brake. Lapses by itself at {@link hold_expires_at},
-   *                       and `/api/admin/users/reinstate` lifts it in one act.
-   *   · `"governance"`  — the owners' ratified verdict. Never lapses; reinstatement is a
-   *                       proposal, and the one-act route refuses it.
-   *   · `""`            — empty on an ACTIVE user, and also on one suspended before this
-   *                       field existed. Those keep the old one-act, never-lapsing
-   *                       semantics they were actually suspended under, so an empty string
-   *                       is not a synonym for "active": read it together with `status`.
-   *
-   * Which is why this is a string and not a boolean. A two-way branch files the third case
-   * under whichever of the other two it happened to be compared against, and the account it
-   * mis-files is the one nobody can act on correctly.
-   */
-  suspended_by: string;
-  /** Unix seconds an `admin_hold` lapses; `"0"` when nothing lapses. Format through
-   *  `shared/lib/datetime`, which is where this wire shape (seconds-as-string, `"0"` for
-   *  absent) is already understood. */
-  hold_expires_at: string;
-}
-
-/** A user's whole cash: `amount = main + in_compartments` — the `main` claim plus every
- *  scope compartment, which is still the user's money. */
-export interface UserBalance {
-  amount: string;
-  pending: string;
-  authoritative: boolean;
-  as_of: string;
-  main: string;
-  in_compartments: string;
-}
-
-// ── outbox ────────────────────────────────────────────────────────────────────
-export interface ParkedEvent {
-  seq: string;
-  event_id: string;
-  aggregate: string;
-  aggregate_id: string;
-  kind: string;
-  reason: string;
-  parked_at: string;
-  compensated: boolean;
-}
-
-export interface ParkedEventList {
-  events: ParkedEvent[];
-}
-
-// ── treasury ──────────────────────────────────────────────────────────────────
-export interface RailLiquidity {
-  network: string;
-  custody: string;
-  treasury_address: string;
-  onchain_usdt: string;
-  onchain_gas: string;
-  /** The rail's sweep gas-station wallet — fund native coin here (never USDT). Empty when unwired. */
-  gas_station_address: string;
-  gas_station_gas: string;
-  /** Whether the rail's addresses are testnet-tagged — TON's friendly form differs per realm. */
-  is_testnet: boolean;
-}
-
 /** An allocation's cash claim off one ledger balance: `posted` is settled, `reserved` is
  *  spoken for by approved payments out of it, `available` is the difference. */
 export interface AllocationClaim {
@@ -175,14 +40,11 @@ export interface AllocationClaim {
   reserved: string;
 }
 
-/** One allocation as the treasury shows it (#245): name, cash, supply, price and who holds
- *  it — the same shape for a product and for the reserved `fee` / `fund` allocations
- *  (`access: "hidden"`), which is also what the Revenue screen reads for `fee`.
- *
- *  Hand-written rather than the generated `BankingV1AllocationTreasury`: the BFF reshapes
- *  the proto's `nav_posted_at_unix` into the string `nav_posted_at` every other stamp here
- *  uses, and fills a missing `claim` with zeros, so this is the shape that actually
- *  arrives. `nav_posted_at` is `"0"` while nothing under it has been marked. */
+/** The Revenue screen's answer (`GET /api/admin/revenue`, #245): the reserved `fee`
+ *  allocation's name, cash, supply, price and who holds it. The BFF assembles it from
+ *  invest-core's allocation, NAV and cap table; `claim.reserved` is always `"0"` (invest
+ *  holds no approvals over it) and `nav_posted_at` is `"0"` while nothing under it has been
+ *  marked. banking's own treasury (D17) is never set here — it is banking's figure. */
 export interface AllocationTreasury {
   service: string;
   title: string;
@@ -192,48 +54,6 @@ export interface AllocationTreasury {
   nav: string;
   nav_posted_at: string;
   holders: UnitHolding[];
-  /** banking's own treasury (D17), where the retained withdrawal fees land. Set on the
-   *  Revenue answer only, beside `fee`; a treasury line never carries it — the treasury
-   *  answer has it once, as `Treasury.banking_treasury`. */
-  banking_treasury?: AllocationClaim;
-}
-
-/** The two-layer treasury picture: per-rail custody, and who the claims on it belong to —
- *  people directly (`held_by_users`, and `held_in_compartments` for their scope
- *  compartments), through the units of an allocation (`allocations`, the hidden `fee` and
- *  `fund` included), or banking itself (`banking_treasury`, D17). No remainder is derived:
- *  each figure is read off its own accounts, and Σ = `total_custody` is checked hub-side. */
-export interface Treasury {
-  rails: RailLiquidity[];
-  bank: string;
-  total_custody: string;
-  reserved_for_withdrawals: string;
-  held_by_users: string;
-  allocations: AllocationTreasury[];
-  /** Zeros, not absent, from a hub older than D17 — the BFF fills them. */
-  banking_treasury: AllocationClaim;
-  held_in_compartments: string;
-}
-
-/** The seed-capital body, exactly as the BFF reads it (`POST /api/admin/treasury/
- *  seed-capital`). A seed is a proposal, not a booking: the chain transfer `tx_ref` on
- *  `network` is put to the owners as `expected_amount` USDT of `depositor_user_id`'s
- *  (the caller when omitted), and carries as their deposit plus a `fund` subscription. */
-export interface SeedCapitalBody {
-  tx_ref: string;
-  network: string;
-  /** Decimal USDT — the figure the owners approve; the chain must report exactly it. */
-  expected_amount: string;
-  /** The id the console carries; omitted = the caller. */
-  depositor_user_id?: string;
-}
-
-/** What a seed proposal answers: `recorded` is always false (the booking is the
- *  consilium's execution), `consilium_id` is where the proposal now lives. */
-export interface SeedCapitalProposal {
-  recorded: boolean;
-  amount: string;
-  consilium_id: string;
 }
 
 // ── allocations (the registry of investable products) ───────────────────────────
@@ -621,65 +441,4 @@ export interface Redemption {
   nav: string;
   cash: string;
   state: string;
-}
-
-// ── withdrawals (operator queue) ─────────────────────────────────────────────────
-export interface WithdrawalQueueItem {
-  withdrawal_id: string;
-  /** Which account funds it. A `treasury` row is an approved payment out of banking's own
-   *  treasury (D17), so it carries empty `user_id`/`email` — label it rather than rendering
-   *  a blank investor. */
-  source: "user" | "treasury";
-  user_id: string;
-  email: string;
-  network: string;
-  address: string;
-  amount: string;
-  net_amount: string;
-  state: string;
-  created_at: string;
-}
-
-export interface WithdrawalQueue {
-  items: WithdrawalQueueItem[];
-}
-
-// ── revenue (the reserved `fee` allocation) ─────────────────────────────────────
-//
-// `GET /api/admin/revenue` answers an `AllocationTreasury` — the `fee` allocation in the
-// treasury's own shape (#245): its cash claim, supply, price and the people who hold it,
-// plus `banking_treasury` beside it — the withdrawal fees go there since D17, not to `fee`.
-// Nothing pays it out from that surface any more: a holder redeems, or the owners approve
-// a payment out of `service:fee` on the Payments screen.
-
-// ── cabinet (platform config + money-plane read-only) ───────────────────────────
-export interface FeatureFlag {
-  key: string;
-  description: string;
-  enabled: boolean;
-  rollout: number;
-}
-
-export interface PlatformConfig {
-  maintenance_mode: boolean;
-  announcement_title: string;
-  announcement_body: string;
-  announcement_active: boolean;
-  flags: FeatureFlag[];
-}
-
-export interface OperationsMode {
-  read_only: boolean;
-}
-
-export interface Rail {
-  network: string;
-  configured: boolean;
-  frozen: boolean;
-  gas_coin: string;
-}
-
-export interface CabinetConfig {
-  platform: PlatformConfig;
-  read_only: boolean;
 }

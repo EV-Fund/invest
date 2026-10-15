@@ -10,7 +10,6 @@
     "start": "next start",
     "lint": "eslint .",
     "check": "tsc --noEmit",
-    "gen:api": "openapi-ts",
     "i18n:extract": "evinvest-i18n-extract --root . --exclude public,messages",
     "i18n:slices": "evinvest-i18n-slices --root . --exclude public,messages --config i18n-slices.config.json --out i18n-slices.json",
     "i18n:check": "evinvest-i18n-check --root . --exclude public,messages && evinvest-i18n-slices --root . --exclude public,messages --config i18n-slices.config.json --out i18n-slices.json --check && tsx scripts/i18n-scope-check.mts && tsx scripts/i18n-check.mts"
@@ -41,7 +40,6 @@
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
-    "@hey-api/openapi-ts": "^0.98.1",
     "@tailwindcss/postcss": "^4.1.14",
     "@types/node": "^24.7.0",
     "@types/react": "^19.2.1",

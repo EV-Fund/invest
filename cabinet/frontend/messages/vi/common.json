@@ -191,6 +191,10 @@
     "en": "Icon",
     "t": "Biểu tượng"
   },
+  "admin.alloc.field.scope": {
+    "en": "Scope",
+    "t": "Phạm vi"
+  },
   "admin.alloc.field.summary": {
     "en": "Summary",
     "t": "Tóm tắt"
@@ -230,14 +234,6 @@
   "admin.alloc.grants.field.user": {
     "en": "Investor",
     "t": "Nhà đầu tư"
-  },
-  "admin.alloc.grants.noUserMatch": {
-    "en": "No investors match",
-    "t": "Không tìm thấy nhà đầu tư"
-  },
-  "admin.alloc.grants.pickUser": {
-    "en": "Search investors…",
-    "t": "Tìm nhà đầu tư…"
   },
   "admin.alloc.grants.raise": {
     "en": "Raise access",
@@ -491,6 +487,10 @@
     "en": "Retire",
     "t": "Thu hồi"
   },
+  "admin.alloc.scopeHint": {
+    "en": "Whose compartments hold the cash; empty for invest. Fixed once registered.",
+    "t": "Ngăn tiền mặt thuộc về ai; để trống cho invest. Không đổi sau khi đăng ký."
+  },
   "admin.alloc.slugHint": {
     "en": "Permanent — every fund RPC keys on it",
     "t": "Vĩnh viễn — mọi lệnh RPC của quỹ đều dựa vào mã này"
@@ -502,6 +502,10 @@
   "admin.alloc.subtitle": {
     "en": "The registry of investable products — a fund exists only once it is registered here",
     "t": "Sổ đăng ký các sản phẩm đầu tư — một quỹ chỉ tồn tại khi đã được đăng ký ở đây"
+  },
+  "admin.alloc.userIdPlaceholder": {
+    "en": "Concierge user id",
+    "t": "ID người dùng Concierge"
   },
   "admin.col.actions": {
     "en": "Actions",
@@ -522,30 +526,6 @@
   "admin.col.when": {
     "en": "When",
     "t": "Thời điểm"
-  },
-  "admin.consilium.open": {
-    "en": "Open the consilium",
-    "t": "Mở hội đồng"
-  },
-  "admin.consilium.openedId": {
-    "en": "Consilium {id}",
-    "t": "Hội đồng {id}"
-  },
-  "admin.consilium.openedTitle": {
-    "en": "Opened — nothing has moved",
-    "t": "Đã mở — chưa có gì thay đổi"
-  },
-  "admin.env.dev": {
-    "en": "DEV",
-    "t": "DEV"
-  },
-  "admin.env.prod": {
-    "en": "PROD",
-    "t": "PROD"
-  },
-  "admin.env.staging": {
-    "en": "STAGING",
-    "t": "STAGING"
   },
   "admin.eyebrow.administer": {
     "en": "Administer",
@@ -1067,70 +1047,6 @@
     "en": "TRC20 · TRON",
     "t": "TRC20 · TRON"
   },
-  "admin.refusal.coolingBody": {
-    "en": "The list of owners changed within the last 48 hours. Payouts resume at {at}. The pause is deliberate: it keeps a change of ownership and a payout as two separate, visible events rather than one motion.",
-    "t": "Danh sách chủ sở hữu đã thay đổi trong 48 giờ qua. Các khoản chi trả sẽ tiếp tục lúc {at}. Việc tạm dừng là có chủ ý: nó giữ cho một thay đổi về quyền sở hữu và một khoản chi trả là hai sự kiện tách biệt, rõ ràng, thay vì gộp thành một động tác."
-  },
-  "admin.refusal.coolingBodyNoTime": {
-    "en": "The list of owners changed within the last 48 hours, and payouts stay paused until that period lifts. The pause is deliberate: it keeps a change of ownership and a payout as two separate, visible events rather than one motion.",
-    "t": "Danh sách chủ sở hữu đã thay đổi trong 48 giờ qua, và các khoản chi trả tạm dừng cho đến khi hết khoảng thời gian đó. Việc tạm dừng là có chủ ý: nó giữ cho một thay đổi về quyền sở hữu và một khoản chi trả là hai sự kiện tách biệt, rõ ràng, thay vì gộp thành một động tác."
-  },
-  "admin.refusal.coolingTitle": {
-    "en": "Payouts are paused while the roster settles",
-    "t": "Chi trả tạm dừng trong khi danh sách chủ sở hữu ổn định lại"
-  },
-  "admin.refusal.feePolicy.coolingBody": {
-    "en": "The list of owners changed within the last 48 hours. The owners can be asked again at {at}. The pause is deliberate: it keeps a change of ownership and a change of terms as two separate, visible events rather than one motion.",
-    "t": "Danh sách chủ sở hữu đã thay đổi trong 48 giờ qua. Có thể hỏi lại các chủ sở hữu vào {at}. Việc tạm dừng là có chủ ý: nó giữ cho việc thay đổi chủ sở hữu và thay đổi điều khoản là hai sự kiện riêng biệt, rõ ràng thay vì một động thái duy nhất."
-  },
-  "admin.refusal.feePolicy.coolingBodyNoTime": {
-    "en": "The list of owners changed within the last 48 hours, and changes of terms stay paused until that period lifts. The pause is deliberate: it keeps a change of ownership and a change of terms as two separate, visible events rather than one motion.",
-    "t": "Danh sách chủ sở hữu đã thay đổi trong 48 giờ qua, và việc thay đổi điều khoản tiếp tục tạm dừng cho đến khi hết thời hạn đó. Việc tạm dừng là có chủ ý: nó giữ cho việc thay đổi chủ sở hữu và thay đổi điều khoản là hai sự kiện riêng biệt, rõ ràng thay vì một động thái duy nhất."
-  },
-  "admin.refusal.feePolicy.coolingTitle": {
-    "en": "Changes of terms are paused while the roster settles",
-    "t": "Việc thay đổi điều khoản tạm dừng cho đến khi danh sách chủ sở hữu ổn định"
-  },
-  "admin.refusal.feePolicy.floorBody": {
-    "en": "Tightening the terms beyond the house envelope needs more than half of the owners to agree, and with {n, plural, one {# owner} other {# owners}} that bar can never be met. Adding owners restores it; a change within the envelope needs no vote.",
-    "t": "Siết chặt điều khoản vượt quá khung mặc định cần hơn một nửa số chủ sở hữu đồng ý, và với {n, plural, one {# chủ sở hữu} other {# chủ sở hữu}} ngưỡng đó không bao giờ đạt được. Thêm chủ sở hữu sẽ khôi phục lại; thay đổi trong khung không cần bỏ phiếu."
-  },
-  "admin.refusal.feePolicy.floorBodyNoCount": {
-    "en": "Tightening the terms beyond the house envelope needs more than half of the owners to agree, and this fund has too few owners for that bar to be met. Adding owners restores it; a change within the envelope needs no vote.",
-    "t": "Siết chặt điều khoản vượt quá khung mặc định cần hơn một nửa số chủ sở hữu đồng ý, và quỹ này có quá ít chủ sở hữu để đạt ngưỡng đó. Thêm chủ sở hữu sẽ khôi phục lại; thay đổi trong khung không cần bỏ phiếu."
-  },
-  "admin.refusal.feePolicy.floorTitle": {
-    "en": "This fund cannot put a change of terms to its owners",
-    "t": "Quỹ này không thể đưa thay đổi điều khoản ra cho các chủ sở hữu"
-  },
-  "admin.refusal.feePolicy.mailBody": {
-    "en": "Owners receive their approval link by email, and no mailer is wired — so a proposal opened now could never be voted on and would simply expire. This has to be configured before the owners can be asked about a change of terms.",
-    "t": "Các chủ sở hữu nhận liên kết phê duyệt qua email, và chưa có dịch vụ gửi thư nào được kết nối — một đề xuất mở ra lúc này sẽ không bao giờ được bỏ phiếu và sẽ đơn giản hết hạn. Việc này phải được cấu hình trước khi có thể hỏi các chủ sở hữu về thay đổi điều khoản."
-  },
-  "admin.refusal.floorBody": {
-    "en": "A payout needs more than half of the owners to agree, and with {n, plural, one {# owner} other {# owners}} that bar can never be met. Adding owners restores it.",
-    "t": "Một khoản chi trả cần hơn một nửa số chủ sở hữu đồng ý, và với {n, plural, one {# chủ sở hữu} other {# chủ sở hữu}} thì ngưỡng đó không bao giờ đạt được. Thêm chủ sở hữu sẽ khôi phục lại."
-  },
-  "admin.refusal.floorBodyNoCount": {
-    "en": "A payout needs more than half of the owners to agree, and this fund has too few owners for that bar to be met. Adding owners restores it.",
-    "t": "Một khoản chi trả cần hơn một nửa số chủ sở hữu đồng ý, và quỹ này có quá ít chủ sở hữu để đạt ngưỡng đó. Thêm chủ sở hữu sẽ khôi phục lại."
-  },
-  "admin.refusal.floorTitle": {
-    "en": "This fund cannot authorise a payout",
-    "t": "Quỹ này không thể ủy quyền chi trả"
-  },
-  "admin.refusal.mailBody": {
-    "en": "Owners receive their approval link by email, and no mailer is wired — so a proposal opened now could never be voted on and would simply expire. This has to be configured before the fund can pay itself out.",
-    "t": "Chủ sở hữu nhận liên kết chấp thuận qua email, và chưa có dịch vụ gửi thư nào được kết nối — nên một đề xuất mở ra lúc này sẽ không bao giờ được bỏ phiếu và chỉ đơn giản là hết hạn. Điều này phải được cấu hình trước khi quỹ có thể tự chi trả."
-  },
-  "admin.refusal.mailTitle": {
-    "en": "Governance mail is not configured",
-    "t": "Email quản trị chưa được cấu hình"
-  },
-  "admin.revenue.bankingTreasuryNote": {
-    "en": "Withdrawal fees land here, not in the fee allocation: banking's own cash, held by no one through units. Nothing is paid out of it until scope approvals cover treasury spending.",
-    "t": "Phí rút tiền được chuyển về đây, không vào phân bổ phí: đây là tiền riêng của banking, không ai nắm giữ qua đơn vị. Chưa chi khoản nào từ đây cho đến khi phê duyệt của scope bao quát chi tiêu ngân quỹ."
-  },
   "admin.revenue.cashAvailable": {
     "en": "Cash · available",
     "t": "Tiền mặt · khả dụng"
@@ -1151,18 +1067,6 @@
     "en": "The fee allocation",
     "t": "Phân bổ phí"
   },
-  "admin.revenue.grant.intro": {
-    "en": "Seat a person on the fee allocation. The owners are asked; the units are minted only when more than half of them agree.",
-    "t": "Đưa một người vào phân bổ phí. Các chủ sở hữu sẽ được hỏi; đơn vị chỉ được phát hành khi hơn một nửa đồng ý."
-  },
-  "admin.revenue.grant.opened": {
-    "en": "The owners have each been emailed a link. No units are minted until more than half of them confirm from their own mailboxes; the cap table above follows once the relay posts the grant.",
-    "t": "Mỗi chủ sở hữu đã nhận một liên kết qua email. Không đơn vị nào được phát hành cho đến khi hơn một nửa xác nhận từ hộp thư của họ; bảng nắm giữ ở trên sẽ cập nhật khi relay ghi sổ."
-  },
-  "admin.revenue.grant.submit": {
-    "en": "Propose holder grant",
-    "t": "Đề xuất cấp quyền nắm giữ"
-  },
   "admin.revenue.navPosted": {
     "en": "marked {ago}",
     "t": "đã định giá {ago}"
@@ -1175,6 +1079,10 @@
     "en": "What the platform earned — the fee allocation: its cash, its units and who holds them",
     "t": "Nền tảng đã kiếm được gì — phân bổ phí: tiền mặt, đơn vị và ai nắm giữ"
   },
+  "admin.revenue.toApprovals": {
+    "en": "Seating a person on the fee allocation is the owners' decision. Propose it there; the units appear here once their vote carries.",
+    "t": "Việc đưa một người vào phân bổ phí do các chủ sở hữu quyết định. Hãy đề xuất ở đó; đơn vị sẽ hiện ở đây khi biểu quyết thông qua."
+  },
   "admin.revenue.toPayments": {
     "en": "Moving the platform's earnings — into a product, or to an investor — is a payment order the owners authorise. Open one there. Cash reaches the chain only through a holder's redemption and their own withdrawal.",
     "t": "Chuyển lợi nhuận của nền tảng — vào một sản phẩm hoặc cho một nhà đầu tư — là lệnh thanh toán do các chủ sở hữu duyệt. Hãy mở lệnh ở đó. Tiền chỉ ra chuỗi qua việc người nắm giữ rút vốn và tự rút tiền."
@@ -1182,10 +1090,6 @@
   "admin.revenue.toTreasury": {
     "en": "The fee allocation beside the platform's other balances: custody per rail, user claims, every allocation and its holders.",
     "t": "Phân bổ phí bên cạnh các số dư khác của nền tảng: lưu ký theo mạng, quyền của người dùng, mọi phân bổ và người nắm giữ."
-  },
-  "admin.revenue.treasuryPostedHint": {
-    "en": "retained withdrawal fees, reserved included",
-    "t": "phí rút tiền đã giữ lại, gồm cả phần đã đặt trước"
   },
   "admin.revenue.unitsHint": {
     "en": "units of the fee allocation, held by people",
@@ -1291,17 +1195,9 @@
     "en": "not yet marked",
     "t": "chưa định giá"
   },
-  "admin.treasury.bankingTreasury": {
-    "en": "Banking treasury",
-    "t": "Ngân quỹ của banking"
-  },
   "admin.users.kycLevelShort": {
     "en": "L{n}",
     "t": "L{n}"
-  },
-  "admin.users.searchPlaceholder": {
-    "en": "Search email or user id…",
-    "t": "Tìm theo email hoặc mã người dùng…"
   },
   "admin.valuation.allocationLabel": {
     "en": "{title} ({service})",
@@ -1351,6 +1247,10 @@
     "en": "Fund (service)",
     "t": "Quỹ (dịch vụ)"
   },
+  "admin.valuation.guardHint": {
+    "en": "A move past the NAV guard is refused; the owners cannot be asked to lift it from here yet.",
+    "t": "Mức thay đổi vượt ngưỡng bảo vệ NAV bị từ chối; hiện chưa thể đề nghị chủ sở hữu gỡ ngưỡng từ đây."
+  },
   "admin.valuation.issuedOfCap": {
     "en": "{issued} / {cap} units",
     "t": "{issued} / {cap} đơn vị quỹ"
@@ -1375,10 +1275,6 @@
     "en": "No units outstanding — NAV is {formula}, so it is undefined until someone subscribes. The fund prices at the seed NAV 1.0 until the first subscription; there is nothing to mark yet.",
     "t": "Chưa có đơn vị quỹ nào lưu hành — NAV là {formula}, nên chưa xác định được cho tới khi có người đăng ký. Quỹ định giá theo NAV khởi tạo 1.0 cho tới lệnh đăng ký đầu tiên; hiện chưa có gì để định giá."
   },
-  "admin.valuation.openConsilium": {
-    "en": "Open the consilium",
-    "t": "Mở hội đồng"
-  },
   "admin.valuation.pickAFund": {
     "en": "Pick a fund above to see and resize its authorised unit supply.",
     "t": "Chọn một quỹ ở trên để xem và điều chỉnh nguồn cung đơn vị quỹ được phép phát hành."
@@ -1394,22 +1290,6 @@
   "admin.valuation.postedTitle": {
     "en": "Marked",
     "t": "Đã định giá"
-  },
-  "admin.valuation.propose": {
-    "en": "Propose to the owners",
-    "t": "Đề xuất cho chủ sở hữu"
-  },
-  "admin.valuation.proposeHint": {
-    "en": "A move past the guard is put to the owners' vote instead of being posted.",
-    "t": "Biến động vượt chốt chặn được đưa ra cho các chủ sở hữu bỏ phiếu thay vì được đăng."
-  },
-  "admin.valuation.proposedBody": {
-    "en": "Nothing is marked yet. Every owner has been emailed a link; once more than half of them agree, {service} is marked at {aum} USDT. The live tally is in the consilium.",
-    "t": "Chưa có gì được định giá. Mỗi chủ sở hữu đã được gửi một liên kết qua email; khi hơn một nửa đồng ý, {service} sẽ được định giá ở mức {aum} USDT. Số phiếu hiện tại nằm trong hội đồng."
-  },
-  "admin.valuation.proposedTitle": {
-    "en": "Proposed to the owners",
-    "t": "Đã đề xuất cho các chủ sở hữu"
   },
   "admin.valuation.queueEmpty": {
     "en": "The redemption queue is empty",
@@ -1470,10 +1350,6 @@
   "auth.continue": {
     "en": "Continue to sign in",
     "t": "Tiếp tục đăng nhập"
-  },
-  "auth.email.verify": {
-    "en": "Verify",
-    "t": "Xác minh"
   },
   "auth.wall.action": {
     "en": "Sign in",
@@ -1711,14 +1587,6 @@
     "en": "Amount (USDT)",
     "t": "Số tiền (USDT)"
   },
-  "invest.availableToInvest": {
-    "en": "Available to invest",
-    "t": "Khả dụng để đầu tư"
-  },
-  "invest.availableUsdt": {
-    "en": "Available: {amount} USDT",
-    "t": "Khả dụng: {amount} USDT"
-  },
   "invest.awaitingSettlement": {
     "en": "Awaiting settlement",
     "t": "Chờ tất toán"
@@ -1887,10 +1755,6 @@
     "en": "{pct} p.a. first",
     "t": "{pct}/năm đầu tiên"
   },
-  "invest.insufficientHint": {
-    "en": "That is more than your available balance.",
-    "t": "Số tiền này vượt quá số dư khả dụng của bạn."
-  },
   "invest.investAmount": {
     "en": "Invest {amount} USDT",
     "t": "Đầu tư {amount} USDT"
@@ -2023,6 +1887,14 @@
     "en": "Units are priced at the current NAV; the unit count is fixed at purchase and does not grow.",
     "t": "Đơn vị quỹ được định giá theo NAV hiện tại; số đơn vị được cố định tại thời điểm mua và không tăng thêm."
   },
+  "invest.subscribePending": {
+    "en": "Subscription pending",
+    "t": "Đăng ký đang chờ xử lý"
+  },
+  "invest.subscribePendingBody": {
+    "en": "Your cash is on hold. {n, plural, one {{units} unit} other {{units} units}} at {nav} USDT NAV are minted once it is captured — your position updates then.",
+    "t": "Tiền của bạn đang được giữ. {n, plural, other {{units} đơn vị}} theo NAV {nav} USDT sẽ được phát hành khi tiền được thu — khi đó vị thế của bạn sẽ cập nhật."
+  },
   "invest.subscribeReceiptBody": {
     "en": "Minted {n, plural, one {{units} unit} other {{units} units}} at {nav} USDT NAV — your position updates shortly.",
     "t": "Đã phát hành {n, plural, other {{units} đơn vị quỹ}} tại NAV {nav} USDT — vị thế của bạn sẽ cập nhật trong giây lát."
@@ -2031,13 +1903,9 @@
     "en": "Subscription received",
     "t": "Đã nhận lệnh đăng ký"
   },
-  "invest.subscribeVerifyBody": {
-    "en": "Subscriptions open once your identity is verified. Your balance is untouched in the meantime.",
-    "t": "Đăng ký sẽ mở sau khi danh tính của bạn được xác minh. Số dư của bạn không bị ảnh hưởng trong thời gian đó."
-  },
-  "invest.subscribeVerifyTitle": {
-    "en": "Verify your identity to invest",
-    "t": "Xác minh danh tính để đầu tư"
+  "invest.subscribeRefused": {
+    "en": "The cash for this subscription was not taken, and nothing moved.",
+    "t": "Tiền cho lần đăng ký này chưa bị trừ và không có gì thay đổi."
   },
   "invest.supplyNote": {
     "en": "Subscriptions mint units at the current NAV. Once the cap is reached the fund stops accepting new money; redemptions are unaffected.",
@@ -2095,70 +1963,6 @@
     "en": "Your units",
     "t": "Đơn vị của bạn"
   },
-  "kyc.chip.attention": {
-    "en": "Needs attention",
-    "t": "Cần thao tác"
-  },
-  "kyc.chip.notStarted": {
-    "en": "Not verified",
-    "t": "Chưa xác minh"
-  },
-  "kyc.chip.review": {
-    "en": "In review",
-    "t": "Đang duyệt"
-  },
-  "kyc.chip.reviewEta": {
-    "en": "Most checks are decided within the hour.",
-    "t": "Hầu hết kiểm tra được quyết định trong vòng một giờ."
-  },
-  "kyc.chip.verified": {
-    "en": "Verified",
-    "t": "Đã xác minh"
-  },
-  "kyc.custodyNote": {
-    "en": "Deposits are held in Turnkey custody under your identity verified by Didit; nothing moves without it.",
-    "t": "Tiền nạp được lưu ký tại Turnkey dưới danh tính đã được Didit xác minh của bạn; không có nó, không gì được chuyển đi."
-  },
-  "kyc.dialog.action": {
-    "en": "Start verification",
-    "t": "Bắt đầu xác minh"
-  },
-  "kyc.dialog.afterBody": {
-    "en": "We'll email you the result. You can close the tab — the check keeps running without it.",
-    "t": "Chúng tôi sẽ gửi kết quả qua email. Bạn có thể đóng tab — việc kiểm tra vẫn tiếp tục."
-  },
-  "kyc.dialog.afterTitle": {
-    "en": "What happens next",
-    "t": "Tiếp theo là gì"
-  },
-  "kyc.dialog.intro": {
-    "en": "A short identity check by our verification provider. Your deposit address and withdrawals open once it is done.",
-    "t": "Một bước kiểm tra danh tính ngắn tại nhà cung cấp của chúng tôi. Sau đó địa chỉ nạp tiền và rút tiền sẽ mở."
-  },
-  "kyc.dialog.needBody": {
-    "en": "A government-issued ID, and a phone or webcam for a selfie.",
-    "t": "Giấy tờ tùy thân do nhà nước cấp, cùng điện thoại hoặc webcam để chụp ảnh chân dung."
-  },
-  "kyc.dialog.needTitle": {
-    "en": "What you'll need",
-    "t": "Bạn cần chuẩn bị"
-  },
-  "kyc.dialog.timeBody": {
-    "en": "A few minutes to submit. Most checks are decided within the hour.",
-    "t": "Vài phút để gửi hồ sơ. Phần lớn được xét xong trong vòng một giờ."
-  },
-  "kyc.dialog.timeTitle": {
-    "en": "How long it takes",
-    "t": "Mất bao lâu"
-  },
-  "kyc.dialog.title": {
-    "en": "Verify your identity",
-    "t": "Xác minh danh tính"
-  },
-  "kyc.verifyNow": {
-    "en": "Verify now",
-    "t": "Xác minh ngay"
-  },
   "meta.description": {
     "en": "Your investor cabinet — portfolio, funds and wallet.",
     "t": "Cổng nhà đầu tư của bạn — danh mục, quỹ và ví."
@@ -2186,6 +1990,10 @@
   "nav.allocations": {
     "en": "Allocations",
     "t": "Phân bổ"
+  },
+  "nav.approvals": {
+    "en": "Approvals",
+    "t": "Phê duyệt"
   },
   "nav.fees": {
     "en": "Fees",
@@ -2231,61 +2039,9 @@
     "en": "Wallet",
     "t": "Ví"
   },
-  "profile.kyc.casePill": {
-    "en": "In review",
-    "t": "Đang duyệt"
-  },
-  "profile.kyc.caseResumeSub": {
-    "en": "You've already started — pick up where you left off",
-    "t": "Bạn đã bắt đầu — hãy tiếp tục từ chỗ đang dở"
-  },
-  "profile.kyc.caseReviewSub": {
-    "en": "Your documents are with our reviewers — we'll email you the decision",
-    "t": "Hồ sơ của bạn đang được xét duyệt — chúng tôi sẽ gửi kết quả qua email"
-  },
-  "profile.kyc.caseTitle": {
-    "en": "Verification in progress",
-    "t": "Đang xác minh"
-  },
   "profile.kyc.contact": {
     "en": "Contact {contact}",
     "t": "Liên hệ {contact}"
-  },
-  "profile.kyc.continue": {
-    "en": "Continue",
-    "t": "Tiếp tục"
-  },
-  "profile.kyc.emailUnverified": {
-    "en": "Verify your email first — Settings → Security.",
-    "t": "Hãy xác minh email trước — Cài đặt → Bảo mật."
-  },
-  "profile.kyc.start": {
-    "en": "Start",
-    "t": "Bắt đầu"
-  },
-  "profile.kyc.startSub": {
-    "en": "A photo of your ID and a selfie — a few minutes",
-    "t": "Ảnh giấy tờ tùy thân và ảnh selfie — chỉ vài phút"
-  },
-  "profile.kyc.startTitle": {
-    "en": "Verify your identity",
-    "t": "Xác minh danh tính của bạn"
-  },
-  "profile.kyc.tooManyAttempts": {
-    "en": "You've already started verification several times today. Please try again tomorrow.",
-    "t": "Hôm nay bạn đã bắt đầu xác minh nhiều lần. Vui lòng thử lại vào ngày mai."
-  },
-  "profile.kyc.unavailable": {
-    "en": "Automatic verification is temporarily out of service — write to us and we'll raise your level by hand.",
-    "t": "Xác minh tự động tạm thời ngừng hoạt động — hãy viết cho chúng tôi và chúng tôi sẽ nâng cấp độ của bạn thủ công."
-  },
-  "profile.kyc.verifyEmailSub": {
-    "en": "Identity checks open once your address is confirmed",
-    "t": "Kiểm tra danh tính sẽ mở khi địa chỉ của bạn được xác nhận"
-  },
-  "profile.kyc.verifyEmailTitle": {
-    "en": "Verify your email first",
-    "t": "Hãy xác minh email trước"
   },
   "status.backHome": {
     "en": "Back to home",
@@ -2370,18 +2126,6 @@
   "status.unauthorized.subtext": {
     "en": "You need to be signed in to view this page. Sign in and we'll bring you right back.",
     "t": "Bạn cần đăng nhập để xem trang này. Hãy đăng nhập và chúng tôi sẽ đưa bạn trở lại ngay."
-  },
-  "sys.a11y.dismiss": {
-    "en": "Dismiss announcement",
-    "t": "Đóng thông báo"
-  },
-  "sys.maintenance": {
-    "en": "Scheduled maintenance — some actions may be briefly unavailable.",
-    "t": "Bảo trì theo lịch — một số thao tác có thể tạm thời không khả dụng."
-  },
-  "sys.readOnly": {
-    "en": "Withdrawals and investments are temporarily paused (read-only mode). Balances are unaffected.",
-    "t": "Rút tiền và đầu tư đang tạm dừng (chế độ chỉ đọc). Số dư không bị ảnh hưởng."
   },
   "tips.a11y.about": {
     "en": "About: {title}",
@@ -2618,14 +2362,6 @@
   "tips.admin.valuation.post.nav-guard.title": {
     "en": "NAV-move guard",
     "t": "Chốt chặn biến động NAV"
-  },
-  "tips.admin.valuation.post.propose.body": {
-    "en": "Opens a consilium instead of posting. The owners answer from their mailboxes; if more than half agree, the fund is marked at this AUM regardless of the NAV-move guard. Nothing changes until then.",
-    "t": "Mở một hội đồng thay vì đăng. Các chủ sở hữu trả lời từ hộp thư của họ; nếu hơn một nửa đồng ý, quỹ được định giá ở mức AUM này bất kể chốt chặn biến động NAV. Cho đến lúc đó không có gì thay đổi."
-  },
-  "tips.admin.valuation.post.propose.title": {
-    "en": "Propose to the owners",
-    "t": "Đề xuất cho chủ sở hữu"
   },
   "tips.admin.valuation.queue.est-cash.body": {
     "en": "A preview only — approximately units × current NAV. The actual payout settles at the settle-time NAV, not this figure.",
@@ -3158,10 +2894,6 @@
   "trade.form.fee": {
     "en": "Taker fee",
     "t": "Phí taker"
-  },
-  "trade.form.inOrders": {
-    "en": "In orders",
-    "t": "Đang trong lệnh"
   },
   "trade.form.kind": {
     "en": "Order type",

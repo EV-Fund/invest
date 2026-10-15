@@ -191,6 +191,10 @@
     "en": "Icon",
     "t": "Symbol"
   },
+  "admin.alloc.field.scope": {
+    "en": "Scope",
+    "t": "Bereich"
+  },
   "admin.alloc.field.summary": {
     "en": "Summary",
     "t": "Zusammenfassung"
@@ -230,14 +234,6 @@
   "admin.alloc.grants.field.user": {
     "en": "Investor",
     "t": "Investor"
-  },
-  "admin.alloc.grants.noUserMatch": {
-    "en": "No investors match",
-    "t": "Keine Investoren gefunden"
-  },
-  "admin.alloc.grants.pickUser": {
-    "en": "Search investors…",
-    "t": "Investoren suchen…"
   },
   "admin.alloc.grants.raise": {
     "en": "Raise access",
@@ -491,6 +487,10 @@
     "en": "Retire",
     "t": "Einziehen"
   },
+  "admin.alloc.scopeHint": {
+    "en": "Whose compartments hold the cash; empty for invest. Fixed once registered.",
+    "t": "Wessen Fächer das Geld halten; leer für invest. Nach der Registrierung unveränderlich."
+  },
   "admin.alloc.slugHint": {
     "en": "Permanent — every fund RPC keys on it",
     "t": "Dauerhaft — jeder Fonds-RPC greift darauf zu"
@@ -502,6 +502,10 @@
   "admin.alloc.subtitle": {
     "en": "The registry of investable products — a fund exists only once it is registered here",
     "t": "Das Register investierbarer Produkte — ein Fonds existiert erst, wenn er hier registriert ist"
+  },
+  "admin.alloc.userIdPlaceholder": {
+    "en": "Concierge user id",
+    "t": "Concierge-Benutzer-ID"
   },
   "admin.col.actions": {
     "en": "Actions",
@@ -522,30 +526,6 @@
   "admin.col.when": {
     "en": "When",
     "t": "Wann"
-  },
-  "admin.consilium.open": {
-    "en": "Open the consilium",
-    "t": "Konsilium öffnen"
-  },
-  "admin.consilium.openedId": {
-    "en": "Consilium {id}",
-    "t": "Konsilium {id}"
-  },
-  "admin.consilium.openedTitle": {
-    "en": "Opened — nothing has moved",
-    "t": "Eröffnet — nichts wurde bewegt"
-  },
-  "admin.env.dev": {
-    "en": "DEV",
-    "t": "DEV"
-  },
-  "admin.env.prod": {
-    "en": "PROD",
-    "t": "PROD"
-  },
-  "admin.env.staging": {
-    "en": "STAGING",
-    "t": "STAGING"
   },
   "admin.eyebrow.administer": {
     "en": "Administer",
@@ -1067,70 +1047,6 @@
     "en": "TRC20 · TRON",
     "t": "TRC20 · TRON"
   },
-  "admin.refusal.coolingBody": {
-    "en": "The list of owners changed within the last 48 hours. Payouts resume at {at}. The pause is deliberate: it keeps a change of ownership and a payout as two separate, visible events rather than one motion.",
-    "t": "Die Eigentümerliste hat sich in den letzten 48 Stunden geändert. Auszahlungen werden um {at} wieder aufgenommen. Die Pause ist Absicht: Sie hält einen Eigentümerwechsel und eine Auszahlung als zwei getrennte, sichtbare Ereignisse auseinander statt sie zu einem Zug zu verschmelzen."
-  },
-  "admin.refusal.coolingBodyNoTime": {
-    "en": "The list of owners changed within the last 48 hours, and payouts stay paused until that period lifts. The pause is deliberate: it keeps a change of ownership and a payout as two separate, visible events rather than one motion.",
-    "t": "Die Eigentümerliste hat sich in den letzten 48 Stunden geändert, und Auszahlungen bleiben pausiert, bis diese Frist abgelaufen ist. Die Pause ist Absicht: Sie hält einen Eigentümerwechsel und eine Auszahlung als zwei getrennte, sichtbare Ereignisse auseinander statt sie zu einem Zug zu verschmelzen."
-  },
-  "admin.refusal.coolingTitle": {
-    "en": "Payouts are paused while the roster settles",
-    "t": "Auszahlungen pausieren, bis sich die Eigentümerliste gesetzt hat"
-  },
-  "admin.refusal.feePolicy.coolingBody": {
-    "en": "The list of owners changed within the last 48 hours. The owners can be asked again at {at}. The pause is deliberate: it keeps a change of ownership and a change of terms as two separate, visible events rather than one motion.",
-    "t": "Die Eigentümerliste hat sich in den letzten 48 Stunden geändert. Die Eigentümer können ab {at} erneut gefragt werden. Die Pause ist Absicht: Ein Eigentümerwechsel und eine Änderung der Konditionen bleiben zwei getrennte, sichtbare Ereignisse statt eines einzigen Zuges."
-  },
-  "admin.refusal.feePolicy.coolingBodyNoTime": {
-    "en": "The list of owners changed within the last 48 hours, and changes of terms stay paused until that period lifts. The pause is deliberate: it keeps a change of ownership and a change of terms as two separate, visible events rather than one motion.",
-    "t": "Die Eigentümerliste hat sich in den letzten 48 Stunden geändert, und Änderungen der Konditionen bleiben pausiert, bis diese Frist abläuft. Die Pause ist Absicht: Ein Eigentümerwechsel und eine Änderung der Konditionen bleiben zwei getrennte, sichtbare Ereignisse statt eines einzigen Zuges."
-  },
-  "admin.refusal.feePolicy.coolingTitle": {
-    "en": "Changes of terms are paused while the roster settles",
-    "t": "Änderungen der Konditionen sind pausiert, bis sich die Eigentümerliste gesetzt hat"
-  },
-  "admin.refusal.feePolicy.floorBody": {
-    "en": "Tightening the terms beyond the house envelope needs more than half of the owners to agree, and with {n, plural, one {# owner} other {# owners}} that bar can never be met. Adding owners restores it; a change within the envelope needs no vote.",
-    "t": "Eine Verschärfung der Konditionen über den Hausrahmen hinaus braucht die Zustimmung von mehr als der Hälfte der Eigentümer, und mit {n, plural, one {# Eigentümer} other {# Eigentümern}} ist diese Hürde nie zu nehmen. Weitere Eigentümer stellen sie wieder her; eine Änderung innerhalb des Rahmens braucht keine Abstimmung."
-  },
-  "admin.refusal.feePolicy.floorBodyNoCount": {
-    "en": "Tightening the terms beyond the house envelope needs more than half of the owners to agree, and this fund has too few owners for that bar to be met. Adding owners restores it; a change within the envelope needs no vote.",
-    "t": "Eine Verschärfung der Konditionen über den Hausrahmen hinaus braucht die Zustimmung von mehr als der Hälfte der Eigentümer, und dieser Fonds hat dafür zu wenige Eigentümer. Weitere Eigentümer stellen die Hürde wieder her; eine Änderung innerhalb des Rahmens braucht keine Abstimmung."
-  },
-  "admin.refusal.feePolicy.floorTitle": {
-    "en": "This fund cannot put a change of terms to its owners",
-    "t": "Dieser Fonds kann seinen Eigentümern keine Änderung der Konditionen vorlegen"
-  },
-  "admin.refusal.feePolicy.mailBody": {
-    "en": "Owners receive their approval link by email, and no mailer is wired — so a proposal opened now could never be voted on and would simply expire. This has to be configured before the owners can be asked about a change of terms.",
-    "t": "Die Eigentümer erhalten ihren Freigabelink per E-Mail, und es ist kein Mailer angebunden — ein jetzt eröffneter Vorschlag könnte nie abgestimmt werden und würde einfach verfallen. Das muss eingerichtet sein, bevor die Eigentümer zu einer Änderung der Konditionen befragt werden können."
-  },
-  "admin.refusal.floorBody": {
-    "en": "A payout needs more than half of the owners to agree, and with {n, plural, one {# owner} other {# owners}} that bar can never be met. Adding owners restores it.",
-    "t": "Eine Auszahlung braucht die Zustimmung von mehr als der Hälfte der Eigentümer, und mit {n, plural, one {# Eigentümer} other {# Eigentümern}} kann diese Hürde nie genommen werden. Weitere Eigentümer stellen sie wieder her."
-  },
-  "admin.refusal.floorBodyNoCount": {
-    "en": "A payout needs more than half of the owners to agree, and this fund has too few owners for that bar to be met. Adding owners restores it.",
-    "t": "Eine Auszahlung braucht die Zustimmung von mehr als der Hälfte der Eigentümer, und dieser Fonds hat zu wenige Eigentümer, um diese Hürde zu nehmen. Weitere Eigentümer stellen sie wieder her."
-  },
-  "admin.refusal.floorTitle": {
-    "en": "This fund cannot authorise a payout",
-    "t": "Dieser Fonds kann keine Auszahlung autorisieren"
-  },
-  "admin.refusal.mailBody": {
-    "en": "Owners receive their approval link by email, and no mailer is wired — so a proposal opened now could never be voted on and would simply expire. This has to be configured before the fund can pay itself out.",
-    "t": "Eigentümer erhalten ihren Zustimmungslink per E-Mail, und es ist kein Mailversand eingerichtet — ein jetzt eröffneter Antrag könnte also nie abgestimmt werden und würde einfach verfallen. Das muss konfiguriert sein, bevor der Fonds sich selbst auszahlen kann."
-  },
-  "admin.refusal.mailTitle": {
-    "en": "Governance mail is not configured",
-    "t": "Governance-Mail ist nicht konfiguriert"
-  },
-  "admin.revenue.bankingTreasuryNote": {
-    "en": "Withdrawal fees land here, not in the fee allocation: banking's own cash, held by no one through units. Nothing is paid out of it until scope approvals cover treasury spending.",
-    "t": "Auszahlungsgebühren landen hier, nicht in der Gebührenallokation: eigenes Geld von banking, über Anteile hält es niemand. Ausgezahlt wird daraus nichts, bis Scope-Freigaben die Ausgaben der Treasury abdecken."
-  },
   "admin.revenue.cashAvailable": {
     "en": "Cash · available",
     "t": "Kasse · verfügbar"
@@ -1151,18 +1067,6 @@
     "en": "The fee allocation",
     "t": "Die Gebühren-Allokation"
   },
-  "admin.revenue.grant.intro": {
-    "en": "Seat a person on the fee allocation. The owners are asked; the units are minted only when more than half of them agree.",
-    "t": "Eine Person in der Gebühren-Allokation einsetzen. Die Eigentümer werden gefragt; die Anteile werden erst geprägt, wenn mehr als die Hälfte zustimmt."
-  },
-  "admin.revenue.grant.opened": {
-    "en": "The owners have each been emailed a link. No units are minted until more than half of them confirm from their own mailboxes; the cap table above follows once the relay posts the grant.",
-    "t": "Jeder Eigentümer hat einen Link per E-Mail erhalten. Es werden keine Anteile geprägt, bis mehr als die Hälfte aus dem eigenen Postfach bestätigt; die Halterliste oben folgt, sobald das Relay die Zuteilung bucht."
-  },
-  "admin.revenue.grant.submit": {
-    "en": "Propose holder grant",
-    "t": "Halter-Zuteilung vorschlagen"
-  },
   "admin.revenue.navPosted": {
     "en": "marked {ago}",
     "t": "bewertet {ago}"
@@ -1175,6 +1079,10 @@
     "en": "What the platform earned — the fee allocation: its cash, its units and who holds them",
     "t": "Was die Plattform verdient hat — die Gebühren-Allokation: ihre Kasse, ihre Anteile und wer sie hält"
   },
+  "admin.revenue.toApprovals": {
+    "en": "Seating a person on the fee allocation is the owners' decision. Propose it there; the units appear here once their vote carries.",
+    "t": "Wer an der Gebührenallokation beteiligt wird, entscheiden die Eigentümer. Schlagen Sie es dort vor; die Anteile erscheinen hier, sobald ihre Abstimmung durch ist."
+  },
   "admin.revenue.toPayments": {
     "en": "Moving the platform's earnings — into a product, or to an investor — is a payment order the owners authorise. Open one there. Cash reaches the chain only through a holder's redemption and their own withdrawal.",
     "t": "Die Erträge der Plattform zu bewegen — in ein Produkt oder an einen Anleger — ist ein Zahlungsauftrag, den die Eigentümer genehmigen. Dort eröffnen. Auf die Chain gelangt Geld nur über die Einlösung eines Halters und dessen eigene Abhebung."
@@ -1182,10 +1090,6 @@
   "admin.revenue.toTreasury": {
     "en": "The fee allocation beside the platform's other balances: custody per rail, user claims, every allocation and its holders.",
     "t": "Die Gebühren-Allokation neben den anderen Guthaben der Plattform: Verwahrung je Netzwerk, Nutzeransprüche, jede Allokation und ihre Halter."
-  },
-  "admin.revenue.treasuryPostedHint": {
-    "en": "retained withdrawal fees, reserved included",
-    "t": "einbehaltene Auszahlungsgebühren, inklusive Reservierungen"
   },
   "admin.revenue.unitsHint": {
     "en": "units of the fee allocation, held by people",
@@ -1291,17 +1195,9 @@
     "en": "not yet marked",
     "t": "noch nicht bewertet"
   },
-  "admin.treasury.bankingTreasury": {
-    "en": "Banking treasury",
-    "t": "Treasury von banking"
-  },
   "admin.users.kycLevelShort": {
     "en": "L{n}",
     "t": "L{n}"
-  },
-  "admin.users.searchPlaceholder": {
-    "en": "Search email or user id…",
-    "t": "E-Mail oder Nutzer-ID suchen…"
   },
   "admin.valuation.allocationLabel": {
     "en": "{title} ({service})",
@@ -1351,6 +1247,10 @@
     "en": "Fund (service)",
     "t": "Fonds (Service)"
   },
+  "admin.valuation.guardHint": {
+    "en": "A move past the NAV guard is refused; the owners cannot be asked to lift it from here yet.",
+    "t": "Eine Bewegung über die NAV-Schranke hinaus wird abgelehnt; die Eigentümer können von hier aus noch nicht um ihre Aufhebung gebeten werden."
+  },
   "admin.valuation.issuedOfCap": {
     "en": "{issued} / {cap} units",
     "t": "{issued} / {cap} Anteile"
@@ -1375,10 +1275,6 @@
     "en": "No units outstanding — NAV is {formula}, so it is undefined until someone subscribes. The fund prices at the seed NAV 1.0 until the first subscription; there is nothing to mark yet.",
     "t": "Keine Anteile im Umlauf — der NAV ist {formula} und damit undefiniert, bis jemand zeichnet. Der Fonds bepreist bis zur ersten Zeichnung zum Seed-NAV 1.0; es gibt noch nichts zu bewerten."
   },
-  "admin.valuation.openConsilium": {
-    "en": "Open the consilium",
-    "t": "Konsilium öffnen"
-  },
   "admin.valuation.pickAFund": {
     "en": "Pick a fund above to see and resize its authorised unit supply.",
     "t": "Wählen Sie oben einen Fonds, um seinen genehmigten Anteilsbestand zu sehen und anzupassen."
@@ -1394,22 +1290,6 @@
   "admin.valuation.postedTitle": {
     "en": "Marked",
     "t": "Bewertet"
-  },
-  "admin.valuation.propose": {
-    "en": "Propose to the owners",
-    "t": "Den Eigentümern vorschlagen"
-  },
-  "admin.valuation.proposeHint": {
-    "en": "A move past the guard is put to the owners' vote instead of being posted.",
-    "t": "Eine Bewegung über den Schutz hinaus geht zur Abstimmung der Eigentümer, statt gemeldet zu werden."
-  },
-  "admin.valuation.proposedBody": {
-    "en": "Nothing is marked yet. Every owner has been emailed a link; once more than half of them agree, {service} is marked at {aum} USDT. The live tally is in the consilium.",
-    "t": "Noch ist nichts bewertet. Jeder Eigentümer hat einen Link per E-Mail erhalten; sobald mehr als die Hälfte zustimmt, wird {service} mit {aum} USDT bewertet. Die aktuelle Zählung steht im Konsilium."
-  },
-  "admin.valuation.proposedTitle": {
-    "en": "Proposed to the owners",
-    "t": "Den Eigentümern vorgeschlagen"
   },
   "admin.valuation.queueEmpty": {
     "en": "The redemption queue is empty",
@@ -1470,10 +1350,6 @@
   "auth.continue": {
     "en": "Continue to sign in",
     "t": "Weiter zur Anmeldung"
-  },
-  "auth.email.verify": {
-    "en": "Verify",
-    "t": "Bestätigen"
   },
   "auth.wall.action": {
     "en": "Sign in",
@@ -1711,14 +1587,6 @@
     "en": "Amount (USDT)",
     "t": "Betrag (USDT)"
   },
-  "invest.availableToInvest": {
-    "en": "Available to invest",
-    "t": "Verfügbar zum Anlegen"
-  },
-  "invest.availableUsdt": {
-    "en": "Available: {amount} USDT",
-    "t": "Verfügbar: {amount} USDT"
-  },
   "invest.awaitingSettlement": {
     "en": "Awaiting settlement",
     "t": "Wartet auf Abrechnung"
@@ -1887,10 +1755,6 @@
     "en": "{pct} p.a. first",
     "t": "zuerst {pct} p. a."
   },
-  "invest.insufficientHint": {
-    "en": "That is more than your available balance.",
-    "t": "Das ist mehr als Ihr verfügbares Guthaben."
-  },
   "invest.investAmount": {
     "en": "Invest {amount} USDT",
     "t": "{amount} USDT investieren"
@@ -2023,6 +1887,14 @@
     "en": "Units are priced at the current NAV; the unit count is fixed at purchase and does not grow.",
     "t": "Anteile werden zum aktuellen NAV bepreist; die Stückzahl steht beim Kauf fest und wächst nicht."
   },
+  "invest.subscribePending": {
+    "en": "Subscription pending",
+    "t": "Zeichnung in Bearbeitung"
+  },
+  "invest.subscribePendingBody": {
+    "en": "Your cash is on hold. {n, plural, one {{units} unit} other {{units} units}} at {nav} USDT NAV are minted once it is captured — your position updates then.",
+    "t": "Ihr Geld ist reserviert. {n, plural, one {{units} Anteil} other {{units} Anteile}} zum NAV von {nav} USDT werden ausgegeben, sobald es eingezogen ist — dann aktualisiert sich Ihre Position."
+  },
   "invest.subscribeReceiptBody": {
     "en": "Minted {n, plural, one {{units} unit} other {{units} units}} at {nav} USDT NAV — your position updates shortly.",
     "t": "{n, plural, one {{units} Anteil} other {{units} Anteile}} zum NAV von {nav} USDT ausgegeben — Ihre Position wird in Kürze aktualisiert."
@@ -2031,13 +1903,9 @@
     "en": "Subscription received",
     "t": "Zeichnung eingegangen"
   },
-  "invest.subscribeVerifyBody": {
-    "en": "Subscriptions open once your identity is verified. Your balance is untouched in the meantime.",
-    "t": "Zeichnungen sind möglich, sobald Ihre Identität verifiziert ist. Ihr Guthaben bleibt in der Zwischenzeit unberührt."
-  },
-  "invest.subscribeVerifyTitle": {
-    "en": "Verify your identity to invest",
-    "t": "Identität verifizieren, um zu investieren"
+  "invest.subscribeRefused": {
+    "en": "The cash for this subscription was not taken, and nothing moved.",
+    "t": "Das Geld für diese Zeichnung wurde nicht eingezogen, und nichts hat sich bewegt."
   },
   "invest.supplyNote": {
     "en": "Subscriptions mint units at the current NAV. Once the cap is reached the fund stops accepting new money; redemptions are unaffected.",
@@ -2095,70 +1963,6 @@
     "en": "Your units",
     "t": "Ihre Anteile"
   },
-  "kyc.chip.attention": {
-    "en": "Needs attention",
-    "t": "Handlung nötig"
-  },
-  "kyc.chip.notStarted": {
-    "en": "Not verified",
-    "t": "Unbestätigt"
-  },
-  "kyc.chip.review": {
-    "en": "In review",
-    "t": "In Prüfung"
-  },
-  "kyc.chip.reviewEta": {
-    "en": "Most checks are decided within the hour.",
-    "t": "Die meisten Prüfungen sind innerhalb einer Stunde entschieden."
-  },
-  "kyc.chip.verified": {
-    "en": "Verified",
-    "t": "Bestätigt"
-  },
-  "kyc.custodyNote": {
-    "en": "Deposits are held in Turnkey custody under your identity verified by Didit; nothing moves without it.",
-    "t": "Einzahlungen werden in Turnkey-Verwahrung unter Ihrer von Didit verifizierten Identität gehalten; ohne sie bewegt sich nichts."
-  },
-  "kyc.dialog.action": {
-    "en": "Start verification",
-    "t": "Prüfung starten"
-  },
-  "kyc.dialog.afterBody": {
-    "en": "We'll email you the result. You can close the tab — the check keeps running without it.",
-    "t": "Das Ergebnis senden wir per E-Mail. Sie können den Tab schließen — die Prüfung läuft weiter."
-  },
-  "kyc.dialog.afterTitle": {
-    "en": "What happens next",
-    "t": "Was danach passiert"
-  },
-  "kyc.dialog.intro": {
-    "en": "A short identity check by our verification provider. Your deposit address and withdrawals open once it is done.",
-    "t": "Eine kurze Identitätsprüfung bei unserem Anbieter. Danach stehen Einzahlungsadresse und Auszahlungen offen."
-  },
-  "kyc.dialog.needBody": {
-    "en": "A government-issued ID, and a phone or webcam for a selfie.",
-    "t": "Ein amtlicher Ausweis sowie ein Telefon oder eine Webcam für ein Selfie."
-  },
-  "kyc.dialog.needTitle": {
-    "en": "What you'll need",
-    "t": "Was Sie brauchen"
-  },
-  "kyc.dialog.timeBody": {
-    "en": "A few minutes to submit. Most checks are decided within the hour.",
-    "t": "Wenige Minuten für die Einreichung. Die meisten Prüfungen sind binnen einer Stunde entschieden."
-  },
-  "kyc.dialog.timeTitle": {
-    "en": "How long it takes",
-    "t": "Wie lange es dauert"
-  },
-  "kyc.dialog.title": {
-    "en": "Verify your identity",
-    "t": "Identität bestätigen"
-  },
-  "kyc.verifyNow": {
-    "en": "Verify now",
-    "t": "Verifizieren"
-  },
   "meta.description": {
     "en": "Your investor cabinet — portfolio, funds and wallet.",
     "t": "Ihr Investorenportal — Portfolio, Fonds und Wallet."
@@ -2186,6 +1990,10 @@
   "nav.allocations": {
     "en": "Allocations",
     "t": "Allokation"
+  },
+  "nav.approvals": {
+    "en": "Approvals",
+    "t": "Freigaben"
   },
   "nav.fees": {
     "en": "Fees",
@@ -2231,61 +2039,9 @@
     "en": "Wallet",
     "t": "Wallet"
   },
-  "profile.kyc.casePill": {
-    "en": "In review",
-    "t": "In Prüfung"
-  },
-  "profile.kyc.caseResumeSub": {
-    "en": "You've already started — pick up where you left off",
-    "t": "Sie haben bereits begonnen — machen Sie dort weiter, wo Sie aufgehört haben"
-  },
-  "profile.kyc.caseReviewSub": {
-    "en": "Your documents are with our reviewers — we'll email you the decision",
-    "t": "Ihre Dokumente liegen bei der Prüfung — die Entscheidung senden wir per E-Mail"
-  },
-  "profile.kyc.caseTitle": {
-    "en": "Verification in progress",
-    "t": "Prüfung läuft"
-  },
   "profile.kyc.contact": {
     "en": "Contact {contact}",
     "t": "{contact} kontaktieren"
-  },
-  "profile.kyc.continue": {
-    "en": "Continue",
-    "t": "Fortsetzen"
-  },
-  "profile.kyc.emailUnverified": {
-    "en": "Verify your email first — Settings → Security.",
-    "t": "Bestätige zuerst deine E-Mail — Einstellungen → Sicherheit."
-  },
-  "profile.kyc.start": {
-    "en": "Start",
-    "t": "Starten"
-  },
-  "profile.kyc.startSub": {
-    "en": "A photo of your ID and a selfie — a few minutes",
-    "t": "Ein Foto Ihres Ausweises und ein Selfie — wenige Minuten"
-  },
-  "profile.kyc.startTitle": {
-    "en": "Verify your identity",
-    "t": "Identität bestätigen"
-  },
-  "profile.kyc.tooManyAttempts": {
-    "en": "You've already started verification several times today. Please try again tomorrow.",
-    "t": "Sie haben die Verifizierung heute bereits mehrfach gestartet. Bitte versuchen Sie es morgen erneut."
-  },
-  "profile.kyc.unavailable": {
-    "en": "Automatic verification is temporarily out of service — write to us and we'll raise your level by hand.",
-    "t": "Die automatische Prüfung ist vorübergehend außer Betrieb — schreiben Sie uns, und wir heben Ihr Level von Hand an."
-  },
-  "profile.kyc.verifyEmailSub": {
-    "en": "Identity checks open once your address is confirmed",
-    "t": "Die Identitätsprüfung öffnet sich, sobald deine Adresse bestätigt ist"
-  },
-  "profile.kyc.verifyEmailTitle": {
-    "en": "Verify your email first",
-    "t": "Bestätige zuerst deine E-Mail"
   },
   "status.backHome": {
     "en": "Back to home",
@@ -2370,18 +2126,6 @@
   "status.unauthorized.subtext": {
     "en": "You need to be signed in to view this page. Sign in and we'll bring you right back.",
     "t": "Sie müssen angemeldet sein, um diese Seite zu sehen. Melden Sie sich an — wir bringen Sie direkt zurück."
-  },
-  "sys.a11y.dismiss": {
-    "en": "Dismiss announcement",
-    "t": "Hinweis schließen"
-  },
-  "sys.maintenance": {
-    "en": "Scheduled maintenance — some actions may be briefly unavailable.",
-    "t": "Geplante Wartung — einzelne Aktionen sind kurzzeitig nicht verfügbar."
-  },
-  "sys.readOnly": {
-    "en": "Withdrawals and investments are temporarily paused (read-only mode). Balances are unaffected.",
-    "t": "Auszahlungen und Anlagen sind vorübergehend pausiert (Nur-Lese-Modus). Guthaben sind davon nicht betroffen."
   },
   "tips.a11y.about": {
     "en": "About: {title}",
@@ -2618,14 +2362,6 @@
   "tips.admin.valuation.post.nav-guard.title": {
     "en": "NAV-move guard",
     "t": "NAV-Bewegungsschutz"
-  },
-  "tips.admin.valuation.post.propose.body": {
-    "en": "Opens a consilium instead of posting. The owners answer from their mailboxes; if more than half agree, the fund is marked at this AUM regardless of the NAV-move guard. Nothing changes until then.",
-    "t": "Eröffnet ein Konsilium, statt zu melden. Die Eigentümer antworten aus ihrem Postfach; stimmt mehr als die Hälfte zu, wird der Fonds unabhängig vom NAV-Bewegungsschutz mit diesem AUM bewertet. Bis dahin ändert sich nichts."
-  },
-  "tips.admin.valuation.post.propose.title": {
-    "en": "Propose to the owners",
-    "t": "Den Eigentümern vorschlagen"
   },
   "tips.admin.valuation.queue.est-cash.body": {
     "en": "A preview only — approximately units × current NAV. The actual payout settles at the settle-time NAV, not this figure.",
@@ -3158,10 +2894,6 @@
   "trade.form.fee": {
     "en": "Taker fee",
     "t": "Taker-Gebühr"
-  },
-  "trade.form.inOrders": {
-    "en": "In orders",
-    "t": "In Orders"
   },
   "trade.form.kind": {
     "en": "Order type",

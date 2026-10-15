@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useT } from "@evinvest/i18n/react";
 import { Button, Card, CardContent, Input, Spinner } from "@evinvest/uikit";
 
-import type { AllocationWrite } from "@/entities/admin/api/admin-client";
+import type { AllocationRegistration } from "@/entities/admin/api/admin-client";
 import type { AllocationIcon } from "@/shared/contracts/admin";
 import { cn } from "@/shared/lib/cn";
 import { StaggerItem } from "@/shared/ui/motion";
@@ -13,11 +13,13 @@ import { IconSelect } from "@/views/admin/allocations/ui/pickers";
 
 const TEAL_CTA = "bg-primary text-on-primary hover:bg-primary/90";
 
-export function RegisterForm({ busy, onCancel, onSubmit }: { busy: boolean; onCancel: () => void; onSubmit: (body: AllocationWrite) => void }) {
+export function RegisterForm({ busy, onCancel, onSubmit }: { busy: boolean; onCancel: () => void; onSubmit: (body: AllocationRegistration) => void }) {
   const t = useT();
   const [service, setService] = useState("");
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
+  // Empty is invest's own scope; a panel's product names the panel's (`sa`).
+  const [scope, setScope] = useState("");
   // Pre-selected rather than blank, and `fund` specifically because that is what the hub
   // stores when none is sent — so the form shows the outcome of leaving it alone.
   const [icon, setIcon] = useState<AllocationIcon>("fund");
@@ -55,6 +57,12 @@ export function RegisterForm({ busy, onCancel, onSubmit }: { busy: boolean; onCa
             <span className="text-sm text-ink-soft">{t("admin.alloc.field.summary", "Summary")}</span>
             <Input value={summary} onChange={(e) => setSummary(e.target.value)} placeholder={t("admin.alloc.placeholder.summary", "One line for the catalog card")} className="w-full" />
           </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm text-ink-soft">{t("admin.alloc.field.scope", "Scope")}</span>
+            {/* A scope id, like the slug placeholder above: the same in every locale. */}
+            <Input value={scope} onChange={(e) => setScope(e.target.value.trim())} placeholder="invest" spellCheck={false} className="w-full font-mono-tech" />
+            <span className="text-xs text-ink-soft">{t("admin.alloc.scopeHint", "Whose compartments hold the cash; empty for invest. Fixed once registered.")}</span>
+          </label>
         </div>
         <div className="flex items-center gap-3">
           <p className="min-w-0 text-xs text-ink-soft">{t("admin.alloc.registerHint", "Registers in draft — open it when the product is ready to take money.")}</p>
@@ -62,7 +70,7 @@ export function RegisterForm({ busy, onCancel, onSubmit }: { busy: boolean; onCa
           <Button type="button" variant="outline" className="ml-auto" onClick={onCancel}>
             {t("ui.cancel", "Cancel")}
           </Button>
-          <Button type="button" className={cn(TEAL_CTA)} disabled={busy || !slugOk || !title.trim()} onClick={() => onSubmit({ service, title, summary, icon })}>
+          <Button type="button" className={cn(TEAL_CTA)} disabled={busy || !slugOk || !title.trim()} onClick={() => onSubmit(scope ? { service, title, summary, icon, scope } : { service, title, summary, icon })}>
             {busy ? <Spinner aria-hidden /> : null}
             {t("admin.alloc.registerSubmit", "Register")}
           </Button>

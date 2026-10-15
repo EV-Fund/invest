@@ -5,26 +5,26 @@
 // way to guarantee that is one implementation.
 //
 // No `onDone`: `submitSubscribe` names what it moved (see `entities/fund/model/fund-resource`),
-// so the page around this — and Home, and Wallet — refreshes itself.
+// so the page around this — and Home — refreshes itself.
 //
-// Everything the hub would refuse is stated before the click (#396): the tier gate takes
-// the form's place, the balance sits on the label with a Max, and a shortfall names the
-// top-up as the way out — the same shape the withdraw screen already had (#220, #315).
+// A subscription is a saga across banking's cash and invest's units: the answer is usually
+// `reserved` — banking holds the cash, the units are minted when the relay captures it — so
+// the receipt says pending, not minted. Banking's refusals (balance, verification) arrive as
+// a `failed` subscription with banking's reason, which the receipt quotes.
 
 import { useAnalytics } from "@evinvest/analytics/react";
 import { useLocale, useT } from "@evinvest/i18n/react";
-import { Sparkles, TriangleAlert } from "lucide-react";
+import { Hourglass, Sparkles, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
-import { Alert, AlertDescription, AlertTitle, Button, Skeleton, Spinner } from "@evinvest/uikit";
+import { Alert, AlertDescription, AlertTitle, Button, Spinner } from "@evinvest/uikit";
 
 import { hasHoldings } from "@/entities/fund/lib/holdings";
 import { positionsResource, submitSubscribe } from "@/entities/fund/model/fund-resource";
-import { walletResource } from "@/entities/wallet/model/wallet-resource";
-import { useKycGate, VerificationRequired } from "@/features/kyc";
-import type { FundNav } from "@/shared/contracts";
+import type { FundNav, Subscription } from "@/shared/contracts";
+import { subscriptionPhase } from "@/shared/contracts";
 import { errorMessage } from "@/shared/lib/api-client";
-import { useResource } from "@/shared/lib/resource";
+import { Link } from "@/shared/ui/cabinet-link";
 import { Panel, PanelPresence } from "@/shared/ui/motion-panel";
 import { recordFirstSubscription } from "@/views/invest/lib/first-subscription";
 import { formatExactUsdt, formatUnits, formatUsdt } from "@/views/invest/lib/format";
@@ -37,15 +37,10 @@ export function SubscribePanel({ service, nav }: { service: string; nav: FundNav
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const [done, setDone] = useState<{ units?: string; nav?: string } | null>(null);
+  const [done, setDone] = useState<Subscription | null>(null);
   const capture = useAnalytics();
-  const { gated, loading: tierLoading } = useKycGate();
-  // The same cached balance Home, Wallet and the invest list read. A failed read hides the
-  // figure rather than gating on it — see `checkSubscribe`.
-  const { data: wallet } = useResource(walletResource);
-  const available = wallet?.balance?.available ?? null;
 
-  const check = checkSubscribe({ amount, available, nav });
+  const check = checkSubscribe({ amount, nav });
 
   const submit = async () => {
     if (submitting || !canSubmit(check)) return;
@@ -57,9 +52,11 @@ export function SubscribePanel({ service, nav }: { service: string; nav: FundNav
     const held = hasHoldings(positionsResource.peek());
     try {
       const receipt = await submitSubscribe({ service, amount });
-      setDone({ units: receipt.units, nav: receipt.nav });
-      setAmount("");
-      recordFirstSubscription(capture, service, held);
+      setDone(receipt);
+      if (subscriptionPhase(receipt.state) !== "failed") {
+        setAmount("");
+        recordFirstSubscription(capture, service, held);
+      }
     } catch (e) {
       // The error itself: `errorMessage` resolves its `code` in the reader's locale.
       setError(e);
@@ -68,10 +65,6 @@ export function SubscribePanel({ service, nav }: { service: string; nav: FundNav
     }
   };
 
-  // A skeleton, not a verdict, until the tier is known — the same rule the wallet applies.
-  if (tierLoading) return <Skeleton className="h-36 w-full rounded-lg" />;
-  if (gated) return <VerificationRequired title={t("invest.subscribeVerifyTitle", "Verify your identity to invest")} description={t("invest.subscribeVerifyBody", "Subscriptions open once your identity is verified. Your balance is untouched in the meantime.")} />;
-
   return (
     <div className="space-y-3 rounded-lg border border-border bg-secondary p-4">
       {/* The receipt and the failure occupy the same slot and replace one another, so
@@ -79,12 +72,8 @@ export function SubscribePanel({ service, nav }: { service: string; nav: FundNav
           place instead of collapsing the form and re-expanding it. */}
       <PanelPresence>
         {done && (
-          <Panel key="receipt" from="bottom">
-            <Alert>
-              <Sparkles className="size-4 text-positive" />
-              <AlertTitle>{t("invest.subscribeReceived", "Subscription received")}</AlertTitle>
-              <AlertDescription>{t("invest.subscribeReceiptBody", "Minted {n, plural, one {{units} unit} other {{units} units}} at {nav} USDT NAV — your position updates shortly.", { n: Number(done.units ?? 0), units: formatUnits(done.units, locale), nav: formatUsdt(done.nav, locale) })}</AlertDescription>
-            </Alert>
+          <Panel key={`receipt-${done.id}`} from="bottom">
+            <SubscriptionReceipt subscription={done} />
           </Panel>
         )}
         {!!error && (
@@ -100,7 +89,6 @@ export function SubscribePanel({ service, nav }: { service: string; nav: FundNav
 
       <SubscribeField
         amount={amount}
-        available={available}
         check={check}
         nav={nav}
         onChange={setAmount}
@@ -116,4 +104,50 @@ export function SubscribePanel({ service, nav }: { service: string; nav: FundNav
       />
     </div>
   );
+}
+
+/** The subscription as the saga left it: minted, on its way, or refused with banking's reason. */
+function SubscriptionReceipt({ subscription }: { subscription: Subscription }) {
+  const t = useT();
+  const locale = useLocale();
+  const args = { n: Number(subscription.units || 0), units: formatUnits(subscription.units, locale), nav: formatUsdt(subscription.nav, locale) };
+  const link = "rounded-sm font-medium text-primary-ink underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
+  switch (subscriptionPhase(subscription.state)) {
+    case "settled":
+      return (
+        <Alert>
+          <Sparkles className="size-4 text-positive" />
+          <AlertTitle>{t("invest.subscribeReceived", "Subscription received")}</AlertTitle>
+          <AlertDescription>{t("invest.subscribeReceiptBody", "Minted {n, plural, one {{units} unit} other {{units} units}} at {nav} USDT NAV — your position updates shortly.", args)}</AlertDescription>
+        </Alert>
+      );
+    case "pending":
+      return (
+        <Alert>
+          <Hourglass className="size-4 text-accent-warn" />
+          <AlertTitle>{t("invest.subscribePending", "Subscription pending")}</AlertTitle>
+          <AlertDescription>{t("invest.subscribePendingBody", "Your cash is on hold. {n, plural, one {{units} unit} other {{units} units}} at {nav} USDT NAV are minted once it is captured — your position updates then.", args)}</AlertDescription>
+        </Alert>
+      );
+    case "failed":
+      return (
+        <Alert variant="destructive">
+          <TriangleAlert className="size-4" />
+          <AlertTitle>{t("invest.subscribeFailed", "Subscription failed")}</AlertTitle>
+          <AlertDescription className="space-y-1">
+            {/* banking's own words, untranslated: the one account of why it refused. */}
+            <p>{subscription.failure_reason || t("invest.subscribeRefused", "The cash for this subscription was not taken, and nothing moved.")}</p>
+            <p className="flex flex-wrap gap-x-3">
+              <Link href="/wallet" className={link}>
+                {t("invest.topUp", "Top up")}
+              </Link>
+              <Link href="/account" className={link}>
+                {t("invest.cta.verify", "Verify to invest")}
+              </Link>
+            </p>
+          </AlertDescription>
+        </Alert>
+      );
+  }
 }

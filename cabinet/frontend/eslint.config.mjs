@@ -6,8 +6,7 @@ const eslintConfig = [
   ...next,
   ...nextTs,
   {
-    // shared/contracts/gen is generated (`npm run gen:api`), not hand-written — don't lint.
-    ignores: [".next/**", "node_modules/**", "dist/**", "shared/contracts/gen/**"],
+    ignores: [".next/**", "node_modules/**", "dist/**"],
   },
   {
     // All env access is centralised in config.ts; everything else imports the

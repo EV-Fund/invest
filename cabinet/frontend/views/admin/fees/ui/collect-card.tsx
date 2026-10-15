@@ -7,7 +7,7 @@
 // money out — once settled, fee cash lands in the `fee` claim, which is exactly what
 // `Fund revenue` withdraws on-chain, and a second door to the same money would be a bug.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { useLocale, useT } from "@evinvest/i18n/react";
 import { Button, Card, CardContent, Skeleton, Spinner } from "@evinvest/uikit";
@@ -28,6 +28,10 @@ export function CollectCard({ service }: { service: string }) {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  // The settlement's idempotency key: minted on the first click and kept across a failed
+  // attempt, so a retry of an answer that never arrived cannot settle twice. Cleared once a
+  // settlement lands — the next click is a new settlement. A ref: it must not re-render.
+  const attempt = useRef<string | null>(null);
 
   const data = shares.data ?? null;
   const failed = !data && Boolean(shares.error);
@@ -43,7 +47,9 @@ export function CollectCard({ service }: { service: string }) {
       // Empty units settles the whole balance — the ordinary end-of-period call, and the
       // only one worth a button. A partial settlement is a rare, deliberate act better
       // done against the API than offered as a field nobody needs.
-      const settlement = await settleFeeShares({ service, units: "" });
+      attempt.current ??= crypto.randomUUID();
+      const settlement = await settleFeeShares({ service, units: "", idempotency_key: attempt.current });
+      attempt.current = null;
       // The settle moves the fee units AND the revenue figure the payout screen reads.
       revalidateTag(TAG.adminFees, TAG.adminRevenue);
       // Fee cash is USDT, and `formatUsdt` carries no symbol: the unit rides in the value so
