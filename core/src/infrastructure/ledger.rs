@@ -195,12 +195,13 @@ impl TbLedger {
 		// looked for first and the generic chain status only stands in when nothing
 		// more specific was reported.
 		let mut chain_failed = false;
-		for result in results {
+		// One result per transfer, in submission order.
+		for (result, transfer) in results.iter().zip(transfers) {
 			if result.status == tb::CreateTransferStatus::LinkedEventFailed {
 				chain_failed = true;
 				continue;
 			}
-			map_transfer_status(result.status)?;
+			map_transfer_status(result.status, transfer.flags)?;
 		}
 		if chain_failed {
 			return Err(LedgerError::Conflict("linked transfer chain failed without a reported cause".into()));
@@ -446,13 +447,23 @@ fn normalized(key: &LedgerAccountKey, account: &tb::Account) -> Result<LedgerBal
 }
 
 /// Map a single TigerBeetle transfer status to a [`LedgerError`]. The idempotent-
-/// success set is `Created | Exists | AlreadyPosted | AlreadyVoided`; a post racing
-/// its pending create is `Retryable`; a non-negative violation is `InsufficientFunds`;
-/// everything else is a genuine inconsistency to surface, never absorb.
-fn map_transfer_status(status: tb::CreateTransferStatus) -> Result<(), LedgerError> {
+/// success set is `Created | Exists`, and a completion meeting its pending already
+/// completed THE SAME WAY; a completion meeting it completed the other way — a post of a
+/// voided pending, a void of a posted one — is a [`LedgerError::Conflict`]: the saga's
+/// outcome and the ledger's disagree, and calling it done would pay for units that came
+/// back, or return units that were paid for. A post racing its pending create is
+/// `Retryable`; a non-negative violation is `InsufficientFunds`; everything else is a
+/// genuine inconsistency to surface, never absorb.
+fn map_transfer_status(status: tb::CreateTransferStatus, flags: tb::TransferFlags) -> Result<(), LedgerError> {
 	use tb::CreateTransferStatus as S;
+	let posting = flags.contains(tb::TransferFlags::PostPendingTransfer);
+	let voiding = flags.contains(tb::TransferFlags::VoidPendingTransfer);
 	match status {
-		S::Created | S::Exists | S::PendingTransferAlreadyPosted | S::PendingTransferAlreadyVoided => Ok(()),
+		S::Created | S::Exists => Ok(()),
+		S::PendingTransferAlreadyPosted if !voiding => Ok(()),
+		S::PendingTransferAlreadyVoided if !posting => Ok(()),
+		S::PendingTransferAlreadyPosted => Err(LedgerError::Conflict("void of a pending transfer that was already posted".into())),
+		S::PendingTransferAlreadyVoided => Err(LedgerError::Conflict("post of a pending transfer that was already voided".into())),
 		S::ExceedsCredits | S::ExceedsDebits => Err(LedgerError::InsufficientFunds),
 		S::PendingTransferNotFound => Err(LedgerError::Retryable("pending transfer not found yet".into())),
 		other => Err(LedgerError::Conflict(format!("create transfer: {other:?}"))),

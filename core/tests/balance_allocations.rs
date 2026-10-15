@@ -16,7 +16,7 @@ use invest_core::{
 	infrastructure::{issuance::PgUnitIssuances, nav::PgNav, positions::PgFundPositions},
 	ports::{
 		AllocationRegistry, FundPositionReader, RedemptionRepository, SubscriptionRepository,
-		ledger::{LedgerError, LedgerTransfer},
+		ledger::{CompletionKind, LedgerError, LedgerTransfer, PendingCompletion},
 		money::{AccountLabel, HoldState, Refusal, ScopeId},
 		nav::NavMarks,
 	},
@@ -817,4 +817,45 @@ async fn units_spoken_for_by_an_undrained_event_cannot_be_redeemed_again() {
 	common::drain_to_quiescence(&h.relay, &h.pool).await;
 	assert_eq!(compartment(&h, user), usdt("60"), "paid once");
 	assert_eq!(units(&h, &LedgerAccountKey::UserShares(service.clone(), user)).await, shares("40"));
+}
+
+/// A completion that meets its pending already completed the OTHER way is a conflict, not
+/// an idempotent success: a post of voided units, or a void of posted ones, would settle a
+/// saga on a ledger that did the opposite.
+#[tokio::test]
+async fn a_completion_crossing_the_pendings_outcome_is_a_conflict() {
+	let Some(h) = harness().await else { return };
+	let user = UserId::new();
+	let service = unique_service();
+	let mint = |id: u128| LedgerTransfer {
+		id,
+		debit: LedgerAccountKey::UserShares(service.clone(), user),
+		credit: LedgerAccountKey::SharesOutstanding(service.clone()),
+		amount: shares("5").base_units(),
+		code: TransferCode::ShareMint,
+		reference: 0,
+	};
+	let complete = |pending: &LedgerTransfer, kind: CompletionKind| PendingCompletion {
+		id: Uuid::new_v4().as_u128(),
+		pending_id: pending.id,
+		kind,
+		debit: pending.debit.clone(),
+		credit: pending.credit.clone(),
+		amount: pending.amount,
+		code: pending.code,
+		reference: 0,
+	};
+	let voided = mint(Uuid::new_v4().as_u128());
+	h.ledger.reserve(&voided).await.unwrap();
+	let void = complete(&voided, CompletionKind::Void);
+	h.ledger.complete(&void).await.unwrap();
+	h.ledger.complete(&void).await.expect("the same void again is idempotent");
+	assert!(matches!(h.ledger.complete(&complete(&voided, CompletionKind::Void)).await, Ok(())), "another void of it too");
+	assert!(matches!(h.ledger.complete(&complete(&voided, CompletionKind::Post)).await, Err(LedgerError::Conflict(_))));
+
+	let posted = mint(Uuid::new_v4().as_u128());
+	h.ledger.reserve(&posted).await.unwrap();
+	h.ledger.complete(&complete(&posted, CompletionKind::Post)).await.unwrap();
+	assert!(matches!(h.ledger.complete(&complete(&posted, CompletionKind::Void)).await, Err(LedgerError::Conflict(_))));
+	assert_eq!(units(&h, &LedgerAccountKey::UserShares(service.clone(), user)).await, shares("5"), "only the posted one landed");
 }
