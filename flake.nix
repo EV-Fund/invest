@@ -27,11 +27,14 @@
         # Postgres is the SHARED ev_invest cluster every sibling repo uses (banking owns its
         # bring-up; this repo only ensures its own database, `invest`). TigerBeetle is
         # invest's OWN cluster (D19, plan §6.2) — 3034, beside banking's 3033, so both run
-        # at once. invest-core's gRPC takes 50071 and the cabinet BFF's HTTP 50072, a 5007x
-        # range of invest's own (banking holds 5005x/5006x, admin 50066). DEFAULTS, not
-        # overrides: anything already in the environment (or a sourced `.env`) wins.
+        # at once. invest-core's gRPC takes 50071, the cabinet BFF's HTTP 50072 and the
+        # cabinet's Next server 50073 in its image, a 5007x range of invest's own (banking
+        # holds 5005x/5006x, admin 50066). `next dev` keeps Next's 3000, the origin the BFF's
+        # dev CABINET_PUBLIC_ORIGIN names. DEFAULTS, not overrides: anything already in the
+        # environment (or a sourced `.env`) wins.
         corePort = 50071;
         cabinetBackendPort = 50072;
+        cabinetPort = 50073;
         ports = {
           POSTGRES_PORT = "5432";
           TIGERBEETLE_PORT = "3034";
@@ -208,6 +211,52 @@
           doCheck = false;
         };
 
+        # ── the cabinet frontend (Next.js standalone) ───────────────────────
+        # Its own npm package (no workspace), so the standalone output is flat: server.js at
+        # the root of `.next/standalone`. node_modules come straight from the lock — no FOD
+        # hash to drift; every package in it resolves from the public npm registry.
+        cabinetPackage = builtins.fromJSON (builtins.readFile ./cabinet/frontend/package.json);
+        # The BFF's in-cluster Service. next.config.ts bakes its rewrites into
+        # routes-manifest.json at BUILD time, so the value the image uses is this one; the
+        # container's env repeats it for config.ts, which asserts it at boot.
+        cabinetBackendUrl = "http://invest-cabinet-backend:${toString cabinetBackendPort}";
+        cabinetApp = pkgs.buildNpmPackage {
+          pname = "${pname}-cabinet";
+          version = cabinetPackage.version;
+          src = ./cabinet/frontend;
+          npmDeps = pkgs.importNpmLock { npmRoot = ./cabinet/frontend; };
+          npmConfigHook = pkgs.importNpmLock.npmConfigHook;
+          env = {
+            NEXT_TELEMETRY_DISABLED = "1";
+            CABINET_BACKEND_URL = cabinetBackendUrl;
+            # NEXT_PUBLIC_* is inlined at BUILD time, and config.ts requires the browser DSN
+            # in production — the pod refuses to boot without it. Public (it ships to every
+            # browser), so a literal. banking's cabinet project until invest has its own:
+            # this cabinet was cut from that one, and its errors read the same.
+            NEXT_PUBLIC_SENTRY_DSN = "https://702d594df36cfbd3c5a711613d3981e7@o4511508657012736.ingest.de.sentry.io/4511508677066832";
+            # The project key the site and banking's cabinet use, so one PostHog person
+            # carries a visitor from the landing into this cabinet. The host is pinned beside
+            # it: shared/config/security.ts puts its origin into the CSP `connect-src`.
+            NEXT_PUBLIC_POSTHOG_KEY = "phc_sBwWEgdgockVmfyucBRkTTo6iZ4Y2eApSGorD22WLzj3";
+            NEXT_PUBLIC_POSTHOG_HOST = "https://us.i.posthog.com";
+          };
+          buildPhase = ''
+            runHook preBuild
+            npm run build
+            runHook postBuild
+          '';
+          installPhase = ''
+            runHook preInstall
+            test -f .next/standalone/server.js \
+              || { echo "standalone server.js not where a flat package puts it" >&2; find .next/standalone -maxdepth 3 -name server.js >&2; exit 1; }
+            mkdir -p $out
+            cp -r .next/standalone/. $out/
+            cp -r .next/static $out/.next/static
+            if [ -d public ]; then cp -r public $out/public; fi
+            runHook postInstall
+          '';
+        };
+
         # Secrets (SENTRY_DSN, SCOPE_LEDGER_SERVICE_TOKEN, the mTLS key) arrive via the k8s
         # Secret gitops owns — never baked here. `--print-required-vars` on the image is the
         # contract the gitops preflight diffs that Secret against.
@@ -268,6 +317,25 @@
               # The redirect URI's origin and the one `Origin` a mutation is accepted from —
               # public topology, not a secret.
               CABINET_PUBLIC_ORIGIN = "https://invest.evinvest.ltd";
+              APP_ENV = "production";
+            };
+          };
+          # The cabinet's Next server, behind the ingress' `PathPrefix(/cabinet)`; the BFF's
+          # `/cabinet/api` and `/cabinet/auth` prefixes go to the BFF ahead of it.
+          containers.invest-cabinet = {
+            port = cabinetPort;
+            # basePath mount: the app answers under /cabinet (a 3xx to the locale counts as
+            # probe success), and the page renders without the BFF.
+            healthPath = "/cabinet";
+            criticality = "normal";
+            entrypoint = [ "${pkgs.nodejs}/bin/node" "${cabinetApp}/server.js" ];
+            contents = [ pkgs.nodejs cabinetApp ];
+            workingDir = "${cabinetApp}";
+            imageEnv = [ "PORT=${toString cabinetPort}" "HOSTNAME=0.0.0.0" "NODE_ENV=production" ];
+            env = {
+              CABINET_BACKEND_URL = cabinetBackendUrl;
+              # `__Host-` + Secure cookie names, as the BFF's APP_ENV=production sets them.
+              AUTH_COOKIE_SECURE = "true";
               APP_ENV = "production";
             };
           };
@@ -414,6 +482,23 @@
           '';
         };
 
+        # ── the cabinet frontend in dev ─────────────────────────────────────
+        # `next dev` on :3000 against the BFF at :50072 (`.#cabinet-backend`); cabinet/frontend/
+        # .env.local, if any, wins over these defaults. `npm ci` first when node_modules is
+        # missing — a fresh worktree has none.
+        runCabinetFrontend = pkgs.writeShellApplication {
+          name = "run-cabinet-frontend";
+          runtimeInputs = with pkgs; [ nodejs git ];
+          text = ''
+            ${portEnv}
+            cd "$(git rev-parse --show-toplevel)/cabinet/frontend"
+            if [ ! -d node_modules ]; then npm ci; fi
+            export CABINET_BACKEND_URL="''${CABINET_BACKEND_URL:-http://127.0.0.1:$CABINET_BACKEND_PORT}"
+            export AUTH_COOKIE_SECURE="''${AUTH_COOKIE_SECURE:-false}"
+            exec npm run dev
+          '';
+        };
+
         # ── dev orchestrator ────────────────────────────────────────────────
         # Ensures the SHARED postgres (detached, survives this stack), then owns TigerBeetle
         # + invest-core; one trap tears the owned tree down. Concierge and banking run from
@@ -505,6 +590,30 @@
           '';
         };
 
+        # ── the frontend gate (CI entry point) ──────────────────────────────
+        # Against a clean `npm ci`: tsc, eslint, and both i18n gates. The cabinet has no unit
+        # tests yet; when it grows them, `npm test` joins here.
+        runCheckFrontend = pkgs.writeShellApplication {
+          name = "run-check-frontend";
+          runtimeInputs = with pkgs; [ nodejs git ];
+          text = ''
+            cd "$(git rev-parse --show-toplevel)/cabinet/frontend"
+            # `ci`, not `install`: the lock is the point of a check run.
+            npm ci
+
+            echo "▶ tsc --noEmit"
+            npm run check
+
+            echo "▶ eslint"
+            npm run lint
+
+            echo "▶ i18n catalogues"
+            npm run i18n:check
+
+            echo "✓ frontend ok"
+          '';
+        };
+
         # `nix run .#drift-check` — Cargo.lock agrees with the manifests. `--locked` refuses
         # to re-resolve, so a merge that took a new git rev in Cargo.toml while keeping the
         # old one in Cargo.lock fails HERE rather than at the image build.
@@ -525,12 +634,15 @@
           nix run .#dev           postgres (shared) + invest's tigerbeetle (:3034) + invest-core (:${toString corePort})
           nix run .#invest-core   invest-core alone (needs .#db and .#tb)
           nix run .#cabinet-backend   the cabinet BFF on :${toString cabinetBackendPort} (needs .#db)
+          nix run .#cabinet-frontend  the cabinet (next dev) on :3000/cabinet, against the BFF
           nix run .#db            ensure the shared Postgres and the 'invest' database
           nix run .#tb            invest's local TigerBeetle on :3034
           nix run .#check-rust    clippy (warnings denied) + workspace tests, as CI runs them
+          nix run .#check-frontend   the cabinet's tsc + eslint + i18n gates, as CI runs them
           nix run .#drift-check   Cargo.lock matches the manifests
           nix build .#ev_invest-invest-core-container   the invest-core OCI image (containers.invest-core)
           nix build .#ev_invest-invest-cabinet-backend-container   the cabinet BFF's OCI image
+          nix build .#ev_invest-invest-cabinet-container   the cabinet's OCI image (Next standalone)
           EOF
         '';
       in
@@ -540,6 +652,7 @@
         # `nix run .#db`          → ensure the SHARED ev_invest Postgres is up (+ the `invest` database)
         # `nix run .#tb`          → invest's local TigerBeetle on :3034 (repo-local data under .tb/)
         # `nix run .#check-rust`  → clippy (warnings denied) + workspace tests, as CI runs them
+        # `nix run .#check-frontend` → the cabinet's tsc + eslint + i18n gates, as CI runs them
         # `nix run .#drift-check` → Cargo.lock matches the manifests
         # Author new migrations with the sqlx CLI (in the dev shell):
         #   sqlx migrate add --source core/migrations --sequential <name>
@@ -547,15 +660,19 @@
           dev = { type = "app"; program = "${runDev}/bin/run-dev"; };
           invest-core = { type = "app"; program = "${runCore}/bin/run-invest-core"; };
           cabinet-backend = { type = "app"; program = "${runCabinetBackend}/bin/run-cabinet-backend"; };
+          cabinet-frontend = { type = "app"; program = "${runCabinetFrontend}/bin/run-cabinet-frontend"; };
           db = { type = "app"; program = "${runPostgres}/bin/run-postgres"; };
           tb = { type = "app"; program = "${runTigerbeetle}/bin/run-tigerbeetle"; };
           check-rust = { type = "app"; program = "${runCheckRust}/bin/run-check-rust"; };
+          check-frontend = { type = "app"; program = "${runCheckFrontend}/bin/run-check-frontend"; };
           drift-check = { type = "app"; program = "${runDriftCheck}/bin/run-drift-check"; };
           help = { type = "app"; program = "${runHelp}/bin/help"; };
         };
 
         packages = {
           default = investBins;
+          # The cabinet's standalone server, as its image runs it — `nix build .#cabinet`.
+          cabinet = cabinetApp;
         } // containerStd.packages;
 
         containers = containerStd.containers;
@@ -584,6 +701,7 @@
               postgresql
               sqlx-cli
               tigerbeetleBin
+              nodejs
             ] ++ pre-commit-check.enabledPackages ++ combined.enabledPackages;
 
             env.RUST_BACKTRACE = 1;
