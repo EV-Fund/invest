@@ -752,3 +752,69 @@ async fn a_valuation_poster_cannot_redeem_inside_the_cooldown() {
 	common::drain_to_quiescence(&h.relay, &h.pool).await;
 	assert_eq!(redemption_record(&h, user, queued).await.redemption.state(), RedemptionState::Completed);
 }
+
+// ── a redemption is paid only for units it actually holds ─────────────────────
+
+/// The units a covered redemption names leave the holding by another road before the relay
+/// reserves its burn (a move the outbox never saw). The reserve is refused, so the
+/// redemption fails — and its settlement, already queued behind it, must not pay out for
+/// units nobody burned.
+#[tokio::test]
+async fn a_redemption_whose_burn_could_not_be_reserved_is_never_paid() {
+	let Some(h) = harness().await else { return };
+	let service = registered_service(&h).await;
+	let user = funded_user(&h, &ScopeId::invest(), "100").await;
+	let user_shares = LedgerAccountKey::UserShares(service.clone(), user);
+	subscribe(&h, user, &service, "100", now_unix()).await.unwrap();
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+
+	let r = funds_app::request_redemption(&h.fund_ports(), &h.redemptions, &h.users, user, service.clone(), shares("100"), now_unix())
+		.await
+		.unwrap();
+	assert_eq!(r.state(), RedemptionState::Settling, "covered: Requested and Settled are both queued");
+	h.ledger
+		.post(&LedgerTransfer {
+			id: Uuid::new_v4().as_u128(),
+			debit: LedgerAccountKey::BookShares(service.clone(), user),
+			credit: user_shares.clone(),
+			amount: shares("100").base_units(),
+			code: TransferCode::BookLock,
+			reference: 0,
+		})
+		.await
+		.unwrap();
+	// Parks are what this test pins, so single passes instead of `drain_to_quiescence`.
+	h.relay.drain().await;
+	h.relay.drain().await;
+
+	let record = redemption_record(&h, user, r.id()).await;
+	assert_eq!(record.redemption.state(), RedemptionState::Failed, "{:?}", record.failure_reason);
+	assert!(record.failure_reason.is_some_and(|reason| reason.contains("units")), "says why");
+	assert_eq!(compartment(&h, user), Usdt::ZERO, "nothing was paid for units nobody burned");
+	assert_eq!(alloc_cash(&h, &service), usdt("100"));
+	assert_eq!(units(&h, &LedgerAccountKey::SharesOutstanding(service.clone())).await, shares("100"), "nothing burned");
+}
+
+/// A sell order resting on units the relay has not escrowed yet: the ledger still shows
+/// them free, but they are spoken for. A redemption of the same units is refused at the
+/// door instead of racing the escrow to the ledger.
+#[tokio::test]
+async fn units_spoken_for_by_an_undrained_event_cannot_be_redeemed_again() {
+	let Some(h) = harness().await else { return };
+	let service = registered_service(&h).await;
+	let user = funded_user(&h, &ScopeId::invest(), "100").await;
+	subscribe(&h, user, &service, "100", now_unix()).await.unwrap();
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+
+	// The first redemption's Requested is still in the outbox when the second arrives.
+	funds_app::request_redemption(&h.fund_ports(), &h.redemptions, &h.users, user, service.clone(), shares("60"), now_unix())
+		.await
+		.unwrap();
+	let err = funds_app::request_redemption(&h.fund_ports(), &h.redemptions, &h.users, user, service.clone(), shares("60"), now_unix())
+		.await
+		.unwrap_err();
+	assert!(matches!(&err, DomainError::Validation(m) if m.contains("insufficient units")), "{err:?}");
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	assert_eq!(compartment(&h, user), usdt("60"), "paid once");
+	assert_eq!(units(&h, &LedgerAccountKey::UserShares(service.clone(), user)).await, shares("40"));
+}

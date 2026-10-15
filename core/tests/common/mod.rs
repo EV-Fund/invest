@@ -435,7 +435,7 @@ pub async fn engine(suite: &str) -> Option<Engine> {
 		positions: PgFundPositions::new(pool.clone()),
 		nav: PgNav::new(pool.clone()),
 		subscriptions: PgSubscriptions::new(pool.clone()),
-		redemptions: PgRedemptions::new(pool.clone()),
+		redemptions: PgRedemptions::new(pool.clone(), ledger.clone()),
 		policies: PgFeePolicies::new(pool.clone()),
 		changes: PgFeePolicyChanges::new(pool.clone()),
 		accruals: PgPositionAccruals::new(pool.clone()),

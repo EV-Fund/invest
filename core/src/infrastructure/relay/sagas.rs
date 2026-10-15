@@ -306,10 +306,18 @@ impl Relay {
 			},
 		};
 		match event {
-			RedemptionEvent::Requested { user, service, units, .. } => {
-				step!(self.reserve_leg(row, 0, "redeem_reserve", &burn(user, &service, units).pending, 0).await);
-				Outcome::Done
-			}
+			RedemptionEvent::Requested { user, service, units, .. } => match self.reserve_leg(row, 0, "redeem_reserve", &burn(user, &service, units).pending, 0).await {
+				Ok(()) => Outcome::Done,
+				// The units are not there to burn (moved by a road the request could not see).
+				// The redemption fails here, so the settlement queued behind it finds nothing
+				// to pay: a park alone would leave it `settling`, and its payout would go out
+				// for units nobody burned.
+				Err(Outcome::Park { reason, applied_legs }) => match fail_redemption(&self.pool, id, &format!("units not reserved: {reason}")).await {
+					Ok(()) => Outcome::Park { reason, applied_legs },
+					Err(err) => Outcome::Retry(format!("redemption failed stamp: {err}")),
+				},
+				Err(outcome) => outcome,
+			},
 			RedemptionEvent::Failed { user, service, units, .. } => {
 				step!(
 					self.complete_leg(row, 0, "redeem_void", &burn(user, &service, units).completion(tid(id, BURN_VOID_FAIL), CompletionKind::Void), 0)
@@ -353,6 +361,18 @@ impl Relay {
 					subject_ref: step!(subject_ref("redemption", id)),
 				};
 				let burn = burn(user, &service, units);
+				// The burn is reserved again before a cent moves. Its pending is normally there
+				// already (`Exists` from `Requested`); if it is not, neither are the units, and
+				// nothing is paid. Not recorded as a step: `Requested` owns that transfer id.
+				match self.ledger.reserve(&burn.pending).await {
+					Ok(()) => {}
+					Err(LedgerError::InsufficientFunds) =>
+						return match fail_redemption(&self.pool, id, "units not reserved: insufficient units to burn").await {
+							Ok(()) => Outcome::park("redemption settle: the units to burn are not there — failed, nothing paid".into()),
+							Err(err) => Outcome::Retry(format!("redemption failed stamp: {err}")),
+						},
+					Err(err) => return ledger_failure("redeem_reserve", err, 0),
+				}
 				match self.money.payout(&payout).await {
 					Ok(_) => {}
 					Err(err) => {
@@ -670,8 +690,10 @@ async fn settle_subscription(pool: &PgPool, row: &OutboxRow, user: UserId, servi
 	tx.commit().await
 }
 
+/// Fail a redemption the relay could not carry — before its payout (`queued` or
+/// `settling`); a terminal row is left as it is.
 async fn fail_redemption(pool: &PgPool, id: Uuid, reason: &str) -> Result<(), sqlx::Error> {
-	sqlx::query("UPDATE redemptions SET state = 'failed', failure_reason = $2, updated_at = now() WHERE id = $1 AND state = 'settling'")
+	sqlx::query("UPDATE redemptions SET state = 'failed', failure_reason = $2, updated_at = now() WHERE id = $1 AND state IN ('queued', 'settling')")
 		.bind(id)
 		.bind(reason)
 		.execute(pool)

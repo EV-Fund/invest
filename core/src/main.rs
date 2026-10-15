@@ -143,13 +143,13 @@ async fn run(config: config::AppConfig) -> color_eyre::Result<()> {
 	);
 	let state = AppState {
 		pool: pool.clone(),
-		ledger,
+		ledger: ledger.clone(),
 		money,
 		users: Arc::new(PgUsers::new(pool.clone())),
 		allocations: Arc::new(PgAllocations::new(pool.clone())),
 		issuances: Arc::new(PgUnitIssuances::new(pool.clone())),
 		subscriptions: Arc::new(PgSubscriptions::new(pool.clone())),
-		redemptions: Arc::new(PgRedemptions::new(pool.clone())),
+		redemptions: Arc::new(PgRedemptions::new(pool.clone(), ledger.clone())),
 		book: Arc::new(PgBook::new(pool.clone())),
 		book_engine: Arc::new(PriceTimeEngine),
 		book_feed: BookFeed::new(),
