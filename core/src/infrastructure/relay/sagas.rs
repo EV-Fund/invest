@@ -132,7 +132,10 @@ fn refusal_reason(err: &MoneyLedgerError) -> Option<String> {
 fn ledger_failure(step: &str, err: LedgerError, applied_legs: usize) -> Outcome {
 	match err {
 		LedgerError::Unavailable(detail) => Outcome::Retry(format!("{step}: {detail}")),
-		LedgerError::Retryable(detail) => Outcome::RetryBounded(format!("{step}: {detail}")),
+		LedgerError::Retryable(detail) => Outcome::RetryBounded {
+			reason: format!("{step}: {detail}"),
+			applied_legs,
+		},
 		LedgerError::InsufficientFunds => Outcome::Park {
 			reason: format!("{step}: insufficient funds"),
 			applied_legs,
