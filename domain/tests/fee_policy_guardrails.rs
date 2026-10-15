@@ -2,74 +2,18 @@
 //!
 //! The unit tests beside the code pin the rules; these pin the EDGES the rules are stated
 //! at — the exact second the notice period is satisfied, the exact byte a reason may still
-//! have — and the one property the consilium's hash re-check silently depends on: that a
-//! subject read back from JSONB, whose keys Postgres stores in its own order, hashes to
-//! the bytes the owners signed. The reordered literal doubles as a pin on the stored key
-//! names: every fee-policy consilium already in the database is written in them, and a
-//! rename would make each of those rows unreadable.
+//! have.
 //!
 //! Everything from `position` down pins the edge #255 was found at: what a charge does when
 //! the position it is owed on and the holding it can be taken from are not the same number.
 
-use domain::{
-	balance::ServiceId,
-	fees::{
-		CrystallizationPeriod, FeePolicy, FeePolicyChangeId, FeePolicySubject, MAX_REASON_BYTES, MIN_NOTICE_SECS, ManagementBasis, PositionSnapshot, Trigger, assess,
-		earliest_effective_from, validate_reason,
-	},
+use invest_domain::{
+	fees::{CrystallizationPeriod, FeePolicy, MAX_REASON_BYTES, MIN_NOTICE_SECS, ManagementBasis, PositionSnapshot, Trigger, assess, earliest_effective_from, validate_reason},
 	money::{Nav, Shares, Usdt},
 };
 
 const SCHEDULED_AT: i64 = 1_700_000_000;
 const YEAR: i64 = 365 * 24 * 60 * 60;
-
-fn subject() -> FeePolicySubject {
-	FeePolicySubject {
-		change_id: FeePolicyChangeId::from_raw(uuid::Uuid::from_u128(0x233)),
-		service: ServiceId::parse("trading").unwrap(),
-		from: Some(FeePolicy::HOUSE),
-		to: FeePolicy::new(300, 2_500, 800, ManagementBasis::MarketValue, CrystallizationPeriod::Quarterly).unwrap(),
-		reason: "the new mandate costs more to run".to_owned(),
-		requested_effective_from: SCHEDULED_AT + 3 * MIN_NOTICE_SECS,
-	}
-}
-
-#[test]
-fn a_subject_read_back_with_its_keys_in_another_order_hashes_to_the_same_bytes() {
-	let signed = subject();
-	// The wire form, so the identifiers are spelled exactly as serde spells them.
-	let as_written: serde_json::Value = serde_json::from_str(&serde_json::to_string(&signed).unwrap()).unwrap();
-	let change_id = as_written["change_id"].as_str().expect("the change id is a string on the wire");
-	let service = as_written["service"].as_str().expect("the service is a string on the wire");
-
-	// Every key in the reverse of the struct's order, at both levels — the shape JSONB
-	// (which stores keys by length, then bytewise) or any other store may hand back.
-	let reordered = format!(
-		r#"{{
-			"requested_effective_from": {requested},
-			"reason": "the new mandate costs more to run",
-			"to": {{"crystallization": "quarterly", "basis": "market_value", "hurdle_bps": 800, "performance_bps": 2500, "management_bps": 300}},
-			"from": {{"crystallization": "annual", "basis": "invested_capital", "hurdle_bps": 0, "performance_bps": 2000, "management_bps": 200}},
-			"service": "{service}",
-			"change_id": "{change_id}"
-		}}"#,
-		requested = SCHEDULED_AT + 3 * MIN_NOTICE_SECS,
-	);
-	let read_back: FeePolicySubject = serde_json::from_str(&reordered).unwrap();
-
-	assert_eq!(read_back, signed);
-	assert_eq!(read_back.canonical_bytes(), signed.canonical_bytes(), "the hash the owners signed must survive the store");
-}
-
-#[test]
-fn a_subject_whose_terms_were_edited_in_the_store_hashes_differently() {
-	let signed = subject();
-	let mut tampered: serde_json::Value = serde_json::from_str(&serde_json::to_string(&signed).unwrap()).unwrap();
-	tampered["to"]["management_bps"] = serde_json::json!(301);
-	let read_back: FeePolicySubject = serde_json::from_value(tampered).unwrap();
-
-	assert_ne!(read_back.canonical_bytes(), signed.canonical_bytes(), "one basis point more is not what the owners signed");
-}
 
 #[test]
 fn the_notice_period_is_satisfied_at_exactly_twenty_four_hours_and_not_a_second_earlier() {

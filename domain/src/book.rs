@@ -9,14 +9,16 @@
 //! replacement.
 //!
 //! Money-wise a resting order is an **escrow**: a sell moves its units from the holder's
-//! `UserShares` into `BookShares`, a buy moves its worst-case cash (`size × price`, plus
-//! the taker fee it might owe) from `UserClaim` into `BookCash`. A fill is one linked
-//! TigerBeetle batch — units out of the seller's escrow into the buyer's holding, cash out
-//! of the buyer's escrow into the seller's claim, the taker's fee into the `fee`
-//! allocation's claim —
-//! delivery versus payment, all or nothing. Whatever the escrow still holds when the
-//! order reaches a terminal state is released back. Those facts are the [`BookEvent`]s
-//! the relay posts; this module only decides them.
+//! `UserShares` into `BookShares` on invest's own ledger, a buy holds its worst-case cash
+//! (`size × price`, plus the taker fee it might owe) in banking — a hold on the buyer's
+//! compartment, placed before the order is recorded. A fill is delivery versus payment
+//! across the two ledgers: the units leg out of the seller's escrow is a pending transfer
+//! here, the cash is captured out of the buyer's hold into the seller's compartment (and
+//! the taker's fee into the fee route), and only then are the units posted — a capture
+//! that is refused voids the units leg, so neither party ends up with both or neither.
+//! Whatever the escrow still holds when the order reaches a terminal state is released
+//! back (the units posted back, the hold voided). Those facts are the [`BookEvent`]s the
+//! relay carries out; this module only decides them.
 //!
 //! The matching itself is a **pure function behind a trait** ([`MatchingEngine`]): it
 //! takes the incoming order and the opposite side of the book (best first) and answers
@@ -32,7 +34,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
 	allocations::AllocationBacking,
-	balance::{Party, ServiceId},
+	balance::ServiceId,
 	error::DomainError,
 	money::{Nav, SCALE, Shares, Usdt, mul_div_floor},
 	users::UserId,
@@ -580,8 +582,8 @@ impl Default for BookPolicy {
 	}
 }
 
-/// What an order holds in escrow: units for a sell, cash for a buy. Tagged so the stored
-/// event payload is self-describing.
+/// What an order holds in escrow: units for a sell (in `BookShares`), cash for a buy (the
+/// amount of its hold in banking). Tagged so the stored event payload is self-describing.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(tag = "kind", content = "amount", rename_all = "snake_case")]
 pub enum Locked {
@@ -990,8 +992,9 @@ pub struct Trade {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum BookEvent {
-	/// An order was recorded; the relay moves its escrow (`Dr BookShares / Cr UserShares`
-	/// for a sell, `Dr UserClaim / Cr BookCash` for a buy).
+	/// An order was recorded; the relay moves a sell's units into escrow (`Dr BookShares /
+	/// Cr UserShares`). A buy's cash is already held in banking — the hold is placed before
+	/// the order is written — so the relay checks the hold is there and moves nothing.
 	OrderPlaced {
 		order_id: OrderId,
 		service: ServiceId,
@@ -999,13 +1002,13 @@ pub enum BookEvent {
 		side: Side,
 		locked: Locked,
 	},
-	/// Two orders traded. The relay posts one linked batch: `size` units `Dr
-	/// UserShares(buyer) / Cr BookShares(seller)`, `notional` cash `Dr BookCash(buyer) /
-	/// Cr UserClaim(seller)`, and `fee` from the taker into `payee`'s claim — then adds the
-	/// buyer's cost basis and reduces the seller's. `nav` is the fund's mark at the time,
-	/// carried so the buyer's high-water mark blends the accounting price, not the quote.
-	///
-	/// `payee` is the `fee` allocation (#245).
+	/// Two orders traded. The relay reserves `size` units `Dr UserShares(buyer) / Cr
+	/// BookShares(seller)` as a pending transfer, captures the cash out of the buyer's
+	/// hold — `notional` less a selling taker's fee to the seller, the fee into the
+	/// allocation's account and on through the fee route — and posts the units; then adds
+	/// the buyer's cost basis and reduces the seller's. `nav` is the fund's mark at the
+	/// time, carried so the buyer's high-water mark blends the accounting price, not the
+	/// quote.
 	TradeExecuted {
 		trade_id: TradeId,
 		service: ServiceId,
@@ -1019,10 +1022,9 @@ pub enum BookEvent {
 		notional: Usdt,
 		fee: Usdt,
 		nav: Nav,
-		payee: Party,
 	},
 	/// An order reached a terminal state with something left in escrow; the relay hands
-	/// it back (`Dr UserShares / Cr BookShares` or `Dr BookCash / Cr UserClaim`).
+	/// it back (`Dr UserShares / Cr BookShares`, or a void of the buy's hold).
 	OrderReleased {
 		order_id: OrderId,
 		service: ServiceId,
@@ -1432,7 +1434,6 @@ mod tests {
 				notional: usdt("3"),
 				fee: usdt("0.003"),
 				nav: Nav::SEED,
-				payee: Party::fee_payee(),
 			},
 			BookEvent::OrderReleased {
 				order_id: OrderId::new(),

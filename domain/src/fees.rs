@@ -56,10 +56,9 @@ use ev::architecture::{AggregateRoot, DomainEvent, EmitsEvents, Entity, Id};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-	balance::{Party, ServiceId},
+	balance::ServiceId,
 	error::DomainError,
 	money::{Nav, Shares, Usdt},
-	push_field,
 	users::UserId,
 };
 
@@ -302,7 +301,10 @@ impl FeePolicy {
 pub enum ChangeRequirement {
 	/// One `AllocationManage` holder is enough.
 	Admin,
-	/// The owners' quorum — see `docs/CONSILIUM.md`.
+	/// The owners' quorum. banking's consilium does not move to invest (S2-6); the owners'
+	/// approval arrives from concierge's approvals once invest is their client, and until
+	/// then invest refuses a change that needs it rather than scheduling it on one
+	/// administrator's word.
 	OwnerConsilium,
 }
 
@@ -425,59 +427,6 @@ impl FeePolicyChangeState {
 	/// exists per product (`fee_policy_changes_single_pending_idx`).
 	pub const fn is_pending(self) -> bool {
 		matches!(self, Self::AwaitingConsilium | Self::Scheduled)
-	}
-}
-
-/// The immutable subject of a fee-policy consilium: WHICH change, over WHICH product, from
-/// WHAT terms to WHAT terms, binding no earlier than WHEN. The change's id is inside the
-/// hashed subject, so an approval of one change is never a valid signature over another
-/// that happens to name the same terms.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct FeePolicySubject {
-	pub change_id: FeePolicyChangeId,
-	pub service: ServiceId,
-	/// The terms in force when the change was proposed — what the owners are told they are
-	/// moving AWAY from. `None` for a product that charged nothing, which is a different
-	/// fact from a policy whose rates are zero.
-	pub from: Option<FeePolicy>,
-	pub to: FeePolicy,
-	/// Why, in the initiator's words. Part of what is signed: an approval given for one
-	/// justification is not an approval of the same numbers under another.
-	pub reason: String,
-	/// The operator's requested effective moment (unix seconds; `0` = as soon as allowed).
-	/// The actual moment is fixed when the change is scheduled, which for this kind is the
-	/// moment the owners carry it, and is never earlier than this.
-	pub requested_effective_from: i64,
-}
-
-impl FeePolicySubject {
-	/// FROZEN, for the reason [`crate::payments::PaymentTerms::DOMAIN`] is: every stored `payload_hash`
-	/// over a fee-policy change opens with these bytes.
-	pub const DOMAIN: &'static [u8] = b"banking.v1.FeePolicySubject\x00";
-
-	/// The bytes the payload hash is taken over — fixed field order, every variable-length
-	/// part length-prefixed, both policies encoded leg by leg behind a presence byte.
-	pub fn canonical_bytes(&self) -> Vec<u8> {
-		let mut out = Vec::with_capacity(Self::DOMAIN.len() + 192);
-		out.extend_from_slice(Self::DOMAIN);
-		push_field(&mut out, self.change_id.raw().as_bytes());
-		push_field(&mut out, self.service.as_str().as_bytes());
-		for policy in [self.from.as_ref(), Some(&self.to)] {
-			match policy {
-				None => out.push(0),
-				Some(policy) => {
-					out.push(1);
-					out.extend_from_slice(&policy.management_bps.to_be_bytes());
-					out.extend_from_slice(&policy.performance_bps.to_be_bytes());
-					out.extend_from_slice(&policy.hurdle_bps.to_be_bytes());
-					push_field(&mut out, policy.basis.as_str().as_bytes());
-					push_field(&mut out, policy.crystallization.as_str().as_bytes());
-				}
-			}
-		}
-		push_field(&mut out, self.reason.as_bytes());
-		out.extend_from_slice(&self.requested_effective_from.to_be_bytes());
-		out
 	}
 }
 
@@ -810,9 +759,10 @@ impl EmitsEvents for FeeAssessment {
 /// the money plane, and the reason clawing back in units costs nothing per investor: the
 /// manager does this once for a whole period's fees, not once per holder.
 ///
-/// It is the mirror of a redemption settle: burn the fee units, then pay their value out
-/// of the fund's claim into the `fee` allocation's. Burn-first, so a fund short of cash parks before
-/// any units are destroyed.
+/// It is the mirror of a redemption settle: pay the units' value out of the product's
+/// account in banking into the scope's fee route — `(<scope>, fee)`, which banking sweeps
+/// on to `(invest, alloc:fee)` — then burn the units. Pay-first, because the payment is the
+/// leg banking may refuse: a product short of cash leaves the units unburned.
 #[derive(Clone, Debug)]
 pub struct FeeSettlement {
 	id: FeeSettlementId,
@@ -848,7 +798,6 @@ impl FeeSettlement {
 			units,
 			nav,
 			cash,
-			payee: Party::fee_payee(),
 		});
 		Ok(settlement)
 	}
@@ -911,19 +860,16 @@ pub enum FeeEvent {
 		performance: Usdt,
 		cash: Usdt,
 	},
-	/// Accumulated fee units converted to cash (relay, burn-first: post
-	/// `Dr SharesOutstanding / Cr FeeShares`, then `Dr ServiceClaim / Cr <payee claim>`).
-	///
-	/// `payee` is the claim the cash lands on — the `fee` allocation's, whose holders
-	/// are people (#245). It rides on the event rather than in the relay, so the relay's
-	/// plan is a function of the payload alone.
+	/// Accumulated fee units converted to cash (relay, pay-first: sweep `cash` from
+	/// `(<scope>, alloc:<service>)` into `(<scope>, fee)` in banking, then post
+	/// `Dr SharesOutstanding / Cr FeeShares`). The fee route lands invest's own fees on the
+	/// `fee` allocation's cash, whose holders are people (#245).
 	SharesSettled {
 		settlement_id: FeeSettlementId,
 		service: ServiceId,
 		units: Shares,
 		nav: Nav,
 		cash: Usdt,
-		payee: Party,
 	},
 }
 
@@ -1262,57 +1208,6 @@ mod tests {
 		assert_eq!(earliest_effective_from(NOW, NOW + 10, true), NOW + MIN_NOTICE_SECS);
 		// A request beyond the notice period is honoured as it is.
 		assert_eq!(earliest_effective_from(NOW, NOW + 2 * MIN_NOTICE_SECS, true), NOW + 2 * MIN_NOTICE_SECS);
-	}
-
-	#[test]
-	fn the_subject_encoding_is_domain_separated_and_binds_every_field() {
-		let subject = FeePolicySubject {
-			change_id: FeePolicyChangeId::from_raw(uuid::Uuid::from_u128(0x233)),
-			service: svc(),
-			from: None,
-			to: FeePolicy::HOUSE,
-			reason: "align with the prospectus".to_owned(),
-			requested_effective_from: 0,
-		};
-		assert!(subject.canonical_bytes().starts_with(FeePolicySubject::DOMAIN));
-		assert_eq!(FeePolicySubject::DOMAIN, b"banking.v1.FeePolicySubject\x00");
-		assert_eq!(subject.canonical_bytes(), subject.canonical_bytes());
-		let other_change = FeePolicySubject {
-			change_id: FeePolicyChangeId::from_raw(uuid::Uuid::from_u128(0x234)),
-			..subject.clone()
-		};
-		assert_ne!(
-			subject.canonical_bytes(),
-			other_change.canonical_bytes(),
-			"an approval of one change is not a signature over another"
-		);
-		let dearer = FeePolicySubject {
-			to: FeePolicy::new(300, 2_000, 0, ManagementBasis::InvestedCapital, CrystallizationPeriod::Annual).unwrap(),
-			..subject.clone()
-		};
-		assert_ne!(subject.canonical_bytes(), dearer.canonical_bytes());
-		let later = FeePolicySubject {
-			requested_effective_from: 1,
-			..subject.clone()
-		};
-		assert_ne!(subject.canonical_bytes(), later.canonical_bytes());
-		let differently_justified = FeePolicySubject {
-			reason: "because".to_owned(),
-			..subject.clone()
-		};
-		assert_ne!(subject.canonical_bytes(), differently_justified.canonical_bytes(), "the reason is part of what is signed");
-		// "Charged nothing" and "charged zero" are different facts and encode differently.
-		let from_zero = FeePolicySubject {
-			from: Some(FeePolicy::NONE),
-			..subject.clone()
-		};
-		assert_ne!(subject.canonical_bytes(), from_zero.canonical_bytes());
-		let swapped = FeePolicySubject {
-			from: Some(FeePolicy::HOUSE),
-			to: FeePolicy::NONE,
-			..subject.clone()
-		};
-		assert_ne!(from_zero.canonical_bytes(), swapped.canonical_bytes(), "the direction of the change is part of what is signed");
 	}
 
 	#[test]

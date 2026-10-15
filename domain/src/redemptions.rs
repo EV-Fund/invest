@@ -1,22 +1,24 @@
 //! `redemptions` bounded context — a user redeeming fund units back to cash.
 //!
 //! Redeeming burns `units` of the **service currency** and pays the holder
-//! `cash = units × NAV` out of the fund's claim. It is the constrained direction (the
-//! fund's realizable cash may be short of marked value), so — like a withdrawal — it is
-//! a **saga with an explicit queue**. The units are reserved (a TB **pending burn**) the
-//! instant the request is recorded, which is what locks them against double-redeem; the
-//! cash is paid only at **settle**, gated by the fund's claim liquidity (**accept &
-//! queue** when short).
+//! `cash = units × NAV` out of the allocation's account in banking, `(<scope>,
+//! alloc:<service>)`. It is the constrained direction (the fund's realizable cash may be
+//! short of marked value), so it is a **saga with an explicit queue**. The units are
+//! reserved (a TB **pending burn**) the instant the request is recorded, which is what
+//! locks them against double-redeem; the cash is paid only at **settle**, gated by the
+//! account's liquidity (**accept & queue** when short).
 //!
-//! Two deliberate departures from [`Withdrawal`](crate::withdrawals::Withdrawal):
-//! - **No `Processing`/broadcast phase** — the payout is an internal claim→claim move,
-//!   so the state machine is `Queued → Completed | Cancelled | Failed`.
+//! - **Settle is a step, not a moment** — the payout is banking's (`Payout`), the burn is
+//!   invest's, and they cannot share a transaction. `settle` prices the redemption and
+//!   moves it to `Settling`; the relay pays out, then posts the burn and stamps it
+//!   `Completed`. A payout banking refuses (the account is short, the amount is past the
+//!   automatic ceilings) voids the burn and stamps it `Failed`: the units go back.
 //! - **Settle-time pricing** — `units` are fixed at request, but `cash = units × NAV` is
 //!   computed from the NAV *at settle* (execution-day pricing), so a queue that drains
 //!   after a NAV drop doesn't overpay the redeeming holder at the others' expense.
 //!
 //! Pure and wasm-safe: ids minted by the application layer, no clock, no I/O. The relay
-//! maps each event to ledger ops (burn-first, payout-second); that lives in the adapter.
+//! maps each event to its steps (payout first, burn second); that lives in the adapter.
 
 use ev::architecture::{AggregateRoot, DomainEvent, EmitsEvents, Entity, Id};
 use serde::{Deserialize, Serialize};
@@ -33,17 +35,21 @@ pub type RedemptionId = Id<RedemptionTag>;
 /// Phantom tag making [`RedemptionId`] a distinct, incompatible identity type.
 pub struct RedemptionTag;
 
-/// Lifecycle of a redemption. `Queued` is in-flight (the units are reserved as a TB
-/// pending burn); the rest are terminal. Cancel/fail are legal **only while queued** —
-/// once `Completed`, the burn is posted and the cash paid, so neither may undo it.
+/// Lifecycle of a redemption. `Queued` and `Settling` are in flight (the units are
+/// reserved as a TB pending burn); the rest are terminal. Cancel/fail are legal **only
+/// while queued** — once settling, the payout may already have left, and only the relay,
+/// which knows, may roll it back.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RedemptionState {
 	/// Accepted; units reserved (pending burn), awaiting fund liquidity to pay out.
 	Queued,
+	/// Priced; the relay is paying out and burning.
+	Settling,
 	/// Paid out and burned (terminal).
 	Completed,
-	/// Released by an operator while queued; the reservation was voided (terminal).
+	/// Released by an operator while queued, or the payout was refused at settle; the
+	/// reservation was voided (terminal).
 	Failed,
 	/// Cancelled by the user while queued; the reservation was voided (terminal).
 	Cancelled,
@@ -53,6 +59,7 @@ impl RedemptionState {
 	pub fn as_str(self) -> &'static str {
 		match self {
 			Self::Queued => "queued",
+			Self::Settling => "settling",
 			Self::Completed => "completed",
 			Self::Failed => "failed",
 			Self::Cancelled => "cancelled",
@@ -62,6 +69,7 @@ impl RedemptionState {
 	pub fn parse(raw: &str) -> Result<Self, DomainError> {
 		match raw {
 			"queued" => Ok(Self::Queued),
+			"settling" => Ok(Self::Settling),
 			"completed" => Ok(Self::Completed),
 			"failed" => Ok(Self::Failed),
 			"cancelled" => Ok(Self::Cancelled),
@@ -127,11 +135,11 @@ impl Redemption {
 	}
 
 	/// Settle a queued redemption at the **settle-time** `nav`: prices
-	/// `cash = units × nav` and pays it out. Idempotent if already completed; only a
-	/// queued redemption can be settled. Raises `Settled` (relay: post the pending burn
-	/// first, then pay the cash).
+	/// `cash = units × nav` and hands it to the relay. Idempotent once settling or
+	/// completed; only a queued redemption can be settled. Raises `Settled` (relay: pay
+	/// the cash out first, then post the pending burn).
 	pub fn settle(&mut self, nav: Nav) -> Result<(), DomainError> {
-		if self.state == RedemptionState::Completed {
+		if matches!(self.state, RedemptionState::Settling | RedemptionState::Completed) {
 			return Ok(());
 		}
 		if self.state != RedemptionState::Queued {
@@ -143,7 +151,7 @@ impl Redemption {
 		}
 		self.nav = Some(nav);
 		self.cash = Some(cash);
-		self.state = RedemptionState::Completed;
+		self.state = RedemptionState::Settling;
 		self.pending.push(RedemptionEvent::Settled {
 			redemption_id: self.id,
 			user: self.user,
@@ -247,10 +255,10 @@ pub enum RedemptionEvent {
 		service: ServiceId,
 		units: Shares,
 	},
-	/// Priced + paid (relay: post the pending burn first, then payout `Dr ServiceClaim /
-	/// Cr UserClaim` for `cash`). Burn-first means a raced over-redeem fails the burn-post
-	/// before any cash leaves; the relay's Read-First settle pre-check on the service claim
-	/// parks a short fund before either leg.
+	/// Priced (relay: pay `cash` out of `(<scope>, alloc:<service>)` into the user's
+	/// compartment through banking, then post the pending burn). Pay-first because the
+	/// payout is the leg banking may refuse; the pending burn already holds the units, so
+	/// the burn cannot fail for want of them once the cash has left.
 	Settled {
 		redemption_id: RedemptionId,
 		user: UserId,
@@ -322,13 +330,13 @@ mod tests {
 		r.drain_events();
 		// 100 units at settle-NAV 1.5 → 150 cash.
 		r.settle(Nav::parse_decimal("1.5").unwrap()).unwrap();
-		assert_eq!(r.state(), RedemptionState::Completed);
+		assert_eq!(r.state(), RedemptionState::Settling);
 		assert_eq!(r.cash(), Some(Usdt::parse_decimal("150").unwrap()));
 		assert!(matches!(r.drain_events()[0], RedemptionEvent::Settled { .. }));
 		// Idempotent: second settle is a no-op.
 		r.settle(Nav::parse_decimal("2").unwrap()).unwrap();
 		assert!(r.drain_events().is_empty());
-		// A completed redemption can be neither cancelled nor failed (fix #8).
+		// A settling redemption can be neither cancelled nor failed (fix #8).
 		assert!(r.cancel().is_err());
 		assert!(r.fail().is_err());
 	}
