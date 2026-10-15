@@ -9,7 +9,7 @@ import { useSearchParams } from "next/navigation";
 import { buttonVariants } from "@evinvest/uikit";
 
 import { useSignInDialog } from "@/features/auth/model/use-sign-in-dialog";
-import { apiPath } from "@/shared/config/base-path";
+import { BASE_PATH, apiPath } from "@/shared/config/base-path";
 import { SIGN_IN_PARAM } from "@/shared/lib/session-gate";
 import { useConciergeElement } from "@/shared/lib/platform-mfe";
 
@@ -53,10 +53,11 @@ export function SignInDialog() {
       open={dialog.open}
       onOpenChange={(open) => !open && dialog.hide()}
       onSignedIn={() => window.location.assign(rpLoginHref(currentPage(params), RP_LOGIN))}
-      // An OAuth round trip (Google, GitHub) leaves for evinvest.ltd and comes back here.
-      // Concierge cuts the query, so the page itself could not reopen the dialog; the RP
-      // login can finish the sign-in on its own and land on the cabinet.
-      returnTo={`${window.location.origin}${RP_LOGIN}`}
+      // An OAuth round trip (Google, GitHub) leaves for evinvest.ltd and comes back to the
+      // cabinet's root: concierge takes a `returnTo` only when its path is byte for byte one
+      // of the `invest` scope's `return_paths`, which is `/cabinet` alone. The evinvest.ltd
+      // session exists by then, so the next "Sign in" passes through the RP login silently.
+      returnTo={`${window.location.origin}${BASE_PATH}`}
       fallback={fallback}
     />
   );
