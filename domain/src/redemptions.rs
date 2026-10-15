@@ -166,39 +166,42 @@ impl Redemption {
 	/// Fail a queued redemption (operator): void the reservation, returning the units.
 	/// Idempotent if already failed; legal only while queued (never after settle).
 	pub fn fail(&mut self) -> Result<(), DomainError> {
-		if self.state == RedemptionState::Failed {
-			return Ok(());
+		if self.leave_queue(RedemptionState::Failed, "failable")? {
+			self.pending.push(RedemptionEvent::Failed {
+				redemption_id: self.id,
+				user: self.user,
+				service: self.service.clone(),
+				units: self.units,
+			});
 		}
-		if self.state != RedemptionState::Queued {
-			return Err(DomainError::Conflict(format!("redemption is {}, not failable", self.state.as_str())));
-		}
-		self.state = RedemptionState::Failed;
-		self.pending.push(RedemptionEvent::Failed {
-			redemption_id: self.id,
-			user: self.user,
-			service: self.service.clone(),
-			units: self.units,
-		});
 		Ok(())
 	}
 
 	/// Cancel a queued redemption (the user changed their mind): void the reservation,
 	/// returning the units. Idempotent if already cancelled; legal only while queued.
 	pub fn cancel(&mut self) -> Result<(), DomainError> {
-		if self.state == RedemptionState::Cancelled {
-			return Ok(());
+		if self.leave_queue(RedemptionState::Cancelled, "cancellable")? {
+			self.pending.push(RedemptionEvent::Cancelled {
+				redemption_id: self.id,
+				user: self.user,
+				service: self.service.clone(),
+				units: self.units,
+			});
+		}
+		Ok(())
+	}
+
+	/// Move a queued redemption to `to` — `false` when it is there already (the repeat is a
+	/// no-op), a conflict from any other state: once settling, the units are being paid for.
+	fn leave_queue(&mut self, to: RedemptionState, what: &str) -> Result<bool, DomainError> {
+		if self.state == to {
+			return Ok(false);
 		}
 		if self.state != RedemptionState::Queued {
-			return Err(DomainError::Conflict(format!("redemption is {}, not cancellable", self.state.as_str())));
+			return Err(DomainError::Conflict(format!("redemption is {}, not {what}", self.state.as_str())));
 		}
-		self.state = RedemptionState::Cancelled;
-		self.pending.push(RedemptionEvent::Cancelled {
-			redemption_id: self.id,
-			user: self.user,
-			service: self.service.clone(),
-			units: self.units,
-		});
-		Ok(())
+		self.state = to;
+		Ok(true)
 	}
 
 	pub fn id(&self) -> RedemptionId {

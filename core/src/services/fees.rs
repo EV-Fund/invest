@@ -25,6 +25,7 @@ use invest_domain::{
 	authz::Permission,
 	balance::ServiceId,
 	fees::{CrystallizationPeriod, FeePolicy, FeePolicyChangeId, ManagementBasis},
+	issuance::IdempotencyKey,
 	money::Shares,
 };
 use tonic::{Request, Response, Status};
@@ -32,7 +33,10 @@ use uuid::Uuid;
 
 use crate::{
 	AppState,
-	application::fees::{self as fee_app, FeePolicyPorts, PolicyChangeRequest, PolicyReader, PolicyView},
+	application::{
+		allocations as allocations_app,
+		fees::{self as fee_app, FeePolicyPorts, PolicyChangeRequest, PolicyReader, PolicyView},
+	},
 	ports::fees::{AssessmentRecord, FeePolicyChange},
 	services::support::{caller_id, holds_permission, map_err, require_permission, unix_now},
 };
@@ -202,6 +206,10 @@ impl FeesService for FeesSvc {
 	async fn get_accrued_fees(&self, request: Request<pb::GetAccruedFeesRequest>) -> Result<Response<pb::AccruedFees>, Status> {
 		let caller = caller_id(&request)?;
 		let service = ServiceId::parse(&request.get_ref().service).map_err(map_err)?;
+		// A product hidden from the caller has no fees to show them — NOT_FOUND, as
+		// `GetAllocation` answers — however their position came to be.
+		let unrestricted = holds_permission(&self.state, &request, Permission::AllocationManage).await?;
+		allocations_app::get_for(self.state.allocations.as_ref(), &service, caller, unrestricted).await.map_err(map_err)?;
 		let accrued = fee_app::accrued_fees(
 			self.state.fees.policies.as_ref(),
 			self.state.fees.accruals.as_ref(),
@@ -262,6 +270,7 @@ impl FeesService for FeesSvc {
 			"" => None,
 			raw => Some(Shares::parse_decimal(raw).map_err(map_err)?),
 		};
+		let idempotency_key = IdempotencyKey::parse(&req.idempotency_key).map_err(map_err)?;
 		let settlement = fee_app::settle_fee_shares(
 			self.state.fees.settlements.as_ref(),
 			self.state.allocations.as_ref(),
@@ -272,6 +281,7 @@ impl FeesService for FeesSvc {
 			&self.state.relay_notify,
 			service,
 			units,
+			&idempotency_key,
 			settler,
 			unix_now(),
 		)

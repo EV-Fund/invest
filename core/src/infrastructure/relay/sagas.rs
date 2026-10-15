@@ -18,8 +18,8 @@
 //!   buyer's hold into the seller's compartment (the notional, less a selling taker's
 //!   fee), post the units; then the taker's fee: captured into the product's account and
 //!   swept on into the scope's fee route. A refused cash capture voids the units leg.
-//! - **Fee settlement** — sweep the fee class's value out of the product's account into
-//!   `(<scope>, fee)`, then burn the fee units.
+//! - **Fee settlement** — reserve the burn of the fee units, sweep their value out of the
+//!   product's account into `(<scope>, fee)`, post the burn; a refused sweep voids it.
 //!
 //! Every step is idempotent on redelivery: a TigerBeetle leg by its deterministic id
 //! (derived from the aggregate id and a FROZEN salt — banking's where banking had the
@@ -42,7 +42,7 @@ use uuid::Uuid;
 
 use super::{Outcome, Relay, record_saga_step, tid};
 use crate::{
-	infrastructure::{fee_accrual, now_unix, outbox::OutboxRow, redemptions},
+	infrastructure::{book, fee_accrual, now_unix, outbox::OutboxRow, positions, redemptions},
 	ports::{
 		ledger::{CompletionKind, LedgerError, LedgerTransfer, PendingCompletion},
 		money::{AccountLabel, CaptureRequest, CaptureTo, FeeSweepRequest, HoldId, MoneyKey, MoneyLedgerError, PayoutLine, PayoutReason, PayoutRequest, ScopeId, SubjectRef, VoidRequest},
@@ -66,8 +66,11 @@ const BURN_VOID_REFUSED: &[u8] = b"redeem:burn:void:refused";
 /// The redemption's cost-basis reduction marker.
 const REDEEM_POSITION: &[u8] = b"redeem:position";
 
-/// The fee class burnt by a settlement (banking's).
+/// The fee class burnt by a settlement — banking's salt, now the pending burn's — and the
+/// burn's post or void.
 const FEE_SETTLE_BURN: &[u8] = b"fee:settle:burn";
+const FEE_SETTLE_BURN_POST: &[u8] = b"fee:settle:burn:post";
+const FEE_SETTLE_BURN_VOID: &[u8] = b"fee:settle:burn:void";
 
 /// The book: an order's lock and release (banking's, derived from the ORDER id), a
 /// fill's pending units leg (banking's salt, then a posted leg of a linked chain) and its
@@ -77,6 +80,8 @@ const BOOK_RELEASE: &[u8] = b"book:release";
 const BOOK_FILL_UNITS: &[u8] = b"book:fill:units";
 const BOOK_FILL_UNITS_POST: &[u8] = b"book:fill:units:post";
 const BOOK_FILL_UNITS_VOID: &[u8] = b"book:fill:units:void";
+/// A busted fill's units handed back to the seller out of the escrow.
+const BOOK_FILL_BUST_RELEASE: &[u8] = b"book:fill:bust:release";
 /// The trade's cost-basis projection marker (banking's).
 const BOOK_TRADE_POSITION: &[u8] = b"book:trade:position";
 
@@ -127,7 +132,10 @@ fn refusal_reason(err: &MoneyLedgerError) -> Option<String> {
 fn ledger_failure(step: &str, err: LedgerError, applied_legs: usize) -> Outcome {
 	match err {
 		LedgerError::Unavailable(detail) => Outcome::Retry(format!("{step}: {detail}")),
-		LedgerError::Retryable(detail) => Outcome::RetryBounded(format!("{step}: {detail}")),
+		LedgerError::Retryable(detail) => Outcome::RetryBounded {
+			reason: format!("{step}: {detail}"),
+			applied_legs,
+		},
 		LedgerError::InsufficientFunds => Outcome::Park {
 			reason: format!("{step}: insufficient funds"),
 			applied_legs,
@@ -306,10 +314,18 @@ impl Relay {
 			},
 		};
 		match event {
-			RedemptionEvent::Requested { user, service, units, .. } => {
-				step!(self.reserve_leg(row, 0, "redeem_reserve", &burn(user, &service, units).pending, 0).await);
-				Outcome::Done
-			}
+			RedemptionEvent::Requested { user, service, units, .. } => match self.reserve_leg(row, 0, "redeem_reserve", &burn(user, &service, units).pending, 0).await {
+				Ok(()) => Outcome::Done,
+				// The units are not there to burn (moved by a road the request could not see).
+				// The redemption fails here, so the settlement queued behind it finds nothing
+				// to pay: a park alone would leave it `settling`, and its payout would go out
+				// for units nobody burned.
+				Err(Outcome::Park { reason, applied_legs }) => match fail_redemption(&self.pool, id, &format!("units not reserved: {reason}")).await {
+					Ok(()) => Outcome::Park { reason, applied_legs },
+					Err(err) => Outcome::Retry(format!("redemption failed stamp: {err}")),
+				},
+				Err(outcome) => outcome,
+			},
 			RedemptionEvent::Failed { user, service, units, .. } => {
 				step!(
 					self.complete_leg(row, 0, "redeem_void", &burn(user, &service, units).completion(tid(id, BURN_VOID_FAIL), CompletionKind::Void), 0)
@@ -353,6 +369,18 @@ impl Relay {
 					subject_ref: step!(subject_ref("redemption", id)),
 				};
 				let burn = burn(user, &service, units);
+				// The burn is reserved again before a cent moves. Its pending is normally there
+				// already (`Exists` from `Requested`); if it is not, neither are the units, and
+				// nothing is paid. Not recorded as a step: `Requested` owns that transfer id.
+				match self.ledger.reserve(&burn.pending).await {
+					Ok(()) => {}
+					Err(LedgerError::InsufficientFunds) =>
+						return match fail_redemption(&self.pool, id, "units not reserved: insufficient units to burn").await {
+							Ok(()) => Outcome::park("redemption settle: the units to burn are not there — failed, nothing paid".into()),
+							Err(err) => Outcome::Retry(format!("redemption failed stamp: {err}")),
+						},
+					Err(err) => return ledger_failure("redeem_reserve", err, 0),
+				}
 				match self.money.payout(&payout).await {
 					Ok(_) => {}
 					Err(err) => {
@@ -408,7 +436,10 @@ impl Relay {
 					reference,
 				};
 				step!(self.post_leg(row, 0, "book_lock", &lock, 0).await);
-				Outcome::Done
+				match book::mark_escrowed(&self.pool, order_id.raw()).await {
+					Ok(()) => Outcome::Done,
+					Err(err) => Outcome::Retry(format!("order escrow stamp: {err}")),
+				}
 			}
 			BookEvent::OrderReleased {
 				order_id,
@@ -447,6 +478,7 @@ impl Relay {
 				buyer,
 				seller,
 				buy_order_id,
+				sell_order_id,
 				taker_side,
 				size,
 				notional,
@@ -455,14 +487,25 @@ impl Relay {
 				..
 			} => {
 				let id = trade_id.raw();
+				// Everything before the units post can still be undone; a fill that cannot get
+				// there is busted, never left half-done (`bust_fill`).
+				let bust = Bust {
+					trade: id,
+					service: &service,
+					seller,
+					sell_order: sell_order_id.raw(),
+					buy_order: buy_order_id.raw(),
+					size,
+				};
 				let (scope, hold) = match order_escrow(&self.pool, buy_order_id.raw()).await {
 					Ok(Some(escrow)) => escrow,
-					Ok(None) => return Outcome::park("the buy order of this trade names no hold".into()),
+					Ok(None) => return self.bust_fill(row, &bust, None, "the buy order of this trade names no hold".into()).await,
 					Err(err) => return Outcome::Retry(format!("order escrow read: {err}")),
 				};
+				let escrow = Some((&scope, hold.as_str()));
 				let seller_subject = match auth_subject(&self.pool, seller).await {
 					Ok(Some(subject)) => subject,
-					Ok(None) => return Outcome::park("the seller has no banking subject".into()),
+					Ok(None) => return self.bust_fill(row, &bust, escrow, "the seller has no banking subject".into()).await,
 					Err(err) => return Outcome::Retry(format!("seller subject read: {err}")),
 				};
 				let units = TwoPhase {
@@ -475,7 +518,11 @@ impl Relay {
 						reference,
 					},
 				};
-				step!(self.reserve_leg(row, 0, "book_fill_pending", &units.pending, 0).await);
+				match self.reserve_leg(row, 0, "book_fill_pending", &units.pending, 0).await {
+					Ok(()) => {}
+					Err(Outcome::Park { reason, .. }) => return self.bust_fill(row, &bust, escrow, format!("the fill's units could not be reserved: {reason}")).await,
+					Err(outcome) => return outcome,
+				}
 
 				// A selling taker pays the fee out of what the buyer pays; a buying taker on
 				// top of it (its hold reserved notional plus the fee).
@@ -491,17 +538,20 @@ impl Relay {
 						subject_ref: step!(subject_ref("book_trade", id)),
 					};
 					if let Err(err) = self.money.capture(&capture).await {
-						let Some(reason) = refusal_reason(&err) else {
-							return money_failure("fill cash capture", err, 1);
+						let reason = match refusal_reason(&err) {
+							Some(reason) => reason,
+							None => match money_failure("fill cash capture", err, 1) {
+								Outcome::Park { reason, .. } => reason,
+								retry => return retry,
+							},
 						};
-						// The buyer's hold no longer stands behind the order (voided by a
-						// revoked mandate, or banking lost it): no cash, so no units. The trade
-						// stays on the tape and the orders filled — that is the operator's.
+						// No cash, so no units: the buyer's hold no longer stands behind the
+						// order (a revoked mandate, or banking lost it).
 						step!(
 							self.complete_leg(row, 1, "book_fill_void", &units.completion(tid(id, BOOK_FILL_UNITS_VOID), CompletionKind::Void), 1)
 								.await
 						);
-						return Outcome::park(format!("fill cash capture refused: {reason} — units voided, the trade needs an operator"));
+						return self.bust_fill(row, &bust, escrow, format!("fill cash capture refused: {reason}")).await;
 					}
 				}
 				step!(
@@ -517,6 +567,39 @@ impl Relay {
 				}
 			}
 		}
+	}
+
+	/// Undo a fill that could not settle, before its units moved: hand the seller's units back
+	/// out of the escrow (when the sell's lock ever landed — otherwise there is nothing of this
+	/// order's there, and another order's escrow is not this trade's to take), release the
+	/// buyer's hold, and record the trade busted with the buy taken off the book. Then park,
+	/// so an operator sees it. Every step is idempotent; a transient failure retries the event.
+	// TODO(banking MoneyEvents): a buy whose hold banking released on its own (a revoked
+	// mandate, an expired hold) keeps resting until a fill finds out and busts it; take it
+	// off the book when banking announces the release, once banking publishes such events.
+	async fn bust_fill(&self, row: &OutboxRow, bust: &Bust<'_>, escrow: Option<(&ScopeId, &str)>, reason: String) -> Outcome {
+		match book::is_escrowed(&self.pool, bust.sell_order).await {
+			Ok(true) => {
+				let release = LedgerTransfer {
+					id: tid(bust.trade, BOOK_FILL_BUST_RELEASE),
+					debit: LedgerAccountKey::UserShares(bust.service.clone(), bust.seller),
+					credit: LedgerAccountKey::BookShares(bust.service.clone(), bust.seller),
+					amount: bust.size.base_units(),
+					code: TransferCode::BookRelease,
+					reference: bust.trade.as_u128(),
+				};
+				step!(self.post_leg(row, 2, "book_fill_bust_release", &release, 0).await);
+			}
+			Ok(false) => {}
+			Err(err) => return Outcome::Retry(format!("sell order escrow read: {err}")),
+		}
+		if let Some((scope, hold)) = escrow {
+			step!(self.void_hold(scope, hold, "book_order", bust.buy_order).await);
+		}
+		if let Err(err) = book::bust_trade(&self.pool, bust.trade, bust.buy_order, &reason).await {
+			return Outcome::Retry(format!("trade bust record: {err}"));
+		}
+		Outcome::park(format!("trade busted: {reason}"))
 	}
 
 	/// The taker's fee on a fill: captured out of the buyer's hold into the product's
@@ -591,24 +674,48 @@ impl Relay {
 					key: step!(money_key("fee_settlement", id, "sweep")),
 					subject_ref: step!(subject_ref("fee_settlement", id)),
 				};
-				// Pay first: the sweep is the leg banking may refuse, and a refused one must
-				// leave the fee class unburned.
-				if let Err(err) = self.money.sweep_fees(&sweep).await {
-					return money_failure("fee settlement sweep", err, 0);
-				}
-				let burn = LedgerTransfer {
-					id: tid(id, FEE_SETTLE_BURN),
-					debit: LedgerAccountKey::SharesOutstanding(service.clone()),
-					credit: LedgerAccountKey::FeeShares(service),
-					amount: units.base_units(),
-					code: TransferCode::FeeSettle,
-					reference,
+				// The burn is reserved before the sweep, so cash leaves only for fee units that
+				// are there and now held for this settlement; the sweep — the leg banking may
+				// refuse — comes while the burn can still be voided.
+				let burn = TwoPhase {
+					pending: LedgerTransfer {
+						id: tid(id, FEE_SETTLE_BURN),
+						debit: LedgerAccountKey::SharesOutstanding(service.clone()),
+						credit: LedgerAccountKey::FeeShares(service),
+						amount: units.base_units(),
+						code: TransferCode::FeeSettle,
+						reference,
+					},
 				};
-				step!(self.post_leg(row, 0, "fee_burn", &burn, 1).await);
+				step!(self.reserve_leg(row, 0, "fee_burn_pending", &burn.pending, 0).await);
+				if let Err(err) = self.money.sweep_fees(&sweep).await {
+					let Some(reason) = refusal_reason(&err) else {
+						return money_failure("fee settlement sweep", err, 1);
+					};
+					step!(
+						self.complete_leg(row, 1, "fee_burn_void", &burn.completion(tid(id, FEE_SETTLE_BURN_VOID), CompletionKind::Void), 1)
+							.await
+					);
+					return Outcome::park(format!("fee settlement sweep refused: {reason} — the fee units were released, nothing moved"));
+				}
+				step!(
+					self.complete_leg(row, 1, "fee_burn_post", &burn.completion(tid(id, FEE_SETTLE_BURN_POST), CompletionKind::Post), 1)
+						.await
+				);
 				Outcome::Done
 			}
 		}
 	}
+}
+
+/// What a fill's bust needs of the trade.
+struct Bust<'a> {
+	trade: Uuid,
+	service: &'a ServiceId,
+	seller: UserId,
+	sell_order: Uuid,
+	buy_order: Uuid,
+	size: Shares,
 }
 
 /// What the subscription saga needs of its row.
@@ -647,21 +754,7 @@ async fn settle_subscription(pool: &PgPool, row: &OutboxRow, user: UserId, servi
 		fee_accrual::carry_accrual(&mut tx, user.raw(), service.as_str(), now_unix())
 			.await
 			.map_err(|err| sqlx::Error::Protocol(format!("carry fee accrual before subscribe basis change: {err}")))?;
-		sqlx::query(
-			"INSERT INTO fund_positions (user_id, service, cost_basis, units, high_water_mark) VALUES ($1, $2, $3, $4, $5) \
-			 ON CONFLICT (user_id, service) DO UPDATE SET \
-			 cost_basis = (fund_positions.cost_basis::numeric + EXCLUDED.cost_basis::numeric)::text, \
-			 units = (fund_positions.units::numeric + EXCLUDED.units::numeric)::text, \
-			 high_water_mark = GREATEST(fund_positions.high_water_mark::numeric, EXCLUDED.high_water_mark::numeric)::text, \
-			 updated_at = now()",
-		)
-		.bind(user.raw())
-		.bind(service.as_str())
-		.bind(cash.base_units().to_string())
-		.bind(units.base_units().to_string())
-		.bind(nav.base_units().to_string())
-		.execute(&mut *tx)
-		.await?;
+		positions::add_to_position(&mut tx, user, service, cash, units, nav).await?;
 	}
 	sqlx::query("UPDATE subscriptions SET state = 'settled', updated_at = now() WHERE id = $1 AND state = 'reserved'")
 		.bind(row.aggregate_id)
@@ -670,8 +763,10 @@ async fn settle_subscription(pool: &PgPool, row: &OutboxRow, user: UserId, servi
 	tx.commit().await
 }
 
+/// Fail a redemption the relay could not carry — before its payout (`queued` or
+/// `settling`); a terminal row is left as it is.
 async fn fail_redemption(pool: &PgPool, id: Uuid, reason: &str) -> Result<(), sqlx::Error> {
-	sqlx::query("UPDATE redemptions SET state = 'failed', failure_reason = $2, updated_at = now() WHERE id = $1 AND state = 'settling'")
+	sqlx::query("UPDATE redemptions SET state = 'failed', failure_reason = $2, updated_at = now() WHERE id = $1 AND state IN ('queued', 'settling')")
 		.bind(id)
 		.bind(reason)
 		.execute(pool)
@@ -775,21 +870,7 @@ async fn project_trade(
 		fee_accrual::carry_accrual(&mut tx, buyer.raw(), service.as_str(), now)
 			.await
 			.map_err(|err| sqlx::Error::Protocol(format!("carry fee accrual before buy basis change: {err}")))?;
-		sqlx::query(
-			"INSERT INTO fund_positions (user_id, service, cost_basis, units, high_water_mark) VALUES ($1, $2, $3, $4, $5) \
-			 ON CONFLICT (user_id, service) DO UPDATE SET \
-			 cost_basis = (fund_positions.cost_basis::numeric + EXCLUDED.cost_basis::numeric)::text, \
-			 units = (fund_positions.units::numeric + EXCLUDED.units::numeric)::text, \
-			 high_water_mark = GREATEST(fund_positions.high_water_mark::numeric, EXCLUDED.high_water_mark::numeric)::text, \
-			 updated_at = now()",
-		)
-		.bind(buyer.raw())
-		.bind(service.as_str())
-		.bind(buyer_paid.base_units().to_string())
-		.bind(size.base_units().to_string())
-		.bind(nav.base_units().to_string())
-		.execute(&mut *tx)
-		.await?;
+		positions::add_to_position(&mut tx, buyer, service, buyer_paid, size, nav).await?;
 		fee_accrual::carry_accrual(&mut tx, seller.raw(), service.as_str(), now)
 			.await
 			.map_err(|err| sqlx::Error::Protocol(format!("carry fee accrual before sell basis change: {err}")))?;

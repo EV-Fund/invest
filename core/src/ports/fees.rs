@@ -21,7 +21,7 @@ use invest_domain::{
 	architecture::Repository,
 	balance::ServiceId,
 	error::DomainError,
-	fees::{ChangeRequirement, FeeAssessment, FeePolicy, FeePolicyChangeId, FeePolicyChangeState, FeeSettlement, Trigger},
+	fees::{ChangeRequirement, FeeAssessment, FeePolicy, FeePolicyChangeId, FeePolicyChangeState, FeeSettlement, FeeSettlementId, Trigger},
 	money::{Nav, Shares, Usdt},
 	users::UserId,
 };
@@ -237,8 +237,15 @@ pub struct AssessmentRecord {
 
 #[async_trait]
 pub trait FeeSettlements: Repository<Aggregate = FeeSettlement> {
-	/// Record a bulk conversion of fee units into cash + its `SharesSettled` event.
-	async fn settle(&self, settlement: &mut FeeSettlement, settled_by: &str) -> Result<(), DomainError>;
+	/// Record a bulk conversion of fee units into cash + its `SharesSettled` event — or,
+	/// when a settlement under the same id is already recorded, return that one and record
+	/// nothing. Serialized per product, and refused ([`DomainError::Validation`]) when the
+	/// fee units free in the ledger, less those undrained settlements already claim, do not
+	/// cover it: two settlements must never sweep the same value.
+	async fn settle(&self, settlement: &mut FeeSettlement, settled_by: &str) -> Result<FeeSettlement, DomainError>;
+
+	/// One settlement by id.
+	async fn find(&self, id: FeeSettlementId) -> Result<Option<FeeSettlement>, DomainError>;
 
 	/// Settlement history for one fund, newest first.
 	async fn list_by_service(&self, service: &ServiceId) -> Result<Vec<SettlementRecord>, DomainError>;
