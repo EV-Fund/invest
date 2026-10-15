@@ -1,0 +1,3266 @@
+{
+  "account.title": {
+    "en": "Account",
+    "t": "Konto"
+  },
+  "account.unavailable": {
+    "en": "Your account settings could not be loaded. Reload the page to try again.",
+    "t": "Ihre Kontoeinstellungen konnten nicht geladen werden. Laden Sie die Seite neu, um es erneut zu versuchen."
+  },
+  "admin.ago.days": {
+    "en": "{n, plural, one {#d ago} other {#d ago}}",
+    "t": "{n, plural, one {vor #d} other {vor #d}}"
+  },
+  "admin.ago.hours": {
+    "en": "{n, plural, one {#h ago} other {#h ago}}",
+    "t": "{n, plural, one {vor #h} other {vor #h}}"
+  },
+  "admin.ago.minutes": {
+    "en": "{n, plural, one {#m ago} other {#m ago}}",
+    "t": "{n, plural, one {vor #m} other {vor #m}}"
+  },
+  "admin.ago.seconds": {
+    "en": "{n, plural, one {#s ago} other {#s ago}}",
+    "t": "{n, plural, one {vor #s} other {vor #s}}"
+  },
+  "admin.alloc.access.hidden": {
+    "en": "Hidden",
+    "t": "Verborgen"
+  },
+  "admin.alloc.access.invest": {
+    "en": "Investable",
+    "t": "Investierbar"
+  },
+  "admin.alloc.access.view": {
+    "en": "View only",
+    "t": "Nur Ansicht"
+  },
+  "admin.alloc.backing.cash": {
+    "en": "Cash-backed",
+    "t": "Bargeldgedeckt"
+  },
+  "admin.alloc.backing.cashHint": {
+    "en": "Units were paid for into the fund's cash, and a redemption pays out of it at NAV.",
+    "t": "Die Anteile wurden in das Fondsbargeld eingezahlt, und eine Rücknahme wird daraus zum NAV ausgezahlt."
+  },
+  "admin.alloc.backing.confirmCash": {
+    "en": "Mark {service} as cash-backed. Redeem will pay holders out of the fund's cash at NAV — make sure that cash is actually there.",
+    "t": "„{service}“ als bargeldgedeckt markieren. Redeem zahlt Inhaber aus dem Fondsbargeld zum NAV aus — stellen Sie sicher, dass dieses Bargeld tatsächlich vorhanden ist."
+  },
+  "admin.alloc.backing.confirmInKind": {
+    "en": "Mark {service} as in-kind. Redeem will be refused, and holders exit by selling their units on the book.",
+    "t": "„{service}“ als Sacheinlage markieren. Redeem wird abgelehnt, und Inhaber steigen aus, indem sie ihre Anteile im Orderbuch verkaufen."
+  },
+  "admin.alloc.backing.inKind": {
+    "en": "In kind",
+    "t": "Sacheinlage"
+  },
+  "admin.alloc.backing.inKindHint": {
+    "en": "Units stand for an asset the holders own off-platform. The fund holds no cash for them, so Redeem is refused and holders exit through the book.",
+    "t": "Die Anteile stehen für einen Vermögenswert, den die Inhaber außerhalb der Plattform besitzen. Der Fonds hält dafür kein Bargeld, daher wird Redeem abgelehnt und der Ausstieg läuft über das Orderbuch."
+  },
+  "admin.alloc.backing.markCash": {
+    "en": "Mark as cash-backed",
+    "t": "Als bargeldgedeckt markieren"
+  },
+  "admin.alloc.backing.markInKind": {
+    "en": "Mark as in-kind",
+    "t": "Als Sacheinlage markieren"
+  },
+  "admin.alloc.backing.title": {
+    "en": "Backing",
+    "t": "Deckung"
+  },
+  "admin.alloc.book.action": {
+    "en": "Book",
+    "t": "Buch"
+  },
+  "admin.alloc.book.advanced": {
+    "en": "Advanced",
+    "t": "Erweitert"
+  },
+  "admin.alloc.book.closedHint": {
+    "en": "Orders are refused; the book stays readable",
+    "t": "Orders werden abgelehnt; das Buch bleibt lesbar"
+  },
+  "admin.alloc.book.field.lot": {
+    "en": "Lot size (units)",
+    "t": "Losgröße (Anteile)"
+  },
+  "admin.alloc.book.field.open": {
+    "en": "Book open",
+    "t": "Buch offen"
+  },
+  "admin.alloc.book.field.slippage": {
+    "en": "Market slippage (%)",
+    "t": "Market-Slippage (%)"
+  },
+  "admin.alloc.book.field.takerFee": {
+    "en": "Taker fee (%)",
+    "t": "Taker-Gebühr (%)"
+  },
+  "admin.alloc.book.field.tick": {
+    "en": "Price tick (USDT)",
+    "t": "Preisschritt (USDT)"
+  },
+  "admin.alloc.book.keepHint": {
+    "en": "Leave empty to keep the current value.",
+    "t": "Leer lassen, um den aktuellen Wert zu behalten."
+  },
+  "admin.alloc.book.note": {
+    "en": "The book is the secondary market in this product's units: holders trade with each other at the book's price, not at NAV. Opening it needs no valuation.",
+    "t": "Das Buch ist der Sekundärmarkt für die Anteile dieses Produkts: Anteilsinhaber handeln untereinander zum Buchpreis, nicht zum NAV. Zum Öffnen ist keine Bewertung nötig."
+  },
+  "admin.alloc.book.openHint": {
+    "en": "Holders can place and fill orders",
+    "t": "Anteilsinhaber können Orders platzieren und ausführen"
+  },
+  "admin.alloc.book.problem.decimal": {
+    "en": "Enter a decimal number",
+    "t": "Dezimalzahl eingeben"
+  },
+  "admin.alloc.book.problem.fee": {
+    "en": "Enter a percent between 0 and 100 with up to two decimals",
+    "t": "Prozentwert zwischen 0 und 100 mit höchstens zwei Nachkommastellen eingeben"
+  },
+  "admin.alloc.book.saved": {
+    "en": "Book terms saved.",
+    "t": "Buchbedingungen gespeichert."
+  },
+  "admin.alloc.book.slippageHint": {
+    "en": "How far past the best level a market order may sweep.",
+    "t": "Wie weit eine Market-Order über das beste Niveau hinaus laufen darf."
+  },
+  "admin.alloc.book.submit": {
+    "en": "Save book terms",
+    "t": "Buchbedingungen speichern"
+  },
+  "admin.alloc.book.takerFeeHint": {
+    "en": "Charged to the side that crosses the spread, in USDT on the order value.",
+    "t": "Wird der Seite berechnet, die den Spread kreuzt, in USDT auf den Orderwert."
+  },
+  "admin.alloc.book.title": {
+    "en": "Order book",
+    "t": "Orderbuch"
+  },
+  "admin.alloc.book.unbacked.ack": {
+    "en": "Allow trading of units not backed by fund cash",
+    "t": "Handel mit Anteilen erlauben, die nicht durch Fondsbargeld gedeckt sind"
+  },
+  "admin.alloc.book.unbacked.acknowledged": {
+    "en": "Unbacked trading acknowledged",
+    "t": "Ungedeckter Handel bestätigt"
+  },
+  "admin.alloc.book.unbacked.required": {
+    "en": "This product is held in kind: tick the acknowledgement before opening its book.",
+    "t": "Dieses Produkt wird in kind gehalten: Bestätigung ankreuzen, bevor das Buch geöffnet wird."
+  },
+  "admin.alloc.book.unbacked.warning": {
+    "en": "Buyers pay cash for a claim on an asset held in kind and cannot redeem it — the book is their only exit",
+    "t": "Käufer zahlen Bargeld für einen Anspruch auf einen in kind gehaltenen Vermögenswert und können ihn nicht zurückgeben — das Buch ist ihr einziger Ausstieg"
+  },
+  "admin.alloc.close": {
+    "en": "Close",
+    "t": "Schließen"
+  },
+  "admin.alloc.col.access": {
+    "en": "Access",
+    "t": "Zugriff"
+  },
+  "admin.alloc.col.product": {
+    "en": "Product",
+    "t": "Produkt"
+  },
+  "admin.alloc.col.serviceId": {
+    "en": "Service id",
+    "t": "Service-ID"
+  },
+  "admin.alloc.col.unitCap": {
+    "en": "Unit cap",
+    "t": "Anteilslimit"
+  },
+  "admin.alloc.empty": {
+    "en": "No allocations registered yet",
+    "t": "Noch keine Allokationen registriert"
+  },
+  "admin.alloc.emptyHint": {
+    "en": "Until one is, every subscription is refused.",
+    "t": "Bis das geschieht, wird jede Zeichnung abgelehnt."
+  },
+  "admin.alloc.field.icon": {
+    "en": "Icon",
+    "t": "Symbol"
+  },
+  "admin.alloc.field.scope": {
+    "en": "Scope",
+    "t": "Bereich"
+  },
+  "admin.alloc.field.summary": {
+    "en": "Summary",
+    "t": "Zusammenfassung"
+  },
+  "admin.alloc.field.title": {
+    "en": "Title",
+    "t": "Titel"
+  },
+  "admin.alloc.footnote": {
+    "en": "Registration lands in {state}, which takes no money — opening is a separate decision. Closing stops new subscriptions only: investors can always redeem out of a closed product, so winding one down never strands their units. The service id is permanent once registered. The unit cap bounds how many units may ever be issued — resize it on the Valuation screen, where the issued figure it is judged against is on the same page.",
+    "t": "Die Registrierung landet im Status {state}, der kein Geld annimmt — das Öffnen ist eine eigene Entscheidung. Das Schließen stoppt nur neue Zeichnungen: Investoren können Anteile eines geschlossenen Produkts jederzeit zurückgeben, ein Abwickeln lässt ihre Anteile also nie hängen. Die Service-ID ist nach der Registrierung dauerhaft. Das Anteilslimit begrenzt, wie viele Anteile insgesamt ausgegeben werden dürfen — anpassen lässt es sich im Bereich Bewertung, wo die ausgegebene Menge, an der es zu messen ist, auf derselben Seite steht."
+  },
+  "admin.alloc.grants.action": {
+    "en": "Grants",
+    "t": "Zugänge"
+  },
+  "admin.alloc.grants.col.grantedBy": {
+    "en": "Granted by",
+    "t": "Gewährt von"
+  },
+  "admin.alloc.grants.col.level": {
+    "en": "Level",
+    "t": "Stufe"
+  },
+  "admin.alloc.grants.empty": {
+    "en": "No grants yet",
+    "t": "Noch keine Zugänge"
+  },
+  "admin.alloc.grants.emptyHint": {
+    "en": "Every investor holds this product's default access until you raise one above it.",
+    "t": "Jeder Investor hat den Standardzugriff dieses Produkts, bis Sie ihn anheben."
+  },
+  "admin.alloc.grants.field.level": {
+    "en": "Level",
+    "t": "Stufe"
+  },
+  "admin.alloc.grants.field.user": {
+    "en": "Investor",
+    "t": "Investor"
+  },
+  "admin.alloc.grants.raise": {
+    "en": "Raise access",
+    "t": "Zugriff erhöhen"
+  },
+  "admin.alloc.grants.revoke": {
+    "en": "Revoke",
+    "t": "Widerrufen"
+  },
+  "admin.alloc.grants.roster": {
+    "en": "Grants",
+    "t": "Erteilte Zugänge"
+  },
+  "admin.alloc.grants.submit": {
+    "en": "Grant",
+    "t": "Gewähren"
+  },
+  "admin.alloc.hint.closed": {
+    "en": "Closed to new money; redemptions still settle",
+    "t": "Geschlossen für neues Geld; Rückgaben werden weiter abgerechnet"
+  },
+  "admin.alloc.hint.draft": {
+    "en": "Registered — accepts no money until opened",
+    "t": "Registriert — nimmt kein Geld an, bis es geöffnet wird"
+  },
+  "admin.alloc.hint.open": {
+    "en": "Accepting subscriptions and redemptions",
+    "t": "Nimmt Zeichnungen und Rückgaben an"
+  },
+  "admin.alloc.holders.empty": {
+    "en": "No units issued yet",
+    "t": "Noch keine Anteile ausgegeben"
+  },
+  "admin.alloc.holders.emptyHint": {
+    "en": "The split by holder appears once a subscription or an in-kind issuance mints the first unit.",
+    "t": "Die Aufteilung nach Inhabern erscheint, sobald eine Zeichnung oder eine Sachausgabe den ersten Anteil erzeugt."
+  },
+  "admin.alloc.holders.outstanding": {
+    "en": "Outstanding",
+    "t": "Im Umlauf"
+  },
+  "admin.alloc.holders.queued": {
+    "en": "Queued (not yet on the ledger)",
+    "t": "Wartend (noch nicht im Register)"
+  },
+  "admin.alloc.holders.title": {
+    "en": "Holders",
+    "t": "Inhaber"
+  },
+  "admin.alloc.icon.arbitrage": {
+    "en": "Arbitrage",
+    "t": "Arbitrage"
+  },
+  "admin.alloc.icon.commodity": {
+    "en": "Commodity",
+    "t": "Rohstoffe"
+  },
+  "admin.alloc.icon.credit": {
+    "en": "Credit",
+    "t": "Kredit"
+  },
+  "admin.alloc.icon.fund": {
+    "en": "Fund",
+    "t": "Fonds"
+  },
+  "admin.alloc.icon.index": {
+    "en": "Index",
+    "t": "Index"
+  },
+  "admin.alloc.icon.real_estate": {
+    "en": "Real estate",
+    "t": "Immobilien"
+  },
+  "admin.alloc.icon.trading": {
+    "en": "Trading",
+    "t": "Handel"
+  },
+  "admin.alloc.icon.treasury": {
+    "en": "Treasury",
+    "t": "Treasury"
+  },
+  "admin.alloc.icon.venture": {
+    "en": "Venture",
+    "t": "Wagniskapital"
+  },
+  "admin.alloc.icon.yield": {
+    "en": "Yield",
+    "t": "Rendite"
+  },
+  "admin.alloc.issuance.source.mint": {
+    "en": "minted",
+    "t": "ausgegeben"
+  },
+  "admin.alloc.issuance.source.retire": {
+    "en": "retired",
+    "t": "eingezogen"
+  },
+  "admin.alloc.issue.action": {
+    "en": "Issue",
+    "t": "Ausgeben"
+  },
+  "admin.alloc.issue.costBasisHint": {
+    "en": "Optional — defaults to units × NAV at the current mark. Zero is allowed: a stake in an asset the holder already owned cost them no cash.",
+    "t": "Optional — standardmäßig Anteile × NAV zur aktuellen Bewertung. Null ist erlaubt: Ein Anteil an einem Vermögenswert, den der Halter bereits besaß, hat ihn kein Geld gekostet."
+  },
+  "admin.alloc.issue.field.costBasis": {
+    "en": "Cost basis (USDT)",
+    "t": "Anschaffungswert (USDT)"
+  },
+  "admin.alloc.issue.field.holder": {
+    "en": "Holder",
+    "t": "Inhaber"
+  },
+  "admin.alloc.issue.field.units": {
+    "en": "Units",
+    "t": "Anteile"
+  },
+  "admin.alloc.issue.note": {
+    "en": "In kind: no cash moves. The units count against the cap like a subscription would, and the cost basis is what the holder is deemed to have paid.",
+    "t": "Sachausgabe: es fließt kein Geld. Die Anteile zählen wie bei einer Zeichnung gegen die Obergrenze, und der Anschaffungswert ist der Betrag, den der Inhaber als gezahlt gilt."
+  },
+  "admin.alloc.issue.problem.costBasis": {
+    "en": "Cost basis must be a decimal USDT amount",
+    "t": "Der Anschaffungswert muss ein dezimaler USDT-Betrag sein"
+  },
+  "admin.alloc.issue.problem.units": {
+    "en": "Units must be a decimal number above zero",
+    "t": "Anteile müssen eine Dezimalzahl größer als null sein"
+  },
+  "admin.alloc.issue.reason.holder": {
+    "en": "Pick a holder",
+    "t": "Inhaber wählen"
+  },
+  "admin.alloc.issue.reason.units": {
+    "en": "Enter units",
+    "t": "Anteile eingeben"
+  },
+  "admin.alloc.issue.resultApplied": {
+    "en": "{units} units issued to {holder}.",
+    "t": "{units} Anteile an {holder} ausgegeben."
+  },
+  "admin.alloc.issue.resultQueued": {
+    "en": "{units} units to {holder} queued — the relay posts the mint shortly, and the split below follows.",
+    "t": "{units} Anteile an {holder} wartend — das Relay bucht die Ausgabe in Kürze, und die Aufteilung unten folgt."
+  },
+  "admin.alloc.issue.submit": {
+    "en": "Issue units",
+    "t": "Anteile ausgeben"
+  },
+  "admin.alloc.issue.title": {
+    "en": "Issue units",
+    "t": "Anteile ausgeben"
+  },
+  "admin.alloc.manageAccess": {
+    "en": "Manage access",
+    "t": "Zugriff verwalten"
+  },
+  "admin.alloc.open": {
+    "en": "Open",
+    "t": "Öffnen"
+  },
+  "admin.alloc.pinCap.action": {
+    "en": "Pin cap to issued",
+    "t": "Cap auf Ausgegebenes festlegen"
+  },
+  "admin.alloc.pinCap.alreadyPinned": {
+    "en": "The cap already equals the issued supply.",
+    "t": "Das Cap entspricht bereits dem ausgegebenen Bestand."
+  },
+  "admin.alloc.pinCap.confirm": {
+    "en": "Cap {from} → {to}. No further units can be issued until the cap is raised again.",
+    "t": "Cap {from} → {to}. Bis das Cap wieder angehoben wird, können keine weiteren Anteile ausgegeben werden."
+  },
+  "admin.alloc.pinCap.nothingIssued": {
+    "en": "Nothing has settled yet — a queued mint is not on the ledger until the relay posts it.",
+    "t": "Noch nichts verbucht — eine wartende Ausgabe steht erst im Register, wenn das Relay sie bucht."
+  },
+  "admin.alloc.pinCap.queued": {
+    "en": "{units} units are still queued in the relay — pin the cap once they have landed.",
+    "t": "{units} Anteile warten noch im Relay — legen Sie das Cap fest, sobald sie verbucht sind."
+  },
+  "admin.alloc.pinCap.submit": {
+    "en": "Pin cap",
+    "t": "Cap festlegen"
+  },
+  "admin.alloc.placeholder.summary": {
+    "en": "One line for the catalog card",
+    "t": "Eine Zeile für die Katalogkarte"
+  },
+  "admin.alloc.register": {
+    "en": "Register allocation",
+    "t": "Allokation registrieren"
+  },
+  "admin.alloc.registerHint": {
+    "en": "Registers in draft — open it when the product is ready to take money.",
+    "t": "Wird als Entwurf registriert — öffnen Sie sie, wenn das Produkt Geld annehmen soll."
+  },
+  "admin.alloc.registerSubmit": {
+    "en": "Register",
+    "t": "Registrieren"
+  },
+  "admin.alloc.registry": {
+    "en": "Registry",
+    "t": "Register"
+  },
+  "admin.alloc.retire.action": {
+    "en": "Retire units",
+    "t": "Anteile einziehen"
+  },
+  "admin.alloc.retire.closeFirst": {
+    "en": "Close the product first — units are retired out of a wound-down product.",
+    "t": "Schließen Sie das Produkt zuerst — Anteile werden aus einem abgewickelten Produkt eingezogen."
+  },
+  "admin.alloc.retire.confirm": {
+    "en": "Retire {units} units from {holder} — the supply shrinks. No cash moves.",
+    "t": "{units} Anteile von {holder} einziehen — das Angebot schrumpft. Es fließt kein Geld."
+  },
+  "admin.alloc.retire.costBasisHint": {
+    "en": "Optional — the book value written off, defaults to units × NAV at the current mark.",
+    "t": "Optional — der abgeschriebene Buchwert, standardmäßig Anteile × NAV zur aktuellen Bewertung."
+  },
+  "admin.alloc.retire.force": {
+    "en": "Retire anyway (force)",
+    "t": "Trotzdem einziehen (force)"
+  },
+  "admin.alloc.retire.forceConfirm": {
+    "en": "Forced: the product is not closed.",
+    "t": "Erzwungen: das Produkt ist nicht geschlossen."
+  },
+  "admin.alloc.retire.forceWarning": {
+    "en": "The product is still live — units will be burned out of it while it accepts money. The hub records the override.",
+    "t": "Das Produkt ist noch aktiv — Anteile werden daraus vernichtet, während es Geld annimmt. Der Hub protokolliert die Übersteuerung."
+  },
+  "admin.alloc.retire.investorHint": {
+    "en": "Up to what the investor holds — the hub refuses more, and says so.",
+    "t": "Höchstens so viel, wie der Anleger hält — der Hub lehnt mehr ab und nennt den Grund."
+  },
+  "admin.alloc.retire.resultApplied": {
+    "en": "{units} units retired from {holder}.",
+    "t": "{units} Anteile von {holder} eingezogen."
+  },
+  "admin.alloc.retire.resultQueued": {
+    "en": "{units} units from {holder} queued for retirement — the relay posts the burn shortly, and the split below follows.",
+    "t": "{units} Anteile von {holder} zum Einzug eingereiht — das Relay bucht die Vernichtung in Kürze, und die Aufteilung unten folgt."
+  },
+  "admin.alloc.retire.review": {
+    "en": "Review retirement",
+    "t": "Einzug prüfen"
+  },
+  "admin.alloc.retire.submit": {
+    "en": "Retire",
+    "t": "Einziehen"
+  },
+  "admin.alloc.scopeHint": {
+    "en": "Whose compartments hold the cash; empty for invest. Fixed once registered.",
+    "t": "Wessen Fächer das Geld halten; leer für invest. Nach der Registrierung unveränderlich."
+  },
+  "admin.alloc.slugHint": {
+    "en": "Permanent — every fund RPC keys on it",
+    "t": "Dauerhaft — jeder Fonds-RPC greift darauf zu"
+  },
+  "admin.alloc.slugInvalid": {
+    "en": "Letters, digits, - and _ only (1–64)",
+    "t": "Nur Buchstaben, Ziffern, - und _ (1–64)"
+  },
+  "admin.alloc.subtitle": {
+    "en": "The registry of investable products — a fund exists only once it is registered here",
+    "t": "Das Register investierbarer Produkte — ein Fonds existiert erst, wenn er hier registriert ist"
+  },
+  "admin.alloc.userIdPlaceholder": {
+    "en": "Concierge user id",
+    "t": "Concierge-Benutzer-ID"
+  },
+  "admin.col.actions": {
+    "en": "Actions",
+    "t": "Aktionen"
+  },
+  "admin.col.age": {
+    "en": "Age",
+    "t": "Alter"
+  },
+  "admin.col.state": {
+    "en": "State",
+    "t": "Status"
+  },
+  "admin.col.user": {
+    "en": "User",
+    "t": "Nutzer"
+  },
+  "admin.col.when": {
+    "en": "When",
+    "t": "Wann"
+  },
+  "admin.eyebrow.administer": {
+    "en": "Administer",
+    "t": "Verwaltung"
+  },
+  "admin.fail": {
+    "en": "Fail",
+    "t": "Verwerfen"
+  },
+  "admin.feeChange.state.active": {
+    "en": "In force",
+    "t": "In Kraft"
+  },
+  "admin.feeChange.state.awaiting_consilium": {
+    "en": "Awaiting owners",
+    "t": "Wartet auf Eigentümer"
+  },
+  "admin.feeChange.state.cancelled": {
+    "en": "Cancelled",
+    "t": "Abgebrochen"
+  },
+  "admin.feeChange.state.rejected": {
+    "en": "Rejected",
+    "t": "Abgelehnt"
+  },
+  "admin.feeChange.state.scheduled": {
+    "en": "Scheduled",
+    "t": "Geplant"
+  },
+  "admin.feeChange.state.superseded": {
+    "en": "Superseded",
+    "t": "Abgelöst"
+  },
+  "admin.fees.askOwners": {
+    "en": "Ask the owners",
+    "t": "Die Eigentümer fragen"
+  },
+  "admin.fees.awaitingBody": {
+    "en": "The owners have each been emailed a link. Version {version} is scheduled only once more than half of them approve, and binds 24 hours after that while anyone holds units. The live tally is in the consilium.",
+    "t": "Jeder Eigentümer hat per E-Mail einen Link erhalten. Version {version} wird erst geplant, wenn mehr als die Hälfte zustimmt, und gilt 24 Stunden danach, solange jemand Anteile hält. Der aktuelle Stand steht im Konsilium."
+  },
+  "admin.fees.awaitingTitle": {
+    "en": "Sent to the owners — nothing has changed yet",
+    "t": "An die Eigentümer gesendet — noch hat sich nichts geändert"
+  },
+  "admin.fees.basis.investedCapital": {
+    "en": "Invested capital",
+    "t": "Investiertes Kapital"
+  },
+  "admin.fees.basis.marketValue": {
+    "en": "Market value",
+    "t": "Marktwert"
+  },
+  "admin.fees.basisNote": {
+    "en": "Invested capital is the house default: it does not swell with a mark you posted, so what the manager earns stays independent of the input the manager supplies.",
+    "t": "Investiertes Kapital ist der Hausstandard: Es wächst nicht mit einer Bewertung, die Sie selbst gemeldet haben — was der Manager verdient, bleibt damit unabhängig von der Eingabe, die der Manager liefert."
+  },
+  "admin.fees.cancelChange": {
+    "en": "Cancel this change",
+    "t": "Diese Änderung abbrechen"
+  },
+  "admin.fees.cancelConfirm": {
+    "en": "Cancel the change",
+    "t": "Änderung abbrechen"
+  },
+  "admin.fees.cancelWarning": {
+    "en": "Cancelling withdraws the change. The fund keeps its current terms, and the holders who were notified will not see the new ones.",
+    "t": "Der Abbruch zieht die Änderung zurück. Der Fonds behält seine aktuellen Konditionen, und die benachrichtigten Anteilsinhaber sehen die neuen nicht."
+  },
+  "admin.fees.cancelWarningAwaiting": {
+    "en": "Cancelling withdraws the change and takes its consilium down with it, voiding every approval collected so far. The owners who have already answered would each have to answer again.",
+    "t": "Der Abbruch zieht die Änderung zurück und beendet ihr Konsilium; alle bisher gesammelten Zustimmungen verfallen. Eigentümer, die bereits geantwortet haben, müssten erneut antworten."
+  },
+  "admin.fees.chargedOn": {
+    "en": "Charged on",
+    "t": "Berechnet auf"
+  },
+  "admin.fees.charges": {
+    "en": "Charges",
+    "t": "Belastungen"
+  },
+  "admin.fees.col.deferredUsdt": {
+    "en": "Deferred, USDT",
+    "t": "Aufgeschoben, USDT"
+  },
+  "admin.fees.col.effective": {
+    "en": "Effective",
+    "t": "Gültig ab"
+  },
+  "admin.fees.col.managementUsdt": {
+    "en": "Management, USDT",
+    "t": "Verwaltung, USDT"
+  },
+  "admin.fees.col.performanceUsdt": {
+    "en": "Performance, USDT",
+    "t": "Performance-Gebühr, USDT"
+  },
+  "admin.fees.col.reason": {
+    "en": "Reason",
+    "t": "Grund"
+  },
+  "admin.fees.col.trigger": {
+    "en": "Trigger",
+    "t": "Auslöser"
+  },
+  "admin.fees.col.unitsTaken": {
+    "en": "Units taken",
+    "t": "Anteile"
+  },
+  "admin.fees.col.version": {
+    "en": "Version",
+    "t": "Version"
+  },
+  "admin.fees.collected": {
+    "en": "Collected, not yet converted",
+    "t": "Vereinnahmt, noch nicht umgewandelt"
+  },
+  "admin.fees.collectedSub": {
+    "en": "Units the sweeper has clawed back from holders. No cash has moved yet.",
+    "t": "Anteile, die der Sweeper von den Haltern eingezogen hat. Es ist noch kein Geld geflossen."
+  },
+  "admin.fees.crystallizationNote": {
+    "en": "A price, not a detail — crystallizing more often measurably raises what an investor pays over a fund's life, because each reset locks in gains a later loss can no longer claw back.",
+    "t": "Ein Preis, kein Detail — häufigeres Kristallisieren erhöht messbar, was ein Investor über die Laufzeit eines Fonds zahlt, weil jeder Reset Gewinne festschreibt, die ein späterer Verlust nicht mehr zurückholen kann."
+  },
+  "admin.fees.dateTime.placeholder": {
+    "en": "As soon as the notice allows",
+    "t": "Sobald die Frist es erlaubt"
+  },
+  "admin.fees.effectiveFrom": {
+    "en": "Takes effect",
+    "t": "Tritt in Kraft"
+  },
+  "admin.fees.effectiveFromHint": {
+    "en": "Leave empty for the earliest allowed. While anyone holds units, a change binds no earlier than 24 hours after it is scheduled — counted from the owners' approval when they must give it. An earlier moment is lifted to that minimum, never refused.",
+    "t": "Leer lassen für den frühestmöglichen Zeitpunkt. Solange jemand Anteile hält, gilt eine Änderung frühestens 24 Stunden nach ihrer Planung — gerechnet ab der Zustimmung der Eigentümer, wenn sie nötig ist. Ein früherer Zeitpunkt wird auf dieses Minimum angehoben, nie abgelehnt."
+  },
+  "admin.fees.effectiveFromLifted": {
+    "en": "Earlier than the notice allows: while anyone holds units, this binds no earlier than {floor}.",
+    "t": "Früher, als die Ankündigungsfrist erlaubt: solange jemand Anteile hält, gilt dies frühestens ab {floor}."
+  },
+  "admin.fees.effectiveFromLiftedConsilium": {
+    "en": "Earlier than the notice allows: this binds no earlier than 24 hours after the owners approve.",
+    "t": "Früher, als die Ankündigungsfrist erlaubt: dies gilt frühestens 24 Stunden nach der Zustimmung der Eigentümer."
+  },
+  "admin.fees.err.notPercent": {
+    "en": "{field} must be a percentage — 2, or 2.5 / 2,5 for a half.",
+    "t": "{field} muss ein Prozentsatz sein — 2, oder 2.5 / 2,5 für ein halbes Prozent."
+  },
+  "admin.fees.err.overCeiling": {
+    "en": "{field} cannot be more than {ceiling}.",
+    "t": "{field} darf nicht mehr als {ceiling} betragen."
+  },
+  "admin.fees.err.reasonRequired": {
+    "en": "A reason is required when the owners must approve.",
+    "t": "Wenn die Eigentümer zustimmen müssen, ist ein Grund erforderlich."
+  },
+  "admin.fees.err.reasonTooLong": {
+    "en": "The reason is too long: {used, plural, one {# byte} other {# bytes}} of at most {max}. Letters outside plain Latin count as more than one.",
+    "t": "Die Begründung ist zu lang: {used, plural, one {# Byte} other {# Byte}} bei höchstens {max}. Buchstaben außerhalb des einfachen Lateins zählen mehrfach."
+  },
+  "admin.fees.err.tooFarAhead": {
+    "en": "The moment can be at most {days} days ahead.",
+    "t": "Der Zeitpunkt darf höchstens {days} Tage in der Zukunft liegen."
+  },
+  "admin.fees.field.hurdle": {
+    "en": "Hurdle",
+    "t": "Hurdle"
+  },
+  "admin.fees.field.management": {
+    "en": "Management",
+    "t": "Verwaltung"
+  },
+  "admin.fees.field.performance": {
+    "en": "Performance",
+    "t": "Performance"
+  },
+  "admin.fees.forbidden.body": {
+    "en": "Pricing a product changes what investors pay, so only an administrator or an owner can view and schedule fee terms. The rest of the console is yours as usual.",
+    "t": "Die Bepreisung eines Produkts ändert, was Anleger zahlen; deshalb können nur ein Administrator oder ein Eigentümer Gebührenbedingungen einsehen und festlegen. Der Rest der Konsole steht Ihnen wie gewohnt zur Verfügung."
+  },
+  "admin.fees.forbidden.title": {
+    "en": "Fee terms are set by administrators and owners",
+    "t": "Gebührenbedingungen legen Administratoren und Eigentümer fest"
+  },
+  "admin.fees.hint.ofTheGain": {
+    "en": "of the gain",
+    "t": "des Gewinns"
+  },
+  "admin.fees.hint.perYear": {
+    "en": "per year",
+    "t": "pro Jahr"
+  },
+  "admin.fees.hint.zeroForNone": {
+    "en": "0 for none",
+    "t": "0 für keine"
+  },
+  "admin.fees.history": {
+    "en": "History of terms",
+    "t": "Historie der Konditionen"
+  },
+  "admin.fees.immediateBody": {
+    "en": "Nobody holds units in this product, so no notice was due: version {version} takes effect now and is applied within a minute. Until it is, it can still be cancelled below. The first investor to subscribe reads these terms.",
+    "t": "Niemand hält Anteile dieses Produkts, daher war keine Benachrichtigung fällig: Version {version} tritt jetzt in Kraft und wird innerhalb einer Minute angewendet. Bis dahin kann sie unten noch abgebrochen werden. Der erste zeichnende Anleger liest bereits diese Bedingungen."
+  },
+  "admin.fees.immediateTitle": {
+    "en": "In force within a minute — nobody to notify",
+    "t": "Gilt innerhalb einer Minute — niemand zu benachrichtigen"
+  },
+  "admin.fees.inForce": {
+    "en": "Version {version}, in force since {since}. Investors see these on the product page.",
+    "t": "Version {version}, gültig seit {since}. Anleger sehen diese auf der Produktseite."
+  },
+  "admin.fees.lockedIn": {
+    "en": "Performance locked in",
+    "t": "Performance festgeschrieben"
+  },
+  "admin.fees.noCharges": {
+    "en": "No charges yet",
+    "t": "Noch keine Belastungen"
+  },
+  "admin.fees.noChargesHint": {
+    "en": "The sweeper charges a holding once its accrual is old enough. Nothing here means nobody has been billed.",
+    "t": "Der Sweeper belastet eine Position, sobald ihre Abgrenzung alt genug ist. Nichts hier bedeutet, dass noch niemandem etwas berechnet wurde."
+  },
+  "admin.fees.noFee": {
+    "en": "No fee",
+    "t": "Keine Gebühr"
+  },
+  "admin.fees.noFunds": {
+    "en": "No funds registered",
+    "t": "Keine Fonds registriert"
+  },
+  "admin.fees.noFundsHint": {
+    "en": "A fee is a property of a product. Register an allocation first, then price it here.",
+    "t": "Eine Gebühr ist eine Eigenschaft des Produkts. Registrieren Sie zuerst eine Allokation und bepreisen Sie sie dann hier."
+  },
+  "admin.fees.noHistory": {
+    "en": "No changes yet",
+    "t": "Noch keine Änderungen"
+  },
+  "admin.fees.noHistoryHint": {
+    "en": "Every version of this fund's terms will be listed here — what was scheduled, when it bound, and why.",
+    "t": "Hier erscheint jede Version der Konditionen dieses Fonds — was geplant wurde, wann es galt und warum."
+  },
+  "admin.fees.notConfigured": {
+    "en": "This fund charges nothing today. Scheduling terms starts the clock on every holding in it from the moment they take effect.",
+    "t": "Dieser Fonds berechnet derzeit nichts. Geplante Konditionen starten die Uhr für jede Position darin ab dem Zeitpunkt ihres Inkrafttretens."
+  },
+  "admin.fees.nothingToSettle": {
+    "en": "Nothing to settle — no fee has been charged in this fund yet.",
+    "t": "Nichts abzurechnen — in diesem Fonds wurde noch keine Gebühr berechnet."
+  },
+  "admin.fees.notices.acknowledge": {
+    "en": "Take responsibility and bind anyway",
+    "t": "Verantwortung übernehmen und trotzdem anwenden"
+  },
+  "admin.fees.notices.acknowledgeBack": {
+    "en": "Keep waiting",
+    "t": "Weiter warten"
+  },
+  "admin.fees.notices.acknowledgeConfirm": {
+    "en": "Take responsibility",
+    "t": "Verantwortung übernehmen"
+  },
+  "admin.fees.notices.acknowledgeWarning": {
+    "en": "The terms will bind over {n, plural, one {this holder} other {these # holders}} without their notice — tighter terms they were never told about. Your name, the moment, and exactly which holders it covers are recorded on the change and stay in its history.",
+    "t": "Die Bedingungen werden für {n, plural, one {diesen Anleger} other {diese # Anleger}} ohne Benachrichtigung wirksam — strengere Bedingungen, von denen sie nie erfahren haben. Ihr Name, der Zeitpunkt und genau die betroffenen Anleger werden auf der Änderung festgehalten und bleiben in ihrer Historie."
+  },
+  "admin.fees.notices.acknowledgeWarningExtend": {
+    "en": "The terms will bind over {n, plural, one {this holder} other {these # holders}} without their notice — tighter terms they were never told about. Your name and the moment replace the earlier acknowledgement's on the change, which will then cover {total, plural, one {# holder} other {all # holders}}, and stay in its history.",
+    "t": "Die Bedingungen werden für {n, plural, one {diesen Anleger} other {diese # Anleger}} ohne Benachrichtigung wirksam — strengere Bedingungen, von denen sie nie erfahren haben. Ihr Name und der Zeitpunkt ersetzen die frühere Bestätigung auf der Änderung, die dann {total, plural, one {# Anleger} other {alle # Anleger}} abdeckt, und bleiben in ihrer Historie."
+  },
+  "admin.fees.notices.alreadyWaived": {
+    "en": "{by} already took responsibility on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.",
+    "t": "{by} hat am {at} bereits die Verantwortung für {n, plural, one {# Anleger} other {# Anleger}} übernommen, bei denen der Versand bis dahin aufgegeben hatte. Seitdem hat er bei weiteren aufgegeben; dieser Schritt fügt sie demselben Eintrag hinzu."
+  },
+  "admin.fees.notices.alreadyWaivedAnon": {
+    "en": "Responsibility was already taken on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.",
+    "t": "Die Verantwortung für {n, plural, one {# Anleger} other {# Anleger}}, bei denen der Versand bis dahin aufgegeben hatte, wurde am {at} bereits übernommen. Seitdem hat er bei weiteren aufgegeben; dieser Schritt fügt sie demselben Eintrag hinzu."
+  },
+  "admin.fees.notices.err.forbidden": {
+    "en": "Only the requester of this change or an owner can take responsibility for it.",
+    "t": "Nur wer diese Änderung beantragt hat oder ein Eigentümer kann die Verantwortung dafür übernehmen."
+  },
+  "admin.fees.notices.givenUpBody": {
+    "en": "The mailer has given up on {n, plural, one {this holder's notice} other {these # notices}}. A change that tightens the terms does not bind over a holder who was never told, so it is held up until somebody takes responsibility for them.",
+    "t": "Der Versand hat bei {n, plural, one {der Benachrichtigung dieses Anlegers} other {diesen # Benachrichtigungen}} aufgegeben. Eine Änderung, die die Bedingungen verschärft, wird für einen nie benachrichtigten Anleger nicht wirksam und bleibt aufgehalten, bis jemand die Verantwortung für sie übernimmt."
+  },
+  "admin.fees.notices.givenUpTitle": {
+    "en": "{n, plural, one {# holder} other {# holders}} could not be told",
+    "t": "{n, plural, one {# Anleger konnte} other {# Anleger konnten}} nicht benachrichtigt werden"
+  },
+  "admin.fees.notices.moreQueued": {
+    "en": "{n, plural, one {# more notice is still being delivered and is not covered by this act.} other {# more notices are still being delivered and are not covered by this act.}}",
+    "t": "{n, plural, one {# weitere Benachrichtigung wird} other {# weitere Benachrichtigungen werden}} noch zugestellt und davon nicht erfasst."
+  },
+  "admin.fees.notices.queued": {
+    "en": "{n, plural, one {# notice is} other {# notices are}} still being delivered. A change that tightens the terms waits for every holder to be told; there is nothing to do unless the mailer gives up on one.",
+    "t": "{n, plural, one {# Benachrichtigung wird} other {# Benachrichtigungen werden}} noch zugestellt. Eine Änderung, die die Bedingungen verschärft, wartet, bis jeder Anleger benachrichtigt ist; es gibt nichts zu tun, solange der Versand bei keiner aufgibt."
+  },
+  "admin.fees.pending.awaiting": {
+    "en": "Version {version} awaits the owners' approval. It binds 24 hours after they carry it, while anyone holds units.",
+    "t": "Version {version} wartet auf die Zustimmung der Eigentümer. Sie gilt 24 Stunden nach deren Beschluss, solange jemand Anteile hält."
+  },
+  "admin.fees.pending.immediate": {
+    "en": "Version {version} takes effect now and is applied within a minute. Nobody holds units, so no notice was sent.",
+    "t": "Version {version} tritt jetzt in Kraft und wird innerhalb einer Minute angewendet. Niemand hält Anteile, daher wurde keine Benachrichtigung verschickt."
+  },
+  "admin.fees.pending.requested": {
+    "en": "Requested {when}",
+    "t": "Beantragt {when}"
+  },
+  "admin.fees.pending.scheduled": {
+    "en": "Version {version} takes effect on {at}. Holders have been notified.",
+    "t": "Version {version} tritt am {at} in Kraft. Die Anteilsinhaber wurden benachrichtigt."
+  },
+  "admin.fees.pendingBlocks": {
+    "en": "One change at a time: cancel the pending one to schedule another.",
+    "t": "Eine Änderung nach der anderen: brechen Sie die ausstehende ab, um eine neue zu planen."
+  },
+  "admin.fees.pendingChip": {
+    "en": "Change pending",
+    "t": "Änderung ausstehend"
+  },
+  "admin.fees.pendingTitle": {
+    "en": "Change on its way",
+    "t": "Änderung unterwegs"
+  },
+  "admin.fees.period.annual": {
+    "en": "Annually",
+    "t": "Jährlich"
+  },
+  "admin.fees.period.monthly": {
+    "en": "Monthly",
+    "t": "Monatlich"
+  },
+  "admin.fees.period.quarterly": {
+    "en": "Quarterly",
+    "t": "Vierteljährlich"
+  },
+  "admin.fees.period.semiAnnual": {
+    "en": "Every 6 months",
+    "t": "Alle 6 Monate"
+  },
+  "admin.fees.reason": {
+    "en": "Reason",
+    "t": "Grund"
+  },
+  "admin.fees.reasonHint": {
+    "en": "Optional. Kept with this version in the history.",
+    "t": "Optional. Wird mit dieser Version in der Historie aufbewahrt."
+  },
+  "admin.fees.reasonRequiredHint": {
+    "en": "The owners read this in their approval mail, and it is part of what they sign.",
+    "t": "Die Eigentümer lesen dies in ihrer Freigabe-Mail, und es ist Teil dessen, was sie unterzeichnen."
+  },
+  "admin.fees.reasonRequiredLabel": {
+    "en": "Reason (required)",
+    "t": "Grund (erforderlich)"
+  },
+  "admin.fees.requirement.admin": {
+    "en": "No vote needed: one administrator may make this change. Holders are mailed the notice when it is scheduled.",
+    "t": "Keine Abstimmung nötig: ein Administrator kann diese Änderung vornehmen. Die Anteilsinhaber erhalten die Mitteilung per E-Mail, sobald sie geplant ist."
+  },
+  "admin.fees.requirement.consilium": {
+    "en": "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. You must be an owner to open the request.",
+    "t": "Braucht die Zustimmung der Eigentümer: diese Konditionen verschärfen die aktuellen über die hauseigenen 2 und 20 hinaus oder senken die Hürde. Nur ein Eigentümer kann den Antrag stellen."
+  },
+  "admin.fees.scheduleChange": {
+    "en": "Schedule the change",
+    "t": "Änderung planen"
+  },
+  "admin.fees.scheduledBody": {
+    "en": "Version {version} takes effect on {at}. Every holder is being emailed the notice; until then the fund charges its current terms.",
+    "t": "Version {version} tritt am {at} in Kraft. Jeder Anteilsinhaber erhält die Mitteilung per E-Mail; bis dahin gelten die aktuellen Konditionen."
+  },
+  "admin.fees.scheduledTitle": {
+    "en": "Scheduled — nothing has changed yet",
+    "t": "Geplant — noch hat sich nichts geändert"
+  },
+  "admin.fees.settleAll": {
+    "en": "Settle all units",
+    "t": "Alle Anteile abrechnen"
+  },
+  "admin.fees.settleNote": {
+    "en": "Settling burns these units and moves their value from the fund's claim into fee revenue. It is refused — never queued — when the fund's claim cannot cover it on top of its queued redemptions: investors waiting to exit are paid before the manager is.",
+    "t": "Beim Abrechnen werden diese Anteile eingezogen und ihr Wert vom Anspruch des Fonds in Gebührenerträge überführt. Es wird abgelehnt — nie eingereiht —, wenn der Anspruch des Fonds das zusätzlich zu seinen wartenden Rückgaben nicht deckt: Investoren, die auf ihren Ausstieg warten, werden vor dem Manager bezahlt."
+  },
+  "admin.fees.settledAtNav": {
+    "en": "{cash} settled at NAV {nav}.",
+    "t": "{cash} zum NAV {nav} abgerechnet."
+  },
+  "admin.fees.showcase.bps": {
+    "en": "{n} bps",
+    "t": "{n} Bp."
+  },
+  "admin.fees.showcase.example": {
+    "en": "On a {amount} position: {management} a year, plus {performance} of any gain.",
+    "t": "Auf eine Position von {amount}: {management} pro Jahr, plus {performance} jedes Gewinns."
+  },
+  "admin.fees.showcase.exampleHurdle": {
+    "en": "On a {amount} position: {management} a year, plus {performance} of any gain above a mark rising {hurdle} a year.",
+    "t": "Auf eine Position von {amount}: {management} pro Jahr, plus {performance} des Gewinns über einer Marke, die um {hurdle} pro Jahr steigt."
+  },
+  "admin.fees.showcase.title": {
+    "en": "What gets saved",
+    "t": "Was gespeichert wird"
+  },
+  "admin.fees.startCharging": {
+    "en": "Start charging",
+    "t": "Berechnung starten"
+  },
+  "admin.fees.subtitle": {
+    "en": "What each fund charges its investors, and converting what it has already earned into cash.",
+    "t": "Was jeder Fonds seinen Investoren berechnet — und wie das bereits Verdiente zu Geld wird."
+  },
+  "admin.fees.summary": {
+    "en": "{management} p.a. · {performance} of the gain · {basis} · {period}",
+    "t": "{management} p.a. · {performance} des Gewinns · {basis} · {period}"
+  },
+  "admin.fees.summaryHurdle": {
+    "en": "{management} p.a. · {performance} of the gain above {hurdle} · {basis} · {period}",
+    "t": "{management} p.a. · {performance} des Gewinns über {hurdle} · {basis} · {period}"
+  },
+  "admin.fees.terms": {
+    "en": "Terms",
+    "t": "Konditionen"
+  },
+  "admin.fees.title": {
+    "en": "Fee terms and collection",
+    "t": "Gebührenkonditionen und Einzug"
+  },
+  "admin.fees.trigger.period": {
+    "en": "Period",
+    "t": "Periode"
+  },
+  "admin.fees.trigger.redemption": {
+    "en": "Redemption",
+    "t": "Rücknahme"
+  },
+  "admin.fees.unitsHeld": {
+    "en": "Fee units held",
+    "t": "Gehaltene Gebührenanteile"
+  },
+  "admin.fees.waiver.acknowledged": {
+    "en": "Notices waived by {by} on {at}, over {n, plural, one {# holder} other {# holders}} who could not be told.",
+    "t": "Benachrichtigungen erlassen von {by} am {at}, für {n, plural, one {# Anleger} other {# Anleger}}, die nicht erreicht werden konnten."
+  },
+  "admin.fees.waiver.acknowledgedAnon": {
+    "en": "Notices waived on {at}, over {n, plural, one {# holder} other {# holders}} who could not be told.",
+    "t": "Benachrichtigungen erlassen am {at}, für {n, plural, one {# Anleger} other {# Anleger}}, die nicht erreicht werden konnten."
+  },
+  "admin.fees.waiver.row": {
+    "en": "Notices waived by {by} · {n, plural, one {# holder} other {# holders}}",
+    "t": "Benachrichtigungen erlassen von {by} · {n, plural, one {# Anleger} other {# Anleger}}"
+  },
+  "admin.fees.waiver.rowAnon": {
+    "en": "Notices waived · {n, plural, one {# holder} other {# holders}}",
+    "t": "Benachrichtigungen erlassen · {n, plural, one {# Anleger} other {# Anleger}}"
+  },
+  "admin.fees.withdrawableFrom": {
+    "en": "It is withdrawable on-chain from {screen}.",
+    "t": "Es ist on-chain unter {screen} auszahlbar."
+  },
+  "admin.fees.worthAtNav": {
+    "en": "Worth at current NAV",
+    "t": "Wert zum aktuellen NAV"
+  },
+  "admin.holder.allocation": {
+    "en": "Allocation",
+    "t": "Allokation"
+  },
+  "admin.holder.allocation.fee": {
+    "en": "Platform fees",
+    "t": "Plattformgebühren"
+  },
+  "admin.holder.allocation.fund": {
+    "en": "Platform capital",
+    "t": "Plattformkapital"
+  },
+  "admin.holder.person": {
+    "en": "Person",
+    "t": "Person"
+  },
+  "admin.kyc.elevated": {
+    "en": "Elevated",
+    "t": "Verstärkt"
+  },
+  "admin.kyc.enhanced": {
+    "en": "Enhanced",
+    "t": "Erweitert"
+  },
+  "admin.kyc.registered": {
+    "en": "Registered",
+    "t": "Registriert"
+  },
+  "admin.kyc.verified": {
+    "en": "Verified",
+    "t": "Verifiziert"
+  },
+  "admin.payments.openConsilium": {
+    "en": "Open the consilium",
+    "t": "Konsilium öffnen"
+  },
+  "admin.rail.bep20": {
+    "en": "BEP20 · BNB Chain",
+    "t": "BEP20 · BNB Chain"
+  },
+  "admin.rail.polygon": {
+    "en": "Polygon · PoS",
+    "t": "Polygon · PoS"
+  },
+  "admin.rail.ton": {
+    "en": "TON · Open Network",
+    "t": "TON · Open Network"
+  },
+  "admin.rail.trc20": {
+    "en": "TRC20 · TRON",
+    "t": "TRC20 · TRON"
+  },
+  "admin.revenue.cashAvailable": {
+    "en": "Cash · available",
+    "t": "Kasse · verfügbar"
+  },
+  "admin.revenue.cashAvailableHint": {
+    "en": "free of approved payments",
+    "t": "frei von genehmigten Zahlungen"
+  },
+  "admin.revenue.cashPosted": {
+    "en": "Cash · posted",
+    "t": "Kasse · gebucht"
+  },
+  "admin.revenue.cashPostedHint": {
+    "en": "settled fees + settled 2-and-20, reserved included",
+    "t": "abgerechnete Gebühren + abgerechnete 2-und-20, inklusive Reserviertem"
+  },
+  "admin.revenue.earned": {
+    "en": "The fee allocation",
+    "t": "Die Gebühren-Allokation"
+  },
+  "admin.revenue.navPosted": {
+    "en": "marked {ago}",
+    "t": "bewertet {ago}"
+  },
+  "admin.revenue.ownMoneyNote": {
+    "en": "This is the platform's own money. Client balances and the fund allocation are separate ledger claims and are not included here — and cannot be reached from this screen.",
+    "t": "Das ist das eigene Geld der Plattform. Kundenguthaben und die Kapital-Allokation sind separate Ledger-Ansprüche, hier nicht enthalten — und von diesem Bildschirm aus nicht erreichbar."
+  },
+  "admin.revenue.subtitle": {
+    "en": "What the platform earned — the fee allocation: its cash, its units and who holds them",
+    "t": "Was die Plattform verdient hat — die Gebühren-Allokation: ihre Kasse, ihre Anteile und wer sie hält"
+  },
+  "admin.revenue.toApprovals": {
+    "en": "Seating a person on the fee allocation is the owners' decision. Propose it there; the units appear here once their vote carries.",
+    "t": "Wer an der Gebührenallokation beteiligt wird, entscheiden die Eigentümer. Schlagen Sie es dort vor; die Anteile erscheinen hier, sobald ihre Abstimmung durch ist."
+  },
+  "admin.revenue.toPayments": {
+    "en": "Moving the platform's earnings — into a product, or to an investor — is a payment order the owners authorise. Open one there. Cash reaches the chain only through a holder's redemption and their own withdrawal.",
+    "t": "Die Erträge der Plattform zu bewegen — in ein Produkt oder an einen Anleger — ist ein Zahlungsauftrag, den die Eigentümer genehmigen. Dort eröffnen. Auf die Chain gelangt Geld nur über die Einlösung eines Halters und dessen eigene Abhebung."
+  },
+  "admin.revenue.toTreasury": {
+    "en": "The fee allocation beside the platform's other balances: custody per rail, user claims, every allocation and its holders.",
+    "t": "Die Gebühren-Allokation neben den anderen Guthaben der Plattform: Verwahrung je Netzwerk, Nutzeransprüche, jede Allokation und ihre Halter."
+  },
+  "admin.revenue.unitsHint": {
+    "en": "units of the fee allocation, held by people",
+    "t": "Anteile der Gebühren-Allokation, von Personen gehalten"
+  },
+  "admin.revenue.whereNext": {
+    "en": "Move or inspect it",
+    "t": "Bewegen oder einsehen"
+  },
+  "admin.role.admin": {
+    "en": "Admin",
+    "t": "Admin"
+  },
+  "admin.role.investor": {
+    "en": "Investor",
+    "t": "Investor"
+  },
+  "admin.role.operator": {
+    "en": "Operator",
+    "t": "Operator"
+  },
+  "admin.role.owner": {
+    "en": "Owner",
+    "t": "Eigentümer"
+  },
+  "admin.settle": {
+    "en": "Settle",
+    "t": "Abrechnen"
+  },
+  "admin.state.cancelled": {
+    "en": "Cancelled",
+    "t": "Storniert"
+  },
+  "admin.state.closed": {
+    "en": "Closed",
+    "t": "Geschlossen"
+  },
+  "admin.state.completed": {
+    "en": "Completed",
+    "t": "Ausgeführt"
+  },
+  "admin.state.draft": {
+    "en": "Draft",
+    "t": "Entwurf"
+  },
+  "admin.state.failed": {
+    "en": "Failed",
+    "t": "Gescheitert"
+  },
+  "admin.state.open": {
+    "en": "Open",
+    "t": "Offen"
+  },
+  "admin.state.processing": {
+    "en": "Processing",
+    "t": "In Arbeit"
+  },
+  "admin.state.queued": {
+    "en": "Queued",
+    "t": "Wartend"
+  },
+  "admin.status.active": {
+    "en": "Active",
+    "t": "Aktiv"
+  },
+  "admin.status.blocked": {
+    "en": "Blocked",
+    "t": "Gesperrt"
+  },
+  "admin.status.degraded": {
+    "en": "Degraded",
+    "t": "Gestört"
+  },
+  "admin.status.disabled": {
+    "en": "Disabled",
+    "t": "Deaktiviert"
+  },
+  "admin.status.error": {
+    "en": "Error",
+    "t": "Fehler"
+  },
+  "admin.status.healthy": {
+    "en": "Healthy",
+    "t": "Gesund"
+  },
+  "admin.status.onboarding": {
+    "en": "Onboarding",
+    "t": "Onboarding"
+  },
+  "admin.status.pending": {
+    "en": "Pending",
+    "t": "Ausstehend"
+  },
+  "admin.status.review": {
+    "en": "Review",
+    "t": "In Prüfung"
+  },
+  "admin.status.staged": {
+    "en": "Staged",
+    "t": "Vorbereitet"
+  },
+  "admin.treasury.allocations.unmarked": {
+    "en": "not yet marked",
+    "t": "noch nicht bewertet"
+  },
+  "admin.users.kycLevelShort": {
+    "en": "L{n}",
+    "t": "L{n}"
+  },
+  "admin.valuation.allocationLabel": {
+    "en": "{title} ({service})",
+    "t": "{title} ({service})"
+  },
+  "admin.valuation.allocationLabelWithState": {
+    "en": "{title} ({service}) — {state}",
+    "t": "{title} ({service}) — {state}"
+  },
+  "admin.valuation.approx": {
+    "en": "≈ {amount}",
+    "t": "≈ {amount}"
+  },
+  "admin.valuation.aumUsdt": {
+    "en": "AUM (USDT)",
+    "t": "AUM (USDT)"
+  },
+  "admin.valuation.capBelowIssued": {
+    "en": "Below the {n} units already issued: this stops further issuance. Nothing minted is affected and redemptions keep working.",
+    "t": "Unter den bereits ausgegebenen {n} Anteilen: Das stoppt jede weitere Ausgabe. Bereits ausgegebene Anteile sind nicht betroffen, und Rückgaben funktionieren weiter."
+  },
+  "admin.valuation.capHint": {
+    "en": "Takes effect on the next subscription. Redemptions are never affected.",
+    "t": "Wirkt ab der nächsten Zeichnung. Rückgaben sind nie betroffen."
+  },
+  "admin.valuation.capInvalid": {
+    "en": "Must be greater than zero — to stop new money entirely, close the allocation instead.",
+    "t": "Muss größer als null sein — um neues Geld ganz zu stoppen, schließen Sie stattdessen die Allokation."
+  },
+  "admin.valuation.capUnits": {
+    "en": "Cap (units)",
+    "t": "Limit (Anteile)"
+  },
+  "admin.valuation.col.estCash": {
+    "en": "Est. cash",
+    "t": "Gesch. Cash"
+  },
+  "admin.valuation.derivedFormula": {
+    "en": "= AUM / {n, plural, one {# unit} other {# units}}",
+    "t": "= AUM / {n, plural, one {# Anteil} other {# Anteile}}"
+  },
+  "admin.valuation.derivedNav": {
+    "en": "Derived NAV / share",
+    "t": "Abgeleiteter NAV / Anteil"
+  },
+  "admin.valuation.fundService": {
+    "en": "Fund (service)",
+    "t": "Fonds (Service)"
+  },
+  "admin.valuation.guardHint": {
+    "en": "A move past the NAV guard is refused; the owners cannot be asked to lift it from here yet.",
+    "t": "Eine Bewegung über die NAV-Schranke hinaus wird abgelehnt; die Eigentümer können von hier aus noch nicht um ihre Aufhebung gebeten werden."
+  },
+  "admin.valuation.issuedOfCap": {
+    "en": "{issued} / {cap} units",
+    "t": "{issued} / {cap} Anteile"
+  },
+  "admin.valuation.loadingSupply": {
+    "en": "Loading supply… — a subscription that would mint past the cap is refused.",
+    "t": "Anteilsbestand wird geladen… — eine Zeichnung, die über das Limit hinaus ausgeben würde, wird abgelehnt."
+  },
+  "admin.valuation.navFormula": {
+    "en": "AUM / units",
+    "t": "AUM / Anteile"
+  },
+  "admin.valuation.navGuardNote": {
+    "en": "NAV-move guard — a post is refused if the NAV moves more than 50% from the last mark or from the mark of a week ago, so stepping there in smaller posts is refused too. Nothing overrides it: a larger move is put to the owners' vote instead.",
+    "t": "NAV-Bewegungsschutz — eine Meldung wird abgelehnt, wenn sich der NAV um mehr als 50 % gegenüber der letzten Bewertung oder der Bewertung von vor einer Woche bewegt; sich in kleineren Schritten dorthin zu tasten wird also ebenfalls abgelehnt. Es gibt keine Übersteuerung: eine größere Bewegung geht stattdessen zur Abstimmung der Eigentümer."
+  },
+  "admin.valuation.noAllocations": {
+    "en": "No allocations registered",
+    "t": "Keine Allokationen registriert"
+  },
+  "admin.valuation.noUnitsNote": {
+    "en": "No units outstanding — NAV is {formula}, so it is undefined until someone subscribes. The fund prices at the seed NAV 1.0 until the first subscription; there is nothing to mark yet.",
+    "t": "Keine Anteile im Umlauf — der NAV ist {formula} und damit undefiniert, bis jemand zeichnet. Der Fonds bepreist bis zur ersten Zeichnung zum Seed-NAV 1.0; es gibt noch nichts zu bewerten."
+  },
+  "admin.valuation.pickAFund": {
+    "en": "Pick a fund above to see and resize its authorised unit supply.",
+    "t": "Wählen Sie oben einen Fonds, um seinen genehmigten Anteilsbestand zu sehen und anzupassen."
+  },
+  "admin.valuation.postValuation": {
+    "en": "Post valuation",
+    "t": "Bewertung melden"
+  },
+  "admin.valuation.postedBody": {
+    "en": "NAV {nav} at {aum} USDT AUM",
+    "t": "NAV {nav} bei {aum} USDT AUM"
+  },
+  "admin.valuation.postedTitle": {
+    "en": "Marked",
+    "t": "Bewertet"
+  },
+  "admin.valuation.queueEmpty": {
+    "en": "The redemption queue is empty",
+    "t": "Die Rückgabe-Warteschlange ist leer"
+  },
+  "admin.valuation.queueEmptyHint": {
+    "en": "A request appears here when an investor asks to redeem units.",
+    "t": "Ein Antrag erscheint hier, sobald ein Anleger Anteile zurückgeben möchte."
+  },
+  "admin.valuation.queueFootnote": {
+    "en": "Settle pays at settle-time NAV once the fund claim is liquid; if the rail is short the payout queues until treasury tops up. Fail voids the request and refunds the units.",
+    "t": "Abrechnen zahlt zum NAV im Abrechnungszeitpunkt, sobald der Anspruch des Fonds liquide ist; ist der Kanal knapp, wartet die Auszahlung, bis das Treasury aufgefüllt wird. Verwerfen storniert die Anfrage und gibt die Anteile zurück."
+  },
+  "admin.valuation.queuedCount": {
+    "en": "{n, plural, one {# queued} other {# queued}}",
+    "t": "{n, plural, one {# wartend} other {# wartend}}"
+  },
+  "admin.valuation.redemptionQueue": {
+    "en": "Redemption queue",
+    "t": "Rückgabe-Warteschlange"
+  },
+  "admin.valuation.saveCap": {
+    "en": "Save cap",
+    "t": "Speichern"
+  },
+  "admin.valuation.stillIssuable": {
+    "en": "{units} units still issuable — a subscription that would mint past the cap is refused.",
+    "t": "{units} Anteile noch ausgebbar — eine Zeichnung, die über das Limit hinaus ausgeben würde, wird abgelehnt."
+  },
+  "admin.valuation.subtitle": {
+    "en": "Post fund NAV and clear the redemption queue",
+    "t": "NAV des Fonds melden und die Rückgabe-Warteschlange abarbeiten"
+  },
+  "admin.valuation.unitSupply": {
+    "en": "Unit supply",
+    "t": "Anteilsbestand"
+  },
+  "admin.valuation.unitsIssuedIn": {
+    "en": "Units issued in {service}",
+    "t": "Ausgegebene Anteile in {service}"
+  },
+  "approval.expiry.days": {
+    "en": "{n, plural, one {# day left} other {# days left}}",
+    "t": "{n, plural, one {Noch # Tag} other {Noch # Tage}}"
+  },
+  "approval.expiry.hours": {
+    "en": "{n, plural, one {# hour left} other {# hours left}}",
+    "t": "{n, plural, one {Noch # Stunde} other {Noch # Stunden}}"
+  },
+  "approval.expiry.minutes": {
+    "en": "{n, plural, one {# minute left} other {# minutes left}}",
+    "t": "{n, plural, one {Noch # Minute} other {Noch # Minuten}}"
+  },
+  "approval.expiry.passed": {
+    "en": "The deadline has passed",
+    "t": "Die Frist ist abgelaufen"
+  },
+  "auth.continue": {
+    "en": "Continue to sign in",
+    "t": "Weiter zur Anmeldung"
+  },
+  "auth.wall.action": {
+    "en": "Sign in",
+    "t": "Anmelden"
+  },
+  "auth.wall.desc": {
+    "en": "This part of the cabinet belongs to your account. Sign in or create one — it takes a minute.",
+    "t": "Dieser Bereich gehört zu deinem Konto. Melde dich an oder erstelle eines — es dauert eine Minute."
+  },
+  "auth.wall.title": {
+    "en": "Sign in to see this",
+    "t": "Melde dich an, um das zu sehen"
+  },
+  "dash.activeStrategies": {
+    "en": "Active strategies",
+    "t": "Aktive Strategien"
+  },
+  "dash.allTimeSuffix": {
+    "en": "{pct} all-time",
+    "t": "{pct} seit Auflage"
+  },
+  "dash.browseStrategies": {
+    "en": "Browse strategies",
+    "t": "Strategien ansehen"
+  },
+  "dash.fundFallback": {
+    "en": "Fund",
+    "t": "Fonds"
+  },
+  "dash.fundPerformance": {
+    "en": "Fund performance",
+    "t": "Wertentwicklung des Fonds"
+  },
+  "dash.hintAcrossPositions": {
+    "en": "across all positions",
+    "t": "über alle Positionen"
+  },
+  "dash.hintAtCostBasis": {
+    "en": "at cost basis",
+    "t": "zu Anschaffungskosten"
+  },
+  "dash.hintFundPositions": {
+    "en": "fund positions",
+    "t": "Fondspositionen"
+  },
+  "dash.historyTruncated": {
+    "en": "Only the most recent marks in this range are shown; the fund curve starts from the oldest one shown, not from the start of the range.",
+    "t": "Nur die jüngsten Bewertungen in diesem Zeitraum werden gezeigt; die Fondskurve beginnt bei der ältesten gezeigten, nicht am Anfang des Zeitraums."
+  },
+  "dash.investedWhatIOwn": {
+    "en": "Invested · what I own",
+    "t": "Investiert · was ich halte"
+  },
+  "dash.netContributed": {
+    "en": "Net contributed",
+    "t": "Nettoeinlagen"
+  },
+  "dash.noHistory": {
+    "en": "No performance history yet",
+    "t": "Noch keine Wertentwicklung"
+  },
+  "dash.noHistoryHint": {
+    "en": "The fund curve and your participation appear here once there is activity to plot.",
+    "t": "Fondskurve und Ihr Anteil erscheinen hier, sobald es etwas darzustellen gibt."
+  },
+  "dash.nothingInvested": {
+    "en": "Nothing invested yet",
+    "t": "Noch nichts investiert"
+  },
+  "dash.nothingInvestedHint": {
+    "en": "Subscribe to a strategy and the split of what you own shows up here.",
+    "t": "Zeichnen Sie eine Strategie, und die Aufteilung Ihrer Anlagen erscheint hier."
+  },
+  "dash.portfolio": {
+    "en": "Portfolio",
+    "t": "Portfolio"
+  },
+  "dash.portfolioSub": {
+    "en": "All-time performance and your participation",
+    "t": "Wertentwicklung seit Auflage und Ihr Anteil"
+  },
+  "dash.portfolioValue": {
+    "en": "Portfolio value",
+    "t": "Portfoliowert"
+  },
+  "dash.range.1m": {
+    "en": "1M",
+    "t": "1M"
+  },
+  "dash.range.1y": {
+    "en": "1Y",
+    "t": "1J"
+  },
+  "dash.range.6m": {
+    "en": "6M",
+    "t": "6M"
+  },
+  "dash.range.all": {
+    "en": "All",
+    "t": "Alle"
+  },
+  "dash.rangeLabel": {
+    "en": "Chart range",
+    "t": "Zeitraum des Diagramms"
+  },
+  "dash.strategyCount": {
+    "en": "{n, plural, one {# strategy} other {# strategies}}",
+    "t": "{n, plural, one {# Strategie} other {# Strategien}}"
+  },
+  "dash.unitsAmount": {
+    "en": "{n, plural, one {{units} unit} other {{units} units}}",
+    "t": "{n, plural, one {{units} Anteil} other {{units} Anteile}}"
+  },
+  "dash.unrealizedPnl": {
+    "en": "Unrealized P&L",
+    "t": "Nicht realisiertes Ergebnis"
+  },
+  "dash.yourParticipation": {
+    "en": "Your participation",
+    "t": "Ihre Beteiligung"
+  },
+  "err.authNotConfigured": {
+    "en": "Sign-in is unavailable right now. Please try again shortly.",
+    "t": "Die Anmeldung ist derzeit nicht verfügbar. Bitte versuchen Sie es in Kürze erneut."
+  },
+  "err.chunkLoad": {
+    "en": "This part of the page didn't load.",
+    "t": "Dieser Teil der Seite wurde nicht geladen."
+  },
+  "err.csrf": {
+    "en": "This page went stale. Reload it and try again.",
+    "t": "Diese Seite ist veraltet. Laden Sie sie neu und versuchen Sie es erneut."
+  },
+  "err.feePolicySave": {
+    "en": "Could not save these terms.",
+    "t": "Diese Konditionen konnten nicht gespeichert werden."
+  },
+  "err.feeSettle": {
+    "en": "Could not settle these units.",
+    "t": "Diese Anteile konnten nicht abgerechnet werden."
+  },
+  "err.forbidden": {
+    "en": "You don't have access to this.",
+    "t": "Sie haben darauf keinen Zugriff."
+  },
+  "err.fundRefresh": {
+    "en": "Couldn't refresh this fund",
+    "t": "Dieser Fonds konnte nicht aktualisiert werden"
+  },
+  "err.fundServiceRequired": {
+    "en": "Select a fund to continue.",
+    "t": "Wählen Sie einen Fonds, um fortzufahren."
+  },
+  "err.kycSelf": {
+    "en": "You can't set your own verification tier — another holder of KycManage has to.",
+    "t": "Sie können Ihre eigene Verifizierungsstufe nicht setzen — das muss ein anderer Inhaber von KycManage tun."
+  },
+  "err.kycStartFailed": {
+    "en": "We couldn't start verification. Please try again.",
+    "t": "Die Verifizierung konnte nicht gestartet werden. Bitte versuchen Sie es erneut."
+  },
+  "err.kycThrottled": {
+    "en": "You've started verification too many times today. Try again tomorrow.",
+    "t": "Sie haben die Verifizierung heute zu oft gestartet. Versuchen Sie es morgen erneut."
+  },
+  "err.kycUnavailable": {
+    "en": "Verification is unavailable right now. Please contact support.",
+    "t": "Die Verifizierung ist derzeit nicht verfügbar. Bitte wenden Sie sich an den Support."
+  },
+  "err.network": {
+    "en": "Can't reach the server. Check your connection and try again.",
+    "t": "Der Server ist nicht erreichbar. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut."
+  },
+  "err.notFound": {
+    "en": "Not found.",
+    "t": "Nicht gefunden."
+  },
+  "err.positionsLoad": {
+    "en": "Couldn't load your positions",
+    "t": "Ihre Positionen konnten nicht geladen werden"
+  },
+  "err.rateLimited": {
+    "en": "Too many requests — give it a moment and try again.",
+    "t": "Zu viele Anfragen — warten Sie einen Moment und versuchen Sie es erneut."
+  },
+  "err.requestFailed": {
+    "en": "Something went wrong on our side. Please try again.",
+    "t": "Auf unserer Seite ist etwas schiefgelaufen. Bitte versuchen Sie es erneut."
+  },
+  "err.serverUnavailable": {
+    "en": "The service is temporarily unavailable. Please try again.",
+    "t": "Der Dienst ist vorübergehend nicht verfügbar. Bitte versuchen Sie es erneut."
+  },
+  "err.sessionExpired": {
+    "en": "Your session has ended. Sign in again to continue.",
+    "t": "Ihre Sitzung ist beendet. Melden Sie sich erneut an, um fortzufahren."
+  },
+  "err.unauthenticated": {
+    "en": "We couldn't confirm your session. Reload the page or sign in again.",
+    "t": "Wir konnten Ihre Sitzung nicht bestätigen. Laden Sie die Seite neu oder melden Sie sich erneut an."
+  },
+  "err.unparkDeclined": {
+    "en": "The hub declined the unpark.",
+    "t": "Der Hub hat das Entparken abgelehnt."
+  },
+  "err.verificationRequired": {
+    "en": "Verify your identity to continue.",
+    "t": "Bestätigen Sie Ihre Identität, um fortzufahren."
+  },
+  "invest.about.risk": {
+    "en": "Units can fall in value as well as rise. The NAV is set by a posted valuation, not by a market price, and past marks are no guide to future ones. Cash comes back only when a redemption settles or a buyer takes your units on the book. Invest only what you can afford to leave in.",
+    "t": "Anteile können sowohl an Wert verlieren als auch gewinnen. Der NAV ergibt sich aus einer veröffentlichten Bewertung, nicht aus einem Marktpreis, und frühere Bewertungen sagen nichts über künftige aus. Geld fließt erst zurück, wenn eine Rücknahme abgerechnet ist oder ein Käufer Ihre Anteile im Orderbuch übernimmt. Investieren Sie nur, was Sie langfristig entbehren können."
+  },
+  "invest.about.riskTitle": {
+    "en": "Risk.",
+    "t": "Risiko."
+  },
+  "invest.about.title": {
+    "en": "About this product",
+    "t": "Über dieses Produkt"
+  },
+  "invest.accruedOnHolding": {
+    "en": "Accrued on your holding",
+    "t": "Auf Ihre Position abgegrenzt"
+  },
+  "invest.acrossFunds": {
+    "en": "{n, plural, one {Across # fund} other {Across # funds}}",
+    "t": "{n, plural, one {Über # Fonds} other {Über # Fonds}}"
+  },
+  "invest.allProducts": {
+    "en": "All products",
+    "t": "Alle Produkte"
+  },
+  "invest.amountUsdt": {
+    "en": "Amount (USDT)",
+    "t": "Betrag (USDT)"
+  },
+  "invest.awaitingSettlement": {
+    "en": "Awaiting settlement",
+    "t": "Wartet auf Abrechnung"
+  },
+  "invest.backing.cash": {
+    "en": "Cash-backed",
+    "t": "Bargedeckt"
+  },
+  "invest.backing.inKind": {
+    "en": "In kind",
+    "t": "Sacheinlage"
+  },
+  "invest.backing.inKindNote": {
+    "en": "Units of this product represent an asset held off-platform. The fund holds no cash for them, so they are sold on the book rather than redeemed.",
+    "t": "Die Anteile dieses Produkts stehen für einen außerhalb der Plattform gehaltenen Vermögenswert. Der Fonds hält dafür kein Bargeld, daher werden sie im Orderbuch verkauft statt zurückgenommen."
+  },
+  "invest.badge.locked": {
+    "en": "Locked",
+    "t": "Gesperrt"
+  },
+  "invest.badge.open": {
+    "en": "Open",
+    "t": "Offen"
+  },
+  "invest.badge.redeemOnly": {
+    "en": "Redeem only",
+    "t": "Nur Rückgabe"
+  },
+  "invest.badge.staleNav": {
+    "en": "Stale NAV",
+    "t": "NAV veraltet"
+  },
+  "invest.blocked.capReached": {
+    "en": "This fund has issued its full authorised supply, so it is not minting new units. Redemptions are unaffected.",
+    "t": "Dieser Fonds hat seinen gesamten genehmigten Bestand ausgegeben und gibt daher keine neuen Anteile aus. Rückgaben sind davon nicht betroffen."
+  },
+  "invest.blocked.closed": {
+    "en": "This fund is closed to new subscriptions. Your units are unaffected — you can still redeem them in full.",
+    "t": "Dieser Fonds ist für neue Zeichnungen geschlossen. Ihre Anteile sind davon nicht betroffen — Sie können sie weiterhin vollständig zurückgeben."
+  },
+  "invest.blocked.locked": {
+    "en": "This fund isn't open to you yet. You can see it, but subscribing stays locked until your access is raised. If you think you should have it:",
+    "t": "Dieser Fonds ist für Sie noch nicht geöffnet. Sie können ihn sehen, aber die Zeichnung bleibt gesperrt, bis Ihr Zugriff erhöht wird. Falls Sie ihn haben sollten:"
+  },
+  "invest.blocked.staleNav": {
+    "en": "The fund's valuation is out of date, so dealing is paused until a fresh one is posted.",
+    "t": "Die Bewertung des Fonds ist veraltet, daher ruht der Handel, bis eine neue veröffentlicht wird."
+  },
+  "invest.buysUnits": {
+    "en": "Buys {n, plural, one {{units} unit} other {{units} units}} at {nav} USDT per unit.",
+    "t": "Kauft {n, plural, one {{units} Anteil} other {{units} Anteile}} zu {nav} USDT je Anteil."
+  },
+  "invest.carriedOver": {
+    "en": "Carried over",
+    "t": "Übertragen"
+  },
+  "invest.costBasis": {
+    "en": "Cost basis",
+    "t": "Anschaffungskosten"
+  },
+  "invest.cta.locked": {
+    "en": "Locked: ask for access",
+    "t": "Gesperrt: Zugang anfragen"
+  },
+  "invest.cta.lockedSubject": {
+    "en": "Access to {title}",
+    "t": "Zugang zu {title}"
+  },
+  "invest.cta.trade": {
+    "en": "Trade on the book",
+    "t": "Im Orderbuch handeln"
+  },
+  "invest.cta.verify": {
+    "en": "Verify to invest",
+    "t": "Verifizieren, um zu investieren"
+  },
+  "invest.dustHint": {
+    "en": "Too small to buy a whole unit at {nav} — increase the amount.",
+    "t": "Zu klein für einen ganzen Anteil zu {nav} — erhöhen Sie den Betrag."
+  },
+  "invest.facts.backing": {
+    "en": "Backing",
+    "t": "Deckung"
+  },
+  "invest.facts.backingCash": {
+    "en": "Cash held by the fund",
+    "t": "Bargeld im Fonds"
+  },
+  "invest.facts.backingInKind": {
+    "en": "Asset held off-platform",
+    "t": "Vermögenswert außerhalb der Plattform"
+  },
+  "invest.facts.capacity": {
+    "en": "Capacity left",
+    "t": "Freie Kapazität"
+  },
+  "invest.facts.feeHeadline": {
+    "en": "{management} p.a. + {performance} of the gain",
+    "t": "{management} p. a. + {performance} vom Gewinn"
+  },
+  "invest.facts.feeHeadlineHurdle": {
+    "en": "{management} p.a. + {performance} of the gain above {hurdle} p.a.",
+    "t": "{management} p. a. + {performance} vom Gewinn über {hurdle} p. a."
+  },
+  "invest.facts.feeUnset": {
+    "en": "Not published yet",
+    "t": "Noch nicht veröffentlicht"
+  },
+  "invest.facts.fees": {
+    "en": "Fees",
+    "t": "Gebühren"
+  },
+  "invest.facts.lastValuation": {
+    "en": "Last valuation",
+    "t": "Letzte Bewertung"
+  },
+  "invest.facts.liquidity": {
+    "en": "Liquidity",
+    "t": "Liquidität"
+  },
+  "invest.facts.liquidityBook": {
+    "en": "Sold on the book",
+    "t": "Verkauf im Orderbuch"
+  },
+  "invest.facts.liquidityNav": {
+    "en": "Redeem at NAV, queued",
+    "t": "Rücknahme zum NAV, in der Warteschlange"
+  },
+  "invest.facts.liquidityNavOrBook": {
+    "en": "Redeem at NAV (queued) or trade on the book",
+    "t": "Rücknahme zum NAV (Warteschlange) oder Handel im Orderbuch"
+  },
+  "invest.facts.markedOn": {
+    "en": "Marked {date}",
+    "t": "Bewertet am {date}"
+  },
+  "invest.feeChangeProposed": {
+    "en": "A change is proposed and awaits the owners: {terms}.",
+    "t": "Eine Änderung ist vorgeschlagen und wartet auf die Eigentümer: {terms}."
+  },
+  "invest.feeChangeScheduled": {
+    "en": "Terms change on {at}: {terms}.",
+    "t": "Konditionen ändern sich am {at}: {terms}."
+  },
+  "invest.feeNoteHolder": {
+    "en": "Fees are taken in units, never in cash — your wallet balance is untouched, and the value shown opposite is before them. The performance fee applies only to gains above your own high-water mark, so a recovery back to it costs nothing.",
+    "t": "Gebühren werden in Anteilen entnommen, nie in bar — Ihr Wallet-Guthaben bleibt unberührt, und der gegenüberstehende Wert versteht sich vor Gebühren. Die Performancegebühr fällt nur auf Gewinne über Ihrer eigenen High-Water-Mark an; eine Erholung zurück auf diese Marke kostet also nichts."
+  },
+  "invest.feeNoteProspect": {
+    "en": "Fees are taken in units, never in cash. The performance fee applies only to gains above the price you enter at, measured per investor rather than per fund.",
+    "t": "Gebühren werden in Anteilen entnommen, nie in bar. Die Performancegebühr fällt nur auf Gewinne über dem Preis an, zu dem Sie einsteigen — gemessen je Investor, nicht je Fonds."
+  },
+  "invest.fullyIssued": {
+    "en": "Fully issued — not minting new units.",
+    "t": "Vollständig ausgegeben — es werden keine neuen Anteile ausgegeben."
+  },
+  "invest.fundAum": {
+    "en": "Fund AUM",
+    "t": "Fondsvermögen"
+  },
+  "invest.fundsHeld": {
+    "en": "Funds held",
+    "t": "Gehaltene Fonds"
+  },
+  "invest.hurdleFirst": {
+    "en": "{pct} p.a. first",
+    "t": "zuerst {pct} p. a."
+  },
+  "invest.investAmount": {
+    "en": "Invest {amount} USDT",
+    "t": "{amount} USDT investieren"
+  },
+  "invest.investedValue": {
+    "en": "Invested value",
+    "t": "Investierter Wert"
+  },
+  "invest.lockedIn": {
+    "en": "Locked in",
+    "t": "Festgeschrieben"
+  },
+  "invest.nav": {
+    "en": "NAV",
+    "t": "NAV"
+  },
+  "invest.navPerUnit": {
+    "en": "NAV / unit",
+    "t": "NAV / Anteil"
+  },
+  "invest.noFunds": {
+    "en": "No funds are open for subscription right now.",
+    "t": "Derzeit ist kein Fonds zur Zeichnung geöffnet."
+  },
+  "invest.noFundsHint": {
+    "en": "A fund appears here once it is registered and opened for subscription. Nothing you hold is affected.",
+    "t": "Ein Fonds erscheint hier, sobald er registriert und für die Zeichnung geöffnet ist. Auf Ihren Bestand hat das keine Auswirkung."
+  },
+  "invest.noUnitsHeld": {
+    "en": "You hold no units yet.",
+    "t": "Sie halten noch keine Anteile."
+  },
+  "invest.noUnitsInFund": {
+    "en": "You hold no units in this fund yet.",
+    "t": "Sie halten noch keine Anteile an diesem Fonds."
+  },
+  "invest.notInvestedYet": {
+    "en": "Not invested yet",
+    "t": "Noch nicht investiert"
+  },
+  "invest.notRegistered": {
+    "en": "No fund is registered as “{service}”.",
+    "t": "Es ist kein Fonds unter „{service}“ registriert."
+  },
+  "invest.notRegisteredHint": {
+    "en": "Nothing is registered under this name. If you followed a link here, the product may never have been opened.",
+    "t": "Unter diesem Namen ist nichts registriert. Sind Sie einem Link hierher gefolgt, wurde das Produkt womöglich nie geöffnet."
+  },
+  "invest.notYetValued": {
+    "en": "Not yet valued",
+    "t": "Noch nicht bewertet"
+  },
+  "invest.notYetValuedHint": {
+    "en": "Not yet valued — the first subscription prices at 1.0.",
+    "t": "Noch nicht bewertet — die erste Zeichnung wird zu 1,0 bepreist."
+  },
+  "invest.ofTheGain": {
+    "en": "{pct} of the gain",
+    "t": "{pct} des Gewinns"
+  },
+  "invest.overCapHint": {
+    "en": "Only {n, plural, one {{units} unit is} other {{units} units are}} left before this fund reaches its cap — reduce the amount.",
+    "t": "Nur noch {n, plural, one {{units} Anteil ist} other {{units} Anteile sind}} verfügbar, bevor dieser Fonds sein Limit erreicht — verringern Sie den Betrag."
+  },
+  "invest.perAnnum": {
+    "en": "{pct} p.a.",
+    "t": "{pct} p. a."
+  },
+  "invest.pnl": {
+    "en": "P&L",
+    "t": "P&L"
+  },
+  "invest.products": {
+    "en": "Products",
+    "t": "Produkte"
+  },
+  "invest.redeem": {
+    "en": "Redeem",
+    "t": "Zurückgeben"
+  },
+  "invest.redeemCompleted": {
+    "en": "Redemption completed",
+    "t": "Rücknahme abgeschlossen"
+  },
+  "invest.redeemEstimate": {
+    "en": "≈ {amount} USDT at today's NAV — the settle price may differ.",
+    "t": "≈ {amount} USDT zum heutigen NAV — der Abrechnungspreis kann abweichen."
+  },
+  "invest.redeemFailed": {
+    "en": "Redemption failed",
+    "t": "Rücknahme gescheitert"
+  },
+  "invest.redeemQueued": {
+    "en": "Redemption queued",
+    "t": "Rücknahme wartet"
+  },
+  "invest.redeemReceiptCompleted": {
+    "en": "{n, plural, one {{units} unit} other {{units} units}} redeemed for {cash} USDT at {nav} USDT NAV.",
+    "t": "{n, plural, one {{units} Anteil} other {{units} Anteile}} für {cash} USDT zum NAV von {nav} USDT zurückgegeben."
+  },
+  "invest.redeemReceiptQueued": {
+    "en": "{n, plural, one {{units} unit} other {{units} units}} reserved — queued until the fund tops up, then priced at the settle NAV.",
+    "t": "{n, plural, one {{units} Anteil} other {{units} Anteile}} reserviert — wartet, bis der Fonds aufgefüllt ist, und wird dann zum NAV der Abrechnung bepreist."
+  },
+  "invest.redeemTimingNote": {
+    "en": "Your units are reserved the moment you submit, but the cash is priced when the redemption settles — not now. A figure shown here is an estimate at today's NAV.",
+    "t": "Ihre Anteile werden reserviert, sobald Sie absenden, aber das Geld wird erst bei der Abrechnung der Rücknahme bepreist — nicht jetzt. Ein hier gezeigter Betrag ist eine Schätzung zum heutigen NAV."
+  },
+  "invest.redeemUnbacked": {
+    "en": "Units of this product are not backed by fund cash — sell them on the book instead of redeeming.",
+    "t": "Die Anteile dieses Produkts sind nicht durch Fondsbargeld gedeckt — verkaufen Sie sie im Orderbuch, statt sie zurückzugeben."
+  },
+  "invest.remainingCapacity": {
+    "en": "Remaining capacity",
+    "t": "Verbleibende Kapazität"
+  },
+  "invest.reservedPricedAtSettle": {
+    "en": "reserved, priced at settle",
+    "t": "reserviert, bepreist bei der Abrechnung"
+  },
+  "invest.subscribe": {
+    "en": "Subscribe",
+    "t": "Zeichnen"
+  },
+  "invest.subscribeFailed": {
+    "en": "Subscription failed",
+    "t": "Zeichnung gescheitert"
+  },
+  "invest.subscribeIdleHint": {
+    "en": "Units are priced at the current NAV; the unit count is fixed at purchase and does not grow.",
+    "t": "Anteile werden zum aktuellen NAV bepreist; die Stückzahl steht beim Kauf fest und wächst nicht."
+  },
+  "invest.subscribePending": {
+    "en": "Subscription pending",
+    "t": "Zeichnung in Bearbeitung"
+  },
+  "invest.subscribePendingBody": {
+    "en": "Your cash is on hold. {n, plural, one {{units} unit} other {{units} units}} at {nav} USDT NAV are minted once it is captured — your position updates then.",
+    "t": "Ihr Geld ist reserviert. {n, plural, one {{units} Anteil} other {{units} Anteile}} zum NAV von {nav} USDT werden ausgegeben, sobald es eingezogen ist — dann aktualisiert sich Ihre Position."
+  },
+  "invest.subscribeReceiptBody": {
+    "en": "Minted {n, plural, one {{units} unit} other {{units} units}} at {nav} USDT NAV — your position updates shortly.",
+    "t": "{n, plural, one {{units} Anteil} other {{units} Anteile}} zum NAV von {nav} USDT ausgegeben — Ihre Position wird in Kürze aktualisiert."
+  },
+  "invest.subscribeReceived": {
+    "en": "Subscription received",
+    "t": "Zeichnung eingegangen"
+  },
+  "invest.subscribeRefused": {
+    "en": "The cash for this subscription was not taken, and nothing moved.",
+    "t": "Das Geld für diese Zeichnung wurde nicht eingezogen, und nichts hat sich bewegt."
+  },
+  "invest.supplyNote": {
+    "en": "Subscriptions mint units at the current NAV. Once the cap is reached the fund stops accepting new money; redemptions are unaffected.",
+    "t": "Zeichnungen geben Anteile zum aktuellen NAV aus. Ist das Limit erreicht, nimmt der Fonds kein neues Geld mehr an; Rückgaben sind davon nicht betroffen."
+  },
+  "invest.title": {
+    "en": "Invest",
+    "t": "Investieren"
+  },
+  "invest.topUp": {
+    "en": "Top up",
+    "t": "Aufstocken"
+  },
+  "invest.trade": {
+    "en": "Trade",
+    "t": "Handeln"
+  },
+  "invest.units": {
+    "en": "Units",
+    "t": "Anteile"
+  },
+  "invest.unitsHeld": {
+    "en": "{n, plural, one {{units} unit} other {{units} units}} held.",
+    "t": "{n, plural, one {{units} Anteil} other {{units} Anteile}} gehalten."
+  },
+  "invest.unitsIssued": {
+    "en": "Units issued",
+    "t": "Ausgegebene Anteile"
+  },
+  "invest.unitsToRedeem": {
+    "en": "Units to redeem",
+    "t": "Zurückzugebende Anteile"
+  },
+  "invest.unmarkedNote": {
+    "en": "No valuation posted yet — units price at the bootstrap NAV of 1.0 until the first mark.",
+    "t": "Noch keine Bewertung gemeldet — Anteile werden bis zur ersten Bewertung zum Start-NAV von 1,0 bepreist."
+  },
+  "invest.value": {
+    "en": "Value",
+    "t": "Wert"
+  },
+  "invest.youHoldUnits": {
+    "en": "You hold {n, plural, one {{units} unit} other {{units} units}}.",
+    "t": "Sie halten {n, plural, one {{units} Anteil} other {{units} Anteile}}."
+  },
+  "invest.yourMark": {
+    "en": "Your mark",
+    "t": "Ihre Marke"
+  },
+  "invest.yourPosition": {
+    "en": "Your position",
+    "t": "Ihre Position"
+  },
+  "invest.yourUnits": {
+    "en": "Your units",
+    "t": "Ihre Anteile"
+  },
+  "meta.description": {
+    "en": "Your investor cabinet — portfolio, funds and wallet.",
+    "t": "Ihr Investorenportal — Portfolio, Fonds und Wallet."
+  },
+  "meta.title": {
+    "en": "EV Investment — Cabinet",
+    "t": "EV Investment — Investorenportal"
+  },
+  "nav.a11y.primary": {
+    "en": "Primary",
+    "t": "Hauptnavigation"
+  },
+  "nav.a11y.secondary": {
+    "en": "Secondary",
+    "t": "Sekundärnavigation"
+  },
+  "nav.account": {
+    "en": "Account",
+    "t": "Konto"
+  },
+  "nav.admin": {
+    "en": "Admin",
+    "t": "Verwaltung"
+  },
+  "nav.allocations": {
+    "en": "Allocations",
+    "t": "Allokation"
+  },
+  "nav.approvals": {
+    "en": "Approvals",
+    "t": "Freigaben"
+  },
+  "nav.fees": {
+    "en": "Fees",
+    "t": "Gebühren"
+  },
+  "nav.group.fund": {
+    "en": "Your account",
+    "t": "Ihr Konto"
+  },
+  "nav.invest": {
+    "en": "Invest",
+    "t": "Investment"
+  },
+  "nav.payments": {
+    "en": "Payments",
+    "t": "Zahlungen"
+  },
+  "nav.portfolio": {
+    "en": "Portfolio",
+    "t": "Portfolio"
+  },
+  "nav.revenue": {
+    "en": "Revenue stats",
+    "t": "Ertragsstatistik"
+  },
+  "nav.support": {
+    "en": "Support",
+    "t": "Hilfe"
+  },
+  "nav.treasury": {
+    "en": "Treasury",
+    "t": "Treasury"
+  },
+  "nav.users": {
+    "en": "Users",
+    "t": "Nutzer"
+  },
+  "nav.valuation": {
+    "en": "Valuation & redemptions",
+    "t": "Bewertung"
+  },
+  "nav.wallet": {
+    "en": "Wallet",
+    "t": "Wallet"
+  },
+  "profile.kyc.contact": {
+    "en": "Contact {contact}",
+    "t": "{contact} kontaktieren"
+  },
+  "status.backHome": {
+    "en": "Back to home",
+    "t": "Zurück zur Startseite"
+  },
+  "status.contactTeam": {
+    "en": "Contact the team",
+    "t": "Team kontaktieren"
+  },
+  "status.forbidden.eyebrow": {
+    "en": "Access forbidden",
+    "t": "Zugriff verweigert"
+  },
+  "status.forbidden.headlineAccent": {
+    "en": "private",
+    "t": "privat"
+  },
+  "status.forbidden.headlineLead": {
+    "en": "This harbour is ",
+    "t": "Dieser Hafen ist "
+  },
+  "status.forbidden.subtext": {
+    "en": "You don't have the credentials to view this page. If you believe you should, our team can open the right doors.",
+    "t": "Ihnen fehlen die Berechtigungen für diese Seite. Sollte das ein Irrtum sein, öffnet unser Team Ihnen die richtigen Türen."
+  },
+  "status.notFound.eyebrow": {
+    "en": "Page not found",
+    "t": "Seite nicht gefunden"
+  },
+  "status.notFound.headlineAccent": {
+    "en": "open water",
+    "t": "offener See"
+  },
+  "status.notFound.headlineLead": {
+    "en": "You've reached ",
+    "t": "Sie sind auf "
+  },
+  "status.notFound.subtext": {
+    "en": "The page you're looking for has drifted off our coastline — moved, renamed, or never charted. Let's get you back to shore.",
+    "t": "Die gesuchte Seite ist von unserer Küste abgetrieben — verschoben, umbenannt oder nie verzeichnet. Bringen wir Sie zurück an Land."
+  },
+  "status.requestAccess": {
+    "en": "Request access",
+    "t": "Zugang anfragen"
+  },
+  "status.serverError.eyebrow": {
+    "en": "Server error",
+    "t": "Serverfehler"
+  },
+  "status.serverError.headlineAccent": {
+    "en": "recalibrating",
+    "t": "justieren nach"
+  },
+  "status.serverError.headlineLead": {
+    "en": "Our systems are ",
+    "t": "Unsere Systeme "
+  },
+  "status.serverError.subtext": {
+    "en": "Something broke on our end — not yours. We've been alerted and are restoring service. Please try again in a moment.",
+    "t": "Auf unserer Seite ist etwas ausgefallen — nicht auf Ihrer. Wir sind alarmiert und stellen den Dienst wieder her. Bitte versuchen Sie es gleich erneut."
+  },
+  "status.signIn": {
+    "en": "Sign in",
+    "t": "Anmelden"
+  },
+  "status.tryAgain": {
+    "en": "Try again",
+    "t": "Erneut versuchen"
+  },
+  "status.unauthorized.eyebrow": {
+    "en": "Sign-in required",
+    "t": "Anmeldung erforderlich"
+  },
+  "status.unauthorized.headlineAccent": {
+    "en": "crew only",
+    "t": "nur für die Crew"
+  },
+  "status.unauthorized.headlineLead": {
+    "en": "This deck is ",
+    "t": "Dieses Deck ist "
+  },
+  "status.unauthorized.subtext": {
+    "en": "You need to be signed in to view this page. Sign in and we'll bring you right back.",
+    "t": "Sie müssen angemeldet sein, um diese Seite zu sehen. Melden Sie sich an — wir bringen Sie direkt zurück."
+  },
+  "tips.a11y.about": {
+    "en": "About: {title}",
+    "t": "Über: {title}"
+  },
+  "tips.admin.cabinet.announcement.live.body": {
+    "en": "Publishes the announcement banner across the whole cabinet immediately.",
+    "t": "Veröffentlicht das Ankündigungsbanner sofort im gesamten Cabinet."
+  },
+  "tips.admin.cabinet.announcement.live.title": {
+    "en": "Live",
+    "t": "Live"
+  },
+  "tips.admin.cabinet.flags.body": {
+    "en": "Flags gate cabinet features and MFE mounts. The row toggle flips a flag on or off; the rollout % controls what share of users it is exposed to.",
+    "t": "Flags steuern Cabinet-Funktionen und MFE-Mounts. Der Schalter in der Zeile aktiviert oder deaktiviert ein Flag; der Rollout-Prozentsatz bestimmt, welchem Anteil der Nutzer es ausgespielt wird."
+  },
+  "tips.admin.cabinet.flags.rollout.body": {
+    "en": "The share of users the flag is enabled for during a staged rollout. 100% is a full rollout; lower values expose it to only that fraction.",
+    "t": "Der Anteil der Nutzer, für die das Flag während eines gestaffelten Rollouts aktiv ist. 100 % ist ein vollständiger Rollout; niedrigere Werte spielen es nur diesem Bruchteil aus."
+  },
+  "tips.admin.cabinet.flags.rollout.title": {
+    "en": "Rollout %",
+    "t": "Rollout %"
+  },
+  "tips.admin.cabinet.flags.title": {
+    "en": "Feature flags",
+    "t": "Feature-Flags"
+  },
+  "tips.admin.cabinet.maintenance.body": {
+    "en": "Swaps the whole cabinet for a holding page for all users — an identity-plane kill-switch. No money movement is affected.",
+    "t": "Ersetzt das gesamte Cabinet für alle Nutzer durch eine Wartungsseite — ein Notschalter der Identity-Ebene. Geldbewegungen sind davon nicht betroffen."
+  },
+  "tips.admin.cabinet.maintenance.title": {
+    "en": "Maintenance mode",
+    "t": "Wartungsmodus"
+  },
+  "tips.admin.cabinet.readonly.body": {
+    "en": "Halts all deposit and withdrawal money movement — the money-plane kill-switch.",
+    "t": "Stoppt sämtliche Geldbewegungen bei Ein- und Auszahlungen — der Notschalter der Money-Ebene."
+  },
+  "tips.admin.cabinet.readonly.title": {
+    "en": "Read-only mode",
+    "t": "Nur-Lese-Modus"
+  },
+  "tips.admin.outbox.parked-events.body": {
+    "en": "A row parks when the relay hits a terminal apply error. Fix the cause shown in the Reason column first, then unpark to re-drive it — otherwise it just re-parks.",
+    "t": "Eine Zeile wird geparkt, wenn das Relay auf einen endgültigen Verbuchungsfehler stößt. Beheben Sie zuerst die in der Spalte Grund genannte Ursache und entparken Sie sie dann, um sie erneut durchlaufen zu lassen — sonst parkt sie nur wieder."
+  },
+  "tips.admin.outbox.parked-events.title": {
+    "en": "Parked events",
+    "t": "Geparkte Ereignisse"
+  },
+  "tips.admin.outbox.parked.compensated.body": {
+    "en": "This row's saga was already reversed, so its money effect is undone. Unpark is disabled to avoid re-applying an entry that was intentionally rolled back.",
+    "t": "Die Saga dieser Zeile wurde bereits rückabgewickelt, ihre Geldwirkung ist also aufgehoben. Entparken ist deaktiviert, damit kein Eintrag erneut verbucht wird, der absichtlich zurückgerollt wurde."
+  },
+  "tips.admin.outbox.parked.compensated.title": {
+    "en": "Compensated",
+    "t": "Kompensiert"
+  },
+  "tips.admin.outbox.parked.reason.body": {
+    "en": "The relay's failure cause for this parked row — the thing you must fix before unparking.",
+    "t": "Die Fehlerursache des Relays für diese geparkte Zeile — das, was Sie vor dem Entparken beheben müssen."
+  },
+  "tips.admin.outbox.parked.reason.title": {
+    "en": "Reason",
+    "t": "Grund"
+  },
+  "tips.admin.outbox.parked.unpark.body": {
+    "en": "Re-drives this outbox row through the relay after you've fixed its cause. Disabled when the row was compensated, already unparked this session, or while another unpark is in flight.",
+    "t": "Lässt diese Outbox-Zeile erneut durch das Relay laufen, nachdem Sie ihre Ursache behoben haben. Deaktiviert, wenn die Zeile kompensiert wurde, in dieser Sitzung bereits entparkt wurde oder während ein anderes Entparken läuft."
+  },
+  "tips.admin.outbox.parked.unpark.title": {
+    "en": "Unpark",
+    "t": "Entparken"
+  },
+  "tips.admin.treasury.bank.body": {
+    "en": "The fiat USD bank balance used for off-ramp and FX, counted as treasury liquidity alongside the on-chain rails.",
+    "t": "Das Fiat-Bankguthaben in USD für Off-Ramp und FX, das neben den On-Chain-Kanälen als Treasury-Liquidität zählt."
+  },
+  "tips.admin.treasury.bank.title": {
+    "en": "Bank · USD",
+    "t": "Bank · USD"
+  },
+  "tips.admin.treasury.invariant.body": {
+    "en": "Per-rail backing is the treasury's job, not the ledger's: a shortfall on one rail is accept-and-queue, then rebalanced via CEX, alt-rail, or top-up. The global invariant is sum(custody) == sum(claims).",
+    "t": "Die Deckung je Kanal ist Aufgabe des Treasury, nicht des Ledgers: Eine Unterdeckung auf einem Kanal wird angenommen und eingereiht und anschließend über CEX, Alternativkanal oder Auffüllung ausgeglichen. Die globale Invariante lautet sum(custody) == sum(claims)."
+  },
+  "tips.admin.treasury.invariant.title": {
+    "en": "The invariant",
+    "t": "Die Invariante"
+  },
+  "tips.admin.treasury.layer1.allocations.body": {
+    "en": "Every allocation's cash claim, supply, price and holders — the products and the hidden fee and fund allocations. Every unit belongs to a person or to the fee allocation; nothing is nobody's.",
+    "t": "Kasse-Anspruch, Umlauf, Preis und Halter jeder Allokation — der Produkte sowie der verborgenen Gebühren- und Kapital-Allokationen. Jeder Anteil gehört einer Person oder der Gebühren-Allokation; nichts gehört niemandem."
+  },
+  "tips.admin.treasury.layer1.allocations.title": {
+    "en": "Held through allocations",
+    "t": "Über Allokationen gehalten"
+  },
+  "tips.admin.treasury.layer1.claims-total.body": {
+    "en": "Total claims — users' and allocations'. Equals the sum of on-chain custody — every claim is fully backed.",
+    "t": "Gesamtansprüche — der Nutzer und der Allokationen. Entspricht der Summe der On-Chain-Verwahrung — jeder Anspruch ist vollständig gedeckt."
+  },
+  "tips.admin.treasury.layer1.claims-total.title": {
+    "en": "Claims · total",
+    "t": "Ansprüche · gesamt"
+  },
+  "tips.admin.treasury.layer1.held-by-users.body": {
+    "en": "Claims people hold directly — their wallet balances. Read off the user claim accounts, never derived as a remainder.",
+    "t": "Ansprüche, die Personen direkt halten — ihre Wallet-Guthaben. Von den Nutzer-Anspruchskonten gelesen, nie als Rest abgeleitet."
+  },
+  "tips.admin.treasury.layer1.held-by-users.title": {
+    "en": "Held by users",
+    "t": "Von Nutzern gehalten"
+  },
+  "tips.admin.treasury.layer1.ledger.body": {
+    "en": "The ledger's network-agnostic claims in USDT. Total claims equal on-chain custody and break down into what users hold directly, what allocations hold for their holders, and reserved-for-withdrawals.",
+    "t": "Die netzwerkunabhängigen Ansprüche des Ledgers in USDT. Die Gesamtansprüche entsprechen der On-Chain-Verwahrung und gliedern sich in das, was Nutzer direkt halten, was Allokationen für ihre Halter halten, und das für Abhebungen Reservierte."
+  },
+  "tips.admin.treasury.layer1.ledger.title": {
+    "en": "Layer 1 · Ledger",
+    "t": "Ebene 1 · Ledger"
+  },
+  "tips.admin.treasury.layer1.reserved-withdrawals.body": {
+    "en": "Claims set aside for queued and in-flight withdrawals, parked in the clearing account until they settle on-chain.",
+    "t": "Ansprüche, die für wartende und unterwegs befindliche Auszahlungen zurückgestellt und bis zur Abrechnung on-chain auf dem Klärungskonto geparkt sind."
+  },
+  "tips.admin.treasury.layer1.reserved-withdrawals.title": {
+    "en": "Reserved · withdrawals",
+    "t": "Reserviert · Auszahlungen"
+  },
+  "tips.admin.treasury.layer2.rails.body": {
+    "en": "The actual on-chain USDT liquidity held per rail (BEP20 / TRC20 / TON / Polygon), plus the fiat bank balance. This is where the backing physically sits.",
+    "t": "Die tatsächliche On-Chain-USDT-Liquidität je Kanal (BEP20 / TRC20 / TON / Polygon), zuzüglich des Fiat-Bankguthabens. Hier liegt die Deckung physisch."
+  },
+  "tips.admin.treasury.layer2.rails.title": {
+    "en": "Layer 2 · Treasury",
+    "t": "Ebene 2 · Treasury"
+  },
+  "tips.admin.treasury.rail.address.body": {
+    "en": "This rail's on-chain hot-wallet address. BEP20 and Polygon share an identical EVM address format — topping up on the wrong EVM chain, or sending another rail's funds here, is an irreversible mis-send.",
+    "t": "Die On-Chain-Hot-Wallet-Adresse dieses Kanals. BEP20 und Polygon teilen dasselbe EVM-Adressformat — eine Auffüllung auf der falschen EVM-Chain oder das Senden der Mittel eines anderen Kanals hierher ist eine unumkehrbare Fehlüberweisung."
+  },
+  "tips.admin.treasury.rail.address.title": {
+    "en": "Treasury address",
+    "t": "Treasury-Adresse"
+  },
+  "tips.admin.treasury.rail.funding.body": {
+    "en": "The card value is this rail's ledger custody; the footer shows the hot wallet's real on-chain USDT and native gas. The two can legitimately diverge under accept-and-queue.",
+    "t": "Der Kartenwert ist die Ledger-Verwahrung dieses Kanals; die Fußzeile zeigt die realen On-Chain-USDT und das native Gas des Hot Wallets. Beide können unter Annehmen-und-Einreihen legitim voneinander abweichen."
+  },
+  "tips.admin.treasury.rail.funding.title": {
+    "en": "Rail funding",
+    "t": "Kanaldeckung"
+  },
+  "tips.admin.treasury.rail.gas-station.body": {
+    "en": "Top this address up with the rail's native token to fund sweep gas. Send the correct native symbol on the correct chain — EVM gas-station addresses are shared, so a wrong-chain top-up is unrecoverable.",
+    "t": "Füllen Sie diese Adresse mit dem nativen Token des Kanals auf, um das Gas für die Sweeps zu finanzieren. Senden Sie das richtige native Symbol auf der richtigen Chain — EVM-Gas-Station-Adressen sind geteilt, eine Auffüllung auf der falschen Chain ist daher nicht wiederherstellbar."
+  },
+  "tips.admin.treasury.rail.gas-station.title": {
+    "en": "Gas station",
+    "t": "Gas-Station"
+  },
+  "tips.admin.treasury.two-layer-model.body": {
+    "en": "Layer 1 is the ledger's network-agnostic USDT claims; Layer 2 is the actual on-chain liquidity held per rail. The two must reconcile.",
+    "t": "Ebene 1 sind die netzwerkunabhängigen USDT-Ansprüche des Ledgers; Ebene 2 ist die tatsächliche On-Chain-Liquidität je Kanal. Beide müssen sich abstimmen lassen."
+  },
+  "tips.admin.treasury.two-layer-model.title": {
+    "en": "Two layers",
+    "t": "Zwei Ebenen"
+  },
+  "tips.admin.users.access.kyc-level.body": {
+    "en": "The user's identity-verification tier. Higher levels unlock higher limits and actions per the KYC policy.",
+    "t": "Die Stufe der Identitätsprüfung des Nutzers. Höhere Stufen schalten gemäß KYC-Richtlinie höhere Limits und Aktionen frei."
+  },
+  "tips.admin.users.access.kyc-level.title": {
+    "en": "KYC level",
+    "t": "KYC-Stufe"
+  },
+  "tips.admin.users.access.revoke-sessions.body": {
+    "en": "Bumps token_version — invalidates every JWT issued to this user, signing them out of every active session.",
+    "t": "Erhöht token_version — macht jedes für diesen Nutzer ausgestellte JWT ungültig und meldet ihn aus jeder aktiven Sitzung ab."
+  },
+  "tips.admin.users.access.revoke-sessions.title": {
+    "en": "Revoke all sessions",
+    "t": "Alle Sitzungen widerrufen"
+  },
+  "tips.admin.users.access.role.body": {
+    "en": "The access level for this user: investor, operator or admin. Raising it grants operator/admin console access immediately on change. Owner is not here — a seat is the consilium's to give and to take away.",
+    "t": "Die Zugriffsstufe dieses Benutzers: Investor, Operator oder Admin. Eine Erhöhung gewährt den Zugang zur Operator-/Admin-Konsole sofort. Eigentümer fehlt hier — einen Sitz vergibt und entzieht allein das Consilium."
+  },
+  "tips.admin.users.access.role.title": {
+    "en": "Role",
+    "t": "Rolle"
+  },
+  "tips.admin.users.identity.token-version.body": {
+    "en": "A per-user counter stamped into every issued JWT. It increments on 'Revoke all sessions', so any token carrying an older version fails verification.",
+    "t": "Ein Zähler je Nutzer, der in jedes ausgestellte JWT eingeprägt wird. Er erhöht sich bei „Alle Sitzungen widerrufen“, sodass jedes Token mit einer älteren Version die Prüfung nicht besteht."
+  },
+  "tips.admin.users.identity.token-version.title": {
+    "en": "Token version",
+    "t": "Token-Version"
+  },
+  "tips.admin.users.status.suspend.body": {
+    "en": "Hold freezes the account now and lapses by itself in 24 hours — one operator may do that. Making it permanent, or undoing a permanent one, is a proposal the owners vote through. An account blocked before the two were told apart does not lapse, and one admin can lift it.",
+    "t": "Die Haltesperre friert das Konto sofort ein und läuft nach 24 Stunden von selbst aus — das darf ein Betreiber. Sie dauerhaft zu machen oder eine dauerhafte aufzuheben, ist ein Antrag der Eigentümer. Ein vor dieser Unterscheidung gesperrtes Konto läuft nicht aus; ein Admin kann es aufheben."
+  },
+  "tips.admin.users.status.suspend.title": {
+    "en": "Hold, suspension and reinstatement",
+    "t": "Haltesperre, Sperrung und Aufhebung"
+  },
+  "tips.admin.valuation.post.aum.body": {
+    "en": "The fund's total assets under management you're marking. The NAV/share that pays redemptions is derived from it (AUM ÷ units outstanding), so a wrong figure mis-prices every settle.",
+    "t": "Das gesamte verwaltete Vermögen des Fonds, das Sie bewerten. Der NAV je Anteil, aus dem Rückgaben bezahlt werden, leitet sich daraus ab (AUM ÷ ausstehende Anteile) — eine falsche Zahl bepreist daher jede Abrechnung falsch."
+  },
+  "tips.admin.valuation.post.aum.title": {
+    "en": "AUM (USDT)",
+    "t": "AUM (USDT)"
+  },
+  "tips.admin.valuation.post.derived-nav.body": {
+    "en": "Entered AUM divided by units outstanding. This is the mark that Post valuation commits.",
+    "t": "Das eingegebene AUM geteilt durch die ausstehenden Anteile. Das ist die Bewertung, die „Bewertung melden“ festschreibt."
+  },
+  "tips.admin.valuation.post.derived-nav.title": {
+    "en": "Derived NAV / share",
+    "t": "Abgeleiteter NAV / Anteil"
+  },
+  "tips.admin.valuation.post.nav-guard.body": {
+    "en": "A post is refused if the NAV moves more than 50% from the last mark or from the mark of a week ago — stepping there in smaller posts is refused too. There is no override: a larger move is proposed to the owners and recorded only if their vote carries.",
+    "t": "Eine Meldung wird abgelehnt, wenn sich der NAV um mehr als 50 % gegenüber der letzten Bewertung oder der von vor einer Woche bewegt — auch in kleineren Schritten. Es gibt keine Übersteuerung: eine größere Bewegung wird den Eigentümern vorgeschlagen und nur festgehalten, wenn ihre Abstimmung durchgeht."
+  },
+  "tips.admin.valuation.post.nav-guard.title": {
+    "en": "NAV-move guard",
+    "t": "NAV-Bewegungsschutz"
+  },
+  "tips.admin.valuation.queue.est-cash.body": {
+    "en": "A preview only — approximately units × current NAV. The actual payout settles at the settle-time NAV, not this figure.",
+    "t": "Nur eine Vorschau — ungefähr Anteile × aktueller NAV. Die tatsächliche Auszahlung wird zum NAV im Abrechnungszeitpunkt abgerechnet, nicht zu diesem Wert."
+  },
+  "tips.admin.valuation.queue.est-cash.title": {
+    "en": "Est. cash",
+    "t": "Gesch. Cash"
+  },
+  "tips.admin.valuation.queue.fail.body": {
+    "en": "Voids the request and refunds the units — no cash is paid and the burned units are returned to the user.",
+    "t": "Storniert die Anfrage und erstattet die Anteile — es wird kein Geld gezahlt, und die eingezogenen Anteile gehen an den Nutzer zurück."
+  },
+  "tips.admin.valuation.queue.fail.title": {
+    "en": "Fail",
+    "t": "Verwerfen"
+  },
+  "tips.admin.valuation.queue.settle-fail.body": {
+    "en": "Settle pays at settle-time NAV once the fund claim is liquid; if the rail is short the payout queues until treasury tops up. Fail voids the request and refunds the units.",
+    "t": "Abrechnen zahlt zum NAV im Abrechnungszeitpunkt, sobald der Anspruch des Fonds liquide ist; ist der Kanal knapp, wartet die Auszahlung, bis das Treasury aufgefüllt wird. Verwerfen storniert die Anfrage und gibt die Anteile zurück."
+  },
+  "tips.admin.valuation.queue.settle-fail.title": {
+    "en": "Settle vs Fail",
+    "t": "Abrechnen vs. Verwerfen"
+  },
+  "tips.admin.valuation.queue.settle.body": {
+    "en": "Pays at the settle-time NAV once the fund claim is liquid, queuing if the rail is short. Settle also burns the user's units.",
+    "t": "Zahlt zum NAV im Abrechnungszeitpunkt, sobald der Anspruch des Fonds liquide ist, und wartet, wenn der Kanal knapp ist. Abrechnen zieht außerdem die Anteile des Nutzers ein."
+  },
+  "tips.admin.valuation.queue.settle.title": {
+    "en": "Settle",
+    "t": "Abrechnen"
+  },
+  "tips.admin.withdrawals.destination.body": {
+    "en": "The user's payout address, bound to this specific rail. Sends are irreversible and rail-specific — verify the address matches the network before dispatching.",
+    "t": "Die Auszahlungsadresse des Nutzers, fest an diesen Kanal gebunden. Sendungen sind unumkehrbar und kanalspezifisch — prüfen Sie vor dem Versenden, dass die Adresse zum Netzwerk passt."
+  },
+  "tips.admin.withdrawals.destination.title": {
+    "en": "Destination",
+    "t": "Empfänger"
+  },
+  "tips.admin.withdrawals.fail.double-pay.body": {
+    "en": "Failing refunds the user. If the broadcast reached the chain this would double-pay — the hub refuses while a broadcast record exists, but verify on-chain first.",
+    "t": "Verwerfen erstattet dem Nutzer. Hat die Übertragung die Chain erreicht, würde das doppelt zahlen — der Hub lehnt es ab, solange ein Übertragungseintrag existiert, prüfen Sie es aber zuerst on-chain."
+  },
+  "tips.admin.withdrawals.fail.double-pay.title": {
+    "en": "Failing can double-pay",
+    "t": "Verwerfen kann doppelt zahlen"
+  },
+  "tips.admin.withdrawals.flow.body": {
+    "en": "Dispatch broadcasts a queued withdrawal once its rail has liquidity. Settle records the mined transaction and releases the reservation. Fail voids and refunds — only safe when nothing reached the chain.",
+    "t": "Versenden überträgt eine wartende Auszahlung, sobald ihr Kanal Liquidität hat. Abrechnen erfasst die geminte Transaktion und gibt die Reservierung frei. Verwerfen storniert und erstattet — nur sicher, wenn nichts die Chain erreicht hat."
+  },
+  "tips.admin.withdrawals.flow.title": {
+    "en": "Dispatch, settle, fail",
+    "t": "Versenden, abrechnen, verwerfen"
+  },
+  "tips.admin.withdrawals.gross-net.body": {
+    "en": "Gross is the full amount debited from the user; net is what is actually sent on-chain after the withdrawal fee.",
+    "t": "Brutto ist der volle Betrag, der dem Nutzer belastet wird; netto ist das, was nach Abzug der Auszahlungsgebühr tatsächlich on-chain gesendet wird."
+  },
+  "tips.admin.withdrawals.gross-net.title": {
+    "en": "Gross / net",
+    "t": "Brutto / Netto"
+  },
+  "tips.admin.withdrawals.settle.tx-hash.body": {
+    "en": "Paste the mined on-chain tx hash. Settling records the mined transaction and releases the reservation — only enter a hash for a tx that actually mined.",
+    "t": "Fügen Sie den Hash der geminten On-Chain-Transaktion ein. Das Abrechnen erfasst die geminte Transaktion und gibt die Reservierung frei — geben Sie nur einen Hash für eine Transaktion ein, die tatsächlich gemint wurde."
+  },
+  "tips.admin.withdrawals.settle.tx-hash.title": {
+    "en": "Mined transaction hash",
+    "t": "Hash der geminten Transaktion"
+  },
+  "tips.admin.withdrawals.state.body": {
+    "en": "Queued = accepted and reserved but not yet broadcast (Dispatch only). Processing = already broadcast, awaiting a mined tx (Settle or Fail apply).",
+    "t": "Wartend = angenommen und reserviert, aber noch nicht übertragen (nur Versenden). In Arbeit = bereits übertragen, wartet auf eine geminte Transaktion (Abrechnen oder Verwerfen greifen)."
+  },
+  "tips.admin.withdrawals.state.title": {
+    "en": "State",
+    "t": "Status"
+  },
+  "tips.dashboard.invested.allocation.body": {
+    "en": "Each bar is one strategy's share of your invested value at current NAV. Percentages are of invested value only and exclude your available cash.",
+    "t": "Jeder Balken ist der Anteil einer Strategie an Ihrem investierten Wert zum aktuellen NAV. Die Prozentsätze beziehen sich nur auf den investierten Wert und schließen Ihr verfügbares Guthaben aus."
+  },
+  "tips.dashboard.invested.allocation.title": {
+    "en": "Invested — what I own",
+    "t": "Investiert — was ich halte"
+  },
+  "tips.dashboard.performance.all-time-return.body": {
+    "en": "Total unrealized P&L divided by what you put in at cost basis, across every position. A paper figure, not realized cash.",
+    "t": "Das gesamte nicht realisierte Ergebnis geteilt durch das, was Sie zu Anschaffungskosten eingezahlt haben, über alle Positionen. Eine rechnerische Größe, kein realisiertes Geld."
+  },
+  "tips.dashboard.performance.all-time-return.title": {
+    "en": "All-time return",
+    "t": "Rendite seit Auflage"
+  },
+  "tips.dashboard.performance.portfolio-value.body": {
+    "en": "Your whole balance: available + invested + pending withdrawal. Money locked in a queued withdrawal is still counted here.",
+    "t": "Ihr gesamtes Guthaben: verfügbar + investiert + offene Auszahlung. Geld, das in einer wartenden Auszahlung gebunden ist, zählt hier weiterhin mit."
+  },
+  "tips.dashboard.performance.portfolio-value.title": {
+    "en": "Portfolio value",
+    "t": "Portfoliowert"
+  },
+  "tips.dashboard.performance.series.body": {
+    "en": "'Fund performance' is the fund's return since the first valuation in the range, from the posted marks; 'Your participation' is what your units were worth at each of them, which differs by when you contributed.",
+    "t": "„Wertentwicklung des Fonds“ ist die Rendite des Fonds seit der ersten Bewertung im Zeitraum, aus den veröffentlichten Marken; „Ihr Anteil“ ist, was Ihre Anteile bei jeder davon wert waren – abhängig davon, wann Sie eingezahlt haben."
+  },
+  "tips.dashboard.performance.series.title": {
+    "en": "Performance chart",
+    "t": "Wertentwicklungsdiagramm"
+  },
+  "tips.dashboard.stats.available.body": {
+    "en": "Cash that is free and spendable now — ready to deploy into a strategy or withdraw.",
+    "t": "Guthaben, das jetzt frei verfügbar ist — bereit, in eine Strategie angelegt oder ausgezahlt zu werden."
+  },
+  "tips.dashboard.stats.available.title": {
+    "en": "Available",
+    "t": "Verfügbar"
+  },
+  "tips.dashboard.stats.net-invested.body": {
+    "en": "Total cash you put into strategies at cost basis, net of redemptions — not the current value.",
+    "t": "Das gesamte Geld, das Sie zu Anschaffungskosten in Strategien eingebracht haben, abzüglich Rücknahmen — nicht der aktuelle Wert."
+  },
+  "tips.dashboard.stats.net-invested.title": {
+    "en": "Net invested",
+    "t": "Netto investiert"
+  },
+  "tips.dashboard.stats.unrealized-pnl.body": {
+    "en": "Paper gain or loss across all positions — current value minus cost basis. It becomes realized cash only when you redeem.",
+    "t": "Rechnerischer Gewinn oder Verlust über alle Positionen — aktueller Wert minus Anschaffungskosten. Er wird erst zu realisiertem Geld, wenn Sie zurückgeben."
+  },
+  "tips.dashboard.stats.unrealized-pnl.title": {
+    "en": "Unrealized P&L",
+    "t": "Nicht realisiertes Ergebnis"
+  },
+  "tips.invest.activity.cancel.body": {
+    "en": "Available only while a redemption is still queued. It withdraws the request and releases the reserved units back to your holding before any settle NAV is applied.",
+    "t": "Nur verfügbar, solange eine Rücknahme noch wartet. Sie zieht die Anfrage zurück und gibt die reservierten Anteile an Ihren Bestand frei, bevor ein Abrechnungs-NAV angewendet wird."
+  },
+  "tips.invest.activity.cancel.title": {
+    "en": "Cancel",
+    "t": "Stornieren"
+  },
+  "tips.invest.activity.status.body": {
+    "en": "Queued (reserved, awaiting settle), completed (paid out at the settle NAV), failed, or cancelled.",
+    "t": "Wartend (reserviert, wartet auf die Abrechnung), ausgeführt (zum NAV der Abrechnung ausgezahlt), gescheitert oder storniert."
+  },
+  "tips.invest.activity.status.title": {
+    "en": "Redemption status",
+    "t": "Status der Rücknahme"
+  },
+  "tips.invest.overview.body": {
+    "en": "Subscribe USDT for units — your value tracks the fund's NAV, not the unit count.",
+    "t": "Zeichnen Sie USDT für Anteile — Ihr Wert folgt dem NAV des Fonds, nicht der Anzahl der Anteile."
+  },
+  "tips.invest.overview.title": {
+    "en": "How investing works",
+    "t": "So funktioniert das Investieren"
+  },
+  "tips.invest.position.nav.body": {
+    "en": "Net asset value per unit — the current price at which units are bought on subscribe and priced on redeem.",
+    "t": "Der Nettoinventarwert je Anteil — der aktuelle Preis, zu dem Anteile bei einer Zeichnung gekauft und bei einer Rückgabe bepreist werden."
+  },
+  "tips.invest.position.nav.title": {
+    "en": "NAV",
+    "t": "NAV"
+  },
+  "tips.invest.position.pnl.body": {
+    "en": "Your position's current value minus what you paid in — green for a gain, red for a loss, driven by the NAV moving.",
+    "t": "Der aktuelle Wert Ihrer Position abzüglich dessen, was Sie eingezahlt haben — grün bei Gewinn, rot bei Verlust, getrieben von der Bewegung des NAV."
+  },
+  "tips.invest.position.pnl.title": {
+    "en": "Profit & loss",
+    "t": "Gewinn und Verlust"
+  },
+  "tips.invest.position.stale-nav.body": {
+    "en": "The fund's price feed is out of date, so the value and P&L shown here may lag the true mark until the NAV refreshes.",
+    "t": "Der Preisfeed des Fonds ist veraltet, daher können der hier gezeigte Wert und das Ergebnis der tatsächlichen Bewertung hinterherhinken, bis der NAV aktualisiert wird."
+  },
+  "tips.invest.position.stale-nav.title": {
+    "en": "Stale NAV",
+    "t": "NAV veraltet"
+  },
+  "tips.invest.position.units.body": {
+    "en": "The units you hold in this fund — a fixed quantity until you subscribe or redeem more.",
+    "t": "Die Anteile, die Sie an diesem Fonds halten — eine feste Menge, bis Sie weiter zeichnen oder zurückgeben."
+  },
+  "tips.invest.position.units.title": {
+    "en": "Units",
+    "t": "Anteile"
+  },
+  "tips.invest.position.value.body": {
+    "en": "Units × current NAV. It rises and falls as the NAV moves, not with the unit count.",
+    "t": "Anteile × aktueller NAV. Er steigt und fällt mit dem NAV, nicht mit der Anzahl der Anteile."
+  },
+  "tips.invest.position.value.title": {
+    "en": "Value",
+    "t": "Wert"
+  },
+  "tips.invest.redeem.queue.body": {
+    "en": "Redemptions are accept-and-queue — your units are reserved now, and cash is priced at the settle-time NAV once the fund tops up.",
+    "t": "Rücknahmen werden angenommen und eingereiht — Ihre Anteile werden sofort reserviert, und das Geld wird zum NAV im Abrechnungszeitpunkt bepreist, sobald der Fonds aufgefüllt ist."
+  },
+  "tips.invest.redeem.queue.title": {
+    "en": "How redemptions settle",
+    "t": "Wie Rücknahmen abgerechnet werden"
+  },
+  "tips.invest.redeem.units.body": {
+    "en": "How many units to redeem — Max fills your full holding. The resulting cash isn't fixed here; it is set at the settle-time NAV.",
+    "t": "Wie viele Anteile zurückgegeben werden sollen — Max nimmt Ihren gesamten Bestand. Der daraus entstehende Betrag steht hier nicht fest; er ergibt sich aus dem NAV im Abrechnungszeitpunkt."
+  },
+  "tips.invest.redeem.units.title": {
+    "en": "Units to redeem",
+    "t": "Zurückzugebende Anteile"
+  },
+  "tips.invest.subscribe.amount.body": {
+    "en": "How much USDT to subscribe. It is converted into units at the current NAV when you submit.",
+    "t": "Wie viel USDT gezeichnet werden sollen. Der Betrag wird beim Absenden zum aktuellen NAV in Anteile umgerechnet."
+  },
+  "tips.invest.subscribe.amount.title": {
+    "en": "Amount",
+    "t": "Betrag"
+  },
+  "tips.profile.email.verified.body": {
+    "en": "Confirms this email address has been verified. It is not identity or KYC verification.",
+    "t": "Bestätigt, dass diese E-Mail-Adresse verifiziert wurde. Das ist keine Identitäts- oder KYC-Prüfung."
+  },
+  "tips.profile.email.verified.title": {
+    "en": "Verified",
+    "t": "Bestätigt"
+  },
+  "tips.profile.field.legal-name.body": {
+    "en": "Your full name exactly as it appears on official documents — used for compliance and statements, distinct from your preferred name.",
+    "t": "Ihr vollständiger Name genau so, wie er in offiziellen Dokumenten steht — für Compliance und Abrechnungen verwendet und vom Rufnamen zu unterscheiden."
+  },
+  "tips.profile.field.legal-name.title": {
+    "en": "Legal name",
+    "t": "Vollständiger Name"
+  },
+  "tips.profile.field.nationality.body": {
+    "en": "Collected for compliance and eligibility checks.",
+    "t": "Wird für Compliance- und Eignungsprüfungen erhoben."
+  },
+  "tips.profile.field.nationality.title": {
+    "en": "Nationality",
+    "t": "Staatsangehörigkeit"
+  },
+  "tips.profile.field.tax-residence.body": {
+    "en": "The country where you're liable to pay tax, used for tax reporting. Usually where you live — it can differ from your nationality.",
+    "t": "Das Land, in dem Sie steuerpflichtig sind, verwendet für die steuerliche Meldung. In der Regel Ihr Wohnsitzland — es kann von Ihrer Staatsangehörigkeit abweichen."
+  },
+  "tips.profile.field.tax-residence.title": {
+    "en": "Tax residence",
+    "t": "Steuerlicher Wohnsitz"
+  },
+  "tips.profile.kyc-level.body": {
+    "en": "Level 0 is browse only: products, prices and your account. Level 1 means your identity is verified and opens a deposit address, withdrawals and subscribing.",
+    "t": "Level 0 heißt nur ansehen: Produkte, Kurse und Ihr Konto. Level 1 bedeutet, Ihre Identität ist verifiziert, und öffnet eine Einzahlungsadresse, Auszahlungen und die Zeichnung."
+  },
+  "tips.profile.kyc-level.title": {
+    "en": "What your KYC level means",
+    "t": "Was Ihr KYC-Level bedeutet"
+  },
+  "tips.profile.personal.compliance.body": {
+    "en": "These personal details are collected to meet the fund's compliance obligations and to produce your account statements. They are not shown publicly.",
+    "t": "Diese persönlichen Angaben werden erhoben, um die Compliance-Pflichten des Fonds zu erfüllen und Ihre Kontoabrechnungen zu erstellen. Sie werden nicht öffentlich gezeigt."
+  },
+  "tips.profile.personal.compliance.title": {
+    "en": "Why we collect this",
+    "t": "Warum wir das erheben"
+  },
+  "tips.settings.security.google-signin.body": {
+    "en": "Your sign-in and password are managed by Google. Two-factor authentication and recovery are configured in your Google Account.",
+    "t": "Ihre Anmeldung und Ihr Passwort werden von Google verwaltet. Zwei-Faktor-Authentifizierung und Wiederherstellung richten Sie in Ihrem Google-Konto ein."
+  },
+  "tips.settings.security.google-signin.title": {
+    "en": "Sign-in is managed by Google",
+    "t": "Die Anmeldung verwaltet Google"
+  },
+  "tips.settings.sessions.overview.body": {
+    "en": "Where you're signed in — each row is a device or browser with a live session. Revoke anything you don't recognise.",
+    "t": "Wo Sie angemeldet sind — jede Zeile ist ein Gerät oder ein Browser mit einer aktiven Sitzung. Widerrufen Sie alles, was Sie nicht erkennen."
+  },
+  "tips.settings.sessions.overview.title": {
+    "en": "Sessions & devices",
+    "t": "Sitzungen & Geräte"
+  },
+  "tips.settings.sessions.revoke-others.body": {
+    "en": "Signs out every device except this one. Use it if a device was lost or you don't recognise a session.",
+    "t": "Meldet jedes Gerät außer diesem ab. Nutzen Sie das, wenn ein Gerät verloren ging oder Sie eine Sitzung nicht erkennen."
+  },
+  "tips.settings.sessions.revoke-others.title": {
+    "en": "Sign out all other devices",
+    "t": "Alle anderen Geräte abmelden"
+  },
+  "tips.settings.sessions.revoke.body": {
+    "en": "Signs that device out immediately. It must sign in again with Google to regain access.",
+    "t": "Meldet dieses Gerät sofort ab. Es muss sich erneut mit Google anmelden, um wieder Zugang zu erhalten."
+  },
+  "tips.settings.sessions.revoke.title": {
+    "en": "Revoke",
+    "t": "Widerrufen"
+  },
+  "tips.settings.sessions.this-device.body": {
+    "en": "The browser you're using right now. It stays signed in and can't be revoked from here — use 'Sign out all other devices' to clear the rest.",
+    "t": "Der Browser, den Sie gerade verwenden. Er bleibt angemeldet und kann von hier aus nicht widerrufen werden — nutzen Sie „Alle anderen Geräte abmelden“, um die übrigen zu beenden."
+  },
+  "tips.settings.sessions.this-device.title": {
+    "en": "This device",
+    "t": "Dieses Gerät"
+  },
+  "tips.trade.book.body": {
+    "en": "The book trades existing units between holders — a buyer and a seller meet at a bid or ask price they set themselves. Subscribing is different: it mints new units at the posted NAV, and redeeming returns them at NAV.",
+    "t": "Im Buch handeln Halter bestehende Anteile untereinander — Käufer und Verkäufer treffen sich zu einem Geld- oder Briefkurs, den sie selbst setzen. Zeichnen ist etwas anderes: Es erzeugt neue Anteile zum veröffentlichten NAV, und die Rückgabe gibt sie zum NAV zurück."
+  },
+  "tips.trade.book.title": {
+    "en": "How the book works",
+    "t": "So funktioniert das Buch"
+  },
+  "tips.wallet.balance.available.body": {
+    "en": "Your spendable USDT right now — what you can invest into fund units or withdraw.",
+    "t": "Ihr jetzt verfügbares USDT — das, was Sie in Fondsanteile anlegen oder auszahlen können."
+  },
+  "tips.wallet.balance.available.title": {
+    "en": "Available",
+    "t": "Verfügbar"
+  },
+  "tips.wallet.balance.in-compartments.body": {
+    "en": "USDT you moved into a service's compartment. Still yours and counted in your total — move it back to your main balance to withdraw it.",
+    "t": "USDT, die Sie in das Fach eines Dienstes verschoben haben. Weiterhin Ihres und Teil Ihres Gesamtguthabens — verschieben Sie es zurück auf Ihr Hauptguthaben, um es auszuzahlen."
+  },
+  "tips.wallet.balance.in-compartments.title": {
+    "en": "In compartments",
+    "t": "In Fächern"
+  },
+  "tips.wallet.balance.in-orders.body": {
+    "en": "USDT set aside by your resting buy orders on the book. Still yours: it comes back to available when an order is cancelled, and turns into units when it fills.",
+    "t": "USDT, die Ihre im Buch ruhenden Kauforders reservieren. Weiterhin Ihres: Es wird beim Stornieren einer Order wieder verfügbar und wird bei Ausführung zu Anteilen."
+  },
+  "tips.wallet.balance.in-orders.title": {
+    "en": "In orders",
+    "t": "In Orders"
+  },
+  "tips.wallet.balance.invested.body": {
+    "en": "Held in fund units, valued at the current NAV — units offered for sale on the book included.",
+    "t": "In Fondsanteilen gehalten, bewertet zum aktuellen NAV — einschließlich der im Buch zum Verkauf gestellten Anteile."
+  },
+  "tips.wallet.balance.invested.title": {
+    "en": "Invested",
+    "t": "Investiert"
+  },
+  "tips.wallet.balance.model.body": {
+    "en": "You have a single USDT balance — networks are just how you deposit and withdraw. This card splits it into Total = Available + In orders + Invested + Pending withdrawal + In compartments.",
+    "t": "Sie haben ein einziges USDT-Guthaben — Netzwerke sind nur der Weg, auf dem Sie ein- und auszahlen. Diese Karte teilt es auf: Gesamt = Verfügbar + In Orders + Investiert + Offene Auszahlung + In Fächern."
+  },
+  "tips.wallet.balance.model.title": {
+    "en": "One balance, many networks",
+    "t": "Ein Guthaben, viele Netzwerke"
+  },
+  "tips.wallet.balance.pending-withdrawal.body": {
+    "en": "USDT reserved for withdrawals still in flight (queued or processing). It is no longer part of your available balance.",
+    "t": "USDT, die für noch laufende Auszahlungen reserviert sind (wartend oder in Arbeit). Sie gehören nicht mehr zu Ihrem verfügbaren Guthaben."
+  },
+  "tips.wallet.balance.pending-withdrawal.title": {
+    "en": "Pending withdrawal",
+    "t": "Offene Auszahlung"
+  },
+  "tips.wallet.deposit.address.body": {
+    "en": "A personal, reusable address on this network. On TON it is shown in the wallet-friendly UQ… form so an uninitialised wallet doesn't bounce the transfer.",
+    "t": "Eine persönliche, wiederverwendbare Adresse in diesem Netzwerk. Auf TON wird sie in der Wallet-freundlichen UQ…-Form gezeigt, damit ein nicht initialisiertes Wallet den Transfer nicht zurückweist."
+  },
+  "tips.wallet.deposit.address.title": {
+    "en": "Your deposit address",
+    "t": "Ihre Einzahlungsadresse"
+  },
+  "tips.wallet.deposit.min-confirmations.body": {
+    "en": "Credited to your one balance after the required number of network confirmations.",
+    "t": "Wird Ihrem einen Guthaben nach der erforderlichen Zahl an Netzwerkbestätigungen gutgeschrieben."
+  },
+  "tips.wallet.deposit.min-confirmations.title": {
+    "en": "Network confirmations",
+    "t": "Netzwerkbestätigungen"
+  },
+  "tips.wallet.deposit.network.body": {
+    "en": "Pick the chain you'll send USDT on. Each network shows its own deposit address below — that address only works on that one chain.",
+    "t": "Wählen Sie die Chain, über die Sie USDT senden. Jedes Netzwerk zeigt darunter seine eigene Einzahlungsadresse — diese Adresse funktioniert nur auf genau dieser Chain."
+  },
+  "tips.wallet.deposit.network.title": {
+    "en": "Network",
+    "t": "Netzwerk"
+  },
+  "tips.wallet.deposit.rail-hazard.body": {
+    "en": "Sending any other asset, or using a different network, loses the funds permanently. This 0x address is NOT your address on the sibling EVM chain — even though both start with 0x, USDT sent on the wrong EVM network will not be credited.",
+    "t": "Das Senden eines anderen Assets oder die Nutzung eines anderen Netzwerks führt zum dauerhaften Verlust der Mittel. Diese 0x-Adresse ist NICHT Ihre Adresse auf der verwandten EVM-Chain — auch wenn beide mit 0x beginnen, werden über das falsche EVM-Netzwerk gesendete USDT nicht gutgeschrieben."
+  },
+  "tips.wallet.deposit.rail-hazard.title": {
+    "en": "Send only USDT on this network",
+    "t": "Nur USDT über dieses Netzwerk senden"
+  },
+  "tips.wallet.withdraw.available.body": {
+    "en": "The most you can withdraw on this network right now. Tap Max to fill the amount.",
+    "t": "Der Höchstbetrag, den Sie derzeit über dieses Netzwerk auszahlen können. Tippen Sie auf Max, um das Feld zu füllen."
+  },
+  "tips.wallet.withdraw.available.title": {
+    "en": "Available to withdraw",
+    "t": "Verfügbar zur Auszahlung"
+  },
+  "tips.wallet.withdraw.destination.body": {
+    "en": "The on-chain address the USDT is sent to. Withdrawals are irreversible — make sure it is correct and on the network you selected.",
+    "t": "Die On-Chain-Adresse, an die die USDT gesendet werden. Auszahlungen sind unumkehrbar — stellen Sie sicher, dass die Adresse stimmt und zum gewählten Netzwerk gehört."
+  },
+  "tips.wallet.withdraw.destination.title": {
+    "en": "Destination address",
+    "t": "Empfängeradresse"
+  },
+  "tips.wallet.withdraw.network-fee.body": {
+    "en": "A flat on-chain fee for this network, deducted from your amount before it is sent.",
+    "t": "Eine pauschale On-Chain-Gebühr für dieses Netzwerk, die vor dem Senden von Ihrem Betrag abgezogen wird."
+  },
+  "tips.wallet.withdraw.network-fee.title": {
+    "en": "Network fee",
+    "t": "Netzwerkgebühr"
+  },
+  "tips.wallet.withdraw.network.body": {
+    "en": "The chain your withdrawal ships on. The destination address must be a valid address on this exact network, or the funds are lost.",
+    "t": "Die Chain, über die Ihre Auszahlung geht. Die Empfängeradresse muss eine gültige Adresse in genau diesem Netzwerk sein, sonst sind die Mittel verloren."
+  },
+  "tips.wallet.withdraw.network.title": {
+    "en": "Network",
+    "t": "Netzwerk"
+  },
+  "tips.wallet.withdraw.queueing.body": {
+    "en": "Up to your instant limit pays out immediately on this network; anything above it is queued until the network is topped up. A minimum applies per withdrawal.",
+    "t": "Bis zu Ihrem Sofortlimit wird in diesem Netzwerk unmittelbar ausgezahlt; alles darüber wartet, bis das Netzwerk aufgefüllt ist. Je Auszahlung gilt ein Mindestbetrag."
+  },
+  "tips.wallet.withdraw.queueing.title": {
+    "en": "How withdrawals work",
+    "t": "Wie Auszahlungen ablaufen"
+  },
+  "tips.wallet.withdraw.review.body": {
+    "en": "Review freezes exactly what you'll send. Confirm submits that snapshot — if the network list changes underneath, the open review is voided and you re-review.",
+    "t": "Die Prüfung friert genau das ein, was Sie senden werden. Mit dem Bestätigen reichen Sie diese Momentaufnahme ein — ändert sich die Netzwerkliste darunter, wird die offene Prüfung verworfen und Sie prüfen erneut."
+  },
+  "tips.wallet.withdraw.review.title": {
+    "en": "Review, then confirm",
+    "t": "Prüfen, dann bestätigen"
+  },
+  "tips.wallet.withdraw.you-receive.body": {
+    "en": "Your amount minus the network fee — this is what actually lands at the destination.",
+    "t": "Ihr Betrag abzüglich der Netzwerkgebühr — das ist, was tatsächlich beim Empfänger ankommt."
+  },
+  "tips.wallet.withdraw.you-receive.title": {
+    "en": "You will receive",
+    "t": "Sie erhalten"
+  },
+  "trade.book.col.price": {
+    "en": "Price",
+    "t": "Preis"
+  },
+  "trade.book.col.size": {
+    "en": "Size",
+    "t": "Menge"
+  },
+  "trade.book.col.total": {
+    "en": "Total",
+    "t": "Gesamt"
+  },
+  "trade.book.empty": {
+    "en": "Nothing resting",
+    "t": "Keine Orders"
+  },
+  "trade.book.emptyHint": {
+    "en": "No holder has quoted yet. The first limit order opens the book.",
+    "t": "Noch niemand hat quotiert. Die erste Limit-Order eröffnet das Buch."
+  },
+  "trade.book.levelOrders": {
+    "en": "{n, plural, one {# order} other {# orders}}",
+    "t": "{n, plural, one {# Order} other {# Orders}}"
+  },
+  "trade.book.oneSided": {
+    "en": "One-sided",
+    "t": "Einseitig"
+  },
+  "trade.book.spread": {
+    "en": "Spread {spread}",
+    "t": "Spread {spread}"
+  },
+  "trade.book.tape": {
+    "en": "Trades",
+    "t": "Trades"
+  },
+  "trade.book.title": {
+    "en": "Book",
+    "t": "Orderbuch"
+  },
+  "trade.chart.empty": {
+    "en": "No trades yet — the chart draws from the first fill.",
+    "t": "Noch keine Trades — der Chart beginnt mit der ersten Ausführung."
+  },
+  "trade.chart.resolution": {
+    "en": "Candle size",
+    "t": "Kerzengröße"
+  },
+  "trade.chart.title": {
+    "en": "Chart",
+    "t": "Chart"
+  },
+  "trade.form.available": {
+    "en": "Available",
+    "t": "Verfügbar"
+  },
+  "trade.form.buy": {
+    "en": "Buy",
+    "t": "Kaufen"
+  },
+  "trade.form.closed": {
+    "en": "The book is closed. Orders are not accepted until it opens again.",
+    "t": "Das Buch ist geschlossen. Orders werden erst wieder angenommen, wenn es öffnet."
+  },
+  "trade.form.duplicateTitle": {
+    "en": "Already submitted",
+    "t": "Bereits gesendet"
+  },
+  "trade.form.failedTitle": {
+    "en": "Order failed",
+    "t": "Order fehlgeschlagen"
+  },
+  "trade.form.fee": {
+    "en": "Taker fee",
+    "t": "Taker-Gebühr"
+  },
+  "trade.form.kind": {
+    "en": "Order type",
+    "t": "Ordertyp"
+  },
+  "trade.form.limit": {
+    "en": "Limit",
+    "t": "Limit"
+  },
+  "trade.form.locked": {
+    "en": "Trading isn't open to you on this product. If you think you should have access:",
+    "t": "Der Handel mit diesem Produkt ist für Sie nicht freigeschaltet. Falls Sie Zugang haben sollten:"
+  },
+  "trade.form.market": {
+    "en": "Market",
+    "t": "Markt"
+  },
+  "trade.form.notional": {
+    "en": "Order value",
+    "t": "Orderwert"
+  },
+  "trade.form.notionalEstimate": {
+    "en": "Est. value",
+    "t": "Gesch. Wert"
+  },
+  "trade.form.placed.cancelled": {
+    "en": "Nothing crossed, so the order was cancelled.",
+    "t": "Nichts wurde gekreuzt, die Order wurde storniert."
+  },
+  "trade.form.placed.filled": {
+    "en": "Filled {filled} at an average of {avg} USDT.",
+    "t": "{filled} zu durchschnittlich {avg} USDT ausgeführt."
+  },
+  "trade.form.placed.partial": {
+    "en": "Filled {filled} of {size} at {avg} USDT; the rest was cancelled.",
+    "t": "{filled} von {size} zu {avg} USDT ausgeführt; der Rest wurde storniert."
+  },
+  "trade.form.placed.rejected": {
+    "en": "The order was not accepted: {reason}",
+    "t": "Die Order wurde nicht angenommen: {reason}"
+  },
+  "trade.form.placed.resting": {
+    "en": "Resting on the book: {filled} of {size} filled so far.",
+    "t": "Liegt im Buch: bisher {filled} von {size} ausgeführt."
+  },
+  "trade.form.price": {
+    "en": "Price (USDT)",
+    "t": "Preis (USDT)"
+  },
+  "trade.form.problem.funds": {
+    "en": "More than you have available",
+    "t": "Mehr als verfügbar"
+  },
+  "trade.form.problem.lot": {
+    "en": "Size must be a multiple of {lot}",
+    "t": "Die Menge muss ein Vielfaches von {lot} sein"
+  },
+  "trade.form.problem.noQuote": {
+    "en": "Nothing on the other side to trade against — place a limit order instead.",
+    "t": "Auf der Gegenseite liegt nichts — stattdessen eine Limit-Order platzieren."
+  },
+  "trade.form.problem.price": {
+    "en": "Enter a price above zero",
+    "t": "Preis über null eingeben"
+  },
+  "trade.form.problem.size": {
+    "en": "Enter a size above zero",
+    "t": "Menge über null eingeben"
+  },
+  "trade.form.problem.tick": {
+    "en": "Price must be a multiple of {tick}",
+    "t": "Der Preis muss ein Vielfaches von {tick} sein"
+  },
+  "trade.form.refusedBody": {
+    "en": "{detail} If you think you should be able to trade this product:",
+    "t": "{detail} Wenn Sie meinen, dieses Produkt handeln zu dürfen:"
+  },
+  "trade.form.refusedTitle": {
+    "en": "Order refused",
+    "t": "Order abgelehnt"
+  },
+  "trade.form.sell": {
+    "en": "Sell",
+    "t": "Verkaufen"
+  },
+  "trade.form.size": {
+    "en": "Size (units)",
+    "t": "Menge (Anteile)"
+  },
+  "trade.form.submitBuy": {
+    "en": "Place buy order",
+    "t": "Kauforder platzieren"
+  },
+  "trade.form.submitSell": {
+    "en": "Place sell order",
+    "t": "Verkaufsorder platzieren"
+  },
+  "trade.form.tif": {
+    "en": "Time in force",
+    "t": "Gültigkeit"
+  },
+  "trade.form.tifHint.alo": {
+    "en": "Only rests on the book: it is refused rather than filled against an existing order.",
+    "t": "Wird nur ins Buch gestellt: statt gegen eine bestehende Order ausgeführt zu werden, wird sie abgelehnt."
+  },
+  "trade.form.tifHint.gtc": {
+    "en": "Rests on the book until it fills or you cancel it.",
+    "t": "Bleibt im Buch, bis sie ausgeführt wird oder Sie sie stornieren."
+  },
+  "trade.form.tifHint.ioc": {
+    "en": "Fills whatever it can right now; the rest is cancelled at once.",
+    "t": "Führt sofort aus, was möglich ist; der Rest wird umgehend storniert."
+  },
+  "trade.form.tifLabel.alo": {
+    "en": "Post-only",
+    "t": "Nur Maker"
+  },
+  "trade.form.tifLabel.gtc": {
+    "en": "Good till cancelled",
+    "t": "Bis auf Widerruf"
+  },
+  "trade.form.tifLabel.ioc": {
+    "en": "Immediate or cancel",
+    "t": "Sofort oder stornieren"
+  },
+  "trade.orders.col.avgFill": {
+    "en": "Avg fill",
+    "t": "Ø Preis"
+  },
+  "trade.orders.col.fee": {
+    "en": "Fee",
+    "t": "Gebühr"
+  },
+  "trade.orders.col.filled": {
+    "en": "Filled",
+    "t": "Ausgeführt"
+  },
+  "trade.orders.col.role": {
+    "en": "Role",
+    "t": "Rolle"
+  },
+  "trade.orders.col.side": {
+    "en": "Side",
+    "t": "Seite"
+  },
+  "trade.orders.col.state": {
+    "en": "Status",
+    "t": "Status"
+  },
+  "trade.orders.col.time": {
+    "en": "Time",
+    "t": "Zeit"
+  },
+  "trade.orders.col.type": {
+    "en": "Type",
+    "t": "Typ"
+  },
+  "trade.orders.emptyFills": {
+    "en": "No fills yet",
+    "t": "Noch keine Ausführungen"
+  },
+  "trade.orders.emptyHistory": {
+    "en": "No orders yet",
+    "t": "Noch keine Orders"
+  },
+  "trade.orders.emptyOpen": {
+    "en": "No open orders",
+    "t": "Keine offenen Orders"
+  },
+  "trade.orders.fills": {
+    "en": "Fills",
+    "t": "Ausführungen"
+  },
+  "trade.orders.history": {
+    "en": "Order history",
+    "t": "Orderverlauf"
+  },
+  "trade.orders.maker": {
+    "en": "Maker",
+    "t": "Maker"
+  },
+  "trade.orders.open": {
+    "en": "Open orders",
+    "t": "Offene Orders"
+  },
+  "trade.orders.taker": {
+    "en": "Taker",
+    "t": "Taker"
+  },
+  "trade.state.cancelled": {
+    "en": "Cancelled",
+    "t": "Storniert"
+  },
+  "trade.state.filled": {
+    "en": "Filled",
+    "t": "Ausgeführt"
+  },
+  "trade.state.open": {
+    "en": "Open",
+    "t": "Offen"
+  },
+  "trade.state.partialCancelled": {
+    "en": "Partially filled, rest cancelled",
+    "t": "Teilweise ausgeführt, Rest storniert"
+  },
+  "trade.state.partiallyFilled": {
+    "en": "Partially filled",
+    "t": "Teilweise ausgeführt"
+  },
+  "trade.state.rejected": {
+    "en": "Rejected",
+    "t": "Abgelehnt"
+  },
+  "trade.state.unfilledCancelled": {
+    "en": "Not filled, cancelled",
+    "t": "Nicht ausgeführt, storniert"
+  },
+  "trade.stream.live": {
+    "en": "Live",
+    "t": "Live"
+  },
+  "trade.stream.paused": {
+    "en": "Paused",
+    "t": "Pausiert"
+  },
+  "trade.stream.polling": {
+    "en": "Polling",
+    "t": "Abfrage"
+  },
+  "trade.stream.reconnecting": {
+    "en": "Reconnecting",
+    "t": "Verbindet neu"
+  },
+  "trade.tape.col.time": {
+    "en": "Time",
+    "t": "Zeit"
+  },
+  "trade.tape.empty": {
+    "en": "No trades yet",
+    "t": "Noch keine Trades"
+  },
+  "trade.ticker.change": {
+    "en": "24h change",
+    "t": "24h-Änderung"
+  },
+  "trade.ticker.last": {
+    "en": "Last",
+    "t": "Letzter"
+  },
+  "trade.ticker.mid": {
+    "en": "Mid",
+    "t": "Mitte"
+  },
+  "trade.ticker.nav": {
+    "en": "NAV",
+    "t": "NAV"
+  },
+  "trade.ticker.navHint": {
+    "en": "The book price is what holders trade at; NAV is the fund's own mark.",
+    "t": "Der Buchpreis ist der Handelspreis der Anteilsinhaber; der NAV ist die eigene Bewertung des Fonds."
+  },
+  "trade.ticker.spread": {
+    "en": "Spread",
+    "t": "Spread"
+  },
+  "trade.ticker.volume": {
+    "en": "24h volume",
+    "t": "24h-Volumen"
+  },
+  "trade.unbackedNotice": {
+    "en": "Units of this product are a claim on an off-platform asset and cannot be redeemed for fund cash — the book is the only exit.",
+    "t": "Die Anteile dieses Produkts sind ein Anspruch auf einen Vermögenswert außerhalb der Plattform und können nicht gegen Fondsbargeld zurückgegeben werden — das Buch ist der einzige Ausstieg."
+  },
+  "ui.account": {
+    "en": "Account",
+    "t": "Konto"
+  },
+  "ui.back": {
+    "en": "Back",
+    "t": "Zurück"
+  },
+  "ui.cancel": {
+    "en": "Cancel",
+    "t": "Abbrechen"
+  },
+  "ui.close": {
+    "en": "Close",
+    "t": "Schließen"
+  },
+  "ui.dateTime.clear": {
+    "en": "Clear",
+    "t": "Leeren"
+  },
+  "ui.dateTime.dialog": {
+    "en": "Choose date and time",
+    "t": "Datum und Uhrzeit wählen"
+  },
+  "ui.dateTime.hours": {
+    "en": "Hours",
+    "t": "Stunden"
+  },
+  "ui.dateTime.minutes": {
+    "en": "Minutes",
+    "t": "Minuten"
+  },
+  "ui.dateTime.nextMonth": {
+    "en": "Next month",
+    "t": "Nächster Monat"
+  },
+  "ui.dateTime.previousMonth": {
+    "en": "Previous month",
+    "t": "Vorheriger Monat"
+  },
+  "ui.details": {
+    "en": "Details",
+    "t": "Details"
+  },
+  "ui.edit": {
+    "en": "Edit",
+    "t": "Bearbeiten"
+  },
+  "ui.keep": {
+    "en": "Keep it",
+    "t": "Behalten"
+  },
+  "ui.loading": {
+    "en": "Loading…",
+    "t": "Wird geladen…"
+  },
+  "ui.manage": {
+    "en": "Manage",
+    "t": "Verwalten"
+  },
+  "ui.max": {
+    "en": "Max",
+    "t": "Max"
+  },
+  "ui.none": {
+    "en": "None",
+    "t": "Keine"
+  },
+  "ui.reloadPage": {
+    "en": "Reload page",
+    "t": "Seite neu laden"
+  },
+  "ui.reset": {
+    "en": "Reset",
+    "t": "Zurücksetzen"
+  },
+  "ui.save": {
+    "en": "Save",
+    "t": "Speichern"
+  },
+  "ui.total": {
+    "en": "Total",
+    "t": "Gesamt"
+  },
+  "wallet.subtitle": {
+    "en": "Your invest balance and the main account behind it",
+    "t": "Ihr Invest-Guthaben und das Hauptkonto dahinter"
+  },
+  "wallet.title": {
+    "en": "Wallet",
+    "t": "Wallet"
+  },
+  "wallet.unavailable": {
+    "en": "The wallet could not be loaded. Reload the page to try again.",
+    "t": "Das Wallet konnte nicht geladen werden. Laden Sie die Seite neu, um es erneut zu versuchen."
+  }
+}

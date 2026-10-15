@@ -1,0 +1,15 @@
+node_modules/
+
+# Next.js build output
+.next
+/out/
+next-env.d.ts
+
+# Env
+.env
+.env.local
+
+# OS / editor
+.DS_Store
+*.tsbuildinfo
+.eslintcache

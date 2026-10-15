@@ -5,7 +5,8 @@
 # job for this repo, and the workspace needs the devshell's TigerBeetle client and protoc.
 # v_flakes only `cp -f`s its own filenames, so this file survives. Keep it thin — the
 # checks live in flake.nix (`nix run .#check-rust`, which brings up a throwaway Postgres and
-# TigerBeetle and sets CI=true so no integration suite can skip).
+# TigerBeetle and sets CI=true so no integration suite can skip; `nix run .#check-frontend`
+# for the cabinet).
 name: Checks
 
 on:
@@ -31,3 +32,16 @@ jobs:
         run: nix run .#drift-check
       - name: clippy + tests (Postgres + TigerBeetle)
         run: nix run .#check-rust
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+        with:
+          extra-conf: lazy-trees = true
+      - name: tsc + eslint + i18n
+        run: nix run .#check-frontend

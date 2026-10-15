@@ -20,7 +20,7 @@ rewritten.
 | `core/` | `invest-core` | The server: gRPC, use cases, Postgres, the TigerBeetle unit ledger, the outbox relay and its money sagas, the fee sweeper, the money port |
 | `core/migrations/` | — | sqlx migrations, applied on boot |
 | `cabinet/backend/` | `invest-cabinet-backend` | The cabinet's BFF: sign-in as concierge's relying party `invest`, server-side sessions, `/cabinet/api/*` → invest-core ([README](cabinet/backend/README.md)) |
-| `cabinet/frontend/` | — | The investor cabinet (separate PR) |
+| `cabinet/frontend/` | — | The investor cabinet at `invest.evinvest.ltd/cabinet` (Next.js): routes, sign-in and the BFF contract in its [README](cabinet/frontend/README.md) |
 
 ## Run
 
@@ -32,7 +32,9 @@ nix run .#db            # the shared Postgres + the `invest` database
 nix run .#tb            # invest's TigerBeetle on :3034 (data under .tb/)
 nix run .#invest-core   # invest-core alone
 nix run .#cabinet-backend  # the cabinet BFF (:50072) alone; needs .#db
+nix run .#cabinet-frontend # the cabinet, next dev on :3000/cabinet, against the BFF
 nix run .#check-rust    # clippy (warnings denied) + tests against a throwaway Postgres + TigerBeetle
+nix run .#check-frontend   # the cabinet's tsc + eslint + i18n gates
 ```
 
 Tests by hand, against your own services:
@@ -48,12 +50,40 @@ TIGERBEETLE_ADDRESS=127.0.0.1:3034 CI=true \
 create `invest_test_template` and one `invest_test_<suite>` database next to the base one;
 drop them when done.
 
+## Develop
+
+The cabinet end to end — invest-core, the BFF and the frontend — in three terminals:
+
+```bash
+nix run .#dev               # 1: shared Postgres + TigerBeetle (:3034) + invest-core (:50071)
+nix run .#cabinet-backend   # 2: the BFF on :50072; migrates the `cabinet` schema
+nix run .#cabinet-frontend  # 3: http://localhost:3000/cabinet (npm ci on first run)
+```
+
+What each needs from outside this repo:
+
+- **Signing in** needs concierge (`~/projects/ev/concierge`, gRPC :55670) with the client
+  `invest` registered, and its secret in the BFF's env: `CONCIERGE_CLIENT_SECRET` =
+  concierge's `RP_CLIENT_SECRET_INVEST` (`cabinet/backend/.env`). Without concierge the BFF
+  still starts, every page renders as a guest, and `/cabinet/api/health/live` answers.
+- **Cash** — a subscription's hold, a buy's escrow — needs banking's scope ledger
+  (`SCOPE_LEDGER_ADDR` for invest-core, `core/.env`). Unset, invest-core starts and refuses
+  every cash leg.
+- **People and permissions** reach invest-core only through concierge's streams
+  (`CONCIERGE_GRPC_ADDR` + secret in `core/.env`); without them nobody holds an `invest:*`
+  permission and the console stays hidden.
+
+`next dev` serves `http://localhost:3000`, which is the BFF's dev `CABINET_PUBLIC_ORIGIN`
+— the only `Origin` its mutations accept — and both run without `__Host-`/Secure cookies
+(`AUTH_COOKIE_SECURE=false`). The frontend's own notes: [cabinet/frontend](cabinet/frontend/README.md).
+
 ## Ports
 
 | Port | What |
 | ---- | ---- |
 | 50071 | invest-core gRPC (`invest.v1.*`, `grpc.health.v1`) |
 | 50072 | the cabinet BFF's HTTP (`/cabinet/api/*`, `/cabinet/auth/callback`) |
+| 50073 | the cabinet's Next server in its image (`next dev` keeps :3000) |
 | 3034 | invest's TigerBeetle in dev (banking's is 3033) |
 | 5432 | the shared ev_invest Postgres, database `invest` (the BFF owns its `cabinet` schema) |
 

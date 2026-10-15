@@ -1,0 +1,3266 @@
+{
+  "account.title": {
+    "en": "Account",
+    "t": "Аккаунт"
+  },
+  "account.unavailable": {
+    "en": "Your account settings could not be loaded. Reload the page to try again.",
+    "t": "Не удалось загрузить настройки аккаунта. Обновите страницу, чтобы попробовать снова."
+  },
+  "admin.ago.days": {
+    "en": "{n, plural, one {#d ago} other {#d ago}}",
+    "t": "{n, plural, one {# д назад} few {# д назад} many {# д назад} other {# д назад}}"
+  },
+  "admin.ago.hours": {
+    "en": "{n, plural, one {#h ago} other {#h ago}}",
+    "t": "{n, plural, one {# ч назад} few {# ч назад} many {# ч назад} other {# ч назад}}"
+  },
+  "admin.ago.minutes": {
+    "en": "{n, plural, one {#m ago} other {#m ago}}",
+    "t": "{n, plural, one {# мин назад} few {# мин назад} many {# мин назад} other {# мин назад}}"
+  },
+  "admin.ago.seconds": {
+    "en": "{n, plural, one {#s ago} other {#s ago}}",
+    "t": "{n, plural, one {# с назад} few {# с назад} many {# с назад} other {# с назад}}"
+  },
+  "admin.alloc.access.hidden": {
+    "en": "Hidden",
+    "t": "Скрыт"
+  },
+  "admin.alloc.access.invest": {
+    "en": "Investable",
+    "t": "Доступен для инвестиций"
+  },
+  "admin.alloc.access.view": {
+    "en": "View only",
+    "t": "Только просмотр"
+  },
+  "admin.alloc.backing.cash": {
+    "en": "Cash-backed",
+    "t": "Обеспечены кэшем"
+  },
+  "admin.alloc.backing.cashHint": {
+    "en": "Units were paid for into the fund's cash, and a redemption pays out of it at NAV.",
+    "t": "Юниты оплачены в кэш фонда, и погашение выплачивается из него по NAV."
+  },
+  "admin.alloc.backing.confirmCash": {
+    "en": "Mark {service} as cash-backed. Redeem will pay holders out of the fund's cash at NAV — make sure that cash is actually there.",
+    "t": "Отметить «{service}» как обеспеченный кэшем. Redeem будет выплачивать держателям из кэша фонда по NAV — убедитесь, что этот кэш действительно есть."
+  },
+  "admin.alloc.backing.confirmInKind": {
+    "en": "Mark {service} as in-kind. Redeem will be refused, and holders exit by selling their units on the book.",
+    "t": "Отметить «{service}» как обеспеченный натурой. Redeem будет отклоняться, а держатели выходят, продавая юниты в книге."
+  },
+  "admin.alloc.backing.inKind": {
+    "en": "In kind",
+    "t": "Натурой"
+  },
+  "admin.alloc.backing.inKindHint": {
+    "en": "Units stand for an asset the holders own off-platform. The fund holds no cash for them, so Redeem is refused and holders exit through the book.",
+    "t": "Юниты представляют актив, которым держатели владеют вне платформы. Фонд не держит под них кэш, поэтому Redeem отклоняется, а выход — через книгу."
+  },
+  "admin.alloc.backing.markCash": {
+    "en": "Mark as cash-backed",
+    "t": "Отметить как обеспеченный кэшем"
+  },
+  "admin.alloc.backing.markInKind": {
+    "en": "Mark as in-kind",
+    "t": "Отметить как обеспеченный натурой"
+  },
+  "admin.alloc.backing.title": {
+    "en": "Backing",
+    "t": "Обеспечение"
+  },
+  "admin.alloc.book.action": {
+    "en": "Book",
+    "t": "Книга"
+  },
+  "admin.alloc.book.advanced": {
+    "en": "Advanced",
+    "t": "Дополнительно"
+  },
+  "admin.alloc.book.closedHint": {
+    "en": "Orders are refused; the book stays readable",
+    "t": "Заявки не принимаются; книга остаётся видимой"
+  },
+  "admin.alloc.book.field.lot": {
+    "en": "Lot size (units)",
+    "t": "Размер лота (юниты)"
+  },
+  "admin.alloc.book.field.open": {
+    "en": "Book open",
+    "t": "Книга открыта"
+  },
+  "admin.alloc.book.field.slippage": {
+    "en": "Market slippage (%)",
+    "t": "Проскальзывание рынка (%)"
+  },
+  "admin.alloc.book.field.takerFee": {
+    "en": "Taker fee (%)",
+    "t": "Комиссия тейкера (%)"
+  },
+  "admin.alloc.book.field.tick": {
+    "en": "Price tick (USDT)",
+    "t": "Шаг цены (USDT)"
+  },
+  "admin.alloc.book.keepHint": {
+    "en": "Leave empty to keep the current value.",
+    "t": "Оставьте пустым, чтобы сохранить текущее значение."
+  },
+  "admin.alloc.book.note": {
+    "en": "The book is the secondary market in this product's units: holders trade with each other at the book's price, not at NAV. Opening it needs no valuation.",
+    "t": "Книга — вторичный рынок юнитов продукта: держатели торгуют друг с другом по цене книги, а не по NAV. Для открытия оценка не нужна."
+  },
+  "admin.alloc.book.openHint": {
+    "en": "Holders can place and fill orders",
+    "t": "Держатели могут выставлять и исполнять заявки"
+  },
+  "admin.alloc.book.problem.decimal": {
+    "en": "Enter a decimal number",
+    "t": "Укажите десятичное число"
+  },
+  "admin.alloc.book.problem.fee": {
+    "en": "Enter a percent between 0 and 100 with up to two decimals",
+    "t": "Укажите процент от 0 до 100 не более чем с двумя знаками"
+  },
+  "admin.alloc.book.saved": {
+    "en": "Book terms saved.",
+    "t": "Условия книги сохранены."
+  },
+  "admin.alloc.book.slippageHint": {
+    "en": "How far past the best level a market order may sweep.",
+    "t": "Насколько дальше лучшего уровня может пройти рыночная заявка."
+  },
+  "admin.alloc.book.submit": {
+    "en": "Save book terms",
+    "t": "Сохранить условия книги"
+  },
+  "admin.alloc.book.takerFeeHint": {
+    "en": "Charged to the side that crosses the spread, in USDT on the order value.",
+    "t": "Берётся со стороны, пересекающей спред, в USDT от суммы заявки."
+  },
+  "admin.alloc.book.title": {
+    "en": "Order book",
+    "t": "Книга заявок"
+  },
+  "admin.alloc.book.unbacked.ack": {
+    "en": "Allow trading of units not backed by fund cash",
+    "t": "Разрешить торговлю юнитами, не обеспеченными кэшем фонда"
+  },
+  "admin.alloc.book.unbacked.acknowledged": {
+    "en": "Unbacked trading acknowledged",
+    "t": "Необеспеченная торговля подтверждена"
+  },
+  "admin.alloc.book.unbacked.required": {
+    "en": "This product is held in kind: tick the acknowledgement before opening its book.",
+    "t": "Этот продукт держится in kind: поставьте галочку подтверждения, прежде чем открывать его книгу."
+  },
+  "admin.alloc.book.unbacked.warning": {
+    "en": "Buyers pay cash for a claim on an asset held in kind and cannot redeem it — the book is their only exit",
+    "t": "Покупатели платят кэш за право на актив, который держится in kind, и не могут его погасить — книга для них единственный выход"
+  },
+  "admin.alloc.close": {
+    "en": "Close",
+    "t": "Закрыть"
+  },
+  "admin.alloc.col.access": {
+    "en": "Access",
+    "t": "Доступ"
+  },
+  "admin.alloc.col.product": {
+    "en": "Product",
+    "t": "Продукт"
+  },
+  "admin.alloc.col.serviceId": {
+    "en": "Service id",
+    "t": "ID сервиса"
+  },
+  "admin.alloc.col.unitCap": {
+    "en": "Unit cap",
+    "t": "Лимит паёв"
+  },
+  "admin.alloc.empty": {
+    "en": "No allocations registered yet",
+    "t": "Ни одного продукта пока не зарегистрировано"
+  },
+  "admin.alloc.emptyHint": {
+    "en": "Until one is, every subscription is refused.",
+    "t": "До этого любая подписка отклоняется."
+  },
+  "admin.alloc.field.icon": {
+    "en": "Icon",
+    "t": "Иконка"
+  },
+  "admin.alloc.field.scope": {
+    "en": "Scope",
+    "t": "Скоуп"
+  },
+  "admin.alloc.field.summary": {
+    "en": "Summary",
+    "t": "Описание"
+  },
+  "admin.alloc.field.title": {
+    "en": "Title",
+    "t": "Название"
+  },
+  "admin.alloc.footnote": {
+    "en": "Registration lands in {state}, which takes no money — opening is a separate decision. Closing stops new subscriptions only: investors can always redeem out of a closed product, so winding one down never strands their units. The service id is permanent once registered. The unit cap bounds how many units may ever be issued — resize it on the Valuation screen, where the issued figure it is judged against is on the same page.",
+    "t": "Регистрация создаёт продукт в статусе {state}, который не принимает деньги, — открытие является отдельным решением. Закрытие останавливает только новые подписки: инвестор всегда может погасить паи закрытого продукта, поэтому его сворачивание никогда не блокирует их. ID сервиса неизменен после регистрации. Лимит паёв ограничивает общее количество паёв, которые могут быть выпущены, — изменить его можно на экране «Оценка», где рядом показан уже выпущенный объём, с которым его сверяют."
+  },
+  "admin.alloc.grants.action": {
+    "en": "Grants",
+    "t": "Гранты"
+  },
+  "admin.alloc.grants.col.grantedBy": {
+    "en": "Granted by",
+    "t": "Кем выдан"
+  },
+  "admin.alloc.grants.col.level": {
+    "en": "Level",
+    "t": "Уровень"
+  },
+  "admin.alloc.grants.empty": {
+    "en": "No grants yet",
+    "t": "Пока нет грантов"
+  },
+  "admin.alloc.grants.emptyHint": {
+    "en": "Every investor holds this product's default access until you raise one above it.",
+    "t": "У каждого инвестора действует доступ по умолчанию для этого продукта, пока вы не повысите его."
+  },
+  "admin.alloc.grants.field.level": {
+    "en": "Level",
+    "t": "Уровень"
+  },
+  "admin.alloc.grants.field.user": {
+    "en": "Investor",
+    "t": "Инвестор"
+  },
+  "admin.alloc.grants.raise": {
+    "en": "Raise access",
+    "t": "Повысить доступ"
+  },
+  "admin.alloc.grants.revoke": {
+    "en": "Revoke",
+    "t": "Отозвать"
+  },
+  "admin.alloc.grants.roster": {
+    "en": "Grants",
+    "t": "Гранты"
+  },
+  "admin.alloc.grants.submit": {
+    "en": "Grant",
+    "t": "Выдать"
+  },
+  "admin.alloc.hint.closed": {
+    "en": "Closed to new money; redemptions still settle",
+    "t": "Закрыт для новых вложений; погашения по-прежнему исполняются"
+  },
+  "admin.alloc.hint.draft": {
+    "en": "Registered — accepts no money until opened",
+    "t": "Зарегистрирован — не принимает средства до открытия"
+  },
+  "admin.alloc.hint.open": {
+    "en": "Accepting subscriptions and redemptions",
+    "t": "Принимает подписки и погашения"
+  },
+  "admin.alloc.holders.empty": {
+    "en": "No units issued yet",
+    "t": "Паи ещё не выпущены"
+  },
+  "admin.alloc.holders.emptyHint": {
+    "en": "The split by holder appears once a subscription or an in-kind issuance mints the first unit.",
+    "t": "Разбивка по держателям появится, когда подписка или выпуск in kind создаст первый пай."
+  },
+  "admin.alloc.holders.outstanding": {
+    "en": "Outstanding",
+    "t": "В обращении"
+  },
+  "admin.alloc.holders.queued": {
+    "en": "Queued (not yet on the ledger)",
+    "t": "В очереди (ещё не в реестре)"
+  },
+  "admin.alloc.holders.title": {
+    "en": "Holders",
+    "t": "Держатели"
+  },
+  "admin.alloc.icon.arbitrage": {
+    "en": "Arbitrage",
+    "t": "Арбитраж"
+  },
+  "admin.alloc.icon.commodity": {
+    "en": "Commodity",
+    "t": "Сырьё"
+  },
+  "admin.alloc.icon.credit": {
+    "en": "Credit",
+    "t": "Кредит"
+  },
+  "admin.alloc.icon.fund": {
+    "en": "Fund",
+    "t": "Фонд"
+  },
+  "admin.alloc.icon.index": {
+    "en": "Index",
+    "t": "Индекс"
+  },
+  "admin.alloc.icon.real_estate": {
+    "en": "Real estate",
+    "t": "Недвижимость"
+  },
+  "admin.alloc.icon.trading": {
+    "en": "Trading",
+    "t": "Трейдинг"
+  },
+  "admin.alloc.icon.treasury": {
+    "en": "Treasury",
+    "t": "Казначейство"
+  },
+  "admin.alloc.icon.venture": {
+    "en": "Venture",
+    "t": "Венчур"
+  },
+  "admin.alloc.icon.yield": {
+    "en": "Yield",
+    "t": "Доходность"
+  },
+  "admin.alloc.issuance.source.mint": {
+    "en": "minted",
+    "t": "выпущено"
+  },
+  "admin.alloc.issuance.source.retire": {
+    "en": "retired",
+    "t": "списано"
+  },
+  "admin.alloc.issue.action": {
+    "en": "Issue",
+    "t": "Выпустить"
+  },
+  "admin.alloc.issue.costBasisHint": {
+    "en": "Optional — defaults to units × NAV at the current mark. Zero is allowed: a stake in an asset the holder already owned cost them no cash.",
+    "t": "Необязательно — по умолчанию юниты × NAV по текущей оценке. Ноль допустим: доля в активе, которым держатель уже владел, не стоила ему денег."
+  },
+  "admin.alloc.issue.field.costBasis": {
+    "en": "Cost basis (USDT)",
+    "t": "Себестоимость (USDT)"
+  },
+  "admin.alloc.issue.field.holder": {
+    "en": "Holder",
+    "t": "Держатель"
+  },
+  "admin.alloc.issue.field.units": {
+    "en": "Units",
+    "t": "Паи"
+  },
+  "admin.alloc.issue.note": {
+    "en": "In kind: no cash moves. The units count against the cap like a subscription would, and the cost basis is what the holder is deemed to have paid.",
+    "t": "In kind: деньги не движутся. Паи учитываются в лимите так же, как при подписке, а себестоимость — это сумма, которую держатель считается заплатившим."
+  },
+  "admin.alloc.issue.problem.costBasis": {
+    "en": "Cost basis must be a decimal USDT amount",
+    "t": "Себестоимость должна быть десятичной суммой в USDT"
+  },
+  "admin.alloc.issue.problem.units": {
+    "en": "Units must be a decimal number above zero",
+    "t": "Паи должны быть десятичным числом больше нуля"
+  },
+  "admin.alloc.issue.reason.holder": {
+    "en": "Pick a holder",
+    "t": "Выберите держателя"
+  },
+  "admin.alloc.issue.reason.units": {
+    "en": "Enter units",
+    "t": "Введите количество паёв"
+  },
+  "admin.alloc.issue.resultApplied": {
+    "en": "{units} units issued to {holder}.",
+    "t": "{units} паёв выпущено: {holder}."
+  },
+  "admin.alloc.issue.resultQueued": {
+    "en": "{units} units to {holder} queued — the relay posts the mint shortly, and the split below follows.",
+    "t": "{units} паёв для {holder} поставлено в очередь — реле вскоре проведёт выпуск, и разбивка ниже обновится."
+  },
+  "admin.alloc.issue.submit": {
+    "en": "Issue units",
+    "t": "Выпустить паи"
+  },
+  "admin.alloc.issue.title": {
+    "en": "Issue units",
+    "t": "Выпуск паёв"
+  },
+  "admin.alloc.manageAccess": {
+    "en": "Manage access",
+    "t": "Управлять доступом"
+  },
+  "admin.alloc.open": {
+    "en": "Open",
+    "t": "Открыть"
+  },
+  "admin.alloc.pinCap.action": {
+    "en": "Pin cap to issued",
+    "t": "Закрепить кап по выпущенному"
+  },
+  "admin.alloc.pinCap.alreadyPinned": {
+    "en": "The cap already equals the issued supply.",
+    "t": "Кап уже равен выпущенному объёму."
+  },
+  "admin.alloc.pinCap.confirm": {
+    "en": "Cap {from} → {to}. No further units can be issued until the cap is raised again.",
+    "t": "Кап {from} → {to}. Новые паи нельзя будет выпустить, пока кап не поднимут снова."
+  },
+  "admin.alloc.pinCap.nothingIssued": {
+    "en": "Nothing has settled yet — a queued mint is not on the ledger until the relay posts it.",
+    "t": "Ещё ничего не проведено: выпуск из очереди появится в реестре, когда его проведёт relay."
+  },
+  "admin.alloc.pinCap.queued": {
+    "en": "{units} units are still queued in the relay — pin the cap once they have landed.",
+    "t": "{units} юнитов ещё в очереди relay — закрепите кап, когда они будут проведены."
+  },
+  "admin.alloc.pinCap.submit": {
+    "en": "Pin cap",
+    "t": "Закрепить кап"
+  },
+  "admin.alloc.placeholder.summary": {
+    "en": "One line for the catalog card",
+    "t": "Одна строка для карточки каталога"
+  },
+  "admin.alloc.register": {
+    "en": "Register allocation",
+    "t": "Регистрация продукта"
+  },
+  "admin.alloc.registerHint": {
+    "en": "Registers in draft — open it when the product is ready to take money.",
+    "t": "Продукт создаётся как черновик — откройте его, когда он будет готов принимать средства."
+  },
+  "admin.alloc.registerSubmit": {
+    "en": "Register",
+    "t": "Регистрация"
+  },
+  "admin.alloc.registry": {
+    "en": "Registry",
+    "t": "Каталог"
+  },
+  "admin.alloc.retire.action": {
+    "en": "Retire units",
+    "t": "Списать юниты"
+  },
+  "admin.alloc.retire.closeFirst": {
+    "en": "Close the product first — units are retired out of a wound-down product.",
+    "t": "Сначала закройте продукт — юниты списываются из свёрнутого продукта."
+  },
+  "admin.alloc.retire.confirm": {
+    "en": "Retire {units} units from {holder} — the supply shrinks. No cash moves.",
+    "t": "Списать {units} юнитов у {holder} — предложение сокращается. Деньги не движутся."
+  },
+  "admin.alloc.retire.costBasisHint": {
+    "en": "Optional — the book value written off, defaults to units × NAV at the current mark.",
+    "t": "Необязательно — списываемая балансовая стоимость, по умолчанию юниты × NAV по текущей оценке."
+  },
+  "admin.alloc.retire.force": {
+    "en": "Retire anyway (force)",
+    "t": "Списать всё равно (force)"
+  },
+  "admin.alloc.retire.forceConfirm": {
+    "en": "Forced: the product is not closed.",
+    "t": "Принудительно: продукт не закрыт."
+  },
+  "admin.alloc.retire.forceWarning": {
+    "en": "The product is still live — units will be burned out of it while it accepts money. The hub records the override.",
+    "t": "Продукт ещё работает — юниты будут сожжены, пока он принимает деньги. Хаб фиксирует переопределение."
+  },
+  "admin.alloc.retire.investorHint": {
+    "en": "Up to what the investor holds — the hub refuses more, and says so.",
+    "t": "Не больше, чем держит инвестор — хаб откажет и назовёт причину."
+  },
+  "admin.alloc.retire.resultApplied": {
+    "en": "{units} units retired from {holder}.",
+    "t": "{units} юнитов списано у {holder}."
+  },
+  "admin.alloc.retire.resultQueued": {
+    "en": "{units} units from {holder} queued for retirement — the relay posts the burn shortly, and the split below follows.",
+    "t": "{units} юнитов у {holder} поставлено на списание — ретранслятор скоро проведёт сжигание, и разбивка ниже обновится."
+  },
+  "admin.alloc.retire.review": {
+    "en": "Review retirement",
+    "t": "Проверить списание"
+  },
+  "admin.alloc.retire.submit": {
+    "en": "Retire",
+    "t": "Списать"
+  },
+  "admin.alloc.scopeHint": {
+    "en": "Whose compartments hold the cash; empty for invest. Fixed once registered.",
+    "t": "Чьи отсеки держат деньги; пусто — invest. После регистрации не меняется."
+  },
+  "admin.alloc.slugHint": {
+    "en": "Permanent — every fund RPC keys on it",
+    "t": "Неизменяем — по нему работают все RPC фонда"
+  },
+  "admin.alloc.slugInvalid": {
+    "en": "Letters, digits, - and _ only (1–64)",
+    "t": "Только буквы, цифры, - и _ (1–64)"
+  },
+  "admin.alloc.subtitle": {
+    "en": "The registry of investable products — a fund exists only once it is registered here",
+    "t": "Каталог инвестиционных продуктов — фонд существует только после регистрации здесь"
+  },
+  "admin.alloc.userIdPlaceholder": {
+    "en": "Concierge user id",
+    "t": "ID пользователя в Concierge"
+  },
+  "admin.col.actions": {
+    "en": "Actions",
+    "t": "Действия"
+  },
+  "admin.col.age": {
+    "en": "Age",
+    "t": "Давность"
+  },
+  "admin.col.state": {
+    "en": "State",
+    "t": "Состояние"
+  },
+  "admin.col.user": {
+    "en": "User",
+    "t": "Аккаунт"
+  },
+  "admin.col.when": {
+    "en": "When",
+    "t": "Когда"
+  },
+  "admin.eyebrow.administer": {
+    "en": "Administer",
+    "t": "Администрирование"
+  },
+  "admin.fail": {
+    "en": "Fail",
+    "t": "Отклонить"
+  },
+  "admin.feeChange.state.active": {
+    "en": "In force",
+    "t": "Действует"
+  },
+  "admin.feeChange.state.awaiting_consilium": {
+    "en": "Awaiting owners",
+    "t": "Ждёт владельцев"
+  },
+  "admin.feeChange.state.cancelled": {
+    "en": "Cancelled",
+    "t": "Отменено"
+  },
+  "admin.feeChange.state.rejected": {
+    "en": "Rejected",
+    "t": "Отклонено"
+  },
+  "admin.feeChange.state.scheduled": {
+    "en": "Scheduled",
+    "t": "Запланировано"
+  },
+  "admin.feeChange.state.superseded": {
+    "en": "Superseded",
+    "t": "Заменено"
+  },
+  "admin.fees.askOwners": {
+    "en": "Ask the owners",
+    "t": "Запросить владельцев"
+  },
+  "admin.fees.awaitingBody": {
+    "en": "The owners have each been emailed a link. Version {version} is scheduled only once more than half of them approve, and binds 24 hours after that while anyone holds units. The live tally is in the consilium.",
+    "t": "Каждому владельцу отправлена ссылка. Версия {version} будет назначена, только когда одобрит больше половины из них, и вступит в силу через 24 часа после этого, пока у кого-то есть юниты. Текущий подсчёт — в консилиуме."
+  },
+  "admin.fees.awaitingTitle": {
+    "en": "Sent to the owners — nothing has changed yet",
+    "t": "Отправлено владельцам — пока ничего не изменилось"
+  },
+  "admin.fees.basis.investedCapital": {
+    "en": "Invested capital",
+    "t": "Вложенный капитал"
+  },
+  "admin.fees.basis.marketValue": {
+    "en": "Market value",
+    "t": "Рыночная стоимость"
+  },
+  "admin.fees.basisNote": {
+    "en": "Invested capital is the house default: it does not swell with a mark you posted, so what the manager earns stays independent of the input the manager supplies.",
+    "t": "Вложенный капитал — база по умолчанию: она не растёт от оценки, которую вы же и публикуете, поэтому вознаграждение управляющего не зависит от данных, которые вводит сам управляющий."
+  },
+  "admin.fees.cancelChange": {
+    "en": "Cancel this change",
+    "t": "Отменить это изменение"
+  },
+  "admin.fees.cancelConfirm": {
+    "en": "Cancel the change",
+    "t": "Отменить изменение"
+  },
+  "admin.fees.cancelWarning": {
+    "en": "Cancelling withdraws the change. The fund keeps its current terms, and the holders who were notified will not see the new ones.",
+    "t": "Отмена отзывает изменение. Фонд сохраняет текущие условия, и уведомлённые держатели новых не увидят."
+  },
+  "admin.fees.cancelWarningAwaiting": {
+    "en": "Cancelling withdraws the change and takes its consilium down with it, voiding every approval collected so far. The owners who have already answered would each have to answer again.",
+    "t": "Отмена отзывает изменение и закрывает его консилиум, аннулируя все собранные одобрения. Владельцам, которые уже ответили, придётся отвечать заново."
+  },
+  "admin.fees.chargedOn": {
+    "en": "Charged on",
+    "t": "База начисления"
+  },
+  "admin.fees.charges": {
+    "en": "Charges",
+    "t": "Начисления"
+  },
+  "admin.fees.col.deferredUsdt": {
+    "en": "Deferred, USDT",
+    "t": "Отложено, USDT"
+  },
+  "admin.fees.col.effective": {
+    "en": "Effective",
+    "t": "В силе с"
+  },
+  "admin.fees.col.managementUsdt": {
+    "en": "Management, USDT",
+    "t": "За управление, USDT"
+  },
+  "admin.fees.col.performanceUsdt": {
+    "en": "Performance, USDT",
+    "t": "За успех, USDT"
+  },
+  "admin.fees.col.reason": {
+    "en": "Reason",
+    "t": "Причина"
+  },
+  "admin.fees.col.trigger": {
+    "en": "Trigger",
+    "t": "Триггер"
+  },
+  "admin.fees.col.unitsTaken": {
+    "en": "Units taken",
+    "t": "Взято паёв"
+  },
+  "admin.fees.col.version": {
+    "en": "Version",
+    "t": "Версия"
+  },
+  "admin.fees.collected": {
+    "en": "Collected, not yet converted",
+    "t": "Собрано, но не конвертировано"
+  },
+  "admin.fees.collectedSub": {
+    "en": "Units the sweeper has clawed back from holders. No cash has moved yet.",
+    "t": "Паи, которые сборщик удержал у держателей. Денежные средства пока не двигались."
+  },
+  "admin.fees.crystallizationNote": {
+    "en": "A price, not a detail — crystallizing more often measurably raises what an investor pays over a fund's life, because each reset locks in gains a later loss can no longer claw back.",
+    "t": "Это цена, а не деталь: чем чаще происходит фиксация, тем ощутимо больше платит инвестор за всё время жизни фонда, потому что каждый сброс закрепляет прибыль, которую последующий убыток уже не вернёт."
+  },
+  "admin.fees.dateTime.placeholder": {
+    "en": "As soon as the notice allows",
+    "t": "Как только позволит уведомление"
+  },
+  "admin.fees.effectiveFrom": {
+    "en": "Takes effect",
+    "t": "Вступает в силу"
+  },
+  "admin.fees.effectiveFromHint": {
+    "en": "Leave empty for the earliest allowed. While anyone holds units, a change binds no earlier than 24 hours after it is scheduled — counted from the owners' approval when they must give it. An earlier moment is lifted to that minimum, never refused.",
+    "t": "Оставьте пустым для самого раннего допустимого момента. Пока у кого-то есть юниты, изменение вступает в силу не раньше чем через 24 часа после назначения — от одобрения владельцев, если оно требуется. Более ранний момент поднимается до этого минимума, а не отклоняется."
+  },
+  "admin.fees.effectiveFromLifted": {
+    "en": "Earlier than the notice allows: while anyone holds units, this binds no earlier than {floor}.",
+    "t": "Раньше, чем позволяет уведомление: пока у продукта есть держатели, изменение вступит в силу не раньше {floor}."
+  },
+  "admin.fees.effectiveFromLiftedConsilium": {
+    "en": "Earlier than the notice allows: this binds no earlier than 24 hours after the owners approve.",
+    "t": "Раньше, чем позволяет уведомление: изменение вступит в силу не раньше чем через 24 часа после одобрения владельцами."
+  },
+  "admin.fees.err.notPercent": {
+    "en": "{field} must be a percentage — 2, or 2.5 / 2,5 for a half.",
+    "t": "{field}: нужны проценты — 2 или 2.5 / 2,5 для половины."
+  },
+  "admin.fees.err.overCeiling": {
+    "en": "{field} cannot be more than {ceiling}.",
+    "t": "{field} не может быть больше {ceiling}."
+  },
+  "admin.fees.err.reasonRequired": {
+    "en": "A reason is required when the owners must approve.",
+    "t": "Когда требуется одобрение владельцев, причина обязательна."
+  },
+  "admin.fees.err.reasonTooLong": {
+    "en": "The reason is too long: {used, plural, one {# byte} other {# bytes}} of at most {max}. Letters outside plain Latin count as more than one.",
+    "t": "Причина слишком длинная: {used, plural, one {# байт} few {# байта} many {# байт} other {# байт}} при пределе {max}. Буквы вне базовой латиницы считаются больше чем за один."
+  },
+  "admin.fees.err.tooFarAhead": {
+    "en": "The moment can be at most {days} days ahead.",
+    "t": "Момент может быть не дальше чем через {days} дней."
+  },
+  "admin.fees.field.hurdle": {
+    "en": "Hurdle",
+    "t": "Барьер"
+  },
+  "admin.fees.field.management": {
+    "en": "Management",
+    "t": "За управление"
+  },
+  "admin.fees.field.performance": {
+    "en": "Performance",
+    "t": "За успех"
+  },
+  "admin.fees.forbidden.body": {
+    "en": "Pricing a product changes what investors pay, so only an administrator or an owner can view and schedule fee terms. The rest of the console is yours as usual.",
+    "t": "Тарификация продукта меняет то, что платят инвесторы, поэтому просматривать и назначать условия комиссий могут только администратор или владелец. Остальная консоль доступна вам как обычно."
+  },
+  "admin.fees.forbidden.title": {
+    "en": "Fee terms are set by administrators and owners",
+    "t": "Условия комиссий задают администраторы и владельцы"
+  },
+  "admin.fees.hint.ofTheGain": {
+    "en": "of the gain",
+    "t": "от прибыли"
+  },
+  "admin.fees.hint.perYear": {
+    "en": "per year",
+    "t": "в год"
+  },
+  "admin.fees.hint.zeroForNone": {
+    "en": "0 for none",
+    "t": "0 — без комиссии"
+  },
+  "admin.fees.history": {
+    "en": "History of terms",
+    "t": "История условий"
+  },
+  "admin.fees.immediateBody": {
+    "en": "Nobody holds units in this product, so no notice was due: version {version} takes effect now and is applied within a minute. Until it is, it can still be cancelled below. The first investor to subscribe reads these terms.",
+    "t": "У этого продукта нет держателей паёв, поэтому уведомление не требовалось: версия {version} вступает в силу сейчас и будет применена в течение минуты. До этого её ещё можно отменить ниже. Первый подписавшийся инвестор увидит уже эти условия."
+  },
+  "admin.fees.immediateTitle": {
+    "en": "In force within a minute — nobody to notify",
+    "t": "Вступает в силу в течение минуты — уведомлять некого"
+  },
+  "admin.fees.inForce": {
+    "en": "Version {version}, in force since {since}. Investors see these on the product page.",
+    "t": "Версия {version}, действует с {since}. Инвесторы видят эти условия на странице продукта."
+  },
+  "admin.fees.lockedIn": {
+    "en": "Performance locked in",
+    "t": "Фиксация успеха"
+  },
+  "admin.fees.noCharges": {
+    "en": "No charges yet",
+    "t": "Начислений пока нет"
+  },
+  "admin.fees.noChargesHint": {
+    "en": "The sweeper charges a holding once its accrual is old enough. Nothing here means nobody has been billed.",
+    "t": "Сборщик списывает комиссию с позиции, когда её накопление становится достаточно давним. Пусто — значит, никому ещё не выставлялось."
+  },
+  "admin.fees.noFee": {
+    "en": "No fee",
+    "t": "Без комиссии"
+  },
+  "admin.fees.noFunds": {
+    "en": "No funds registered",
+    "t": "Фонды не зарегистрированы"
+  },
+  "admin.fees.noFundsHint": {
+    "en": "A fee is a property of a product. Register an allocation first, then price it here.",
+    "t": "Комиссия — свойство продукта. Сначала зарегистрируйте продукт, затем задайте его условия здесь."
+  },
+  "admin.fees.noHistory": {
+    "en": "No changes yet",
+    "t": "Изменений пока нет"
+  },
+  "admin.fees.noHistoryHint": {
+    "en": "Every version of this fund's terms will be listed here — what was scheduled, when it bound, and why.",
+    "t": "Здесь будет каждая версия условий этого фонда — что назначили, когда вступило в силу и почему."
+  },
+  "admin.fees.notConfigured": {
+    "en": "This fund charges nothing today. Scheduling terms starts the clock on every holding in it from the moment they take effect.",
+    "t": "Сегодня этот фонд ничего не взимает. Назначенные условия запускают начисление по каждой позиции в нём с момента вступления в силу."
+  },
+  "admin.fees.nothingToSettle": {
+    "en": "Nothing to settle — no fee has been charged in this fund yet.",
+    "t": "Исполнять нечего — в этом фонде ещё не начислено ни одной комиссии."
+  },
+  "admin.fees.notices.acknowledge": {
+    "en": "Take responsibility and bind anyway",
+    "t": "Взять ответственность и применить"
+  },
+  "admin.fees.notices.acknowledgeBack": {
+    "en": "Keep waiting",
+    "t": "Подождать ещё"
+  },
+  "admin.fees.notices.acknowledgeConfirm": {
+    "en": "Take responsibility",
+    "t": "Взять ответственность"
+  },
+  "admin.fees.notices.acknowledgeWarning": {
+    "en": "The terms will bind over {n, plural, one {this holder} other {these # holders}} without their notice — tighter terms they were never told about. Your name, the moment, and exactly which holders it covers are recorded on the change and stay in its history.",
+    "t": "Условия вступят в силу для {n, plural, one {этого держателя} few {этих # держателей} many {этих # держателей} other {этих # держателей}} без уведомления — более жёсткие условия, о которых им не сообщили. Ваше имя, момент и точный список держателей будут записаны в изменение и останутся в его истории."
+  },
+  "admin.fees.notices.acknowledgeWarningExtend": {
+    "en": "The terms will bind over {n, plural, one {this holder} other {these # holders}} without their notice — tighter terms they were never told about. Your name and the moment replace the earlier acknowledgement's on the change, which will then cover {total, plural, one {# holder} other {all # holders}}, and stay in its history.",
+    "t": "Условия вступят в силу для {n, plural, one {этого держателя} few {этих # держателей} many {этих # держателей} other {этих # держателей}} без уведомления — более жёсткие условия, о которых им не сообщили. Ваше имя и момент заменят в изменении прежнее подтверждение, которое после этого будет покрывать {total, plural, one {# держателя} few {всех # держателей} many {всех # держателей} other {всех # держателя}}, и останутся в его истории."
+  },
+  "admin.fees.notices.alreadyWaived": {
+    "en": "{by} already took responsibility on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.",
+    "t": "Ответственность уже взята {at} ({by}) за {n, plural, one {# держателя} few {# держателей} many {# держателей} other {# держателя}}, от которых рассылка отказалась к тому моменту. С тех пор она отказалась ещё от нескольких; этот акт добавит их в ту же запись."
+  },
+  "admin.fees.notices.alreadyWaivedAnon": {
+    "en": "Responsibility was already taken on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.",
+    "t": "Ответственность уже взята {at} за {n, plural, one {# держателя} few {# держателей} many {# держателей} other {# держателя}}, от которых рассылка отказалась к тому моменту. С тех пор она отказалась ещё от нескольких; этот акт добавит их в ту же запись."
+  },
+  "admin.fees.notices.err.forbidden": {
+    "en": "Only the requester of this change or an owner can take responsibility for it.",
+    "t": "Взять ответственность может только запросивший это изменение или владелец."
+  },
+  "admin.fees.notices.givenUpBody": {
+    "en": "The mailer has given up on {n, plural, one {this holder's notice} other {these # notices}}. A change that tightens the terms does not bind over a holder who was never told, so it is held up until somebody takes responsibility for them.",
+    "t": "Рассылка отказалась от попыток доставить {n, plural, one {уведомление этому держателю} few {эти # уведомления} many {эти # уведомлений} other {эти # уведомления}}. Изменение, ужесточающее условия, не вступает в силу для держателя, которого не уведомили, поэтому оно задерживается, пока кто-то не возьмёт за них ответственность."
+  },
+  "admin.fees.notices.givenUpTitle": {
+    "en": "{n, plural, one {# holder} other {# holders}} could not be told",
+    "t": "{n, plural, one {# держателя} few {# держателей} many {# держателей} other {# держателя}} не удалось уведомить"
+  },
+  "admin.fees.notices.moreQueued": {
+    "en": "{n, plural, one {# more notice is still being delivered and is not covered by this act.} other {# more notices are still being delivered and are not covered by this act.}}",
+    "t": "Ещё {n, plural, one {# уведомление в процессе доставки — оно сюда не входит} few {# уведомления в процессе доставки — они сюда не входят} many {# уведомлений в процессе доставки — они сюда не входят} other {# уведомления в процессе доставки — они сюда не входят}}."
+  },
+  "admin.fees.notices.queued": {
+    "en": "{n, plural, one {# notice is} other {# notices are}} still being delivered. A change that tightens the terms waits for every holder to be told; there is nothing to do unless the mailer gives up on one.",
+    "t": "{n, plural, one {# уведомление ещё доставляется} few {# уведомления ещё доставляются} many {# уведомлений ещё доставляются} other {# уведомления ещё доставляются}}. Изменение, ужесточающее условия, ждёт, пока будут уведомлены все держатели; делать ничего не нужно, пока рассылка не откажется от попыток."
+  },
+  "admin.fees.pending.awaiting": {
+    "en": "Version {version} awaits the owners' approval. It binds 24 hours after they carry it, while anyone holds units.",
+    "t": "Версия {version} ждёт одобрения владельцев. Она вступит в силу через 24 часа после их решения, пока у кого-то есть юниты."
+  },
+  "admin.fees.pending.immediate": {
+    "en": "Version {version} takes effect now and is applied within a minute. Nobody holds units, so no notice was sent.",
+    "t": "Версия {version} вступает в силу сейчас и будет применена в течение минуты. Держателей нет, уведомление не отправлялось."
+  },
+  "admin.fees.pending.requested": {
+    "en": "Requested {when}",
+    "t": "Запрошено {when}"
+  },
+  "admin.fees.pending.scheduled": {
+    "en": "Version {version} takes effect on {at}. Holders have been notified.",
+    "t": "Версия {version} вступает в силу {at}. Держатели уведомлены."
+  },
+  "admin.fees.pendingBlocks": {
+    "en": "One change at a time: cancel the pending one to schedule another.",
+    "t": "Одно изменение за раз: отмените ожидающее, чтобы назначить другое."
+  },
+  "admin.fees.pendingChip": {
+    "en": "Change pending",
+    "t": "Ожидает изменение"
+  },
+  "admin.fees.pendingTitle": {
+    "en": "Change on its way",
+    "t": "Изменение в пути"
+  },
+  "admin.fees.period.annual": {
+    "en": "Annually",
+    "t": "Ежегодно"
+  },
+  "admin.fees.period.monthly": {
+    "en": "Monthly",
+    "t": "Ежемесячно"
+  },
+  "admin.fees.period.quarterly": {
+    "en": "Quarterly",
+    "t": "Ежеквартально"
+  },
+  "admin.fees.period.semiAnnual": {
+    "en": "Every 6 months",
+    "t": "Раз в полгода"
+  },
+  "admin.fees.reason": {
+    "en": "Reason",
+    "t": "Причина"
+  },
+  "admin.fees.reasonHint": {
+    "en": "Optional. Kept with this version in the history.",
+    "t": "Необязательно. Сохраняется вместе с этой версией в истории."
+  },
+  "admin.fees.reasonRequiredHint": {
+    "en": "The owners read this in their approval mail, and it is part of what they sign.",
+    "t": "Владельцы прочтут это в письме на одобрение; это часть того, что они подписывают."
+  },
+  "admin.fees.reasonRequiredLabel": {
+    "en": "Reason (required)",
+    "t": "Причина (обязательно)"
+  },
+  "admin.fees.requirement.admin": {
+    "en": "No vote needed: one administrator may make this change. Holders are mailed the notice when it is scheduled.",
+    "t": "Голосование не нужно: это изменение может внести один администратор. Держателям отправят уведомление, когда оно будет назначено."
+  },
+  "admin.fees.requirement.consilium": {
+    "en": "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. You must be an owner to open the request.",
+    "t": "Требуется одобрение владельцев: эти условия ужесточают текущие сверх домашних 2 и 20 либо снижают барьер. Открыть запрос может только владелец."
+  },
+  "admin.fees.scheduleChange": {
+    "en": "Schedule the change",
+    "t": "Запланировать изменение"
+  },
+  "admin.fees.scheduledBody": {
+    "en": "Version {version} takes effect on {at}. Every holder is being emailed the notice; until then the fund charges its current terms.",
+    "t": "Версия {version} вступает в силу {at}. Каждому держателю отправляется уведомление; до тех пор фонд взимает текущие условия."
+  },
+  "admin.fees.scheduledTitle": {
+    "en": "Scheduled — nothing has changed yet",
+    "t": "Запланировано — пока ничего не изменилось"
+  },
+  "admin.fees.settleAll": {
+    "en": "Settle all units",
+    "t": "Исполнить все паи"
+  },
+  "admin.fees.settleNote": {
+    "en": "Settling burns these units and moves their value from the fund's claim into fee revenue. It is refused — never queued — when the fund's claim cannot cover it on top of its queued redemptions: investors waiting to exit are paid before the manager is.",
+    "t": "Исполнение списывает эти паи и переносит их стоимость из требований фонда в комиссионный доход. Операция отклоняется — и никогда не ставится в очередь, — если требований фонда не хватает на неё сверх уже поставленных в очередь погашений: инвесторы, ожидающие выхода, получают деньги раньше управляющего."
+  },
+  "admin.fees.settledAtNav": {
+    "en": "{cash} settled at NAV {nav}.",
+    "t": "{cash} исполнено по NAV {nav}."
+  },
+  "admin.fees.showcase.bps": {
+    "en": "{n} bps",
+    "t": "{n} б. п."
+  },
+  "admin.fees.showcase.example": {
+    "en": "On a {amount} position: {management} a year, plus {performance} of any gain.",
+    "t": "На позицию {amount}: {management} в год плюс {performance} от любой прибыли."
+  },
+  "admin.fees.showcase.exampleHurdle": {
+    "en": "On a {amount} position: {management} a year, plus {performance} of any gain above a mark rising {hurdle} a year.",
+    "t": "На позицию {amount}: {management} в год плюс {performance} от прибыли сверх отметки, растущей на {hurdle} в год."
+  },
+  "admin.fees.showcase.title": {
+    "en": "What gets saved",
+    "t": "Что будет сохранено"
+  },
+  "admin.fees.startCharging": {
+    "en": "Start charging",
+    "t": "Начать начисление"
+  },
+  "admin.fees.subtitle": {
+    "en": "What each fund charges its investors, and converting what it has already earned into cash.",
+    "t": "Что каждый фонд взимает со своих инвесторов и как уже заработанное превращается в деньги."
+  },
+  "admin.fees.summary": {
+    "en": "{management} p.a. · {performance} of the gain · {basis} · {period}",
+    "t": "{management} в год · {performance} от прироста · {basis} · {period}"
+  },
+  "admin.fees.summaryHurdle": {
+    "en": "{management} p.a. · {performance} of the gain above {hurdle} · {basis} · {period}",
+    "t": "{management} в год · {performance} от прироста сверх {hurdle} · {basis} · {period}"
+  },
+  "admin.fees.terms": {
+    "en": "Terms",
+    "t": "Условия"
+  },
+  "admin.fees.title": {
+    "en": "Fee terms and collection",
+    "t": "Условия комиссий и их сбор"
+  },
+  "admin.fees.trigger.period": {
+    "en": "Period",
+    "t": "Период"
+  },
+  "admin.fees.trigger.redemption": {
+    "en": "Redemption",
+    "t": "Погашение"
+  },
+  "admin.fees.unitsHeld": {
+    "en": "Fee units held",
+    "t": "Удержано паёв в счёт комиссий"
+  },
+  "admin.fees.waiver.acknowledged": {
+    "en": "Notices waived by {by} on {at}, over {n, plural, one {# holder} other {# holders}} who could not be told.",
+    "t": "Уведомления отменены: {by}, {at}, для {n, plural, one {# держателя} few {# держателей} many {# держателей} other {# держателя}}, которых не удалось уведомить."
+  },
+  "admin.fees.waiver.acknowledgedAnon": {
+    "en": "Notices waived on {at}, over {n, plural, one {# holder} other {# holders}} who could not be told.",
+    "t": "Уведомления отменены {at} для {n, plural, one {# держателя} few {# держателей} many {# держателей} other {# держателя}}, которых не удалось уведомить."
+  },
+  "admin.fees.waiver.row": {
+    "en": "Notices waived by {by} · {n, plural, one {# holder} other {# holders}}",
+    "t": "Уведомления отменены: {by} · {n, plural, one {# держатель} few {# держателя} many {# держателей} other {# держателя}}"
+  },
+  "admin.fees.waiver.rowAnon": {
+    "en": "Notices waived · {n, plural, one {# holder} other {# holders}}",
+    "t": "Уведомления отменены · {n, plural, one {# держатель} few {# держателя} many {# держателей} other {# держателя}}"
+  },
+  "admin.fees.withdrawableFrom": {
+    "en": "It is withdrawable on-chain from {screen}.",
+    "t": "Вывести их ончейн можно на экране {screen}."
+  },
+  "admin.fees.worthAtNav": {
+    "en": "Worth at current NAV",
+    "t": "Стоимость по текущему NAV"
+  },
+  "admin.holder.allocation": {
+    "en": "Allocation",
+    "t": "Аллокация"
+  },
+  "admin.holder.allocation.fee": {
+    "en": "Platform fees",
+    "t": "Комиссии платформы"
+  },
+  "admin.holder.allocation.fund": {
+    "en": "Platform capital",
+    "t": "Капитал платформы"
+  },
+  "admin.holder.person": {
+    "en": "Person",
+    "t": "Человек"
+  },
+  "admin.kyc.elevated": {
+    "en": "Elevated",
+    "t": "Углублённая проверка"
+  },
+  "admin.kyc.enhanced": {
+    "en": "Enhanced",
+    "t": "Расширенная проверка"
+  },
+  "admin.kyc.registered": {
+    "en": "Registered",
+    "t": "Регистрация"
+  },
+  "admin.kyc.verified": {
+    "en": "Verified",
+    "t": "Верификация"
+  },
+  "admin.payments.openConsilium": {
+    "en": "Open the consilium",
+    "t": "Открыть консилиум"
+  },
+  "admin.rail.bep20": {
+    "en": "BEP20 · BNB Chain",
+    "t": "BEP20 · BNB Chain"
+  },
+  "admin.rail.polygon": {
+    "en": "Polygon · PoS",
+    "t": "Polygon · PoS"
+  },
+  "admin.rail.ton": {
+    "en": "TON · Open Network",
+    "t": "TON · Open Network"
+  },
+  "admin.rail.trc20": {
+    "en": "TRC20 · TRON",
+    "t": "TRC20 · TRON"
+  },
+  "admin.revenue.cashAvailable": {
+    "en": "Cash · available",
+    "t": "Деньги · доступно"
+  },
+  "admin.revenue.cashAvailableHint": {
+    "en": "free of approved payments",
+    "t": "за вычетом одобренных платежей"
+  },
+  "admin.revenue.cashPosted": {
+    "en": "Cash · posted",
+    "t": "Деньги · проведено"
+  },
+  "admin.revenue.cashPostedHint": {
+    "en": "settled fees + settled 2-and-20, reserved included",
+    "t": "проведённые комиссии + рассчитанные 2-и-20, включая зарезервированное"
+  },
+  "admin.revenue.earned": {
+    "en": "The fee allocation",
+    "t": "Аллокация комиссий"
+  },
+  "admin.revenue.navPosted": {
+    "en": "marked {ago}",
+    "t": "оценено {ago}"
+  },
+  "admin.revenue.ownMoneyNote": {
+    "en": "This is the platform's own money. Client balances and the fund allocation are separate ledger claims and are not included here — and cannot be reached from this screen.",
+    "t": "Это собственные деньги платформы. Балансы клиентов и аллокация капитала — отдельные требования леджера, сюда не входят и с этого экрана недоступны."
+  },
+  "admin.revenue.subtitle": {
+    "en": "What the platform earned — the fee allocation: its cash, its units and who holds them",
+    "t": "Что заработала платформа — аллокация комиссий: её деньги, её юниты и кто их держит"
+  },
+  "admin.revenue.toApprovals": {
+    "en": "Seating a person on the fee allocation is the owners' decision. Propose it there; the units appear here once their vote carries.",
+    "t": "Включить человека в комиссионную аллокацию решают владельцы. Предложите это там; паи появятся здесь, когда голосование пройдёт."
+  },
+  "admin.revenue.toPayments": {
+    "en": "Moving the platform's earnings — into a product, or to an investor — is a payment order the owners authorise. Open one there. Cash reaches the chain only through a holder's redemption and their own withdrawal.",
+    "t": "Перемещение заработанного платформой — в продукт или инвестору — это платёжное поручение, которое одобряют владельцы. Открывайте его там. В сеть деньги уходят только через погашение держателем и его собственный вывод."
+  },
+  "admin.revenue.toTreasury": {
+    "en": "The fee allocation beside the platform's other balances: custody per rail, user claims, every allocation and its holders.",
+    "t": "Аллокация комиссий рядом с остальными балансами платформы: кастодия по сетям, требования пользователей, каждая аллокация и её держатели."
+  },
+  "admin.revenue.unitsHint": {
+    "en": "units of the fee allocation, held by people",
+    "t": "юниты аллокации комиссий, у людей"
+  },
+  "admin.revenue.whereNext": {
+    "en": "Move or inspect it",
+    "t": "Переместить или посмотреть"
+  },
+  "admin.role.admin": {
+    "en": "Admin",
+    "t": "Админ"
+  },
+  "admin.role.investor": {
+    "en": "Investor",
+    "t": "Инвестор"
+  },
+  "admin.role.operator": {
+    "en": "Operator",
+    "t": "Оператор"
+  },
+  "admin.role.owner": {
+    "en": "Owner",
+    "t": "Владелец"
+  },
+  "admin.settle": {
+    "en": "Settle",
+    "t": "Исполнить"
+  },
+  "admin.state.cancelled": {
+    "en": "Cancelled",
+    "t": "Отменено"
+  },
+  "admin.state.closed": {
+    "en": "Closed",
+    "t": "Закрыт"
+  },
+  "admin.state.completed": {
+    "en": "Completed",
+    "t": "Завершено"
+  },
+  "admin.state.draft": {
+    "en": "Draft",
+    "t": "Черновик"
+  },
+  "admin.state.failed": {
+    "en": "Failed",
+    "t": "Не выполнено"
+  },
+  "admin.state.open": {
+    "en": "Open",
+    "t": "Открыт"
+  },
+  "admin.state.processing": {
+    "en": "Processing",
+    "t": "В обработке"
+  },
+  "admin.state.queued": {
+    "en": "Queued",
+    "t": "В очереди"
+  },
+  "admin.status.active": {
+    "en": "Active",
+    "t": "Активен"
+  },
+  "admin.status.blocked": {
+    "en": "Blocked",
+    "t": "Заблокирован"
+  },
+  "admin.status.degraded": {
+    "en": "Degraded",
+    "t": "Деградация"
+  },
+  "admin.status.disabled": {
+    "en": "Disabled",
+    "t": "Отключён"
+  },
+  "admin.status.error": {
+    "en": "Error",
+    "t": "Ошибка"
+  },
+  "admin.status.healthy": {
+    "en": "Healthy",
+    "t": "Исправен"
+  },
+  "admin.status.onboarding": {
+    "en": "Onboarding",
+    "t": "Регистрация"
+  },
+  "admin.status.pending": {
+    "en": "Pending",
+    "t": "Ожидает"
+  },
+  "admin.status.review": {
+    "en": "Review",
+    "t": "На проверке"
+  },
+  "admin.status.staged": {
+    "en": "Staged",
+    "t": "Подготовлен"
+  },
+  "admin.treasury.allocations.unmarked": {
+    "en": "not yet marked",
+    "t": "ещё не оценено"
+  },
+  "admin.users.kycLevelShort": {
+    "en": "L{n}",
+    "t": "ур. {n}"
+  },
+  "admin.valuation.allocationLabel": {
+    "en": "{title} ({service})",
+    "t": "{title} ({service})"
+  },
+  "admin.valuation.allocationLabelWithState": {
+    "en": "{title} ({service}) — {state}",
+    "t": "{title} ({service}) — {state}"
+  },
+  "admin.valuation.approx": {
+    "en": "≈ {amount}",
+    "t": "≈ {amount}"
+  },
+  "admin.valuation.aumUsdt": {
+    "en": "AUM (USDT)",
+    "t": "AUM (USDT)"
+  },
+  "admin.valuation.capBelowIssued": {
+    "en": "Below the {n} units already issued: this stops further issuance. Nothing minted is affected and redemptions keep working.",
+    "t": "Меньше уже выпущенных паёв ({n}): это остановит дальнейший выпуск. Выпущенные паи не затрагиваются, погашения продолжают работать."
+  },
+  "admin.valuation.capHint": {
+    "en": "Takes effect on the next subscription. Redemptions are never affected.",
+    "t": "Вступает в силу со следующей подписки. Погашения не затрагиваются никогда."
+  },
+  "admin.valuation.capInvalid": {
+    "en": "Must be greater than zero — to stop new money entirely, close the allocation instead.",
+    "t": "Должно быть больше нуля — чтобы полностью остановить приём средств, закройте продукт."
+  },
+  "admin.valuation.capUnits": {
+    "en": "Cap (units)",
+    "t": "Лимит (паи)"
+  },
+  "admin.valuation.col.estCash": {
+    "en": "Est. cash",
+    "t": "Прибл. сумма"
+  },
+  "admin.valuation.derivedFormula": {
+    "en": "= AUM / {n, plural, one {# unit} other {# units}}",
+    "t": "= AUM / {n, plural, one {# пай} few {# пая} many {# паёв} other {# пая}}"
+  },
+  "admin.valuation.derivedNav": {
+    "en": "Derived NAV / share",
+    "t": "Расчётный NAV / пай"
+  },
+  "admin.valuation.fundService": {
+    "en": "Fund (service)",
+    "t": "Фонд (сервис)"
+  },
+  "admin.valuation.guardHint": {
+    "en": "A move past the NAV guard is refused; the owners cannot be asked to lift it from here yet.",
+    "t": "Сдвиг сверх ограничителя NAV отклоняется; попросить владельцев снять его отсюда пока нельзя."
+  },
+  "admin.valuation.issuedOfCap": {
+    "en": "{issued} / {cap} units",
+    "t": "{issued} / {cap} паёв"
+  },
+  "admin.valuation.loadingSupply": {
+    "en": "Loading supply… — a subscription that would mint past the cap is refused.",
+    "t": "Загрузка выпуска… — подписка, которая вышла бы за лимит, отклоняется."
+  },
+  "admin.valuation.navFormula": {
+    "en": "AUM / units",
+    "t": "AUM / паи"
+  },
+  "admin.valuation.navGuardNote": {
+    "en": "NAV-move guard — a post is refused if the NAV moves more than 50% from the last mark or from the mark of a week ago, so stepping there in smaller posts is refused too. Nothing overrides it: a larger move is put to the owners' vote instead.",
+    "t": "Защита от скачка NAV — публикация отклоняется, если NAV отклоняется более чем на 50% от последней оценки или от оценки недельной давности, поэтому подойти к цифре несколькими шагами тоже не выйдет. Обхода нет: больший сдвиг выносится на голосование владельцев."
+  },
+  "admin.valuation.noAllocations": {
+    "en": "No allocations registered",
+    "t": "Продукты не зарегистрированы"
+  },
+  "admin.valuation.noUnitsNote": {
+    "en": "No units outstanding — NAV is {formula}, so it is undefined until someone subscribes. The fund prices at the seed NAV 1.0 until the first subscription; there is nothing to mark yet.",
+    "t": "Паёв в обращении нет — NAV равен {formula}, поэтому он не определён, пока никто не подписался. До первой подписки фонд оценивается по начальному NAV 1.0; оценивать пока нечего."
+  },
+  "admin.valuation.pickAFund": {
+    "en": "Pick a fund above to see and resize its authorised unit supply.",
+    "t": "Выберите фонд выше, чтобы посмотреть и изменить разрешённый выпуск паёв."
+  },
+  "admin.valuation.postValuation": {
+    "en": "Post valuation",
+    "t": "Опубликовать оценку"
+  },
+  "admin.valuation.postedBody": {
+    "en": "NAV {nav} at {aum} USDT AUM",
+    "t": "NAV {nav} при AUM {aum} USDT"
+  },
+  "admin.valuation.postedTitle": {
+    "en": "Marked",
+    "t": "Оценка записана"
+  },
+  "admin.valuation.queueEmpty": {
+    "en": "The redemption queue is empty",
+    "t": "Очередь погашений пуста"
+  },
+  "admin.valuation.queueEmptyHint": {
+    "en": "A request appears here when an investor asks to redeem units.",
+    "t": "Заявка появится здесь, когда инвестор попросит погасить паи."
+  },
+  "admin.valuation.queueFootnote": {
+    "en": "Settle pays at settle-time NAV once the fund claim is liquid; if the rail is short the payout queues until treasury tops up. Fail voids the request and refunds the units.",
+    "t": "«Исполнить» выплачивает по расчётному NAV, как только требование фонда становится ликвидным; если на канале не хватает средств, выплата встаёт в очередь до пополнения казначейства. «Отклонить» аннулирует заявку и возвращает паи."
+  },
+  "admin.valuation.queuedCount": {
+    "en": "{n, plural, one {# queued} other {# queued}}",
+    "t": "{n, plural, one {# в очереди} few {# в очереди} many {# в очереди} other {# в очереди}}"
+  },
+  "admin.valuation.redemptionQueue": {
+    "en": "Redemption queue",
+    "t": "Очередь погашений"
+  },
+  "admin.valuation.saveCap": {
+    "en": "Save cap",
+    "t": "Сохранить лимит"
+  },
+  "admin.valuation.stillIssuable": {
+    "en": "{units} units still issuable — a subscription that would mint past the cap is refused.",
+    "t": "Ещё можно выпустить {units} паёв — подписка, которая вышла бы за лимит, отклоняется."
+  },
+  "admin.valuation.subtitle": {
+    "en": "Post fund NAV and clear the redemption queue",
+    "t": "Публикация NAV фонда и разбор очереди погашений"
+  },
+  "admin.valuation.unitSupply": {
+    "en": "Unit supply",
+    "t": "Выпуск паёв"
+  },
+  "admin.valuation.unitsIssuedIn": {
+    "en": "Units issued in {service}",
+    "t": "Паёв выпущено в {service}"
+  },
+  "approval.expiry.days": {
+    "en": "{n, plural, one {# day left} other {# days left}}",
+    "t": "{n, plural, one {остался # день} few {осталось # дня} many {осталось # дней} other {осталось # дня}}"
+  },
+  "approval.expiry.hours": {
+    "en": "{n, plural, one {# hour left} other {# hours left}}",
+    "t": "{n, plural, one {остался # час} few {осталось # часа} many {осталось # часов} other {осталось # часа}}"
+  },
+  "approval.expiry.minutes": {
+    "en": "{n, plural, one {# minute left} other {# minutes left}}",
+    "t": "{n, plural, one {осталась # минута} few {осталось # минуты} many {осталось # минут} other {осталось # минуты}}"
+  },
+  "approval.expiry.passed": {
+    "en": "The deadline has passed",
+    "t": "Срок истёк"
+  },
+  "auth.continue": {
+    "en": "Continue to sign in",
+    "t": "Перейти ко входу"
+  },
+  "auth.wall.action": {
+    "en": "Sign in",
+    "t": "Войти"
+  },
+  "auth.wall.desc": {
+    "en": "This part of the cabinet belongs to your account. Sign in or create one — it takes a minute.",
+    "t": "Этот раздел кабинета относится к вашему аккаунту. Войдите или создайте его — это займёт минуту."
+  },
+  "auth.wall.title": {
+    "en": "Sign in to see this",
+    "t": "Войдите, чтобы увидеть это"
+  },
+  "dash.activeStrategies": {
+    "en": "Active strategies",
+    "t": "Активные стратегии"
+  },
+  "dash.allTimeSuffix": {
+    "en": "{pct} all-time",
+    "t": "{pct} за всё время"
+  },
+  "dash.browseStrategies": {
+    "en": "Browse strategies",
+    "t": "Смотреть стратегии"
+  },
+  "dash.fundFallback": {
+    "en": "Fund",
+    "t": "Фонд"
+  },
+  "dash.fundPerformance": {
+    "en": "Fund performance",
+    "t": "Доходность фонда"
+  },
+  "dash.hintAcrossPositions": {
+    "en": "across all positions",
+    "t": "по всем позициям"
+  },
+  "dash.hintAtCostBasis": {
+    "en": "at cost basis",
+    "t": "по цене приобретения"
+  },
+  "dash.hintFundPositions": {
+    "en": "fund positions",
+    "t": "позиций в фондах"
+  },
+  "dash.historyTruncated": {
+    "en": "Only the most recent marks in this range are shown; the fund curve starts from the oldest one shown, not from the start of the range.",
+    "t": "Показаны только последние отметки в этом диапазоне; кривая фонда начинается с самой старой из показанных, а не с начала диапазона."
+  },
+  "dash.investedWhatIOwn": {
+    "en": "Invested · what I own",
+    "t": "Инвестировано · что мне принадлежит"
+  },
+  "dash.netContributed": {
+    "en": "Net contributed",
+    "t": "Чистые взносы"
+  },
+  "dash.noHistory": {
+    "en": "No performance history yet",
+    "t": "Истории доходности пока нет"
+  },
+  "dash.noHistoryHint": {
+    "en": "The fund curve and your participation appear here once there is activity to plot.",
+    "t": "Кривая фонда и ваша доля появятся здесь, как только будет что отобразить."
+  },
+  "dash.nothingInvested": {
+    "en": "Nothing invested yet",
+    "t": "Пока ничего не инвестировано"
+  },
+  "dash.nothingInvestedHint": {
+    "en": "Subscribe to a strategy and the split of what you own shows up here.",
+    "t": "Подпишитесь на стратегию — и структура ваших вложений появится здесь."
+  },
+  "dash.portfolio": {
+    "en": "Portfolio",
+    "t": "Портфель"
+  },
+  "dash.portfolioSub": {
+    "en": "All-time performance and your participation",
+    "t": "Доходность за всё время и ваша доля"
+  },
+  "dash.portfolioValue": {
+    "en": "Portfolio value",
+    "t": "Стоимость портфеля"
+  },
+  "dash.range.1m": {
+    "en": "1M",
+    "t": "1М"
+  },
+  "dash.range.1y": {
+    "en": "1Y",
+    "t": "1Г"
+  },
+  "dash.range.6m": {
+    "en": "6M",
+    "t": "6М"
+  },
+  "dash.range.all": {
+    "en": "All",
+    "t": "Всё"
+  },
+  "dash.rangeLabel": {
+    "en": "Chart range",
+    "t": "Диапазон графика"
+  },
+  "dash.strategyCount": {
+    "en": "{n, plural, one {# strategy} other {# strategies}}",
+    "t": "{n, plural, one {# стратегия} few {# стратегии} many {# стратегий} other {# стратегии}}"
+  },
+  "dash.unitsAmount": {
+    "en": "{n, plural, one {{units} unit} other {{units} units}}",
+    "t": "{n, plural, one {{units} пай} few {{units} пая} many {{units} паёв} other {{units} пая}}"
+  },
+  "dash.unrealizedPnl": {
+    "en": "Unrealized P&L",
+    "t": "Нереализованный P&L"
+  },
+  "dash.yourParticipation": {
+    "en": "Your participation",
+    "t": "Ваша доля"
+  },
+  "err.authNotConfigured": {
+    "en": "Sign-in is unavailable right now. Please try again shortly.",
+    "t": "Вход сейчас недоступен. Повторите попытку чуть позже."
+  },
+  "err.chunkLoad": {
+    "en": "This part of the page didn't load.",
+    "t": "Эта часть страницы не загрузилась."
+  },
+  "err.csrf": {
+    "en": "This page went stale. Reload it and try again.",
+    "t": "Страница устарела. Обновите её и попробуйте снова."
+  },
+  "err.feePolicySave": {
+    "en": "Could not save these terms.",
+    "t": "Не удалось сохранить эти условия."
+  },
+  "err.feeSettle": {
+    "en": "Could not settle these units.",
+    "t": "Не удалось исполнить эти паи."
+  },
+  "err.forbidden": {
+    "en": "You don't have access to this.",
+    "t": "У вас нет доступа к этому."
+  },
+  "err.fundRefresh": {
+    "en": "Couldn't refresh this fund",
+    "t": "Не удалось обновить данные фонда"
+  },
+  "err.fundServiceRequired": {
+    "en": "Select a fund to continue.",
+    "t": "Выберите фонд, чтобы продолжить."
+  },
+  "err.kycSelf": {
+    "en": "You can't set your own verification tier — another holder of KycManage has to.",
+    "t": "Свой уровень верификации выставить нельзя — это должен сделать другой держатель KycManage."
+  },
+  "err.kycStartFailed": {
+    "en": "We couldn't start verification. Please try again.",
+    "t": "Не удалось начать верификацию. Попробуйте ещё раз."
+  },
+  "err.kycThrottled": {
+    "en": "You've started verification too many times today. Try again tomorrow.",
+    "t": "Сегодня вы начинали верификацию слишком много раз. Попробуйте завтра."
+  },
+  "err.kycUnavailable": {
+    "en": "Verification is unavailable right now. Please contact support.",
+    "t": "Верификация сейчас недоступна. Напишите в поддержку."
+  },
+  "err.network": {
+    "en": "Can't reach the server. Check your connection and try again.",
+    "t": "Не удаётся связаться с сервером. Проверьте соединение и попробуйте снова."
+  },
+  "err.notFound": {
+    "en": "Not found.",
+    "t": "Не найдено."
+  },
+  "err.positionsLoad": {
+    "en": "Couldn't load your positions",
+    "t": "Не удалось загрузить ваши позиции"
+  },
+  "err.rateLimited": {
+    "en": "Too many requests — give it a moment and try again.",
+    "t": "Слишком много запросов — подождите немного и попробуйте снова."
+  },
+  "err.requestFailed": {
+    "en": "Something went wrong on our side. Please try again.",
+    "t": "На нашей стороне что-то пошло не так. Попробуйте ещё раз."
+  },
+  "err.serverUnavailable": {
+    "en": "The service is temporarily unavailable. Please try again.",
+    "t": "Сервис временно недоступен. Попробуйте ещё раз."
+  },
+  "err.sessionExpired": {
+    "en": "Your session has ended. Sign in again to continue.",
+    "t": "Ваш сеанс завершён. Войдите снова, чтобы продолжить."
+  },
+  "err.unauthenticated": {
+    "en": "We couldn't confirm your session. Reload the page or sign in again.",
+    "t": "Не удалось подтвердить ваш сеанс. Обновите страницу или войдите снова."
+  },
+  "err.unparkDeclined": {
+    "en": "The hub declined the unpark.",
+    "t": "Хаб отклонил возврат в обработку."
+  },
+  "err.verificationRequired": {
+    "en": "Verify your identity to continue.",
+    "t": "Подтвердите личность, чтобы продолжить."
+  },
+  "invest.about.risk": {
+    "en": "Units can fall in value as well as rise. The NAV is set by a posted valuation, not by a market price, and past marks are no guide to future ones. Cash comes back only when a redemption settles or a buyer takes your units on the book. Invest only what you can afford to leave in.",
+    "t": "Паи могут как расти, так и падать в цене. NAV задаётся опубликованной оценкой, а не рыночной ценой, и прошлые отметки ничего не говорят о будущих. Деньги возвращаются только после расчёта по погашению или когда покупатель заберёт ваши паи в книге. Инвестируйте только то, что можете оставить надолго."
+  },
+  "invest.about.riskTitle": {
+    "en": "Risk.",
+    "t": "Риск."
+  },
+  "invest.about.title": {
+    "en": "About this product",
+    "t": "О продукте"
+  },
+  "invest.accruedOnHolding": {
+    "en": "Accrued on your holding",
+    "t": "Начислено на вашу позицию"
+  },
+  "invest.acrossFunds": {
+    "en": "{n, plural, one {Across # fund} other {Across # funds}}",
+    "t": "{n, plural, one {В # фонде} few {В # фондах} many {В # фондах} other {В # фондах}}"
+  },
+  "invest.allProducts": {
+    "en": "All products",
+    "t": "Все продукты"
+  },
+  "invest.amountUsdt": {
+    "en": "Amount (USDT)",
+    "t": "Сумма (USDT)"
+  },
+  "invest.awaitingSettlement": {
+    "en": "Awaiting settlement",
+    "t": "Ожидает исполнения"
+  },
+  "invest.backing.cash": {
+    "en": "Cash-backed",
+    "t": "Обеспечен кэшем"
+  },
+  "invest.backing.inKind": {
+    "en": "In kind",
+    "t": "Натурой"
+  },
+  "invest.backing.inKindNote": {
+    "en": "Units of this product represent an asset held off-platform. The fund holds no cash for them, so they are sold on the book rather than redeemed.",
+    "t": "Юниты этого продукта представляют актив, хранящийся вне платформы. Фонд не держит под них кэш, поэтому они продаются в книге, а не погашаются."
+  },
+  "invest.badge.locked": {
+    "en": "Locked",
+    "t": "Заблокирован"
+  },
+  "invest.badge.open": {
+    "en": "Open",
+    "t": "Открыт"
+  },
+  "invest.badge.redeemOnly": {
+    "en": "Redeem only",
+    "t": "Только выход"
+  },
+  "invest.badge.staleNav": {
+    "en": "Stale NAV",
+    "t": "Старый NAV"
+  },
+  "invest.blocked.capReached": {
+    "en": "This fund has issued its full authorised supply, so it is not minting new units. Redemptions are unaffected.",
+    "t": "Фонд выпустил весь разрешённый объём, поэтому новые паи не выпускаются. Погашения это не затрагивает."
+  },
+  "invest.blocked.closed": {
+    "en": "This fund is closed to new subscriptions. Your units are unaffected — you can still redeem them in full.",
+    "t": "Фонд закрыт для новых подписок. Ваши паи это не затрагивает — вы можете погасить их полностью."
+  },
+  "invest.blocked.locked": {
+    "en": "This fund isn't open to you yet. You can see it, but subscribing stays locked until your access is raised. If you think you should have it:",
+    "t": "Этот фонд пока не открыт для вас. Вы можете его видеть, но подписка заблокирована, пока ваш доступ не повысят. Если считаете, что доступ должен быть:"
+  },
+  "invest.blocked.staleNav": {
+    "en": "The fund's valuation is out of date, so dealing is paused until a fresh one is posted.",
+    "t": "Оценка фонда устарела, поэтому операции приостановлены, пока не будет опубликована новая."
+  },
+  "invest.buysUnits": {
+    "en": "Buys {n, plural, one {{units} unit} other {{units} units}} at {nav} USDT per unit.",
+    "t": "Покупка {n, plural, one {{units} пая} few {{units} паёв} many {{units} паёв} other {{units} паёв}} по {nav} USDT за пай."
+  },
+  "invest.carriedOver": {
+    "en": "Carried over",
+    "t": "Перенесено"
+  },
+  "invest.costBasis": {
+    "en": "Cost basis",
+    "t": "Цена приобретения"
+  },
+  "invest.cta.locked": {
+    "en": "Locked: ask for access",
+    "t": "Закрыто: запросить доступ"
+  },
+  "invest.cta.lockedSubject": {
+    "en": "Access to {title}",
+    "t": "Доступ к {title}"
+  },
+  "invest.cta.trade": {
+    "en": "Trade on the book",
+    "t": "Торговать в книге"
+  },
+  "invest.cta.verify": {
+    "en": "Verify to invest",
+    "t": "Пройти проверку"
+  },
+  "invest.dustHint": {
+    "en": "Too small to buy a whole unit at {nav} — increase the amount.",
+    "t": "Слишком мало, чтобы купить целый пай по {nav} — увеличьте сумму."
+  },
+  "invest.facts.backing": {
+    "en": "Backing",
+    "t": "Обеспечение"
+  },
+  "invest.facts.backingCash": {
+    "en": "Cash held by the fund",
+    "t": "Кэш на балансе фонда"
+  },
+  "invest.facts.backingInKind": {
+    "en": "Asset held off-platform",
+    "t": "Актив вне платформы"
+  },
+  "invest.facts.capacity": {
+    "en": "Capacity left",
+    "t": "Свободный лимит"
+  },
+  "invest.facts.feeHeadline": {
+    "en": "{management} p.a. + {performance} of the gain",
+    "t": "{management} годовых + {performance} от прироста"
+  },
+  "invest.facts.feeHeadlineHurdle": {
+    "en": "{management} p.a. + {performance} of the gain above {hurdle} p.a.",
+    "t": "{management} годовых + {performance} от прироста сверх {hurdle} годовых"
+  },
+  "invest.facts.feeUnset": {
+    "en": "Not published yet",
+    "t": "Ещё не опубликованы"
+  },
+  "invest.facts.fees": {
+    "en": "Fees",
+    "t": "Комиссии"
+  },
+  "invest.facts.lastValuation": {
+    "en": "Last valuation",
+    "t": "Последняя оценка"
+  },
+  "invest.facts.liquidity": {
+    "en": "Liquidity",
+    "t": "Ликвидность"
+  },
+  "invest.facts.liquidityBook": {
+    "en": "Sold on the book",
+    "t": "Продажа в книге"
+  },
+  "invest.facts.liquidityNav": {
+    "en": "Redeem at NAV, queued",
+    "t": "Погашение по NAV, в очереди"
+  },
+  "invest.facts.liquidityNavOrBook": {
+    "en": "Redeem at NAV (queued) or trade on the book",
+    "t": "Погашение по NAV (в очереди) или торговля в книге"
+  },
+  "invest.facts.markedOn": {
+    "en": "Marked {date}",
+    "t": "Оценка от {date}"
+  },
+  "invest.feeChangeProposed": {
+    "en": "A change is proposed and awaits the owners: {terms}.",
+    "t": "Предложено изменение, оно ждёт владельцев: {terms}."
+  },
+  "invest.feeChangeScheduled": {
+    "en": "Terms change on {at}: {terms}.",
+    "t": "Условия меняются {at}: {terms}."
+  },
+  "invest.feeNoteHolder": {
+    "en": "Fees are taken in units, never in cash — your wallet balance is untouched, and the value shown opposite is before them. The performance fee applies only to gains above your own high-water mark, so a recovery back to it costs nothing.",
+    "t": "Комиссии удерживаются паями, а не деньгами: баланс кошелька не затрагивается, а показанная напротив стоимость указана до их удержания. Комиссия за успех берётся только с прибыли выше вашего личного high-water mark, поэтому возврат к нему ничего не стоит."
+  },
+  "invest.feeNoteProspect": {
+    "en": "Fees are taken in units, never in cash. The performance fee applies only to gains above the price you enter at, measured per investor rather than per fund.",
+    "t": "Комиссии удерживаются паями, а не деньгами. Комиссия за успех берётся только с прибыли выше цены вашего входа и считается по каждому инвестору, а не по фонду в целом."
+  },
+  "invest.fullyIssued": {
+    "en": "Fully issued — not minting new units.",
+    "t": "Выпуск исчерпан — новые паи не выпускаются."
+  },
+  "invest.fundAum": {
+    "en": "Fund AUM",
+    "t": "AUM фонда"
+  },
+  "invest.fundsHeld": {
+    "en": "Funds held",
+    "t": "Фондов в портфеле"
+  },
+  "invest.hurdleFirst": {
+    "en": "{pct} p.a. first",
+    "t": "сначала {pct} годовых"
+  },
+  "invest.investAmount": {
+    "en": "Invest {amount} USDT",
+    "t": "Инвестировать {amount} USDT"
+  },
+  "invest.investedValue": {
+    "en": "Invested value",
+    "t": "Стоимость вложений"
+  },
+  "invest.lockedIn": {
+    "en": "Locked in",
+    "t": "Фиксация"
+  },
+  "invest.nav": {
+    "en": "NAV",
+    "t": "NAV"
+  },
+  "invest.navPerUnit": {
+    "en": "NAV / unit",
+    "t": "NAV / пай"
+  },
+  "invest.noFunds": {
+    "en": "No funds are open for subscription right now.",
+    "t": "Сейчас нет фондов, открытых для подписки."
+  },
+  "invest.noFundsHint": {
+    "en": "A fund appears here once it is registered and opened for subscription. Nothing you hold is affected.",
+    "t": "Фонд появится здесь, как только его зарегистрируют и откроют для подписки. На ваши активы это не влияет."
+  },
+  "invest.noUnitsHeld": {
+    "en": "You hold no units yet.",
+    "t": "У вас пока нет паёв."
+  },
+  "invest.noUnitsInFund": {
+    "en": "You hold no units in this fund yet.",
+    "t": "У вас пока нет паёв этого фонда."
+  },
+  "invest.notInvestedYet": {
+    "en": "Not invested yet",
+    "t": "Вложений пока нет"
+  },
+  "invest.notRegistered": {
+    "en": "No fund is registered as “{service}”.",
+    "t": "Фонд с идентификатором «{service}» не зарегистрирован."
+  },
+  "invest.notRegisteredHint": {
+    "en": "Nothing is registered under this name. If you followed a link here, the product may never have been opened.",
+    "t": "Под этим именем ничего не зарегистрировано. Если вы перешли сюда по ссылке, продукт мог так и не быть открыт."
+  },
+  "invest.notYetValued": {
+    "en": "Not yet valued",
+    "t": "Оценки ещё нет"
+  },
+  "invest.notYetValuedHint": {
+    "en": "Not yet valued — the first subscription prices at 1.0.",
+    "t": "Оценки ещё нет — первая подписка проходит по цене 1.0."
+  },
+  "invest.ofTheGain": {
+    "en": "{pct} of the gain",
+    "t": "{pct} от прибыли"
+  },
+  "invest.overCapHint": {
+    "en": "Only {n, plural, one {{units} unit is} other {{units} units are}} left before this fund reaches its cap — reduce the amount.",
+    "t": "До лимита фонда осталось всего {n, plural, one {{units} пай} few {{units} пая} many {{units} паёв} other {{units} пая}} — уменьшите сумму."
+  },
+  "invest.perAnnum": {
+    "en": "{pct} p.a.",
+    "t": "{pct} годовых"
+  },
+  "invest.pnl": {
+    "en": "P&L",
+    "t": "P&L"
+  },
+  "invest.products": {
+    "en": "Products",
+    "t": "Продукты"
+  },
+  "invest.redeem": {
+    "en": "Redeem",
+    "t": "Погасить"
+  },
+  "invest.redeemCompleted": {
+    "en": "Redemption completed",
+    "t": "Погашение исполнено"
+  },
+  "invest.redeemEstimate": {
+    "en": "≈ {amount} USDT at today's NAV — the settle price may differ.",
+    "t": "≈ {amount} USDT по сегодняшнему NAV — расчётная цена может отличаться."
+  },
+  "invest.redeemFailed": {
+    "en": "Redemption failed",
+    "t": "Погашение не выполнено"
+  },
+  "invest.redeemQueued": {
+    "en": "Redemption queued",
+    "t": "Погашение в очереди"
+  },
+  "invest.redeemReceiptCompleted": {
+    "en": "{n, plural, one {{units} unit} other {{units} units}} redeemed for {cash} USDT at {nav} USDT NAV.",
+    "t": "{n, plural, one {Погашен {units} пай} few {Погашено {units} пая} many {Погашено {units} паёв} other {Погашено {units} пая}} за {cash} USDT по NAV {nav} USDT."
+  },
+  "invest.redeemReceiptQueued": {
+    "en": "{n, plural, one {{units} unit} other {{units} units}} reserved — queued until the fund tops up, then priced at the settle NAV.",
+    "t": "{n, plural, one {Зарезервирован {units} пай} few {Зарезервировано {units} пая} many {Зарезервировано {units} паёв} other {Зарезервировано {units} пая}} — заявка в очереди до пополнения фонда, затем цена определяется по расчётному NAV."
+  },
+  "invest.redeemTimingNote": {
+    "en": "Your units are reserved the moment you submit, but the cash is priced when the redemption settles — not now. A figure shown here is an estimate at today's NAV.",
+    "t": "Паи резервируются в момент отправки заявки, но сумма определяется при исполнении погашения, а не сейчас. Показанная здесь цифра — оценка по сегодняшнему NAV."
+  },
+  "invest.redeemUnbacked": {
+    "en": "Units of this product are not backed by fund cash — sell them on the book instead of redeeming.",
+    "t": "Юниты этого продукта не обеспечены кэшем фонда — продайте их в книге вместо погашения."
+  },
+  "invest.remainingCapacity": {
+    "en": "Remaining capacity",
+    "t": "Остаток лимита"
+  },
+  "invest.reservedPricedAtSettle": {
+    "en": "reserved, priced at settle",
+    "t": "зарезервировано, цена — при исполнении"
+  },
+  "invest.subscribe": {
+    "en": "Subscribe",
+    "t": "Подписаться"
+  },
+  "invest.subscribeFailed": {
+    "en": "Subscription failed",
+    "t": "Подписка не выполнена"
+  },
+  "invest.subscribeIdleHint": {
+    "en": "Units are priced at the current NAV; the unit count is fixed at purchase and does not grow.",
+    "t": "Паи покупаются по текущему NAV; их количество фиксируется при покупке и не растёт."
+  },
+  "invest.subscribePending": {
+    "en": "Subscription pending",
+    "t": "Подписка в обработке"
+  },
+  "invest.subscribePendingBody": {
+    "en": "Your cash is on hold. {n, plural, one {{units} unit} other {{units} units}} at {nav} USDT NAV are minted once it is captured — your position updates then.",
+    "t": "Ваши деньги заблокированы. {n, plural, one {{units} пай} few {{units} пая} many {{units} паёв} other {{units} пая}} по NAV {nav} USDT будут выпущены после их списания — тогда позиция и обновится."
+  },
+  "invest.subscribeReceiptBody": {
+    "en": "Minted {n, plural, one {{units} unit} other {{units} units}} at {nav} USDT NAV — your position updates shortly.",
+    "t": "{n, plural, one {Выпущен {units} пай} few {Выпущено {units} пая} many {Выпущено {units} паёв} other {Выпущено {units} пая}} по NAV {nav} USDT — позиция обновится в ближайшее время."
+  },
+  "invest.subscribeReceived": {
+    "en": "Subscription received",
+    "t": "Подписка принята"
+  },
+  "invest.subscribeRefused": {
+    "en": "The cash for this subscription was not taken, and nothing moved.",
+    "t": "Деньги для этой подписки не списаны, ничего не изменилось."
+  },
+  "invest.supplyNote": {
+    "en": "Subscriptions mint units at the current NAV. Once the cap is reached the fund stops accepting new money; redemptions are unaffected.",
+    "t": "Подписки выпускают паи по текущему NAV. Как только достигнут лимит, фонд перестаёт принимать новые средства; погашения это не затрагивает."
+  },
+  "invest.title": {
+    "en": "Invest",
+    "t": "Инвестировать"
+  },
+  "invest.topUp": {
+    "en": "Top up",
+    "t": "Пополнить"
+  },
+  "invest.trade": {
+    "en": "Trade",
+    "t": "Торговать"
+  },
+  "invest.units": {
+    "en": "Units",
+    "t": "Паи"
+  },
+  "invest.unitsHeld": {
+    "en": "{n, plural, one {{units} unit} other {{units} units}} held.",
+    "t": "Во владении: {n, plural, one {{units} пай} few {{units} пая} many {{units} паёв} other {{units} пая}}."
+  },
+  "invest.unitsIssued": {
+    "en": "Units issued",
+    "t": "Выпущено паёв"
+  },
+  "invest.unitsToRedeem": {
+    "en": "Units to redeem",
+    "t": "Паёв к погашению"
+  },
+  "invest.unmarkedNote": {
+    "en": "No valuation posted yet — units price at the bootstrap NAV of 1.0 until the first mark.",
+    "t": "Оценка ещё не опубликована — до первой отметки паи оцениваются по начальному NAV 1.0."
+  },
+  "invest.value": {
+    "en": "Value",
+    "t": "Стоимость"
+  },
+  "invest.youHoldUnits": {
+    "en": "You hold {n, plural, one {{units} unit} other {{units} units}}.",
+    "t": "У вас {n, plural, one {{units} пай} few {{units} пая} many {{units} паёв} other {{units} пая}}."
+  },
+  "invest.yourMark": {
+    "en": "Your mark",
+    "t": "Ваш high-water mark"
+  },
+  "invest.yourPosition": {
+    "en": "Your position",
+    "t": "Ваша позиция"
+  },
+  "invest.yourUnits": {
+    "en": "Your units",
+    "t": "Ваши паи"
+  },
+  "meta.description": {
+    "en": "Your investor cabinet — portfolio, funds and wallet.",
+    "t": "Ваш инвесторский кабинет — портфель, фонды и кошелёк."
+  },
+  "meta.title": {
+    "en": "EV Investment — Cabinet",
+    "t": "EV Investment — Кабинет"
+  },
+  "nav.a11y.primary": {
+    "en": "Primary",
+    "t": "Основная"
+  },
+  "nav.a11y.secondary": {
+    "en": "Secondary",
+    "t": "Дополнительная"
+  },
+  "nav.account": {
+    "en": "Account",
+    "t": "Аккаунт"
+  },
+  "nav.admin": {
+    "en": "Admin",
+    "t": "Админка"
+  },
+  "nav.allocations": {
+    "en": "Allocations",
+    "t": "Продукты"
+  },
+  "nav.approvals": {
+    "en": "Approvals",
+    "t": "Одобрения"
+  },
+  "nav.fees": {
+    "en": "Fees",
+    "t": "Комиссии"
+  },
+  "nav.group.fund": {
+    "en": "Your account",
+    "t": "Ваш счёт"
+  },
+  "nav.invest": {
+    "en": "Invest",
+    "t": "Инвестиции"
+  },
+  "nav.payments": {
+    "en": "Payments",
+    "t": "Платежи"
+  },
+  "nav.portfolio": {
+    "en": "Portfolio",
+    "t": "Портфель"
+  },
+  "nav.revenue": {
+    "en": "Revenue stats",
+    "t": "Статистика дохода"
+  },
+  "nav.support": {
+    "en": "Support",
+    "t": "Поддержка"
+  },
+  "nav.treasury": {
+    "en": "Treasury",
+    "t": "Казна"
+  },
+  "nav.users": {
+    "en": "Users",
+    "t": "Аккаунты"
+  },
+  "nav.valuation": {
+    "en": "Valuation & redemptions",
+    "t": "Оценка"
+  },
+  "nav.wallet": {
+    "en": "Wallet",
+    "t": "Кошелёк"
+  },
+  "profile.kyc.contact": {
+    "en": "Contact {contact}",
+    "t": "Написать на {contact}"
+  },
+  "status.backHome": {
+    "en": "Back to home",
+    "t": "На главную"
+  },
+  "status.contactTeam": {
+    "en": "Contact the team",
+    "t": "Связаться с командой"
+  },
+  "status.forbidden.eyebrow": {
+    "en": "Access forbidden",
+    "t": "Доступ закрыт"
+  },
+  "status.forbidden.headlineAccent": {
+    "en": "private",
+    "t": "частная"
+  },
+  "status.forbidden.headlineLead": {
+    "en": "This harbour is ",
+    "t": "Эта гавань — "
+  },
+  "status.forbidden.subtext": {
+    "en": "You don't have the credentials to view this page. If you believe you should, our team can open the right doors.",
+    "t": "У вас нет прав для просмотра этой страницы. Если вы считаете, что это ошибка, наша команда откроет нужные двери."
+  },
+  "status.notFound.eyebrow": {
+    "en": "Page not found",
+    "t": "Страница не найдена"
+  },
+  "status.notFound.headlineAccent": {
+    "en": "open water",
+    "t": "открытое море"
+  },
+  "status.notFound.headlineLead": {
+    "en": "You've reached ",
+    "t": "Вы вышли в "
+  },
+  "status.notFound.subtext": {
+    "en": "The page you're looking for has drifted off our coastline — moved, renamed, or never charted. Let's get you back to shore.",
+    "t": "Страницу, которую вы ищете, унесло от нашего побережья — её перенесли, переименовали или никогда не наносили на карту. Вернём вас на берег."
+  },
+  "status.requestAccess": {
+    "en": "Request access",
+    "t": "Запросить доступ"
+  },
+  "status.serverError.eyebrow": {
+    "en": "Server error",
+    "t": "Ошибка сервера"
+  },
+  "status.serverError.headlineAccent": {
+    "en": "recalibrating",
+    "t": "перенастраиваются"
+  },
+  "status.serverError.headlineLead": {
+    "en": "Our systems are ",
+    "t": "Наши системы "
+  },
+  "status.serverError.subtext": {
+    "en": "Something broke on our end — not yours. We've been alerted and are restoring service. Please try again in a moment.",
+    "t": "Что-то сломалось на нашей стороне — не на вашей. Мы уже знаем об этом и восстанавливаем работу. Попробуйте через минуту."
+  },
+  "status.signIn": {
+    "en": "Sign in",
+    "t": "Войти"
+  },
+  "status.tryAgain": {
+    "en": "Try again",
+    "t": "Повторить"
+  },
+  "status.unauthorized.eyebrow": {
+    "en": "Sign-in required",
+    "t": "Требуется вход"
+  },
+  "status.unauthorized.headlineAccent": {
+    "en": "crew only",
+    "t": "только для экипажа"
+  },
+  "status.unauthorized.headlineLead": {
+    "en": "This deck is ",
+    "t": "Эта палуба — "
+  },
+  "status.unauthorized.subtext": {
+    "en": "You need to be signed in to view this page. Sign in and we'll bring you right back.",
+    "t": "Чтобы открыть эту страницу, нужно войти. Войдите — и мы вернём вас сюда же."
+  },
+  "tips.a11y.about": {
+    "en": "About: {title}",
+    "t": "О чём это: {title}"
+  },
+  "tips.admin.cabinet.announcement.live.body": {
+    "en": "Publishes the announcement banner across the whole cabinet immediately.",
+    "t": "Немедленно публикует баннер объявления во всём кабинете."
+  },
+  "tips.admin.cabinet.announcement.live.title": {
+    "en": "Live",
+    "t": "Опубликовано"
+  },
+  "tips.admin.cabinet.flags.body": {
+    "en": "Flags gate cabinet features and MFE mounts. The row toggle flips a flag on or off; the rollout % controls what share of users it is exposed to.",
+    "t": "Флаги управляют функциями кабинета и подключением микрофронтендов. Переключатель в строке включает или выключает флаг; процент раскатки задаёт, какой доле пользователей он доступен."
+  },
+  "tips.admin.cabinet.flags.rollout.body": {
+    "en": "The share of users the flag is enabled for during a staged rollout. 100% is a full rollout; lower values expose it to only that fraction.",
+    "t": "Доля пользователей, для которых флаг включён во время поэтапной раскатки. 100% — полная раскатка; меньшие значения открывают функцию только этой доле."
+  },
+  "tips.admin.cabinet.flags.rollout.title": {
+    "en": "Rollout %",
+    "t": "Процент раскатки"
+  },
+  "tips.admin.cabinet.flags.title": {
+    "en": "Feature flags",
+    "t": "Фича-флаги"
+  },
+  "tips.admin.cabinet.maintenance.body": {
+    "en": "Swaps the whole cabinet for a holding page for all users — an identity-plane kill-switch. No money movement is affected.",
+    "t": "Заменяет весь кабинет заглушкой для всех пользователей — аварийный выключатель плоскости идентичности. Движение денег это не затрагивает."
+  },
+  "tips.admin.cabinet.maintenance.title": {
+    "en": "Maintenance mode",
+    "t": "Режим обслуживания"
+  },
+  "tips.admin.cabinet.readonly.body": {
+    "en": "Halts all deposit and withdrawal money movement — the money-plane kill-switch.",
+    "t": "Останавливает все движения денег по пополнениям и выводам — аварийный выключатель денежной плоскости."
+  },
+  "tips.admin.cabinet.readonly.title": {
+    "en": "Read-only mode",
+    "t": "Режим только для чтения"
+  },
+  "tips.admin.outbox.parked-events.body": {
+    "en": "A row parks when the relay hits a terminal apply error. Fix the cause shown in the Reason column first, then unpark to re-drive it — otherwise it just re-parks.",
+    "t": "Запись откладывается, когда релей получает неустранимую ошибку применения. Сначала устраните причину из столбца «Причина», затем верните запись в обработку — иначе она отложится снова."
+  },
+  "tips.admin.outbox.parked-events.title": {
+    "en": "Parked events",
+    "t": "Отложенные события"
+  },
+  "tips.admin.outbox.parked.compensated.body": {
+    "en": "This row's saga was already reversed, so its money effect is undone. Unpark is disabled to avoid re-applying an entry that was intentionally rolled back.",
+    "t": "Сага этой записи уже развёрнута, поэтому её денежный эффект отменён. Возврат в обработку недоступен, чтобы не применить повторно проводку, которую намеренно откатили."
+  },
+  "tips.admin.outbox.parked.compensated.title": {
+    "en": "Compensated",
+    "t": "Компенсация"
+  },
+  "tips.admin.outbox.parked.reason.body": {
+    "en": "The relay's failure cause for this parked row — the thing you must fix before unparking.",
+    "t": "Причина сбоя релея для этой отложенной записи — то, что нужно устранить до возврата в обработку."
+  },
+  "tips.admin.outbox.parked.reason.title": {
+    "en": "Reason",
+    "t": "Причина"
+  },
+  "tips.admin.outbox.parked.unpark.body": {
+    "en": "Re-drives this outbox row through the relay after you've fixed its cause. Disabled when the row was compensated, already unparked this session, or while another unpark is in flight.",
+    "t": "Повторно прогоняет эту запись outbox через релей после того, как вы устранили причину. Недоступно, если запись была компенсирована, уже возвращена в этом сеансе или пока выполняется другой возврат."
+  },
+  "tips.admin.outbox.parked.unpark.title": {
+    "en": "Unpark",
+    "t": "Возврат в обработку"
+  },
+  "tips.admin.treasury.bank.body": {
+    "en": "The fiat USD bank balance used for off-ramp and FX, counted as treasury liquidity alongside the on-chain rails.",
+    "t": "Фиатный банковский баланс в USD, который используется для вывода в фиат и конвертации; учитывается как ликвидность казначейства наравне с ончейн-каналами."
+  },
+  "tips.admin.treasury.bank.title": {
+    "en": "Bank · USD",
+    "t": "Банк · USD"
+  },
+  "tips.admin.treasury.invariant.body": {
+    "en": "Per-rail backing is the treasury's job, not the ledger's: a shortfall on one rail is accept-and-queue, then rebalanced via CEX, alt-rail, or top-up. The global invariant is sum(custody) == sum(claims).",
+    "t": "Обеспечение по каждому каналу — задача казначейства, а не реестра: нехватка на одном канале означает приём и постановку в очередь с последующей ребалансировкой через биржу, другой канал или пополнение. Глобальный инвариант — sum(custody) == sum(claims)."
+  },
+  "tips.admin.treasury.invariant.title": {
+    "en": "The invariant",
+    "t": "Инвариант"
+  },
+  "tips.admin.treasury.layer1.allocations.body": {
+    "en": "Every allocation's cash claim, supply, price and holders — the products and the hidden fee and fund allocations. Every unit belongs to a person or to the fee allocation; nothing is nobody's.",
+    "t": "Денежное требование, объём, цена и держатели каждой аллокации — продуктов и скрытых аллокаций комиссий и капитала. Каждый юнит принадлежит человеку или аллокации комиссий; ничьего нет."
+  },
+  "tips.admin.treasury.layer1.allocations.title": {
+    "en": "Held through allocations",
+    "t": "Через аллокации"
+  },
+  "tips.admin.treasury.layer1.claims-total.body": {
+    "en": "Total claims — users' and allocations'. Equals the sum of on-chain custody — every claim is fully backed.",
+    "t": "Сумма требований — пользователей и аллокаций. Равна сумме ончейн-кастодии — каждое требование полностью обеспечено."
+  },
+  "tips.admin.treasury.layer1.claims-total.title": {
+    "en": "Claims · total",
+    "t": "Требования · всего"
+  },
+  "tips.admin.treasury.layer1.held-by-users.body": {
+    "en": "Claims people hold directly — their wallet balances. Read off the user claim accounts, never derived as a remainder.",
+    "t": "Требования, которые люди держат напрямую — балансы их кошельков. Читается со счетов требований пользователей, а не выводится как остаток."
+  },
+  "tips.admin.treasury.layer1.held-by-users.title": {
+    "en": "Held by users",
+    "t": "У пользователей"
+  },
+  "tips.admin.treasury.layer1.ledger.body": {
+    "en": "The ledger's network-agnostic claims in USDT. Total claims equal on-chain custody and break down into what users hold directly, what allocations hold for their holders, and reserved-for-withdrawals.",
+    "t": "Не зависящие от сети требования леджера в USDT. Сумма требований равна ончейн-кастодии и складывается из того, что пользователи держат напрямую, того, что аллокации держат для своих держателей, и зарезервированного под выводы."
+  },
+  "tips.admin.treasury.layer1.ledger.title": {
+    "en": "Layer 1 · Ledger",
+    "t": "Уровень 1 · Реестр"
+  },
+  "tips.admin.treasury.layer1.reserved-withdrawals.body": {
+    "en": "Claims set aside for queued and in-flight withdrawals, parked in the clearing account until they settle on-chain.",
+    "t": "Требования, отложенные под выводы в очереди и в пути; они хранятся на клиринговом счёте до подтверждения в сети."
+  },
+  "tips.admin.treasury.layer1.reserved-withdrawals.title": {
+    "en": "Reserved · withdrawals",
+    "t": "Зарезервировано · выводы"
+  },
+  "tips.admin.treasury.layer2.rails.body": {
+    "en": "The actual on-chain USDT liquidity held per rail (BEP20 / TRC20 / TON / Polygon), plus the fiat bank balance. This is where the backing physically sits.",
+    "t": "Фактическая ончейн-ликвидность в USDT по каждому каналу (BEP20 / TRC20 / TON / Polygon) плюс фиатный банковский баланс. Именно здесь физически находится обеспечение."
+  },
+  "tips.admin.treasury.layer2.rails.title": {
+    "en": "Layer 2 · Treasury",
+    "t": "Уровень 2 · Казначейство"
+  },
+  "tips.admin.treasury.rail.address.body": {
+    "en": "This rail's on-chain hot-wallet address. BEP20 and Polygon share an identical EVM address format — topping up on the wrong EVM chain, or sending another rail's funds here, is an irreversible mis-send.",
+    "t": "Адрес горячего кошелька этого канала в сети. У BEP20 и Polygon одинаковый формат EVM-адреса: пополнение не в той EVM-сети или отправка сюда средств другого канала — необратимая ошибка."
+  },
+  "tips.admin.treasury.rail.address.title": {
+    "en": "Treasury address",
+    "t": "Адрес казначейства"
+  },
+  "tips.admin.treasury.rail.funding.body": {
+    "en": "The card value is this rail's ledger custody; the footer shows the hot wallet's real on-chain USDT and native gas. The two can legitimately diverge under accept-and-queue.",
+    "t": "Значение на карточке — кастоди этого канала по данным реестра; в подвале показаны реальные ончейн-USDT горячего кошелька и нативный газ. Расхождение между ними законно при приёме заявок в очередь."
+  },
+  "tips.admin.treasury.rail.funding.title": {
+    "en": "Rail funding",
+    "t": "Фондирование канала"
+  },
+  "tips.admin.treasury.rail.gas-station.body": {
+    "en": "Top this address up with the rail's native token to fund sweep gas. Send the correct native symbol on the correct chain — EVM gas-station addresses are shared, so a wrong-chain top-up is unrecoverable.",
+    "t": "Пополняйте этот адрес нативным токеном канала, чтобы оплачивать газ для свипов. Отправляйте верный нативный символ в верной сети: адреса газовых станций EVM общие, поэтому пополнение не в той сети невозвратно."
+  },
+  "tips.admin.treasury.rail.gas-station.title": {
+    "en": "Gas station",
+    "t": "Газовая станция"
+  },
+  "tips.admin.treasury.two-layer-model.body": {
+    "en": "Layer 1 is the ledger's network-agnostic USDT claims; Layer 2 is the actual on-chain liquidity held per rail. The two must reconcile.",
+    "t": "Уровень 1 — требования реестра в USDT, не привязанные к сети; уровень 2 — фактическая ончейн-ликвидность по каждому каналу. Они должны сходиться."
+  },
+  "tips.admin.treasury.two-layer-model.title": {
+    "en": "Two layers",
+    "t": "Два уровня"
+  },
+  "tips.admin.users.access.kyc-level.body": {
+    "en": "The user's identity-verification tier. Higher levels unlock higher limits and actions per the KYC policy.",
+    "t": "Уровень верификации личности пользователя. Более высокие уровни открывают более высокие лимиты и действия согласно политике KYC."
+  },
+  "tips.admin.users.access.kyc-level.title": {
+    "en": "KYC level",
+    "t": "Уровень KYC"
+  },
+  "tips.admin.users.access.revoke-sessions.body": {
+    "en": "Bumps token_version — invalidates every JWT issued to this user, signing them out of every active session.",
+    "t": "Увеличивает token_version — делает недействительными все JWT, выданные этому пользователю, и завершает все его активные сеансы."
+  },
+  "tips.admin.users.access.revoke-sessions.title": {
+    "en": "Revoke all sessions",
+    "t": "Отозвать все сеансы"
+  },
+  "tips.admin.users.access.role.body": {
+    "en": "The access level for this user: investor, operator or admin. Raising it grants operator/admin console access immediately on change. Owner is not here — a seat is the consilium's to give and to take away.",
+    "t": "Уровень доступа пользователя: инвестор, оператор или админ. Повышение сразу даёт доступ к консоли оператора/админа. «Владельца» здесь нет — место даёт и забирает только консилиум."
+  },
+  "tips.admin.users.access.role.title": {
+    "en": "Role",
+    "t": "Роль"
+  },
+  "tips.admin.users.identity.token-version.body": {
+    "en": "A per-user counter stamped into every issued JWT. It increments on 'Revoke all sessions', so any token carrying an older version fails verification.",
+    "t": "Счётчик пользователя, который проставляется в каждый выданный JWT. Он увеличивается при отзыве всех сеансов, поэтому токен со старой версией не проходит проверку."
+  },
+  "tips.admin.users.identity.token-version.title": {
+    "en": "Token version",
+    "t": "Версия токена"
+  },
+  "tips.admin.users.status.suspend.body": {
+    "en": "Hold freezes the account now and lapses by itself in 24 hours — one operator may do that. Making it permanent, or undoing a permanent one, is a proposal the owners vote through. An account blocked before the two were told apart does not lapse, and one admin can lift it.",
+    "t": "Удержание замораживает аккаунт сейчас же и спадает само через 24 часа — это может один оператор. Сделать блокировку постоянной или отменить постоянную — предложение, которое голосуют владельцы. Аккаунт, заблокированный до разделения этих двух вещей, не спадает, и снять его может один админ."
+  },
+  "tips.admin.users.status.suspend.title": {
+    "en": "Hold, suspension and reinstatement",
+    "t": "Удержание, приостановка и восстановление"
+  },
+  "tips.admin.valuation.post.aum.body": {
+    "en": "The fund's total assets under management you're marking. The NAV/share that pays redemptions is derived from it (AUM ÷ units outstanding), so a wrong figure mis-prices every settle.",
+    "t": "Совокупные активы фонда под управлением, которые вы оцениваете. Из них выводится NAV на пай, по которому оплачиваются погашения (AUM ÷ паи в обращении), поэтому неверная цифра исказит цену каждого исполнения."
+  },
+  "tips.admin.valuation.post.aum.title": {
+    "en": "AUM (USDT)",
+    "t": "AUM (USDT)"
+  },
+  "tips.admin.valuation.post.derived-nav.body": {
+    "en": "Entered AUM divided by units outstanding. This is the mark that Post valuation commits.",
+    "t": "Введённый AUM, делённый на паи в обращении. Именно эта оценка фиксируется при публикации."
+  },
+  "tips.admin.valuation.post.derived-nav.title": {
+    "en": "Derived NAV / share",
+    "t": "Расчётный NAV / пай"
+  },
+  "tips.admin.valuation.post.nav-guard.body": {
+    "en": "A post is refused if the NAV moves more than 50% from the last mark or from the mark of a week ago — stepping there in smaller posts is refused too. There is no override: a larger move is proposed to the owners and recorded only if their vote carries.",
+    "t": "Публикация отклоняется, если NAV отклоняется более чем на 50% от последней оценки или от оценки недельной давности — подойти к цифре шагами тоже не выйдет. Обхода нет: больший сдвиг предлагается владельцам и записывается, только если голосование прошло."
+  },
+  "tips.admin.valuation.post.nav-guard.title": {
+    "en": "NAV-move guard",
+    "t": "Защита от скачка NAV"
+  },
+  "tips.admin.valuation.queue.est-cash.body": {
+    "en": "A preview only — approximately units × current NAV. The actual payout settles at the settle-time NAV, not this figure.",
+    "t": "Только предварительная оценка — примерно паи × текущий NAV. Фактическая выплата рассчитывается по NAV на момент исполнения, а не по этой цифре."
+  },
+  "tips.admin.valuation.queue.est-cash.title": {
+    "en": "Est. cash",
+    "t": "Прибл. сумма"
+  },
+  "tips.admin.valuation.queue.fail.body": {
+    "en": "Voids the request and refunds the units — no cash is paid and the burned units are returned to the user.",
+    "t": "Аннулирует заявку и возвращает паи — деньги не выплачиваются, а списанные паи возвращаются пользователю."
+  },
+  "tips.admin.valuation.queue.fail.title": {
+    "en": "Fail",
+    "t": "Отклонить"
+  },
+  "tips.admin.valuation.queue.settle-fail.body": {
+    "en": "Settle pays at settle-time NAV once the fund claim is liquid; if the rail is short the payout queues until treasury tops up. Fail voids the request and refunds the units.",
+    "t": "«Исполнить» выплачивает по расчётному NAV, как только требование фонда становится ликвидным; если на канале не хватает средств, выплата встаёт в очередь до пополнения казначейства. «Отклонить» аннулирует заявку и возвращает паи."
+  },
+  "tips.admin.valuation.queue.settle-fail.title": {
+    "en": "Settle vs Fail",
+    "t": "Исполнить или отклонить"
+  },
+  "tips.admin.valuation.queue.settle.body": {
+    "en": "Pays at the settle-time NAV once the fund claim is liquid, queuing if the rail is short. Settle also burns the user's units.",
+    "t": "Выплачивает по NAV на момент исполнения, как только требование фонда становится ликвидным; при нехватке средств на канале заявка встаёт в очередь. Исполнение также списывает паи пользователя."
+  },
+  "tips.admin.valuation.queue.settle.title": {
+    "en": "Settle",
+    "t": "Исполнить"
+  },
+  "tips.admin.withdrawals.destination.body": {
+    "en": "The user's payout address, bound to this specific rail. Sends are irreversible and rail-specific — verify the address matches the network before dispatching.",
+    "t": "Адрес выплаты пользователя, привязанный именно к этому каналу. Отправка необратима и зависит от канала — перед отправкой убедитесь, что адрес соответствует сети."
+  },
+  "tips.admin.withdrawals.destination.title": {
+    "en": "Destination",
+    "t": "Получатель"
+  },
+  "tips.admin.withdrawals.fail.double-pay.body": {
+    "en": "Failing refunds the user. If the broadcast reached the chain this would double-pay — the hub refuses while a broadcast record exists, but verify on-chain first.",
+    "t": "Отклонение возвращает средства пользователю. Если транзакция уже ушла в сеть, это приведёт к двойной оплате — хаб откажет, пока существует запись об отправке, но сначала проверьте сеть."
+  },
+  "tips.admin.withdrawals.fail.double-pay.title": {
+    "en": "Failing can double-pay",
+    "t": "Отклонение может привести к двойной оплате"
+  },
+  "tips.admin.withdrawals.flow.body": {
+    "en": "Dispatch broadcasts a queued withdrawal once its rail has liquidity. Settle records the mined transaction and releases the reservation. Fail voids and refunds — only safe when nothing reached the chain.",
+    "t": "«Отправить» публикует вывод из очереди в сеть, как только на канале появляется ликвидность. «Исполнить» фиксирует подтверждённую транзакцию и снимает резерв. «Отклонить» аннулирует заявку и возвращает средства — это безопасно, только если в сеть ничего не ушло."
+  },
+  "tips.admin.withdrawals.flow.title": {
+    "en": "Dispatch, settle, fail",
+    "t": "Отправка, исполнение, отклонение"
+  },
+  "tips.admin.withdrawals.gross-net.body": {
+    "en": "Gross is the full amount debited from the user; net is what is actually sent on-chain after the withdrawal fee.",
+    "t": "Брутто — полная сумма, списанная с пользователя; нетто — то, что фактически уходит в сеть после комиссии за вывод."
+  },
+  "tips.admin.withdrawals.gross-net.title": {
+    "en": "Gross / net",
+    "t": "Брутто / нетто"
+  },
+  "tips.admin.withdrawals.settle.tx-hash.body": {
+    "en": "Paste the mined on-chain tx hash. Settling records the mined transaction and releases the reservation — only enter a hash for a tx that actually mined.",
+    "t": "Вставьте хеш подтверждённой ончейн-транзакции. Исполнение фиксирует подтверждённую транзакцию и снимает резерв — вводите хеш только для транзакции, которая действительно попала в блок."
+  },
+  "tips.admin.withdrawals.settle.tx-hash.title": {
+    "en": "Mined transaction hash",
+    "t": "Хеш подтверждённой транзакции"
+  },
+  "tips.admin.withdrawals.state.body": {
+    "en": "Queued = accepted and reserved but not yet broadcast (Dispatch only). Processing = already broadcast, awaiting a mined tx (Settle or Fail apply).",
+    "t": "«В очереди» — заявка принята и зарезервирована, но ещё не отправлена в сеть (доступна только отправка). «В обработке» — уже отправлена, ожидается подтверждение транзакции (применимы исполнение или отклонение)."
+  },
+  "tips.admin.withdrawals.state.title": {
+    "en": "State",
+    "t": "Состояние"
+  },
+  "tips.dashboard.invested.allocation.body": {
+    "en": "Each bar is one strategy's share of your invested value at current NAV. Percentages are of invested value only and exclude your available cash.",
+    "t": "Каждая полоса — доля одной стратегии в стоимости ваших вложений по текущему NAV. Проценты считаются только от стоимости вложений и не включают свободные средства."
+  },
+  "tips.dashboard.invested.allocation.title": {
+    "en": "Invested — what I own",
+    "t": "Инвестировано — что мне принадлежит"
+  },
+  "tips.dashboard.performance.all-time-return.body": {
+    "en": "Total unrealized P&L divided by what you put in at cost basis, across every position. A paper figure, not realized cash.",
+    "t": "Совокупный нереализованный P&L, делённый на вложенное по цене приобретения, по всем позициям. Это бумажный результат, а не полученные деньги."
+  },
+  "tips.dashboard.performance.all-time-return.title": {
+    "en": "All-time return",
+    "t": "Доходность за всё время"
+  },
+  "tips.dashboard.performance.portfolio-value.body": {
+    "en": "Your whole balance: available + invested + pending withdrawal. Money locked in a queued withdrawal is still counted here.",
+    "t": "Весь ваш баланс: доступно + инвестировано + в ожидании вывода. Деньги, заблокированные в выводе из очереди, здесь тоже учитываются."
+  },
+  "tips.dashboard.performance.portfolio-value.title": {
+    "en": "Portfolio value",
+    "t": "Стоимость портфеля"
+  },
+  "tips.dashboard.performance.series.body": {
+    "en": "'Fund performance' is the fund's return since the first valuation in the range, from the posted marks; 'Your participation' is what your units were worth at each of them, which differs by when you contributed.",
+    "t": "«Доходность фонда» — результат фонда с первой оценки в диапазоне, по опубликованным отметкам; «Ваша доля» — сколько стоили ваши юниты в каждой из них, что зависит от того, когда вы вносили средства."
+  },
+  "tips.dashboard.performance.series.title": {
+    "en": "Performance chart",
+    "t": "График доходности"
+  },
+  "tips.dashboard.stats.available.body": {
+    "en": "Cash that is free and spendable now — ready to deploy into a strategy or withdraw.",
+    "t": "Средства, свободные и доступные прямо сейчас — их можно разместить в стратегию или вывести."
+  },
+  "tips.dashboard.stats.available.title": {
+    "en": "Available",
+    "t": "Доступно"
+  },
+  "tips.dashboard.stats.net-invested.body": {
+    "en": "Total cash you put into strategies at cost basis, net of redemptions — not the current value.",
+    "t": "Всего внесено в стратегии по цене приобретения за вычетом погашений — это не текущая стоимость."
+  },
+  "tips.dashboard.stats.net-invested.title": {
+    "en": "Net invested",
+    "t": "Чистые взносы"
+  },
+  "tips.dashboard.stats.unrealized-pnl.body": {
+    "en": "Paper gain or loss across all positions — current value minus cost basis. It becomes realized cash only when you redeem.",
+    "t": "Бумажная прибыль или убыток по всем позициям — текущая стоимость минус цена приобретения. Реальными деньгами это становится только при погашении."
+  },
+  "tips.dashboard.stats.unrealized-pnl.title": {
+    "en": "Unrealized P&L",
+    "t": "Нереализованный P&L"
+  },
+  "tips.invest.activity.cancel.body": {
+    "en": "Available only while a redemption is still queued. It withdraws the request and releases the reserved units back to your holding before any settle NAV is applied.",
+    "t": "Доступно, только пока погашение стоит в очереди. Отзывает заявку и возвращает зарезервированные паи в вашу позицию до применения расчётного NAV."
+  },
+  "tips.invest.activity.cancel.title": {
+    "en": "Cancel",
+    "t": "Отмена"
+  },
+  "tips.invest.activity.status.body": {
+    "en": "Queued (reserved, awaiting settle), completed (paid out at the settle NAV), failed, or cancelled.",
+    "t": "В очереди (зарезервировано, ожидает исполнения), завершено (выплачено по расчётному NAV), не выполнено или отменено."
+  },
+  "tips.invest.activity.status.title": {
+    "en": "Redemption status",
+    "t": "Статус погашения"
+  },
+  "tips.invest.overview.body": {
+    "en": "Subscribe USDT for units — your value tracks the fund's NAV, not the unit count.",
+    "t": "Подписывайтесь на паи за USDT — стоимость вашей позиции следует за NAV фонда, а не за количеством паёв."
+  },
+  "tips.invest.overview.title": {
+    "en": "How investing works",
+    "t": "Как устроены инвестиции"
+  },
+  "tips.invest.position.nav.body": {
+    "en": "Net asset value per unit — the current price at which units are bought on subscribe and priced on redeem.",
+    "t": "Стоимость чистых активов на один пай — текущая цена, по которой паи покупаются при подписке и оцениваются при погашении."
+  },
+  "tips.invest.position.nav.title": {
+    "en": "NAV",
+    "t": "NAV"
+  },
+  "tips.invest.position.pnl.body": {
+    "en": "Your position's current value minus what you paid in — green for a gain, red for a loss, driven by the NAV moving.",
+    "t": "Текущая стоимость вашей позиции минус вложенное: зелёный — прибыль, красный — убыток; зависит от движения NAV."
+  },
+  "tips.invest.position.pnl.title": {
+    "en": "Profit & loss",
+    "t": "Прибыль и убыток"
+  },
+  "tips.invest.position.stale-nav.body": {
+    "en": "The fund's price feed is out of date, so the value and P&L shown here may lag the true mark until the NAV refreshes.",
+    "t": "Котировки фонда устарели, поэтому показанные здесь стоимость и P&L могут отставать от реальной оценки, пока NAV не обновится."
+  },
+  "tips.invest.position.stale-nav.title": {
+    "en": "Stale NAV",
+    "t": "Устаревший NAV"
+  },
+  "tips.invest.position.units.body": {
+    "en": "The units you hold in this fund — a fixed quantity until you subscribe or redeem more.",
+    "t": "Ваши паи в этом фонде — фиксированная величина, пока вы не подпишетесь или не погасите ещё."
+  },
+  "tips.invest.position.units.title": {
+    "en": "Units",
+    "t": "Паи"
+  },
+  "tips.invest.position.value.body": {
+    "en": "Units × current NAV. It rises and falls as the NAV moves, not with the unit count.",
+    "t": "Паи × текущий NAV. Значение растёт и падает вместе с NAV, а не с количеством паёв."
+  },
+  "tips.invest.position.value.title": {
+    "en": "Value",
+    "t": "Стоимость"
+  },
+  "tips.invest.redeem.queue.body": {
+    "en": "Redemptions are accept-and-queue — your units are reserved now, and cash is priced at the settle-time NAV once the fund tops up.",
+    "t": "Погашения принимаются и ставятся в очередь: паи резервируются сразу, а сумма определяется по NAV на момент исполнения, когда фонд пополнится."
+  },
+  "tips.invest.redeem.queue.title": {
+    "en": "How redemptions settle",
+    "t": "Как исполняются погашения"
+  },
+  "tips.invest.redeem.units.body": {
+    "en": "How many units to redeem — Max fills your full holding. The resulting cash isn't fixed here; it is set at the settle-time NAV.",
+    "t": "Сколько паёв погасить — «Макс.» подставляет всю вашу позицию. Итоговая сумма здесь не фиксируется: она определяется по NAV на момент исполнения."
+  },
+  "tips.invest.redeem.units.title": {
+    "en": "Units to redeem",
+    "t": "Паёв к погашению"
+  },
+  "tips.invest.subscribe.amount.body": {
+    "en": "How much USDT to subscribe. It is converted into units at the current NAV when you submit.",
+    "t": "Сколько USDT вложить в подписку. Сумма конвертируется в паи по текущему NAV в момент отправки."
+  },
+  "tips.invest.subscribe.amount.title": {
+    "en": "Amount",
+    "t": "Сумма"
+  },
+  "tips.profile.email.verified.body": {
+    "en": "Confirms this email address has been verified. It is not identity or KYC verification.",
+    "t": "Подтверждает, что этот адрес эл. почты проверен. Это не верификация личности и не KYC."
+  },
+  "tips.profile.email.verified.title": {
+    "en": "Verified",
+    "t": "Проверен"
+  },
+  "tips.profile.field.legal-name.body": {
+    "en": "Your full name exactly as it appears on official documents — used for compliance and statements, distinct from your preferred name.",
+    "t": "Ваше полное имя точно так, как оно указано в официальных документах — используется для комплаенса и отчётов; отличается от предпочитаемого имени."
+  },
+  "tips.profile.field.legal-name.title": {
+    "en": "Legal name",
+    "t": "Имя по документам"
+  },
+  "tips.profile.field.nationality.body": {
+    "en": "Collected for compliance and eligibility checks.",
+    "t": "Собирается для комплаенса и проверки права на участие."
+  },
+  "tips.profile.field.nationality.title": {
+    "en": "Nationality",
+    "t": "Гражданство"
+  },
+  "tips.profile.field.tax-residence.body": {
+    "en": "The country where you're liable to pay tax, used for tax reporting. Usually where you live — it can differ from your nationality.",
+    "t": "Страна, в которой вы обязаны платить налоги; используется для налоговой отчётности. Обычно это страна проживания, и она может отличаться от гражданства."
+  },
+  "tips.profile.field.tax-residence.title": {
+    "en": "Tax residence",
+    "t": "Налоговое резидентство"
+  },
+  "tips.profile.kyc-level.body": {
+    "en": "Level 0 is browse only: products, prices and your account. Level 1 means your identity is verified and opens a deposit address, withdrawals and subscribing.",
+    "t": "Уровень 0 — только просмотр: продукты, цены и ваш счёт. Уровень 1 означает, что личность подтверждена, и открывает адрес для пополнения, вывод и подписку."
+  },
+  "tips.profile.kyc-level.title": {
+    "en": "What your KYC level means",
+    "t": "Что значит ваш уровень KYC"
+  },
+  "tips.profile.personal.compliance.body": {
+    "en": "These personal details are collected to meet the fund's compliance obligations and to produce your account statements. They are not shown publicly.",
+    "t": "Эти личные данные собираются, чтобы выполнить комплаенс-обязательства фонда и подготовить ваши отчёты по счёту. Публично они не показываются."
+  },
+  "tips.profile.personal.compliance.title": {
+    "en": "Why we collect this",
+    "t": "Зачем мы это собираем"
+  },
+  "tips.settings.security.google-signin.body": {
+    "en": "Your sign-in and password are managed by Google. Two-factor authentication and recovery are configured in your Google Account.",
+    "t": "Вход и пароль управляются Google. Двухфакторная аутентификация и восстановление настраиваются в вашем аккаунте Google."
+  },
+  "tips.settings.security.google-signin.title": {
+    "en": "Sign-in is managed by Google",
+    "t": "Вход управляется Google"
+  },
+  "tips.settings.sessions.overview.body": {
+    "en": "Where you're signed in — each row is a device or browser with a live session. Revoke anything you don't recognise.",
+    "t": "Где выполнен вход: каждая строка — устройство или браузер с активным сеансом. Отзовите всё, что вам незнакомо."
+  },
+  "tips.settings.sessions.overview.title": {
+    "en": "Sessions & devices",
+    "t": "Сеансы и устройства"
+  },
+  "tips.settings.sessions.revoke-others.body": {
+    "en": "Signs out every device except this one. Use it if a device was lost or you don't recognise a session.",
+    "t": "Завершает сеансы на всех устройствах, кроме текущего. Используйте, если устройство потеряно или сеанс вам незнаком."
+  },
+  "tips.settings.sessions.revoke-others.title": {
+    "en": "Sign out all other devices",
+    "t": "Выйти на других устройствах"
+  },
+  "tips.settings.sessions.revoke.body": {
+    "en": "Signs that device out immediately. It must sign in again with Google to regain access.",
+    "t": "Немедленно завершает сеанс на этом устройстве. Чтобы вернуть доступ, нужно снова войти через Google."
+  },
+  "tips.settings.sessions.revoke.title": {
+    "en": "Revoke",
+    "t": "Отозвать"
+  },
+  "tips.settings.sessions.this-device.body": {
+    "en": "The browser you're using right now. It stays signed in and can't be revoked from here — use 'Sign out all other devices' to clear the rest.",
+    "t": "Браузер, которым вы пользуетесь прямо сейчас. Он остаётся в сеансе, и отозвать его отсюда нельзя — используйте «Выйти на других устройствах», чтобы завершить остальные."
+  },
+  "tips.settings.sessions.this-device.title": {
+    "en": "This device",
+    "t": "Текущее устройство"
+  },
+  "tips.trade.book.body": {
+    "en": "The book trades existing units between holders — a buyer and a seller meet at a bid or ask price they set themselves. Subscribing is different: it mints new units at the posted NAV, and redeeming returns them at NAV.",
+    "t": "В книге держатели торгуют уже выпущенными паями — покупатель и продавец встречаются по цене bid или ask, которую задают сами. Подписка — другое: она выпускает новые паи по опубликованному NAV, а погашение возвращает их по NAV."
+  },
+  "tips.trade.book.title": {
+    "en": "How the book works",
+    "t": "Как работает книга"
+  },
+  "tips.wallet.balance.available.body": {
+    "en": "Your spendable USDT right now — what you can invest into fund units or withdraw.",
+    "t": "Ваши USDT, доступные прямо сейчас: их можно вложить в паи фондов или вывести."
+  },
+  "tips.wallet.balance.available.title": {
+    "en": "Available",
+    "t": "Доступно"
+  },
+  "tips.wallet.balance.in-compartments.body": {
+    "en": "USDT you moved into a service's compartment. Still yours and counted in your total — move it back to your main balance to withdraw it.",
+    "t": "USDT, которые вы перевели в отсек сервиса. Они по-прежнему ваши и входят в общий баланс — чтобы вывести их, верните их на основной баланс."
+  },
+  "tips.wallet.balance.in-compartments.title": {
+    "en": "In compartments",
+    "t": "В отсеках"
+  },
+  "tips.wallet.balance.in-orders.body": {
+    "en": "USDT set aside by your resting buy orders on the book. Still yours: it comes back to available when an order is cancelled, and turns into units when it fills.",
+    "t": "USDT, зарезервированные вашими заявками на покупку, стоящими в книге. Они по-прежнему ваши: вернутся в доступные при отмене заявки и превратятся в паи при исполнении."
+  },
+  "tips.wallet.balance.in-orders.title": {
+    "en": "In orders",
+    "t": "В заявках"
+  },
+  "tips.wallet.balance.invested.body": {
+    "en": "Held in fund units, valued at the current NAV — units offered for sale on the book included.",
+    "t": "Размещено в паях фондов и оценено по текущему NAV — включая паи, выставленные на продажу в книге."
+  },
+  "tips.wallet.balance.invested.title": {
+    "en": "Invested",
+    "t": "Инвестировано"
+  },
+  "tips.wallet.balance.model.body": {
+    "en": "You have a single USDT balance — networks are just how you deposit and withdraw. This card splits it into Total = Available + In orders + Invested + Pending withdrawal + In compartments.",
+    "t": "У вас единый баланс USDT — сети лишь способ пополнения и вывода. Эта карточка раскладывает его так: всего = доступно + в заявках + инвестировано + в ожидании вывода + в отсеках."
+  },
+  "tips.wallet.balance.model.title": {
+    "en": "One balance, many networks",
+    "t": "Один баланс, много сетей"
+  },
+  "tips.wallet.balance.pending-withdrawal.body": {
+    "en": "USDT reserved for withdrawals still in flight (queued or processing). It is no longer part of your available balance.",
+    "t": "USDT, зарезервированные под выводы, которые ещё в пути (в очереди или в обработке). Они больше не входят в ваш доступный баланс."
+  },
+  "tips.wallet.balance.pending-withdrawal.title": {
+    "en": "Pending withdrawal",
+    "t": "В ожидании вывода"
+  },
+  "tips.wallet.deposit.address.body": {
+    "en": "A personal, reusable address on this network. On TON it is shown in the wallet-friendly UQ… form so an uninitialised wallet doesn't bounce the transfer.",
+    "t": "Персональный адрес в этой сети, который можно использовать многократно. В TON он показан в удобном для кошельков формате UQ…, чтобы неинициализированный кошелёк не отклонил перевод."
+  },
+  "tips.wallet.deposit.address.title": {
+    "en": "Your deposit address",
+    "t": "Ваш адрес для пополнения"
+  },
+  "tips.wallet.deposit.min-confirmations.body": {
+    "en": "Credited to your one balance after the required number of network confirmations.",
+    "t": "Зачисляется на ваш единый баланс после необходимого числа подтверждений в сети."
+  },
+  "tips.wallet.deposit.min-confirmations.title": {
+    "en": "Network confirmations",
+    "t": "Подтверждения сети"
+  },
+  "tips.wallet.deposit.network.body": {
+    "en": "Pick the chain you'll send USDT on. Each network shows its own deposit address below — that address only works on that one chain.",
+    "t": "Выберите сеть, в которой отправите USDT. У каждой сети свой адрес пополнения ниже — он работает только в этой сети."
+  },
+  "tips.wallet.deposit.network.title": {
+    "en": "Network",
+    "t": "Сеть"
+  },
+  "tips.wallet.deposit.rail-hazard.body": {
+    "en": "Sending any other asset, or using a different network, loses the funds permanently. This 0x address is NOT your address on the sibling EVM chain — even though both start with 0x, USDT sent on the wrong EVM network will not be credited.",
+    "t": "Отправка любого другого актива или использование другой сети приведёт к безвозвратной потере средств. Этот адрес 0x НЕ является вашим адресом в соседней EVM-сети: хотя оба начинаются с 0x, USDT, отправленные не в ту EVM-сеть, зачислены не будут."
+  },
+  "tips.wallet.deposit.rail-hazard.title": {
+    "en": "Send only USDT on this network",
+    "t": "Отправляйте только USDT в этой сети"
+  },
+  "tips.wallet.withdraw.available.body": {
+    "en": "The most you can withdraw on this network right now. Tap Max to fill the amount.",
+    "t": "Максимум, который вы можете вывести в этой сети прямо сейчас. Нажмите «Макс.», чтобы подставить сумму."
+  },
+  "tips.wallet.withdraw.available.title": {
+    "en": "Available to withdraw",
+    "t": "Доступно к выводу"
+  },
+  "tips.wallet.withdraw.destination.body": {
+    "en": "The on-chain address the USDT is sent to. Withdrawals are irreversible — make sure it is correct and on the network you selected.",
+    "t": "Ончейн-адрес, на который отправляются USDT. Выводы необратимы — убедитесь, что адрес верен и относится к выбранной вами сети."
+  },
+  "tips.wallet.withdraw.destination.title": {
+    "en": "Destination address",
+    "t": "Адрес получателя"
+  },
+  "tips.wallet.withdraw.network-fee.body": {
+    "en": "A flat on-chain fee for this network, deducted from your amount before it is sent.",
+    "t": "Фиксированная сетевая комиссия этой сети; удерживается из вашей суммы до отправки."
+  },
+  "tips.wallet.withdraw.network-fee.title": {
+    "en": "Network fee",
+    "t": "Комиссия сети"
+  },
+  "tips.wallet.withdraw.network.body": {
+    "en": "The chain your withdrawal ships on. The destination address must be a valid address on this exact network, or the funds are lost.",
+    "t": "Сеть, по которой уходит ваш вывод. Адрес получателя должен быть корректным именно в этой сети, иначе средства будут потеряны."
+  },
+  "tips.wallet.withdraw.network.title": {
+    "en": "Network",
+    "t": "Сеть"
+  },
+  "tips.wallet.withdraw.queueing.body": {
+    "en": "Up to your instant limit pays out immediately on this network; anything above it is queued until the network is topped up. A minimum applies per withdrawal.",
+    "t": "В пределах мгновенного лимита выплата в этой сети происходит сразу; всё сверх него ставится в очередь до пополнения сети. Для каждого вывода действует минимальная сумма."
+  },
+  "tips.wallet.withdraw.queueing.title": {
+    "en": "How withdrawals work",
+    "t": "Как работают выводы"
+  },
+  "tips.wallet.withdraw.review.body": {
+    "en": "Review freezes exactly what you'll send. Confirm submits that snapshot — if the network list changes underneath, the open review is voided and you re-review.",
+    "t": "Проверка фиксирует ровно то, что будет отправлено. Подтверждение отправляет этот снимок — если список сетей изменится, открытая проверка аннулируется и её нужно пройти заново."
+  },
+  "tips.wallet.withdraw.review.title": {
+    "en": "Review, then confirm",
+    "t": "Сначала проверка, затем подтверждение"
+  },
+  "tips.wallet.withdraw.you-receive.body": {
+    "en": "Your amount minus the network fee — this is what actually lands at the destination.",
+    "t": "Ваша сумма за вычетом комиссии сети — именно столько придёт получателю."
+  },
+  "tips.wallet.withdraw.you-receive.title": {
+    "en": "You will receive",
+    "t": "Вы получите"
+  },
+  "trade.book.col.price": {
+    "en": "Price",
+    "t": "Цена"
+  },
+  "trade.book.col.size": {
+    "en": "Size",
+    "t": "Объём"
+  },
+  "trade.book.col.total": {
+    "en": "Total",
+    "t": "Итого"
+  },
+  "trade.book.empty": {
+    "en": "Nothing resting",
+    "t": "Заявок нет"
+  },
+  "trade.book.emptyHint": {
+    "en": "No holder has quoted yet. The first limit order opens the book.",
+    "t": "Никто ещё не выставил котировку. Первая лимитная заявка откроет стакан."
+  },
+  "trade.book.levelOrders": {
+    "en": "{n, plural, one {# order} other {# orders}}",
+    "t": "{n, plural, one {# заявка} few {# заявки} many {# заявок} other {# заявки}}"
+  },
+  "trade.book.oneSided": {
+    "en": "One-sided",
+    "t": "Одна сторона"
+  },
+  "trade.book.spread": {
+    "en": "Spread {spread}",
+    "t": "Спред {spread}"
+  },
+  "trade.book.tape": {
+    "en": "Trades",
+    "t": "Сделки"
+  },
+  "trade.book.title": {
+    "en": "Book",
+    "t": "Стакан"
+  },
+  "trade.chart.empty": {
+    "en": "No trades yet — the chart draws from the first fill.",
+    "t": "Сделок ещё нет — график начнётся с первого исполнения."
+  },
+  "trade.chart.resolution": {
+    "en": "Candle size",
+    "t": "Размер свечи"
+  },
+  "trade.chart.title": {
+    "en": "Chart",
+    "t": "График"
+  },
+  "trade.form.available": {
+    "en": "Available",
+    "t": "Доступно"
+  },
+  "trade.form.buy": {
+    "en": "Buy",
+    "t": "Купить"
+  },
+  "trade.form.closed": {
+    "en": "The book is closed. Orders are not accepted until it opens again.",
+    "t": "Книга закрыта. Заявки не принимаются, пока она не откроется снова."
+  },
+  "trade.form.duplicateTitle": {
+    "en": "Already submitted",
+    "t": "Уже отправлена"
+  },
+  "trade.form.failedTitle": {
+    "en": "Order failed",
+    "t": "Заявка не прошла"
+  },
+  "trade.form.fee": {
+    "en": "Taker fee",
+    "t": "Комиссия тейкера"
+  },
+  "trade.form.kind": {
+    "en": "Order type",
+    "t": "Тип заявки"
+  },
+  "trade.form.limit": {
+    "en": "Limit",
+    "t": "Лимит"
+  },
+  "trade.form.locked": {
+    "en": "Trading isn't open to you on this product. If you think you should have access:",
+    "t": "Торговля этим продуктом вам не открыта. Если считаете, что доступ должен быть:"
+  },
+  "trade.form.market": {
+    "en": "Market",
+    "t": "Рынок"
+  },
+  "trade.form.notional": {
+    "en": "Order value",
+    "t": "Сумма заявки"
+  },
+  "trade.form.notionalEstimate": {
+    "en": "Est. value",
+    "t": "Оценка суммы"
+  },
+  "trade.form.placed.cancelled": {
+    "en": "Nothing crossed, so the order was cancelled.",
+    "t": "Ничего не пересеклось, заявка отменена."
+  },
+  "trade.form.placed.filled": {
+    "en": "Filled {filled} at an average of {avg} USDT.",
+    "t": "Исполнено {filled} по средней {avg} USDT."
+  },
+  "trade.form.placed.partial": {
+    "en": "Filled {filled} of {size} at {avg} USDT; the rest was cancelled.",
+    "t": "Исполнено {filled} из {size} по {avg} USDT; остаток отменён."
+  },
+  "trade.form.placed.rejected": {
+    "en": "The order was not accepted: {reason}",
+    "t": "Заявка не принята: {reason}"
+  },
+  "trade.form.placed.resting": {
+    "en": "Resting on the book: {filled} of {size} filled so far.",
+    "t": "Стоит в стакане: исполнено {filled} из {size}."
+  },
+  "trade.form.price": {
+    "en": "Price (USDT)",
+    "t": "Цена (USDT)"
+  },
+  "trade.form.problem.funds": {
+    "en": "More than you have available",
+    "t": "Больше, чем у вас доступно"
+  },
+  "trade.form.problem.lot": {
+    "en": "Size must be a multiple of {lot}",
+    "t": "Объём должен быть кратен {lot}"
+  },
+  "trade.form.problem.noQuote": {
+    "en": "Nothing on the other side to trade against — place a limit order instead.",
+    "t": "На другой стороне нет заявок — выставьте лимитную."
+  },
+  "trade.form.problem.price": {
+    "en": "Enter a price above zero",
+    "t": "Укажите цену больше нуля"
+  },
+  "trade.form.problem.size": {
+    "en": "Enter a size above zero",
+    "t": "Укажите объём больше нуля"
+  },
+  "trade.form.problem.tick": {
+    "en": "Price must be a multiple of {tick}",
+    "t": "Цена должна быть кратна {tick}"
+  },
+  "trade.form.refusedBody": {
+    "en": "{detail} If you think you should be able to trade this product:",
+    "t": "{detail} Если вы считаете, что должны торговать этим продуктом:"
+  },
+  "trade.form.refusedTitle": {
+    "en": "Order refused",
+    "t": "Заявка отклонена"
+  },
+  "trade.form.sell": {
+    "en": "Sell",
+    "t": "Продать"
+  },
+  "trade.form.size": {
+    "en": "Size (units)",
+    "t": "Объём (юниты)"
+  },
+  "trade.form.submitBuy": {
+    "en": "Place buy order",
+    "t": "Выставить покупку"
+  },
+  "trade.form.submitSell": {
+    "en": "Place sell order",
+    "t": "Выставить продажу"
+  },
+  "trade.form.tif": {
+    "en": "Time in force",
+    "t": "Срок действия"
+  },
+  "trade.form.tifHint.alo": {
+    "en": "Only rests on the book: it is refused rather than filled against an existing order.",
+    "t": "Только встаёт в книгу: если бы она исполнилась по существующей заявке, она отклоняется."
+  },
+  "trade.form.tifHint.gtc": {
+    "en": "Rests on the book until it fills or you cancel it.",
+    "t": "Остаётся в книге, пока не исполнится или вы её не отмените."
+  },
+  "trade.form.tifHint.ioc": {
+    "en": "Fills whatever it can right now; the rest is cancelled at once.",
+    "t": "Исполняется на то, что доступно сейчас; остаток сразу отменяется."
+  },
+  "trade.form.tifLabel.alo": {
+    "en": "Post-only",
+    "t": "Только мейкер"
+  },
+  "trade.form.tifLabel.gtc": {
+    "en": "Good till cancelled",
+    "t": "До отмены"
+  },
+  "trade.form.tifLabel.ioc": {
+    "en": "Immediate or cancel",
+    "t": "Исполнить или отменить"
+  },
+  "trade.orders.col.avgFill": {
+    "en": "Avg fill",
+    "t": "Ср. цена"
+  },
+  "trade.orders.col.fee": {
+    "en": "Fee",
+    "t": "Комиссия"
+  },
+  "trade.orders.col.filled": {
+    "en": "Filled",
+    "t": "Исполнено"
+  },
+  "trade.orders.col.role": {
+    "en": "Role",
+    "t": "Роль"
+  },
+  "trade.orders.col.side": {
+    "en": "Side",
+    "t": "Сторона"
+  },
+  "trade.orders.col.state": {
+    "en": "Status",
+    "t": "Статус"
+  },
+  "trade.orders.col.time": {
+    "en": "Time",
+    "t": "Время"
+  },
+  "trade.orders.col.type": {
+    "en": "Type",
+    "t": "Тип"
+  },
+  "trade.orders.emptyFills": {
+    "en": "No fills yet",
+    "t": "Исполнений ещё нет"
+  },
+  "trade.orders.emptyHistory": {
+    "en": "No orders yet",
+    "t": "Заявок ещё не было"
+  },
+  "trade.orders.emptyOpen": {
+    "en": "No open orders",
+    "t": "Открытых заявок нет"
+  },
+  "trade.orders.fills": {
+    "en": "Fills",
+    "t": "Исполнения"
+  },
+  "trade.orders.history": {
+    "en": "Order history",
+    "t": "История заявок"
+  },
+  "trade.orders.maker": {
+    "en": "Maker",
+    "t": "Мейкер"
+  },
+  "trade.orders.open": {
+    "en": "Open orders",
+    "t": "Открытые заявки"
+  },
+  "trade.orders.taker": {
+    "en": "Taker",
+    "t": "Тейкер"
+  },
+  "trade.state.cancelled": {
+    "en": "Cancelled",
+    "t": "Отменена"
+  },
+  "trade.state.filled": {
+    "en": "Filled",
+    "t": "Исполнена"
+  },
+  "trade.state.open": {
+    "en": "Open",
+    "t": "Открыта"
+  },
+  "trade.state.partialCancelled": {
+    "en": "Partially filled, rest cancelled",
+    "t": "Частично исполнена, остаток отменён"
+  },
+  "trade.state.partiallyFilled": {
+    "en": "Partially filled",
+    "t": "Частично исполнена"
+  },
+  "trade.state.rejected": {
+    "en": "Rejected",
+    "t": "Отклонена"
+  },
+  "trade.state.unfilledCancelled": {
+    "en": "Not filled, cancelled",
+    "t": "Не исполнена, отменена"
+  },
+  "trade.stream.live": {
+    "en": "Live",
+    "t": "В эфире"
+  },
+  "trade.stream.paused": {
+    "en": "Paused",
+    "t": "Пауза"
+  },
+  "trade.stream.polling": {
+    "en": "Polling",
+    "t": "Опрос"
+  },
+  "trade.stream.reconnecting": {
+    "en": "Reconnecting",
+    "t": "Переподключение"
+  },
+  "trade.tape.col.time": {
+    "en": "Time",
+    "t": "Время"
+  },
+  "trade.tape.empty": {
+    "en": "No trades yet",
+    "t": "Сделок ещё нет"
+  },
+  "trade.ticker.change": {
+    "en": "24h change",
+    "t": "За 24 ч"
+  },
+  "trade.ticker.last": {
+    "en": "Last",
+    "t": "Последняя"
+  },
+  "trade.ticker.mid": {
+    "en": "Mid",
+    "t": "Середина"
+  },
+  "trade.ticker.nav": {
+    "en": "NAV",
+    "t": "NAV"
+  },
+  "trade.ticker.navHint": {
+    "en": "The book price is what holders trade at; NAV is the fund's own mark.",
+    "t": "Цена книги — по ней торгуют держатели; NAV — учётная оценка фонда."
+  },
+  "trade.ticker.spread": {
+    "en": "Spread",
+    "t": "Спред"
+  },
+  "trade.ticker.volume": {
+    "en": "24h volume",
+    "t": "Объём 24 ч"
+  },
+  "trade.unbackedNotice": {
+    "en": "Units of this product are a claim on an off-platform asset and cannot be redeemed for fund cash — the book is the only exit.",
+    "t": "Юниты этого продукта — право на актив вне платформы; их нельзя погасить за кэш фонда — книга является единственным выходом."
+  },
+  "ui.account": {
+    "en": "Account",
+    "t": "Аккаунт"
+  },
+  "ui.back": {
+    "en": "Back",
+    "t": "Назад"
+  },
+  "ui.cancel": {
+    "en": "Cancel",
+    "t": "Отмена"
+  },
+  "ui.close": {
+    "en": "Close",
+    "t": "Закрыть"
+  },
+  "ui.dateTime.clear": {
+    "en": "Clear",
+    "t": "Очистить"
+  },
+  "ui.dateTime.dialog": {
+    "en": "Choose date and time",
+    "t": "Выберите дату и время"
+  },
+  "ui.dateTime.hours": {
+    "en": "Hours",
+    "t": "Часы"
+  },
+  "ui.dateTime.minutes": {
+    "en": "Minutes",
+    "t": "Минуты"
+  },
+  "ui.dateTime.nextMonth": {
+    "en": "Next month",
+    "t": "Следующий месяц"
+  },
+  "ui.dateTime.previousMonth": {
+    "en": "Previous month",
+    "t": "Предыдущий месяц"
+  },
+  "ui.details": {
+    "en": "Details",
+    "t": "Детали"
+  },
+  "ui.edit": {
+    "en": "Edit",
+    "t": "Изменить"
+  },
+  "ui.keep": {
+    "en": "Keep it",
+    "t": "Оставить"
+  },
+  "ui.loading": {
+    "en": "Loading…",
+    "t": "Загрузка…"
+  },
+  "ui.manage": {
+    "en": "Manage",
+    "t": "Управление"
+  },
+  "ui.max": {
+    "en": "Max",
+    "t": "Макс."
+  },
+  "ui.none": {
+    "en": "None",
+    "t": "Нет"
+  },
+  "ui.reloadPage": {
+    "en": "Reload page",
+    "t": "Обновить страницу"
+  },
+  "ui.reset": {
+    "en": "Reset",
+    "t": "Сбросить"
+  },
+  "ui.save": {
+    "en": "Save",
+    "t": "Сохранить"
+  },
+  "ui.total": {
+    "en": "Total",
+    "t": "Всего"
+  },
+  "wallet.subtitle": {
+    "en": "Your invest balance and the main account behind it",
+    "t": "Ваш баланс invest и основной счёт за ним"
+  },
+  "wallet.title": {
+    "en": "Wallet",
+    "t": "Кошелёк"
+  },
+  "wallet.unavailable": {
+    "en": "The wallet could not be loaded. Reload the page to try again.",
+    "t": "Не удалось загрузить кошелёк. Обновите страницу, чтобы попробовать снова."
+  }
+}
