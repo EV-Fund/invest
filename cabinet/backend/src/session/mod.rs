@@ -281,7 +281,7 @@ impl Sessions {
 			map.entry(key).or_default().clone()
 		};
 		let turn = flight.lock().await;
-		let result = self.rotate(key, &tokens, now).await;
+		let result = self.rotate(key, &tokens).await;
 		drop(turn);
 		{
 			let mut map = self.rotations.lock().unwrap_or_else(PoisonError::into_inner);
@@ -325,9 +325,13 @@ impl Sessions {
 		}
 	}
 
-	async fn rotate(&self, key: SessionKey, tokens: &TokenKey, now: i64) -> Result<Session, SessionError> {
+	async fn rotate(&self, key: SessionKey, tokens: &TokenKey) -> Result<Session, SessionError> {
 		let waited = Instant::now();
 		let row = loop {
+			// Read afresh each time round: this loop can wait seconds behind another holder,
+			// and a lease or freshness judged from the request's start would be stale by as
+			// much (security review F4).
+			let now = crate::now_secs();
 			let row = self.live_row(&key, now).await?;
 			if row.access_expires_at > now + REFRESH_AHEAD_SECS {
 				// Rotated while this request waited: here, or by another replica.
