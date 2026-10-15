@@ -1,34 +1,14 @@
 "use client";
 
 // Small presentational primitives shared across the admin-console views: the page
-// header (eyebrow · title · subtitle · environment badge · action slot), a status dot,
-// and a switch toggle. Kept dependency-light (no uncertain uikit exports) — plain
+// header (eyebrow · title · subtitle · action slot), a status dot, and a switch toggle. Kept dependency-light (no uncertain uikit exports) — plain
 // buttons + tokens, matching the wallet view's idiom.
 
 import type { ReactNode } from "react";
 
-import type { Translate } from "@evinvest/i18n";
-import { useT } from "@evinvest/i18n/react";
-
 import { cn } from "@/shared/lib/cn";
-import { usePlatform } from "@/shared/lib/use-platform";
 import { SECTION_STAGGER, Stagger, StaggerItem } from "@/shared/ui/motion";
 import { statusTone } from "@/views/admin/lib/format";
-
-// Server-truthful environment (the BFF's APP_ENV); anything unrecognised — including
-// the default "development" — reads as DEV. The badge carries a catalogue key rather than
-// a finished word: this map is module scope, where no hook can run.
-interface EnvBadge {
-  label: (t: Translate) => string;
-  tone: string;
-}
-
-const ENV_BADGES: Readonly<Record<string, EnvBadge>> = {
-  production: { label: (t) => t("admin.env.prod", "PROD"), tone: "text-positive" },
-  staging: { label: (t) => t("admin.env.staging", "STAGING"), tone: "text-accent-warn" },
-};
-
-const DEV_BADGE: EnvBadge = { label: (t) => t("admin.env.dev", "DEV"), tone: "text-ink-soft" };
 
 /**
  * The page column every admin screen is built in, and the entrance it arrives with.
@@ -47,9 +27,6 @@ export function AdminScreen({ className, children }: { className?: string; child
 }
 
 export function AdminHeader({ eyebrow, title, subtitle, action }: { eyebrow: string; title: string; subtitle: string; action?: ReactNode }) {
-  const t = useT();
-  const environment = usePlatform()?.environment;
-  const badge = environment ? ((Object.hasOwn(ENV_BADGES, environment) ? ENV_BADGES[environment] : undefined) ?? DEV_BADGE) : null;
   return (
     <StaggerItem as="header" className="flex flex-wrap items-start justify-between gap-4">
       <div className="space-y-1">
@@ -57,16 +34,7 @@ export function AdminHeader({ eyebrow, title, subtitle, action }: { eyebrow: str
         <h1 className="text-2xl font-semibold text-ink">{title}</h1>
         <p className="text-sm text-ink-soft">{subtitle}</p>
       </div>
-      <div className="flex items-center gap-3">
-        {badge && (
-          // i18n-max: 8 — a pill beside the header's action slot; it must not wrap.
-          <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-2.5 py-1 text-xs font-medium", badge.tone)}>
-            <span className="size-1.5 rounded-full bg-current" />
-            {badge.label(t)}
-          </span>
-        )}
-        {action}
-      </div>
+      {action && <div className="flex items-center gap-3">{action}</div>}
     </StaggerItem>
   );
 }

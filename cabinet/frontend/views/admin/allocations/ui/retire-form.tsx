@@ -30,7 +30,7 @@ export function RetireForm({ draft, onChange, onReview, onCancel }: { draft: Ret
         <Field>
           {/* No `htmlFor`: the picker's trigger sits behind a popover, so it is named by reference. */}
           <FieldLabel id={`${id}-holder`}>{t("admin.alloc.issue.field.holder", "Holder")}</FieldLabel>
-          <UserPicker value={pickedUser} onPick={(u) => onChange({ ...draft, holder: { userId: u.userId, label: u.email || u.userId } })} labelledBy={`${id}-holder`} />
+          <UserPicker value={pickedUser} onPick={(u) => onChange({ ...draft, holder: u ? { userId: u.userId, label: u.email || u.userId } : null })} labelledBy={`${id}-holder`} />
         </Field>
         <Field data-invalid={unitsProblem || undefined}>
           <FieldLabel htmlFor={`${id}-units`}>{t("admin.alloc.issue.field.units", "Units")}</FieldLabel>

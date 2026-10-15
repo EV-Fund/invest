@@ -115,12 +115,14 @@ export function OrderFormFields({
       <div className="space-y-1 border-t border-border pt-2">
         <OrderFormRow label={(market ? t("trade.form.notionalEstimate", "Est. value") : t("trade.form.notional", "Order value"))} value={notional === null ? "—" : `${formatUsdt(asDecimal(notional), locale)} USDT`} />
         <OrderFormRow label={t("trade.form.fee", "Taker fee")} value={fee === null ? "—" : `${formatUsdt(asDecimal(fee), locale)} USDT`} />
-        <OrderFormRow
-          label={t("trade.form.available", "Available")}
-          className={cn(problem === "funds" && "text-accent-error")}
-          value={buying ? (context.availableCash === null ? "—" : `${formatUsdt(context.availableCash, locale)} USDT`) : context.availableUnits === null ? "—" : t("dash.unitsAmount", "{n, plural, one {{units} unit} other {{units} units}}", { n: Number(context.availableUnits), units: formatUnits(context.availableUnits, locale) })}
-        />
-        {!buying && position?.units_in_orders && !isZero(position.units_in_orders) && <OrderFormRow label={t("trade.form.inOrders", "In orders")} value={formatUnits(position.units_in_orders, locale)} />}
+        {/* An unknown cash figure is left out rather than shown as a dash that reads like zero. */}
+        {(!buying || context.availableCash !== null) && (
+          <OrderFormRow
+            label={t("trade.form.available", "Available")}
+            className={cn(problem === "funds" && "text-accent-error")}
+            value={buying ? `${formatUsdt(context.availableCash ?? undefined, locale)} USDT` : context.availableUnits === null ? "—" : t("dash.unitsAmount", "{n, plural, one {{units} unit} other {{units} units}}", { n: Number(context.availableUnits), units: formatUnits(context.availableUnits, locale) })}
+          />
+        )}
       </div>
 
       <OrderFormSubmit side={draft.side} disabled={disabled || problem !== null}>

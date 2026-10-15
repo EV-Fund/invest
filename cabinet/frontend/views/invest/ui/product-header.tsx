@@ -9,7 +9,6 @@ import { ArrowDownToLine, Sparkles } from "lucide-react";
 
 import { Button } from "@evinvest/uikit";
 
-import { useKycGate } from "@/features/kyc";
 import type { FundNav } from "@/shared/contracts";
 import type { BookPolicy } from "@/shared/contracts/book";
 import type { ResourceSeed } from "@/shared/lib/resource";
@@ -20,7 +19,6 @@ import { PAGE_TITLE } from "@/shared/ui/page-frame";
 import { blockedReasonKey, isClosed, isInKind, isLocked, type Product } from "@/views/invest/lib/product";
 import { ProductBadges } from "@/views/invest/ui/atoms";
 import { InKindBadge } from "@/views/invest/ui/backing-badge";
-import { VerifyToInvestCta } from "@/views/invest/ui/product-cta";
 import { TradeLink } from "@/views/invest/ui/trade-link";
 
 export type Panel = "subscribe" | "redeem" | null;
@@ -49,7 +47,7 @@ export function ProductHeader({ product, nav, held, panel, onPanel, bookSeed }: 
         {/* The secondary market, beside the primary one: trading units with other holders
             is a different act from subscribing, priced by the book rather than the NAV. */}
         <TradeLink service={product.service} seed={bookSeed} />
-        {!closed && <SubscribeControl product={product} blocked={blocked !== null} panel={panel} onPanel={onPanel} />}
+        {!closed && <SubscribeControl blocked={blocked !== null} panel={panel} onPanel={onPanel} />}
         {held && (
           <Button type="button" variant="outline" disabled={stale} onClick={() => onPanel((p) => (p === "redeem" ? null : "redeem"))}>
             <ArrowDownToLine className="size-4" />
@@ -61,21 +59,12 @@ export function ProductHeader({ product, nav, held, panel, onPanel, bookSeed }: 
   );
 }
 
-// The primary action, or — for a caller the hub has not cleared — the muted way to unlock it.
-// Opening the panel for a tier-0 reader showed a form-sized block whose only content was the
-// gate; the button now says the gate's way out itself — the catalog card's own `verify` CTA.
-// Same precedence as there (`views/invest/lib/catalog-card`): an operator's lock is named
-// ahead of the caller's own tier.
-//
-// Until the tier is known the button stands disabled rather than absent: a teal Subscribe
-// that vanished into a skeleton and came back would move the header on every cold load, and
-// a click in that window cannot be honoured anyway.
-function SubscribeControl({ product, blocked, panel, onPanel }: { product: Product; blocked: boolean; panel: Panel; onPanel: (next: (p: Panel) => Panel) => void }) {
+// The primary action. Identity verification is not gated here: banking refuses an
+// unverified subscriber's cash, and the subscription comes back failed with the reason.
+function SubscribeControl({ blocked, panel, onPanel }: { blocked: boolean; panel: Panel; onPanel: (next: (p: Panel) => Panel) => void }) {
   const t = useT();
-  const { gated, loading } = useKycGate();
-  if (gated && !isLocked(product)) return <VerifyToInvestCta />;
   return (
-    <Button type="button" disabled={blocked || loading} onClick={() => onPanel((p) => (p === "subscribe" ? null : "subscribe"))}>
+    <Button type="button" disabled={blocked} onClick={() => onPanel((p) => (p === "subscribe" ? null : "subscribe"))}>
       <Sparkles className="size-4" />
       {panel === "subscribe" ? t("ui.close", "Close") : t("invest.subscribe", "Subscribe")}
     </Button>

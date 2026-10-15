@@ -19,7 +19,8 @@ import { createSettings, bool, optional as opt, requiredIn, str, url } from "@ev
 function getSettings() {
   return createSettings({
     server: {
-      // Where next.config.ts rewrites same-origin /cabinet/api/* to (the invest BFF).
+      // The invest BFF's origin, which next.config.ts rewrites same-origin /cabinet/api/* and
+      // /cabinet/auth/* to (same paths there).
       // Required — always set by the Nix build env and container contract.
       CABINET_BACKEND_URL: url(),
       // `__Host-`/Secure cookies need HTTPS; explicit override, else infer from NODE_ENV.
@@ -32,10 +33,6 @@ function getSettings() {
     },
     clientPrefix: "NEXT_PUBLIC_",
     client: {
-      // Host(s) the identity plane is allowed to hand back as a verification redirect,
-      // comma-separated. Optional: the plane refuses a foreign host itself, and an unset
-      // value here degrades to the https-only check rather than blocking verification.
-      NEXT_PUBLIC_KYC_PROVIDER_HOST: opt(str()),
       // Unset ⇒ product analytics is a silent no-op: the provider never loads posthog-js.
       // (An empty string counts as unset — `@evinvest/settings` default — which is how the
       // flake spells "no key yet".) The key is public (it ships in the bundle), so it is a
@@ -62,7 +59,6 @@ function getSettings() {
       AUTH_COOKIE_SECURE: process.env.AUTH_COOKIE_SECURE,
       MFE_ALLOWED_ORIGINS: process.env.MFE_ALLOWED_ORIGINS,
       NODE_ENV: process.env.NODE_ENV,
-      NEXT_PUBLIC_KYC_PROVIDER_HOST: process.env.NEXT_PUBLIC_KYC_PROVIDER_HOST,
       NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
       NEXT_PUBLIC_POSTHOG_HOST: process.env.NEXT_PUBLIC_POSTHOG_HOST,
       NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -102,7 +98,6 @@ export const config = ((): Readonly<{
   isProduction: boolean;
   isDevelopment: boolean;
   public: Readonly<{
-    kycProviderHost: string | undefined;
     posthogKey: string | undefined;
     posthogHost: string | undefined;
     sentryDsn: string | undefined;
@@ -125,9 +120,6 @@ export const config = ((): Readonly<{
       return _isServer ? computeIsDevelopment() : true;
     },
     public: Object.freeze({
-      get kycProviderHost(): string | undefined {
-        return getSettings().NEXT_PUBLIC_KYC_PROVIDER_HOST;
-      },
       get posthogKey(): string | undefined {
         return getSettings().NEXT_PUBLIC_POSTHOG_KEY;
       },
@@ -157,7 +149,6 @@ export function assertConfig(): void {
   void config.mfeAllowedOrigins;
   void config.isProduction;
   void config.isDevelopment;
-  void config.public.kycProviderHost;
   void config.public.posthogKey;
   void config.public.posthogHost;
   void config.public.sentryDsn;

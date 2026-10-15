@@ -1,7 +1,6 @@
 "use client";
 
-// `/invest` — the catalog: what the whole holding is worth, what is free to deploy, and
-// one card per product. Headed "Invest" and not "Your fund shares": most readers arrive
+// `/invest` — the catalog: what the whole holding is worth and one card per product. Headed "Invest" and not "Your fund shares": most readers arrive
 // here holding nothing, and a product is chosen from this list (#384).
 //
 // Two rounds of layout have been thrown away here. First the dealing forms, which made
@@ -18,12 +17,10 @@ import { useMemo } from "react";
 import { Card, CardContent, Skeleton } from "@evinvest/uikit";
 
 import { allocationsResource, positionsResource, redemptionsResource } from "@/entities/fund/model/fund-resource";
-import { walletResource } from "@/entities/wallet/model/wallet-resource";
-import { useKycGate } from "@/features/kyc/model/use-kyc-gate";
 import { errorMessage } from "@/shared/lib/api-client";
 import { type ResourceSeed, useSeededResource } from "@/shared/lib/resource";
 import { useHydrated } from "@/shared/lib/use-hydrated";
-import type { AllocationList, PositionList, RedemptionList, Wallet } from "@/shared/contracts";
+import type { AllocationList, PositionList, RedemptionList } from "@/shared/contracts";
 import { TipAnchor } from "@/shared/tips";
 import { StaggerItem } from "@/shared/ui/motion";
 import { SectionLabel, PageFrame } from "@/shared/ui/page-frame";
@@ -42,7 +39,6 @@ export interface InvestSeed {
   positions?: ResourceSeed<PositionList>;
   catalog?: ResourceSeed<AllocationList>;
   redemptions?: ResourceSeed<RedemptionList>;
-  wallet?: ResourceSeed<Wallet>;
   /** Keyed by service. Never rejects: a card whose reads failed is just absent from it. */
   cards?: Promise<Readonly<Record<string, ProductCardSeed>>>;
 }
@@ -52,19 +48,11 @@ export function InvestView({ initial }: { initial?: InvestSeed }) {
   const positionList = useSeededResource(positionsResource, initial?.positions);
   const catalogList = useSeededResource(allocationsResource, initial?.catalog);
   const redemptionList = useSeededResource(redemptionsResource, initial?.redemptions);
-  const wallet = useSeededResource(walletResource, initial?.wallet);
   const hydrated = useHydrated();
-  // The tier from `/kyc/status` first, the profile's mirror second, and no verdict from a
-  // failed read — the wallet's rule (`features/kyc/lib/money-gate`), reused: a tier-0
-  // caller cannot fund a subscription, so the card's CTA sends them to verify instead.
-  const { gated } = useKycGate();
 
   const positions = positionList.data?.positions ?? null;
   const catalog = catalogList.data?.allocations ?? null;
   const redemptions = redemptionList.data?.redemptions ?? [];
-  // The free balance is context, not the subject of this screen — a failure to read it
-  // hides the figure rather than failing the page.
-  const available = wallet.data?.balance?.available ?? null;
   // Only a positions read that has never succeeded is worth an alert; a failed refresh over
   // holdings already on screen is not something to interrupt the page for.
   const error = positionList.data ? null : positionList.error ? errorMessage(positionList.error, t) : null;
@@ -103,7 +91,7 @@ export function InvestView({ initial }: { initial?: InvestSeed }) {
         </StaggerItem>
       ) : (
         <>
-          <PortfolioBand invested={totals.value} cost={totals.cost} funds={held.length} available={available} queued={queued.length} />
+          <PortfolioBand invested={totals.value} cost={totals.cost} funds={held.length} queued={queued.length} />
 
           <StaggerItem as="section" className="space-y-3">
             <SectionLabel className="flex items-center gap-2">
@@ -121,7 +109,7 @@ export function InvestView({ initial }: { initial?: InvestSeed }) {
             ) : (
               <div className="grid gap-4 lg:grid-cols-2">
                 {products.map((product) => (
-                  <SeededProductCard key={product.service} product={product} gated={gated} seeds={initial?.cards} />
+                  <SeededProductCard key={product.service} product={product} seeds={initial?.cards} />
                 ))}
               </div>
             )}

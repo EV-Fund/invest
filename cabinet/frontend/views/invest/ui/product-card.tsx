@@ -38,14 +38,13 @@ export interface ProductCardSeed {
   book?: ResourceSeed<BookPolicy>;
 }
 
-export function ProductCard({ product, gated, seed }: { product: Product; gated: boolean; seed?: ProductCardSeed }) {
+export function ProductCard({ product, seed }: { product: Product; seed?: ProductCardSeed }) {
   const navRead = useSeededResource(fundNavResource, seed?.nav, product.service);
   const feeRead = useSeededResource(feePolicyResource, seed?.fee, product.service);
   const bookRead = useSeededResource(bookPolicyResource, seed?.book, product.service);
   return (
     <ProductCardBody
       product={product}
-      gated={gated}
       nav={navRead.data ?? null}
       navFailed={navRead.error !== null && !navRead.data}
       // `undefined` while the read is in flight, `null` once it has answered — with nothing,
@@ -58,14 +57,13 @@ export function ProductCard({ product, gated, seed }: { product: Product; gated:
 
 interface ProductCardBodyProps {
   product: Product;
-  gated: boolean;
   nav: FundNav | null;
   navFailed: boolean;
   policy: FeePolicy | null | undefined;
   bookOpen: boolean | undefined;
 }
 
-export function ProductCardBody({ product, gated, nav, navFailed, policy, bookOpen }: ProductCardBodyProps) {
+export function ProductCardBody({ product, nav, navFailed, policy, bookOpen }: ProductCardBodyProps) {
   const t = useT();
   const locale = useLocale();
 
@@ -78,7 +76,7 @@ export function ProductCardBody({ product, gated, nav, navFailed, policy, bookOp
   const trend = held ? valence(held.pnl) : "flat";
   // An unread book is a closed one for the CTA: "Details" is the honest offer until the
   // terminal is known to accept an order.
-  const cta = cardCta({ product, nav, bookOpen: bookOpen ?? false, gated });
+  const cta = cardCta({ product, nav, bookOpen: bookOpen ?? false });
 
   return (
     <Card>

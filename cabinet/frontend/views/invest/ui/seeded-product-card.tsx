@@ -14,15 +14,15 @@ import type { Product } from "@/views/invest/lib/product";
  * nothing — the browser can mount it before the server's answers arrive, and a card that
  * subscribed there would ask the BFF the very questions already on their way.
  */
-export function SeededProductCard({ seeds, product, gated }: { seeds?: Promise<Readonly<Record<string, ProductCardSeed>>>; product: Product; gated: boolean }) {
-  if (!seeds) return <ProductCard product={product} gated={gated} />;
+export function SeededProductCard({ seeds, product }: { seeds?: Promise<Readonly<Record<string, ProductCardSeed>>>; product: Product }) {
+  if (!seeds) return <ProductCard product={product} />;
   return (
-    <Suspense fallback={<ProductCardBody product={product} gated={gated} nav={null} navFailed={false} policy={undefined} bookOpen={undefined} />}>
-      <CardFromSeeds seeds={seeds} product={product} gated={gated} />
+    <Suspense fallback={<ProductCardBody product={product} nav={null} navFailed={false} policy={undefined} bookOpen={undefined} />}>
+      <CardFromSeeds seeds={seeds} product={product} />
     </Suspense>
   );
 }
 
-function CardFromSeeds({ seeds, product, gated }: { seeds: Promise<Readonly<Record<string, ProductCardSeed>>>; product: Product; gated: boolean }) {
-  return <ProductCard product={product} gated={gated} seed={use(seeds)[product.service]} />;
+function CardFromSeeds({ seeds, product }: { seeds: Promise<Readonly<Record<string, ProductCardSeed>>>; product: Product }) {
+  return <ProductCard product={product} seed={use(seeds)[product.service]} />;
 }

@@ -18,11 +18,10 @@ import { isClosed, isInKind, isLocked, type Product } from "./product.ts";
  *  · `manage`  — the caller holds units: the page is where they redeem or add.
  *  · `view`    — nothing to do from here (closed, or full with no book); the page explains.
  *  · `locked`  — an operator holds the product below `invest` for this caller.
- *  · `verify`  — the caller is tier 0 and cannot fund a subscription until verified.
  *  · `trade`   — the supply is fully issued and a book is open: the only way in.
  *  · `invest`  — open, and open to this caller.
  */
-export type CardCta = "manage" | "view" | "locked" | "verify" | "trade" | "invest";
+export type CardCta = "manage" | "view" | "locked" | "trade" | "invest";
 
 export interface CardInputs {
   product: Product;
@@ -30,20 +29,18 @@ export interface CardInputs {
   /** The book policy's `book_open`; `false` while unread, which offers no trade rather than
    *  a trade the terminal would refuse. */
   bookOpen: boolean;
-  /** The money gate — tier 0 with the tier actually read (`features/kyc/lib/money-gate`). */
-  gated: boolean;
 }
 
 /**
  * Order is the same as `blockedReasonKey`: a holding is a fact that outranks every gate; an
- * operator's lock is a gate placed on purpose, so it is named ahead of the caller's own tier;
- * a full cap comes last because it is a market condition rather than a rule about anyone.
+ * operator's lock is a gate placed on purpose; a full cap comes last because it is a market
+ * condition rather than a rule about anyone. Identity verification is not a gate here: it is
+ * banking's, which refuses an unverified subscriber's cash and fails the subscription.
  */
-export function cardCta({ product, nav, bookOpen, gated }: CardInputs): CardCta {
+export function cardCta({ product, nav, bookOpen }: CardInputs): CardCta {
   if (product.position && toBaseUnits(product.position.units) > 0n) return "manage";
   if (isClosed(product)) return "view";
   if (isLocked(product)) return "locked";
-  if (gated) return "verify";
   if (nav && toBaseUnits(nav.remaining_capacity) <= 0n) return bookOpen ? "trade" : "view";
   return "invest";
 }

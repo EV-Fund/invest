@@ -93,7 +93,7 @@ export function ValuationView() {
       // Settling burns units, so the derived-NAV preview and the queue's est-cash go stale
       // on the units_outstanding this screen loaded with — and so do the investor's own
       // position and redemption lists. One tag sweep covers all of them.
-      revalidateTag(TAG.nav, TAG.positions, TAG.redemptions, TAG.operations);
+      revalidateTag(TAG.nav, TAG.positions, TAG.redemptions);
       await Promise.all([queueRead.refresh(), navRead.refresh()]);
     } catch (e) {
       setActionError(errorMessage(e, t));
@@ -190,7 +190,6 @@ export function ValuationView() {
                 setAum("");
                 await queueRead.refresh();
               }}
-              onProposed={() => setAum("")}
               onError={setActionError}
             />
           </CardContent>

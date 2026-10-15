@@ -22,12 +22,10 @@
 // component reads once for the first HTML and passes the answer down as a seed
 // (`useSeededResource`), and from then on the value lives, ages and is invalidated here.
 //
-// Why not a store library. The repo already answers this: `entities/user/model/
-// profile-store.ts`, `entities/notification/model/notification-store.ts`,
-// `shared/lib/use-session.ts` and `shared/lib/use-platform.ts` are four hand-rolled copies
-// of this same pattern, each with slightly different staleness rules. This is that pattern
-// written once, with a policy per resource instead of per copy — and no new dependency
-// (see AGENTS.md § Hard rules).
+// Why not a store library. The banking cabinet this was imported from grew four hand-rolled
+// copies of this same pattern (profile, notifications, session, platform status), each
+// with slightly different staleness rules. This is that pattern written once, with a policy
+// per resource instead of per copy — and no new dependency.
 //
 // The behaviour that removes the skeleton: `useResource` serves whatever is already in the
 // cache on the FIRST render, synchronously. A revalidation, when the value has aged past
@@ -74,8 +72,7 @@ export interface ResourceConfig<T, A extends unknown[]> {
    *
    * NON-PERSONAL data only. The catalog of open funds and their NAVs qualify; a balance,
    * a position, a profile or an operation does not — those stay in memory, which dies with
-   * the page. (`entities/user/model/identity-cache.ts` makes the same call for the
-   * three identity fields it needs.)
+   * the page.
    */
   persist?: boolean;
   /**
@@ -86,8 +83,7 @@ export interface ResourceConfig<T, A extends unknown[]> {
   enabled?: (...args: A) => boolean;
   /**
    * Poll a mounted screen while `while(data)` holds — for a verdict that can land on the
-   * backend with nobody bringing the tab back into focus to notice it (see
-   * `entities/user/model/profile-resource.ts`). None of the clock's other triggers (mount,
+   * backend with nobody bringing the tab back into focus to notice it. None of the clock's other triggers (mount,
    * focus regained, route warmed — `watchFocus` below) fire while a tab just sits there
    * open, so a resource that needs "arrives within a minute of a tab that never leaves"
    * has to ask for it explicitly.

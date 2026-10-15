@@ -85,12 +85,12 @@ export const fillsResource = defineResource({
 });
 
 /**
- * What a change to the caller's orders moves: the order lists themselves, and — because
- * an order is an escrow inside the ledger — the wallet's available balance and the
- * position's free units. Named once here so the socket and the mutations agree.
+ * What a change to the caller's orders moves: the order lists themselves, and — because a
+ * sell is an escrow inside the ledger — the position's free units. Named once here so the
+ * socket and the mutations agree.
  */
 export function refreshOwnOrders(): void {
-  revalidateTag(TAG.orders, TAG.wallet, TAG.positions);
+  revalidateTag(TAG.orders, TAG.positions);
 }
 
 /** Place an order. Escrows cash (buy) or units (sell) the moment it is accepted. */

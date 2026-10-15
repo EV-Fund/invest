@@ -21,7 +21,7 @@ import { Alert, AlertDescription, AlertTitle, Button } from "@evinvest/uikit";
 import type { FeePolicyChange } from "@/shared/contracts/admin";
 import { formatMoment } from "@/shared/lib/datetime";
 import { receiptKind } from "@/views/admin/fees/lib/receipt";
-import { PLATFORM_ADMIN_URL } from "@/shared/config/platform-admin";
+import { PLATFORM_APPROVALS_URL } from "@/shared/config/platform-admin";
 
 type ReceiptKind = "awaiting" | "scheduled" | "immediate";
 type ReceiptArgs = { version: number; at: string };
@@ -55,7 +55,7 @@ export function ScheduledReceipt({ change, onDismiss }: { change: FeePolicyChang
         <div className="flex flex-wrap gap-2 text-ink">
           {awaiting && (
             <Button asChild size="sm" variant="outline">
-              <a href={PLATFORM_ADMIN_URL}>{t("admin.payments.openConsilium", "Open the consilium")}</a>
+              <a href={PLATFORM_APPROVALS_URL}>{t("admin.payments.openConsilium", "Open the consilium")}</a>
             </Button>
           )}
           <Button type="button" size="sm" variant="ghost" onClick={onDismiss}>

@@ -1,7 +1,7 @@
 // Browser → BFF admin-console client. Thin typed fetchers over the `/api/admin/*`
 // routes; the shapes match the BFF DTOs (`@/shared/contracts/admin`). Mutations carry
-// the CSRF double-submit header. No tokens are seen here — the BFF holds them and the
-// owning plane re-checks the operator's role.
+// the CSRF double-submit header. No tokens are seen here — the BFF holds them, and
+// invest-core re-checks every act against the caller's `invest:*` permissions.
 
 import { getJson, postJson } from "@/shared/lib/api-client";
 import type {
@@ -15,7 +15,6 @@ import type {
   AllocationIcon,
   AllocationList,
   AllocationTreasury,
-  AdminUserList,
   CancelFeePolicyChangeRequest,
   FeeAssessmentList,
   FeePolicyChange,
@@ -32,27 +31,6 @@ import type {
   UnitIssuance,
 } from "@/shared/contracts/admin";
 import type { BookPolicy, SetBookPolicyBody } from "@/shared/contracts/book";
-import type { Consilium } from "@/shared/contracts/governance";
-
-// ── users ─────────────────────────────────────────────────────────────────────
-export interface UserFilters {
-  query?: string;
-  role?: string;
-  status?: string;
-  limit?: number;
-  offset?: number;
-}
-
-export function fetchUsers(filters: UserFilters = {}): Promise<AdminUserList> {
-  const params = new URLSearchParams();
-  if (filters.query) params.set("query", filters.query);
-  if (filters.role) params.set("role", filters.role);
-  if (filters.status) params.set("status", filters.status);
-  if (filters.limit) params.set("limit", String(filters.limit));
-  if (filters.offset) params.set("offset", String(filters.offset));
-  const qs = params.toString();
-  return getJson(`/api/admin/users${qs ? `?${qs}` : ""}`);
-}
 
 // ── allocations (the registry — the only way a fund comes into existence) ────────
 // The admin listing includes drafts and closed products; the investor-facing
@@ -72,7 +50,14 @@ export interface AllocationWrite {
   icon: AllocationIcon;
 }
 
-export const registerAllocation = (body: AllocationWrite): Promise<Allocation> => postJson("/api/admin/allocations/register", body);
+/** Registration alone names the scope whose compartments hold the product's cash — a
+ *  panel's product lives in its own scope (`sa`, …). Omitted, invest-core files it under
+ *  `invest`. Fixed at registration: no route moves a product between scopes. */
+export interface AllocationRegistration extends AllocationWrite {
+  scope?: string;
+}
+
+export const registerAllocation = (body: AllocationRegistration): Promise<Allocation> => postJson("/api/admin/allocations/register", body);
 
 export const updateAllocation = (body: AllocationWrite): Promise<Allocation> => postJson("/api/admin/allocations/update", body);
 
@@ -145,18 +130,14 @@ export const fetchRedemptionQueue = (): Promise<RedemptionQueue> => getJson("/ap
 
 export const postValuation = (body: { service: string; aum: string }): Promise<FundNav> => postJson("/api/admin/valuation/post", body);
 
-// A mark the NAV-move guard refuses is not posted with a flag — it is put to the owners.
-// The answer is the consilium the room and the emailed invitations then show.
-export const proposeValuationOverride = (body: { service: string; aum: string }): Promise<Consilium> => postJson("/api/admin/valuation/override", body);
-
 export const settleRedemption = (redemptionId: string): Promise<Redemption> => postJson("/api/admin/valuation/settle", { redemption_id: redemptionId });
 
 export const failRedemption = (redemptionId: string): Promise<Redemption> => postJson("/api/admin/valuation/fail", { redemption_id: redemptionId });
 
 // ── revenue (the reserved `fee` allocation) ──────────────────────────────────────
 // What the platform has earned, in the treasury's own shape (#245): the `fee`
-// allocation's claim, supply, price and holders. Paying it OUT is a payment order
-// (`entities/payment`) authorised by the owners' consilium, or a holder's redemption.
+// allocation's claim, supply, price and holders. Paying it OUT is banking's and the owners'
+// (the central admin's approvals), or a holder's redemption.
 export const fetchFundRevenue = (): Promise<AllocationTreasury> => getJson("/api/admin/revenue");
 
 // ── fees ────────────────────────────────────────────────────────────────────────
@@ -181,6 +162,14 @@ export const acknowledgeUndeliveredNotices = (body: AcknowledgeUndeliveredNotice
 /** A fund's whole history of terms, newest version first. */
 export const fetchFeePolicyChanges = (service: string): Promise<FeePolicyChangeList> => getJson(`/api/admin/fees/changes?service=${encodeURIComponent(service)}`);
 
-// Empty `units` settles the whole accumulated balance — the ordinary end-of-period call.
-export const settleFeeShares = (body: { service: string; units: string }): Promise<FeeSettlement> => postJson("/api/admin/fees/settle", body);
+/** Empty `units` settles the whole accumulated balance — the ordinary end-of-period call.
+ *  `idempotency_key` (1..128 chars) names the settlement: one key per click, the same key on
+ *  a retry of it, so a retry returns the first settlement and moves no cash again. */
+export interface SettleFeeSharesBody {
+  service: string;
+  units: string;
+  idempotency_key: string;
+}
+
+export const settleFeeShares = (body: SettleFeeSharesBody): Promise<FeeSettlement> => postJson("/api/admin/fees/settle", body);
 

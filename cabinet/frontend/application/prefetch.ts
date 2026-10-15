@@ -20,7 +20,6 @@
 import { adminAllocationsResource, fundRevenueResource, redemptionQueueResource } from "@/entities/admin/model/admin-resource";
 import { bookPolicyResource, bookSnapshotResource, bookTradesResource, openOrdersResource } from "@/entities/book/model/book-resource";
 import { allocationsResource, fundNavResource, positionsResource, redemptionsResource } from "@/entities/fund/model/fund-resource";
-import { walletResource } from "@/entities/wallet/model/wallet-resource";
 
 // Zone-relative paths, exactly as the rail writes them (basePath is not part of these).
 // Ordered longest-prefix-first so `/invest/<service>` isn't answered by `/invest`.
@@ -48,12 +47,10 @@ const ROUTES: ReadonlyArray<{ prefix: string; warm: (path: string) => void }> = 
       fundNavResource.prefetch(service);
       bookPolicyResource.prefetch(service);
       if (surface === "trade") {
-        // The terminal: the book paints from the cache before the socket's first frame
-        // lands, and the form needs the balance to say what is available.
+        // The terminal: the book paints from the cache before the socket's first frame lands.
         bookSnapshotResource.prefetch(service);
         bookTradesResource.prefetch(service);
         openOrdersResource.prefetch(service);
-        walletResource.prefetch();
       }
     },
   },
@@ -62,7 +59,6 @@ const ROUTES: ReadonlyArray<{ prefix: string; warm: (path: string) => void }> = 
     warm: () => {
       positionsResource.prefetch();
       redemptionsResource.prefetch();
-      walletResource.prefetch();
       allocationsResource.prefetch();
     },
   },
@@ -98,15 +94,14 @@ export function prefetchOn(href: string) {
 }
 
 /**
- * Warm what nearly every screen in the cabinet reads: the balance, the positions, and the
- * fund catalog the rail itself lists. Called once when the signed-in shell mounts.
+ * Warm what nearly every screen in the cabinet reads: the positions and the fund catalog
+ * the rail itself lists. Called once when the signed-in shell mounts.
  *
  * At idle, so the current screen's own reads go first — nothing here is needed to paint the
  * page the user actually asked for.
  */
 export function warmShell(): () => void {
   const warm = () => {
-    walletResource.prefetch();
     positionsResource.prefetch();
     allocationsResource.prefetch();
   };

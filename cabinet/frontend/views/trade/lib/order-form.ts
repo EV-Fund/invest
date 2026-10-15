@@ -25,7 +25,7 @@ export const EMPTY_ORDER_DRAFT: OrderDraft = { side: "buy", kind: "limit", tif: 
 /** What the form knows about the world the draft is sent into. */
 export interface OrderContext {
   policy: Pick<BookPolicy, "taker_fee_bps" | "price_tick" | "lot_size"> | null;
-  /** Cash available to a buy, decimal USDT — or `null` while the wallet has not arrived. */
+  /** Cash available to a buy, decimal USDT — or `null` when unknown, which checks nothing. */
   availableCash: string | null;
   /** Free units available to a sell — or `null` while the position has not arrived. */
   availableUnits: string | null;

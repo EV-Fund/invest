@@ -2,11 +2,9 @@
 
 // One product's book, kept current.
 //
-// Sibling in shape to `entities/governance/model/consilium-socket.ts` — module-scoped
-// state, subscribers, `useSyncExternalStore`, one hook owning the lifecycle — but keyed
-// per service, since two products are two feeds, and different in what a frame is allowed
-// to do. The governance frame is a doorbell; this one IS the book: the BFF sends the same
-// snapshot `GET /api/book` answers, so a frame is written straight into the read cache
+// Module-scoped state, subscribers, `useSyncExternalStore`, one hook owning the lifecycle,
+// keyed per service, since two products are two feeds. A frame IS the book: the BFF sends
+// the same snapshot `GET /api/book` answers, so a frame is written straight into the read cache
 // (`./book-resource`) and the terminal paints from there. The reducer that decides what a
 // frame may write is `./book-frame`, and it is where the rules are tested.
 //

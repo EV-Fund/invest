@@ -6,7 +6,7 @@
 // `views/invest/lib/catalog-card`.
 
 import { useT } from "@evinvest/i18n/react";
-import { ArrowRight, ChartCandlestick, Lock, ShieldCheck } from "lucide-react";
+import { ArrowRight, ChartCandlestick, Lock } from "lucide-react";
 
 import { Button } from "@evinvest/uikit";
 
@@ -40,8 +40,6 @@ export function ProductCta({ cta, service, title }: { cta: CardCta; service: str
           </Link>
         </Button>
       );
-    case "verify":
-      return <VerifyToInvestCta className={className} />;
     case "locked":
       // There is no self-serve request for access: support raises the grant by hand, so
       // "ask" means the support mailbox, with the product named for them.
@@ -54,22 +52,4 @@ export function ProductCta({ cta, service, title }: { cta: CardCta; service: str
         </Button>
       );
   }
-}
-
-/**
- * The muted way to unlock investing for a tier-0 caller — the card's `verify` state and the
- * product page's Subscribe slot (#395) say it in the same words and lead to the same place.
- * Verification is concierge's, so the account page — its element — is where a start is
- * offered, rather than a copy of that flow here.
- */
-export function VerifyToInvestCta({ className }: { className?: string }) {
-  const t = useT();
-  return (
-    <Button asChild className={className} variant="outline">
-      <Link href="/account">
-        <ShieldCheck className="size-4" />
-        {t("invest.cta.verify", "Verify to invest")}
-      </Link>
-    </Button>
-  );
 }

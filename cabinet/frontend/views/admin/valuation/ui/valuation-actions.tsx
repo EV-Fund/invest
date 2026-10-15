@@ -1,35 +1,27 @@
 "use client";
 
-// The two ways a mark leaves the form. Post records it now, inside the NAV-move guard.
-// Propose puts it to the owners as a consilium — and that is the ONLY way past the guard:
-// there is no per-request override any more, because one admin with a flag could lift the
-// guard and drain pooled cash (banking#232). Both routes are gated alike, so the operator
-// chooses where the figure goes, never whether the guard applies.
+// The way a mark leaves the form: Post records it now, inside the NAV-move guard. A move
+// past the guard is refused — there is no per-request override, because one admin with a
+// flag could lift the guard and drain pooled cash (banking#232), and putting it to the
+// owners is concierge's approvals, which invest is not a client of yet.
 
-import { CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 
-import { useLocale, useT } from "@evinvest/i18n/react";
-import { Alert, AlertDescription, AlertTitle, Button, Spinner } from "@evinvest/uikit";
+import { useT } from "@evinvest/i18n/react";
+import { Button, Spinner } from "@evinvest/uikit";
 
-import { postValuation, proposeValuationOverride } from "@/entities/admin/api/admin-client";
+import { postValuation } from "@/entities/admin/api/admin-client";
 import type { FundNav } from "@/shared/contracts/admin";
 import { errorMessage } from "@/shared/lib/api-client";
-import { formatExactUsdt } from "@/shared/lib/money";
-import { TipAnchor } from "@/shared/tips";
 import { PostedMark } from "@/views/admin/valuation/ui/posted-mark";
-import { PLATFORM_ADMIN_URL } from "@/shared/config/platform-admin";
 
 const TEAL_CTA = "bg-primary text-on-primary hover:bg-primary/90";
-
-type Route = "post" | "propose";
 
 export function ValuationActions({
   service,
   aum,
   disabled,
   onPosted,
-  onProposed,
   onError,
 }: {
   service: string;
@@ -37,38 +29,25 @@ export function ValuationActions({
   disabled: boolean;
   /** The POST answers with the new mark; the caller publishes it and clears the form. */
   onPosted: (nav: FundNav) => Promise<void> | void;
-  onProposed: () => void;
   onError: (message: string | null) => void;
 }) {
   const t = useT();
-  const locale = useLocale();
-  const [busy, setBusy] = useState<Route | null>(null);
-  // What was proposed, captured at the click: the caller clears the AUM field on success,
-  // so the receipt cannot read it back from the form.
-  const [proposed, setProposed] = useState<{ service: string; aum: string } | null>(null);
+  const [busy, setBusy] = useState(false);
   // The mark as the hub answered it. Kept whole (it names its own `service`) so switching
   // funds hides it by comparison instead of an effect that races the select.
   const [posted, setPosted] = useState<FundNav | null>(null);
 
-  const run = async (route: Route) => {
-    setBusy(route);
+  const post = async () => {
+    setBusy(true);
     onError(null);
     try {
-      if (route === "post") {
-        const mark = await postValuation({ service, aum });
-        setProposed(null);
-        setPosted(mark);
-        await onPosted(mark);
-      } else {
-        await proposeValuationOverride({ service, aum });
-        setPosted(null);
-        setProposed({ service, aum });
-        onProposed();
-      }
+      const mark = await postValuation({ service, aum });
+      setPosted(mark);
+      await onPosted(mark);
     } catch (e) {
       onError(errorMessage(e, t));
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   };
 
@@ -76,40 +55,10 @@ export function ValuationActions({
     <div className="flex flex-col gap-4">
       {posted?.service === service && <PostedMark mark={posted} onClose={() => setPosted(null)} />}
 
-      {proposed && (
-        // Leads with PROPOSED, not "done": nothing is marked until the vote carries, and
-        // the room with the live tally is one link away (same receipt as a payment).
-        <Alert role="status" className="border-positive/40 bg-positive/10">
-          <CheckCircle2 className="size-4 text-positive" />
-          <AlertTitle>{t("admin.valuation.proposedTitle", "Proposed to the owners")}</AlertTitle>
-          <AlertDescription className="gap-3 text-ink">
-            <p className="leading-relaxed tabular-nums">
-              {t("admin.valuation.proposedBody", "Nothing is marked yet. Every owner has been emailed a link; once more than half of them agree, {service} is marked at {aum} USDT. The live tally is in the consilium.", { service: proposed.service, aum: formatExactUsdt(proposed.aum, locale) })}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button asChild size="sm" variant="outline">
-                <a href={PLATFORM_ADMIN_URL}>{t("admin.valuation.openConsilium", "Open the consilium")}</a>
-              </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => setProposed(null)}>
-                {t("ui.close", "Close")}
-              </Button>
-            </div>
-          </AlertDescription>
-        </Alert>
-      )}
-
       <div className="flex flex-wrap items-center justify-end gap-3">
-        <p className="min-w-48 flex-1 text-xs text-ink-soft">{t("admin.valuation.proposeHint", "A move past the guard is put to the owners' vote instead of being posted.")}</p>
-        {/* i18n-max: 24 per verb — both Buttons are `shrink-0` in a wrapping row. */}
-        <span className="inline-flex shrink-0 items-center gap-1.5">
-          <Button type="button" variant="outline" disabled={disabled || busy !== null} onClick={() => void run("propose")}>
-            {busy === "propose" ? <Spinner aria-hidden /> : null}
-            {t("admin.valuation.propose", "Propose to the owners")}
-          </Button>
-          <TipAnchor anchor="admin.valuation.post.propose" />
-        </span>
-        <Button type="button" className={TEAL_CTA} disabled={disabled || busy !== null} onClick={() => void run("post")}>
-          {busy === "post" ? <Spinner aria-hidden /> : null}
+        <p className="min-w-48 flex-1 text-xs text-ink-soft">{t("admin.valuation.guardHint", "A move past the NAV guard is refused; the owners cannot be asked to lift it from here yet.")}</p>
+        <Button type="button" className={TEAL_CTA} disabled={disabled || busy} onClick={() => void post()}>
+          {busy ? <Spinner aria-hidden /> : null}
           {t("admin.valuation.postValuation", "Post valuation")}
         </Button>
       </div>

@@ -18,7 +18,7 @@ import { StaggerItem } from "@/shared/ui/motion";
 import { SectionLabel } from "@/shared/ui/page-frame";
 import { formatSignedUsdt, formatUsdt, fromBaseUnits, valence } from "@/views/invest/lib/format";
 
-export function PortfolioBand({ invested, cost, funds, available, queued }: { invested: bigint; cost: bigint; funds: number; available: string | null; queued: number }) {
+export function PortfolioBand({ invested, cost, funds, queued }: { invested: bigint; cost: bigint; funds: number; queued: number }) {
   const t = useT();
   const locale = useLocale();
   const pnl = invested - cost;
@@ -60,13 +60,13 @@ export function PortfolioBand({ invested, cost, funds, available, queued }: { in
           />
         </div>
 
-        <div className="space-y-2 md:border-l md:border-border md:pl-7">
-          <p className="flex items-center gap-1.5 text-xs text-ink-soft">
-            <Wallet className="size-3.5" /> {t("invest.availableToInvest", "Available to invest")}
-          </p>
-          <p className="text-xl font-semibold tabular-nums">{available === null ? "—" : `${formatUsdt(available, locale)} USDT`}</p>
+        {/* No balance figure: cash is banking's and is shown by its wallet element, the
+            one surface that reads it. */}
+        <div className="md:border-l md:border-border md:pl-7">
           <Button asChild type="button" variant="outline" size="sm">
-            <Link href="/wallet">{t("invest.topUp", "Top up")}</Link>
+            <Link href="/wallet">
+              <Wallet className="size-3.5" /> {t("invest.topUp", "Top up")}
+            </Link>
           </Button>
         </div>
       </CardContent>

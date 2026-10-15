@@ -181,7 +181,7 @@ const FRIENDLY: Record<string, { code: ErrorCode; en: string }> = {
     code: VERIFICATION_REQUIRED,
     en: "Verify your identity to continue.",
   },
-  // The identity plane's closed dictionary (`features/kyc/api/kyc-contract`). It is a
+  // The identity plane's closed dictionary (concierge's KYC routes). It is a
   // SECOND backend answering this transport, and its codes were unknown to this table, so
   // every one of them reached the reader as the literal word `internal` / `throttled` /
   // `kyc_unavailable` in all five locales. Keyed here rather than in the slice: one policy

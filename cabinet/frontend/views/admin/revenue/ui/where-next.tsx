@@ -1,28 +1,29 @@
 "use client";
 
-// Where the money on this screen is moved from, and where it is held — both in the central
-// admin on evinvest.ltd, since money stays banking's.
+// Where the money on this screen is moved from, where it is held, and who decides who holds
+// it — all in the central admin on evinvest.ltd, since money stays banking's and the owners'
+// approvals are concierge's.
 //
-// Paying the platform's earnings out is one case of a payment order (from `service:fee`),
-// and the form that opens one lives on the Payments screen with every other case. The
-// treasury is where the same allocation appears beside the products and `fund`. Two
-// cards rather than two buttons, because each is a destination with a sentence's worth
-// of reason, not an action.
+// Paying the platform's earnings out is one case of a payment order (from `service:fee`);
+// the treasury is where the same allocation appears beside the products and `fund`; seating
+// a holder on it is a proposal to the owners. Cards rather than buttons, because each is a
+// destination with a sentence's worth of reason, not an action.
 
-import { ArrowLeftRight, ChevronRight, Landmark } from "lucide-react";
+import { ArrowLeftRight, ChevronRight, Landmark, Vote } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { useT } from "@evinvest/i18n/react";
 import { Card, CardContent } from "@evinvest/uikit";
 
-import { PLATFORM_ADMIN_URL } from "@/shared/config/platform-admin";
+import { PLATFORM_ADMIN_URL, PLATFORM_APPROVALS_URL } from "@/shared/config/platform-admin";
 
 export function WhereNext() {
   const t = useT();
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <LinkCard href={`${PLATFORM_ADMIN_URL}/payments`} icon={<ArrowLeftRight className="size-5" />} title={t("nav.payments", "Payments")} body={t("admin.revenue.toPayments", "Moving the platform's earnings — into a product, or to an investor — is a payment order the owners authorise. Open one there. Cash reaches the chain only through a holder's redemption and their own withdrawal.")} />
       <LinkCard href={`${PLATFORM_ADMIN_URL}/treasury`} icon={<Landmark className="size-5" />} title={t("nav.treasury", "Treasury")} body={t("admin.revenue.toTreasury", "The fee allocation beside the platform's other balances: custody per rail, user claims, every allocation and its holders.")} />
+      <LinkCard href={PLATFORM_APPROVALS_URL} icon={<Vote className="size-5" />} title={t("nav.approvals", "Approvals")} body={t("admin.revenue.toApprovals", "Seating a person on the fee allocation is the owners' decision. Propose it there; the units appear here once their vote carries.")} />
     </div>
   );
 }

@@ -87,23 +87,23 @@ export const accruedFeesResource = defineResource({
   enabled: (service) => service.trim().length > 0,
 });
 
-/** Buy into a fund: money leaves the wallet and becomes units. */
+/** Buy into a fund: banking holds the cash, and the relay mints the units once it captures it. */
 export async function submitSubscribe(body: { service: string; amount: string }): Promise<Subscription> {
   const subscription = await submitSubscribeRequest(body);
-  revalidateTag(TAG.wallet, TAG.positions, TAG.operations, TAG.fees);
+  revalidateTag(TAG.positions, TAG.fees);
   return subscription;
 }
 
-/** Sell units back. Nothing settles until an operator prices it, so the wallet is unmoved. */
+/** Sell units back. Nothing settles until an operator prices it, so no cash moves yet. */
 export async function submitRedeem(body: { service: string; units: string }): Promise<Redemption> {
   const redemption = await submitRedeemRequest(body);
-  revalidateTag(TAG.positions, TAG.redemptions, TAG.operations, TAG.fees);
+  revalidateTag(TAG.positions, TAG.redemptions, TAG.fees);
   return redemption;
 }
 
 /** Withdraw a redemption request that hasn't been priced yet. */
 export async function cancelRedemption(redemptionId: string): Promise<Redemption> {
   const cancelled = await cancelRedemptionRequest(redemptionId);
-  revalidateTag(TAG.positions, TAG.redemptions, TAG.operations, TAG.fees);
+  revalidateTag(TAG.positions, TAG.redemptions, TAG.fees);
   return cancelled;
 }

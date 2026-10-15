@@ -24,7 +24,7 @@ import { changeStateLabel, changeStateTone, termsSummary } from "@/views/admin/f
 import { receiptKind } from "@/views/admin/fees/lib/receipt";
 import { NoticeWaiver } from "@/views/admin/fees/ui/notice-waiver";
 import { ago } from "@/views/admin/lib/format";
-import { PLATFORM_ADMIN_URL } from "@/shared/config/platform-admin";
+import { PLATFORM_APPROVALS_URL } from "@/shared/config/platform-admin";
 
 export function PendingCard({ change, onCancelled }: { change: FeePolicyChange; onCancelled: () => void }) {
   const t = useT();
@@ -51,7 +51,7 @@ export function PendingCard({ change, onCancelled }: { change: FeePolicyChange; 
       await cancelFeePolicyChange({ service: change.service, change_id: change.id });
       // The policy loses its `pending`, the history row turns `cancelled`, and the form
       // beneath unblocks — all readers of the tag.
-      revalidateTag(TAG.adminFees, TAG.consilium);
+      revalidateTag(TAG.adminFees);
       setConfirming(false);
       onCancelled();
     } catch (e) {
@@ -111,7 +111,7 @@ export function PendingCard({ change, onCancelled }: { change: FeePolicyChange; 
           <div className="flex flex-wrap gap-2">
             {awaiting && (
               <Button asChild size="sm" variant="outline">
-                <a href={PLATFORM_ADMIN_URL}>{t("admin.payments.openConsilium", "Open the consilium")}</a>
+                <a href={PLATFORM_APPROVALS_URL}>{t("admin.payments.openConsilium", "Open the consilium")}</a>
               </Button>
             )}
             <Button variant="ghost" size="sm" onClick={() => setConfirming(true)}>

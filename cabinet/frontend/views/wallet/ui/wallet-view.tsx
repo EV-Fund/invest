@@ -6,8 +6,6 @@ import { Wallet } from "@evinvest/wallet/react";
 
 import { Skeleton } from "@evinvest/uikit";
 
-import { TAG } from "@/shared/lib/cache-tags";
-import { revalidateTag } from "@/shared/lib/resource";
 import { useMfeNavigate } from "@/shared/lib/use-mfe-navigate";
 import { useWalletElement } from "@/shared/lib/platform-mfe";
 import { PageFrame } from "@/shared/ui/page-frame";
@@ -34,10 +32,6 @@ export function WalletView() {
           scriptUrl={element.entry.scriptUrl}
           scope={SCOPE}
           onNavigate={onNavigate}
-          // A move into or out of the compartment changes what the invest screens show as
-          // available. After `closed` or `timeout` the action may still have gone through,
-          // so every outcome re-reads.
-          onResult={() => revalidateTag(TAG.wallet)}
           fallback={<Skeleton className="h-64 w-full" />}
         />
       )}

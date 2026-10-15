@@ -14,7 +14,6 @@ import { useT } from "@evinvest/i18n/react";
 import { Tabs, TabsList, TabsTrigger, TerminalPane, TerminalPaneBody, TerminalPaneHeader } from "@evinvest/uikit";
 
 import { bookSnapshotResource, placeOrder } from "@/entities/book/model/book-resource";
-import { walletResource } from "@/entities/wallet/model/wallet-resource";
 import type { Position } from "@/shared/contracts";
 import type { BookPolicy, BookSnapshot, Order, OrderSide } from "@/shared/contracts/book";
 import { useResource } from "@/shared/lib/resource";
@@ -54,7 +53,6 @@ export function OrderFormPane({
   pick: PricePick | null;
 }) {
   const t = useT();
-  const wallet = useResource(walletResource);
   const book = useResource(bookSnapshotResource, service);
   const [draft, setDraft] = useState<OrderDraft>(EMPTY_ORDER_DRAFT);
   const [busy, setBusy] = useState(false);
@@ -73,7 +71,9 @@ export function OrderFormPane({
 
   const context: OrderContext = {
     policy,
-    availableCash: wallet.data?.balance?.available ?? null,
+    // Cash is banking's and the cabinet does not read it (the wallet element does): a buy
+    // is checked against it by banking's hold when the order is placed.
+    availableCash: null,
     availableUnits: position?.units ?? (position === null ? "0" : null),
     referencePrice: referencePrice(book.data ?? null, draft.side),
   };

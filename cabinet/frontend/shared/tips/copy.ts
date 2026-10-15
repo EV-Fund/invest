@@ -297,10 +297,6 @@ export const TIP_COPY: Readonly<Record<TipKey, (t: Translate) => TipCopy>> = {
     title: t("tips.admin.valuation.post.nav-guard.title", "NAV-move guard"),
     body: t("tips.admin.valuation.post.nav-guard.body", "A post is refused if the NAV moves more than 50% from the last mark or from the mark of a week ago — stepping there in smaller posts is refused too. There is no override: a larger move is proposed to the owners and recorded only if their vote carries."),
   }),
-  "admin.valuation.post.propose": (t) => ({
-    title: t("tips.admin.valuation.post.propose.title", "Propose to the owners"),
-    body: t("tips.admin.valuation.post.propose.body", "Opens a consilium instead of posting. The owners answer from their mailboxes; if more than half agree, the fund is marked at this AUM regardless of the NAV-move guard. Nothing changes until then."),
-  }),
   "admin.valuation.queue.settle-fail": (t) => ({
     title: t("tips.admin.valuation.queue.settle-fail.title", "Settle vs Fail"),
     body: t("tips.admin.valuation.queue.settle-fail.body", "Settle pays at settle-time NAV once the fund claim is liquid; if the rail is short the payout queues until treasury tops up. Fail voids the request and refunds the units."),

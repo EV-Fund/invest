@@ -4,7 +4,6 @@ import { I18nScope } from "@evinvest/i18n/react";
 
 import { readBookPolicy } from "@/entities/book/api/book-server";
 import { readAllocations, readFeePolicy, readFundNav, readPositions, readRedemptions } from "@/entities/fund/api/fund-server";
-import { readWallet } from "@/entities/wallet/api/wallet-server";
 import type { ServerRead } from "@/shared/api/server/bff";
 import type { AllocationList, PositionList } from "@/shared/contracts";
 import { InvestView } from "@/views/invest/ui/invest-view";
@@ -17,14 +16,13 @@ import { currentLocale } from "@/shared/config/locale";
 // to `/invest/[service]` — a subscription is a decision about one fund, and a form under
 // every row made the list read as a stack of forms rather than as a portfolio.
 //
-// Read on the server the way /wallet is, and never waited for: the fallback is the same
+// Read on the server and never waited for: the fallback is the same
 // view in its loading state, flushed at once. The lists stream in first; each card's NAV,
 // terms and book are asked for as soon as the catalog and the positions name the products,
 // and follow as a second step under each card's own boundary — the same two steps the
 // browser takes, minus the page's JavaScript between them, and the summary is never held
 // back by the second. A read that fails or times out arrives as no seed and its reader
-// makes the browser read it always made; the KYC gate on each card's action stays a browser
-// read (`/kyc/status` is not the BFF's).
+// makes the browser read it always made.
 export default async function InvestPage() {
   const locale = await currentLocale();
   return (
@@ -43,8 +41,8 @@ async function SeededInvest() {
   const positionsRead = readPositions();
   // Handed over unresolved: it streams to the cards after the lists, not ahead of them.
   const cards = Promise.all([catalogRead, positionsRead]).then(([catalog, positions]) => readCards(servicesOf(catalog, positions)));
-  const [catalog, positions, redemptions, wallet] = await Promise.all([catalogRead, positionsRead, readRedemptions(), readWallet()]);
-  return <InvestView initial={{ catalog: catalog ?? undefined, positions: positions ?? undefined, redemptions: redemptions ?? undefined, wallet: wallet ?? undefined, cards }} />;
+  const [catalog, positions, redemptions] = await Promise.all([catalogRead, positionsRead, readRedemptions()]);
+  return <InvestView initial={{ catalog: catalog ?? undefined, positions: positions ?? undefined, redemptions: redemptions ?? undefined, cards }} />;
 }
 
 /** Every product the view draws a card for: the open catalog plus anything still held. */
