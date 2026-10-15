@@ -107,7 +107,7 @@ invest-core reads the environment only; `core/.env.example` documents every vari
 | `CONCIERGE_CLIENT_ID` | `invest` | the relying-party client invest reads the streams as |
 | `CONCIERGE_CLIENT_SECRET` | unset | secret; concierge's `RP_CLIENT_SECRET_INVEST`; required with the address |
 | `CONCIERGE_TLS_CA_PEM_FILE`, `CONCIERGE_TLS_DOMAIN` | unset | the CA (required for `https://`) and the name of concierge's TLS listener |
-| `SENTRY_DSN` | unset | required in production |
+| `SENTRY_DSN` | unset | secret; required in production. One Sentry project (`invest`) serves the core, the BFF and the cabinet; each reports under its own `service` name |
 | `APP_ENV` | — | `development` / `production` |
 
 ## People
