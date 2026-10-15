@@ -33,10 +33,10 @@ use invest_domain::{error::DomainError, users::UserId};
 use sqlx::{PgPool, Postgres, pool::PoolConnection};
 use tokio_util::sync::CancellationToken;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 use uuid::Uuid;
 
-use super::users::PgUsers;
+use super::{singleton, users::PgUsers};
 use crate::ports::money::ScopeId;
 
 pub mod catalog;
@@ -47,10 +47,6 @@ pub mod fake;
 /// it with a different event of one user and land the older one last. ASCII "EVINUSR_";
 /// only stability matters, as for the relay's key.
 const PROJECTION_LOCK_KEY: i64 = 0x4556_494e_5553_525f_u64 as i64;
-
-/// How often the lock-holding connection is touched. A session lock lives exactly as long as
-/// its backend, so this bounds how long a puller keeps going after Postgres freed its lock.
-const LOCK_PROBE_INTERVAL: Duration = Duration::from_secs(5);
 
 /// Deadline on one pull, and on dialling concierge.
 const CALL_TIMEOUT: Duration = Duration::from_secs(10);
@@ -235,78 +231,18 @@ impl<Src: EventSource> ConciergeProjection<Src> {
 	/// its contract: a cursor moves only after its events are done, so a cut-off event is
 	/// pulled again and re-applied as a snapshot.
 	pub async fn run(self, shutdown: CancellationToken) {
-		const MAX_BACKOFF: Duration = Duration::from_secs(30);
-		let mut backoff = Duration::from_millis(500);
-		loop {
-			let mut lock = tokio::select! {
-				biased;
-				() = shutdown.cancelled() => return,
-				lock = self.acquire_lock() => match lock {
-					Ok(lock) => lock,
-					Err(err) => {
-						error!("concierge projection: could not acquire its lock (retrying in {backoff:?}): {err}");
-						tokio::select! {
-							() = shutdown.cancelled() => return,
-							() = tokio::time::sleep(backoff) => {},
-						}
-						backoff = (backoff * 2).min(MAX_BACKOFF);
-						continue;
-					}
-				},
-			};
-			backoff = Duration::from_millis(500);
-			info!("concierge projection: acquired its lock — pulling concierge's streams as the singleton");
-			let stop = tokio::select! {
-				biased;
-				() = shutdown.cancelled() => {
-					info!("concierge projection: shutdown requested — stopping");
-					true
-				}
-				err = probe_until_lost(&mut lock) => {
-					error!("concierge projection: lost its lock connection — re-acquiring: {err}");
-					false
-				}
-				() = self.engine.run() => {
-					error!("concierge projection: the engine returned — restarting it");
-					false
-				}
-			};
-			// Close, never drop: a dropped connection goes back to the pool still holding the
-			// advisory lock (a probe can fail without the backend dying), and the next
-			// acquisition — this process's or a standby's — would wait on it for ever.
-			if let Err(err) = lock.close().await {
-				debug!("concierge projection: closing the lock connection: {err}");
-			}
-			if stop {
-				return;
-			}
-		}
+		singleton::run_under_lock("concierge projection", PROJECTION_LOCK_KEY, &self.pool, shutdown, || self.engine.run()).await;
 	}
 
 	/// Block on a dedicated pooled connection until the session advisory lock is held; the
 	/// connection's lifetime is the lock's.
 	pub async fn acquire_lock(&self) -> Result<PoolConnection<Postgres>, sqlx::Error> {
-		let mut conn = self.pool.acquire().await?;
-		sqlx::query("SELECT pg_advisory_lock($1)").bind(PROJECTION_LOCK_KEY).execute(conn.as_mut()).await?;
-		Ok(conn)
+		singleton::acquire(&self.pool, PROJECTION_LOCK_KEY).await
 	}
 
 	/// Take the lock if it is free, else `None` — for tests that observe the singleton.
 	pub async fn try_acquire_lock(&self) -> Result<Option<PoolConnection<Postgres>>, sqlx::Error> {
-		let mut conn = self.pool.acquire().await?;
-		let acquired: bool = sqlx::query_scalar("SELECT pg_try_advisory_lock($1)").bind(PROJECTION_LOCK_KEY).fetch_one(conn.as_mut()).await?;
-		Ok(acquired.then_some(conn))
-	}
-}
-
-/// Resolve with the error once the lock-holding connection stops answering. Shared with the
-/// money-event consumer, which holds its singleton lock the same way.
-pub(crate) async fn probe_until_lost(lock: &mut PoolConnection<Postgres>) -> sqlx::Error {
-	loop {
-		tokio::time::sleep(LOCK_PROBE_INTERVAL).await;
-		if let Err(err) = sqlx::query("SELECT 1").execute(lock.as_mut()).await {
-			return err;
-		}
+		singleton::try_acquire(&self.pool, PROJECTION_LOCK_KEY).await
 	}
 }
 

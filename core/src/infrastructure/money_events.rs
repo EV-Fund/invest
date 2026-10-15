@@ -41,8 +41,8 @@ use uuid::Uuid;
 
 use super::{
 	book,
-	concierge::probe_until_lost,
 	redemptions::{self, AwaitingPayout, PayoutVerdict},
+	singleton,
 };
 use crate::{
 	application::book::BookFeed,
@@ -128,48 +128,7 @@ impl MoneyEventsConsumer {
 	/// effect, dedupe row and cursor commit together, so a cut-off transaction rolls back
 	/// and the event is pulled again.
 	pub async fn run(self, shutdown: CancellationToken) {
-		const MAX_BACKOFF: Duration = Duration::from_secs(30);
-		let mut backoff = Duration::from_millis(500);
-		loop {
-			let mut lock = tokio::select! {
-				biased;
-				() = shutdown.cancelled() => return,
-				lock = self.acquire_lock() => match lock {
-					Ok(lock) => lock,
-					Err(err) => {
-						error!("money events: could not acquire the consumer lock (retrying in {backoff:?}): {err}");
-						tokio::select! {
-							() = shutdown.cancelled() => return,
-							() = tokio::time::sleep(backoff) => {},
-						}
-						backoff = (backoff * 2).min(MAX_BACKOFF);
-						continue;
-					}
-				},
-			};
-			backoff = Duration::from_millis(500);
-			info!("money events: acquired the consumer lock — pulling banking's money events as the singleton");
-			let stop = tokio::select! {
-				biased;
-				() = shutdown.cancelled() => {
-					info!("money events: shutdown requested — stopping");
-					true
-				}
-				err = probe_until_lost(&mut lock) => {
-					error!("money events: lost the consumer lock connection — re-acquiring: {err}");
-					false
-				}
-				() = self.work() => false,
-			};
-			// Close, never drop: a dropped connection goes back to the pool still holding the
-			// advisory lock, and the next acquisition would wait on it for ever.
-			if let Err(err) = lock.close().await {
-				debug!("money events: closing the lock connection: {err}");
-			}
-			if stop {
-				return;
-			}
-		}
+		singleton::run_under_lock("money events", MONEY_EVENTS_LOCK_KEY, &self.pool, shutdown, || self.work()).await;
 	}
 
 	/// The consumer's loop while it holds the lock. Never returns.
@@ -206,16 +165,12 @@ impl MoneyEventsConsumer {
 	/// Block on a dedicated pooled connection until the session advisory lock is held; the
 	/// connection's lifetime is the lock's.
 	pub async fn acquire_lock(&self) -> Result<PoolConnection<Postgres>, sqlx::Error> {
-		let mut conn = self.pool.acquire().await?;
-		sqlx::query("SELECT pg_advisory_lock($1)").bind(MONEY_EVENTS_LOCK_KEY).execute(conn.as_mut()).await?;
-		Ok(conn)
+		singleton::acquire(&self.pool, MONEY_EVENTS_LOCK_KEY).await
 	}
 
 	/// Take the lock if it is free, else `None` — for tests that observe the singleton.
 	pub async fn try_acquire_lock(&self) -> Result<Option<PoolConnection<Postgres>>, sqlx::Error> {
-		let mut conn = self.pool.acquire().await?;
-		let acquired: bool = sqlx::query_scalar("SELECT pg_try_advisory_lock($1)").bind(MONEY_EVENTS_LOCK_KEY).fetch_one(conn.as_mut()).await?;
-		Ok(acquired.then_some(conn))
+		singleton::try_acquire(&self.pool, MONEY_EVENTS_LOCK_KEY).await
 	}
 
 	/// Pull and apply until caught up, from the stored cursor. Unfenced — the tests own the
