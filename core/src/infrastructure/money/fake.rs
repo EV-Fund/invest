@@ -1,8 +1,7 @@
 //! An in-memory [`MoneyLedger`] for tests — the contract of `scope.v1.ScopeLedgerService`
 //! without banking.
 //!
-//! banking serves `OpenAccount`, `GetBalances` and `Transfer` today and answers every saga
-//! RPC UNIMPLEMENTED (S2-4), so the flows built on them are tested against this. It keeps
+//! The sagas' integration suites run against it with a real Postgres and TigerBeetle. It keeps
 //! the parts of the contract a saga leans on — the idempotency key (same terms → the
 //! original answer, other terms → ALREADY_EXISTS), a hold that cannot be over-captured,
 //! a compartment that cannot go below zero, NOT_FOUND for an account invest does not own —

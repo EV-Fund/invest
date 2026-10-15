@@ -5,8 +5,8 @@
 //! - [`Unconfigured`] — what invest-core runs with when no scope ledger is configured:
 //!   every call is [`MoneyLedgerError::Unavailable`], so nothing priced off cash is ever
 //!   priced off a guess.
-//! - [`fake::InMemoryMoneyLedger`] — the same contract in memory, for tests: banking's
-//!   saga RPCs are UNIMPLEMENTED today, so the flows that use them are tested here.
+//! - [`fake::InMemoryMoneyLedger`] — the same contract in memory, for tests: the sagas run
+//!   against it with a real Postgres and TigerBeetle, and no banking behind them.
 
 use async_trait::async_trait;
 use invest_domain::architecture::Gateway;

@@ -10,9 +10,9 @@
 //! idempotent by a key the caller stored before the first try.
 //!
 //! The adapter speaks `scope.v1.ScopeLedgerService` over mTLS with a service token; a
-//! fake answers the same contract in memory for tests. banking serves only `OpenAccount`,
-//! `GetBalances` and `Transfer` today — every other RPC answers UNIMPLEMENTED, which the
-//! adapter reports as [`MoneyLedgerError::Unimplemented`] ("not yet"), never as a refusal.
+//! fake answers the same contract in memory for tests. An RPC banking does not serve yet
+//! (`Charge`, as of the pinned contracts) answers UNIMPLEMENTED, which the adapter reports
+//! as [`MoneyLedgerError::Unimplemented`] ("not yet"), never as a refusal.
 //!
 //! Amounts cross as [`Usdt`]; users as their concierge `auth_subject`, the name banking
 //! keys compartments by.
