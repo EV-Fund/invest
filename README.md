@@ -130,6 +130,23 @@ invest-core pulls at a time, under a session advisory lock.
 A suspended person holds no permission and is minted nothing; banking refuses their cash.
 Not kept yet: other scopes' grants (`sa:*`), scope state, the token revoke floor.
 
+At boot invest-core also publishes its permission catalog to concierge
+(`AuthService.PublishCatalog`, same credential), retrying with backoff while concierge is
+unreachable: concierge resolves `invest:*` grants only against it.
+
+| Catalog entry | What |
+| ------------- | ---- |
+| `invest:allocation:manage` | open, close, size and admit to a product; mint and retire units; settle redemptions; fee terms |
+| `invest:valuation:post` | post a product's AUM |
+| alias `invest:admin` | both; the scope's admin seat, granted only by the owners' `concierge:scope_admin_grant`; may grant `invest:operator` |
+| alias `invest:operator` | `invest:valuation:post` |
+
+There is no "may use invest" permission: concierge grants a member nothing by default, so
+an investor is admitted by the projection (known, active), not by a permission. The
+version is `CATALOG_VERSION` (`core/src/ports/catalog.rs`) — bump it with every change.
+The scope catalog (approval kinds, notification topics) is published once invest opens a
+proposal or emits a notice; it does neither yet.
+
 ## Money flows
 
 Every flow with a cash leg is a saga the relay carries across the two ledgers — the units
@@ -139,9 +156,9 @@ a key derived from the aggregate (`core/src/infrastructure/relay/sagas.rs`):
 | Flow | Cash in banking | Units in invest |
 | ---- | --------------- | --------------- |
 | Subscribe | `Reserve` on the subscriber's compartment (synchronous, TTL 1 h), then `Capture` into `(<scope>, alloc:<slug>)` | pending mint, posted after the capture; voided with the hold when banking refuses |
-| Redeem | `Payout` from `(<scope>, alloc:<slug>)` at settle | pending burn at request, posted after the payout; voided when banking refuses |
-| Book buy | `Reserve` before the order is written; each fill `Capture`s to the seller, the release `Void`s the rest | sells escrow units; a fill is pending until its cash moved |
-| Fees | the taker fee and a fee-class settlement go `alloc:<slug>` → `(<scope>, fee)`, which banking forwards to `(invest, alloc:fee)` from every scope | a charge moves units into the product's fee class; a settlement burns them |
+| Redeem | `Payout` from `(<scope>, alloc:<slug>)` at settle, only once the burn is reserved | pending burn at request — admitted only for units free and not claimed by an undrained event — posted after the payout; voided when banking refuses |
+| Book buy | `Reserve` before the order is written; each fill `Capture`s to the seller, the release `Void`s the rest | sells escrow units, and only escrowed orders of active holders are matched; a fill is pending until its cash moved, and one that cannot settle is busted — the seller's units back, the buy's hold voided |
+| Fees | the taker fee (at most 1 %) and a fee-class settlement go `alloc:<slug>` → `(<scope>, fee)`, which banking forwards to `(invest, alloc:fee)` from every scope | a charge moves units into the product's fee class; a settlement reserves their burn before the sweep and posts or voids it after; one settlement per product at a time, idempotent by its key |
 
 Opening a product (`SetAllocationState open`) opens its `alloc:<slug>` account in banking
 first. banking serves only `OpenAccount`, `GetBalances` and `Transfer` today; a saga step

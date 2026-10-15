@@ -2586,6 +2586,7 @@ dependencies = [
  "ev_lib",
  "evbanking_contracts",
  "evconcierge_auth",
+ "evconcierge_client",
  "evconcierge_projection",
  "invest_contracts",
  "invest_domain",

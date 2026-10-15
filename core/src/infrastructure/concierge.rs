@@ -6,7 +6,8 @@
 //! position, replayed on the next start) and of a lifecycle event whose MEMBER_JOINED has
 //! not landed. Its bookkeeping lives in `concierge_projection_*` ([`db::migrate`]). This
 //! module is what invest does with each event — [`UsersHandler`] — and the singleton that
-//! runs the engine — [`ConciergeProjection`].
+//! runs the engine — [`ConciergeProjection`]. [`catalog`] publishes, over the same
+//! credential, the permission catalog those grants resolve against.
 //!
 //! What a row takes from the streams:
 //!
@@ -31,13 +32,14 @@ use evconcierge_projection::{
 use invest_domain::{error::DomainError, users::UserId};
 use sqlx::{PgPool, Postgres, pool::PoolConnection};
 use tokio_util::sync::CancellationToken;
-use tonic::transport::{Certificate, ClientTlsConfig, Endpoint};
+use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use super::users::PgUsers;
 use crate::ports::money::ScopeId;
 
+pub mod catalog;
 pub mod fake;
 
 /// Fixed key for the session-level `pg_advisory_lock` the projection holds while it pulls.
@@ -67,6 +69,12 @@ pub struct ConciergeStreamsConfig {
 /// The stream source over concierge's gRPC. Lazy: a concierge that is down at boot is a
 /// retried pull later, not a failed boot.
 pub fn connect(config: &ConciergeStreamsConfig) -> color_eyre::Result<GrpcSource> {
+	GrpcSource::from_channel(channel(config)?, &config.client_id, &config.client_secret).map_err(|err| color_eyre::eyre::eyre!("concierge stream client: {err}"))
+}
+
+/// A lazy channel to concierge, over TLS when the address is `https://`. Shared by the
+/// stream source and the catalog publisher.
+fn channel(config: &ConciergeStreamsConfig) -> color_eyre::Result<Channel> {
 	let mut endpoint = Endpoint::from_shared(config.addr.clone())?.connect_timeout(CALL_TIMEOUT).timeout(CALL_TIMEOUT);
 	if let Some(ca_pem) = &config.ca_pem {
 		let mut tls = ClientTlsConfig::new().ca_certificate(Certificate::from_pem(ca_pem));
@@ -75,7 +83,7 @@ pub fn connect(config: &ConciergeStreamsConfig) -> color_eyre::Result<GrpcSource
 		}
 		endpoint = endpoint.tls_config(tls)?;
 	}
-	GrpcSource::from_channel(endpoint.connect_lazy(), &config.client_id, &config.client_secret).map_err(|err| color_eyre::eyre::eyre!("concierge stream client: {err}"))
+	Ok(endpoint.connect_lazy())
 }
 
 /// What invest does with each event: snapshots into `users`, keyed by the concierge user id

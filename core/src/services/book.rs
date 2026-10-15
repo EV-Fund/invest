@@ -37,7 +37,7 @@ use crate::{
 	AppState,
 	application::book::{self as book_app, BookPorts, BookSnapshotView, PlaceOrderRequest, WatchFrame},
 	ports::book::{BookLevel, BookPolicyRecord, Candle, OrderRecord, TradeRecord, UserTrade},
-	services::support::{caller_id, holds_permission, map_err, optional, require_permission, unix_now},
+	services::support::{active_caller, caller_id, holds_permission, map_err, optional, require_permission, unix_now},
 };
 
 const DEFAULT_LIST_LIMIT: u32 = 100;
@@ -87,7 +87,9 @@ impl BookService for BookSvc {
 	type WatchBookStream = Pin<Box<dyn Stream<Item = Result<pb::BookEvent, Status>> + Send + 'static>>;
 
 	async fn place_order(&self, request: Request<pb::PlaceOrderRequest>) -> Result<Response<pb::Order>, Status> {
-		let user = caller_id(&request)?;
+		// An order escrows money: a caller invest does not know, or has suspended, is refused
+		// before anything is read or held.
+		let user = active_caller(&self.state, &request).await?;
 		let req = request.into_inner();
 		let service = ServiceId::parse(&req.service).map_err(map_err)?;
 		let side = Side::parse(&req.side).map_err(map_err)?;
@@ -206,6 +208,10 @@ impl BookService for BookSvc {
 	async fn watch_book(&self, request: Request<pb::WatchBookRequest>) -> Result<Response<Self::WatchBookStream>, Status> {
 		let service = ServiceId::parse(&request.get_ref().service).map_err(map_err)?;
 		// Authorized once, at the handshake — the same rule the BFF applies to its socket.
+		// TODO: bound the WatchBook streams one caller may hold open, and re-check the
+		// caller's standing (and the token's revoke floor, once the users projection carries
+		// `token_version`) while a stream lives — a suspended holder keeps watching until
+		// they disconnect.
 		let caller = self.visible(&request, &service).await?;
 		let depth = bounded(request.get_ref().depth, DEFAULT_DEPTH, MAX_DEPTH);
 		let receiver = self.state.book_feed.subscribe(&service);
