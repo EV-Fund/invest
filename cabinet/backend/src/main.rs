@@ -9,7 +9,7 @@ use evconcierge_client::{ClientConfig, ConciergeClient};
 use invest_cabinet_backend::{
 	config::AppConfig,
 	cookies::CookieNames,
-	crypto, db, routes,
+	db, routes,
 	session::Sessions,
 	state::{AppState, Grpc},
 };
@@ -17,8 +17,10 @@ use invest_cabinet_backend::{
 // Sentry must be initialised before the async runtime starts — no `#[tokio::main]`.
 fn main() -> color_eyre::Result<()> {
 	color_eyre::install()?;
-	// Before any TLS handshake — see `crypto.rs`.
-	crypto::install_crypto_provider();
+	// Two rustls providers are linked (ring through tonic, aws-lc-rs through reqwest) and
+	// rustls refuses to guess, so one is named before the first TLS handshake — ring, as in
+	// invest-core (`core/src/crypto.rs`). An `Err` only says one is installed already.
+	let _installed = rustls::crypto::ring::default_provider().install_default();
 	dotenvy::dotenv().ok();
 
 	// The deploy contract, straight out of the image: the gitops preflight runs this
@@ -145,17 +147,13 @@ fn print_required_vars_for() -> Option<String> {
 fn init_tracing(environment: &str) -> Option<ev::otel::Telemetry> {
 	use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
-	let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,invest_cabinet_backend=debug"));
-	let (otel_guard, otel_layers) = ev::otel::telemetry(&ev::otel::Config {
-		environment: environment.to_string(),
+	let otel = ev::otel::Config {
 		traces_sample_rate: ev::otel::Config::traces_sample_rate_for(environment),
-	})
-	.unzip();
-	tracing_subscriber::registry()
-		.with(filter)
-		.with(fmt::layer().json())
-		.with(error_monitoring::tracing_layer())
-		.with(otel_layers)
-		.init();
-	otel_guard
+		environment: environment.to_owned(),
+	};
+	let (guard, layers) = ev::otel::telemetry(&otel).unzip();
+	let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,invest_cabinet_backend=debug"));
+	let subscriber = tracing_subscriber::registry().with(layers).with(error_monitoring::tracing_layer());
+	subscriber.with(fmt::layer().json()).with(filter).init();
+	guard
 }

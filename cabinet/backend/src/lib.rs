@@ -7,7 +7,6 @@
 pub mod concierge;
 pub mod config;
 pub mod cookies;
-pub mod crypto;
 pub mod db;
 pub mod dto;
 pub mod error;
