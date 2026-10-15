@@ -1,0 +1,46 @@
+[package]
+name = "invest-core"
+version = "0.1.0"
+edition = "2024"
+description = "invest-core — the allocation engine: the registry of investable products, the unit ledger in TigerBeetle, in-kind issuance, ownership and NAV, served over gRPC."
+license = "BlueOak-1.0.0"
+publish = false
+default-run = "invest-core"
+
+[[bin]]
+name = "invest-core"
+path = "src/main.rs"
+
+[dependencies]
+async-trait.workspace = true
+color-eyre.workspace = true
+dotenvy.workspace = true
+ev = { workspace = true, features = ["error_monitoring", "otel", "settings"] }
+evbanking_contracts.workspace = true
+evconcierge_auth.workspace = true
+evconcierge_projection.workspace = true
+invest_contracts.workspace = true
+invest_domain.workspace = true
+# The process-level crypto provider `main` installs before any TLS client is built (`crypto.rs`).
+rustls.workspace = true
+serde = { workspace = true }
+serde_json.workspace = true
+sqlx = { workspace = true, features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "migrate"] }
+thiserror.workspace = true
+tigerbeetle.workspace = true
+tokio = { workspace = true, features = ["full"] }
+tokio-util.workspace = true
+tonic = { workspace = true, features = ["tls-ring", "tls-webpki-roots"] }
+tonic-health.workspace = true
+tower.workspace = true
+tower-http = { workspace = true, features = ["trace"] }
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "json"] }
+uuid = { workspace = true, features = ["v4", "v5"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "test-util"] }
+tokio-stream.workspace = true
+
+[lints]
+workspace = true

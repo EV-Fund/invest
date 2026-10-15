@@ -1,0 +1,258 @@
+syntax = "proto3";
+
+package invest.v1;
+
+// FundsService — a holder's units in a fund, and the fund's price.
+//
+// A holding's value is units × NAV, so profit comes from NAV rising, not from extra
+// units. NAV is derived: an operator posts a fund's AUM and NAV = AUM / units
+// outstanding. Every amount/unit/price is a decimal STRING (proto3 has no u128; a string
+// is lossless and matches proto-loader's `longs: String`). Self-service RPCs act on the
+// caller's own access-token `sub` (the concierge user id).
+//
+// Subscribe and Redeem deal with the fund at NAV; their cash is banking's, moved through
+// `scope.v1.ScopeLedgerService` in the product's scope (`Allocation.scope`):
+//   - Subscribe asks banking to HOLD `amount` on the caller's compartment, under their
+//     mandate for invest, and answers at once — banking's refusal (`mandate_required`,
+//     `insufficient_funds`, `user_frozen`, …) is FAILED_PRECONDITION with that reason as the
+//     message. The relay then mints the units, captures the hold into the product's account
+//     and posts them (`state` reserved → settled); a capture banking refuses releases the
+//     hold and the units (`failed`, with `failure_reason`).
+//   - Redeem is accept-and-queue: the units are reserved at once, the cash priced at the
+//     settle-time NAV and paid out of the product's account into the caller's compartment
+//     (`settling` → `completed`); a payout banking refuses — the account is short, or the
+//     amount is past the automatic ceilings — returns the units (`failed`).
+service FundsService {
+  // Subscribe `amount` of the caller's compartment in the product's scope into a fund,
+  // minting units at the current NAV. Returns the subscription; its units land once the
+  // relay has captured the cash.
+  rpc Subscribe(SubscribeRequest) returns (Subscription);
+
+  // The caller's subscriptions (newest first).
+  rpc ListSubscriptions(ListSubscriptionsRequest) returns (SubscriptionList);
+
+  // Redeem `units` of a fund back to cash (accept-and-queue; settle-time priced).
+  rpc Redeem(RedeemRequest) returns (Redemption);
+
+  // Cancel a still-queued redemption (returns the reserved units).
+  rpc CancelRedemption(CancelRedemptionRequest) returns (Redemption);
+
+  // The caller's redemptions for the fund surface (newest first).
+  rpc ListRedemptions(ListRedemptionsRequest) returns (RedemptionList);
+
+  // Operator (`invest:allocation:manage`): settle a queued redemption once the product's
+  // account can pay it — prices at the settle-time NAV and hands the payout to the relay.
+  // Idempotent.
+  rpc SettleRedemption(SettleRedemptionRequest) returns (Redemption);
+
+  // Operator (`invest:allocation:manage`): fail a queued redemption, returning the
+  // holder's reserved units. Idempotent.
+  rpc FailRedemption(FailRedemptionRequest) returns (Redemption);
+
+  // Operator (`invest:allocation:manage`): every holder's redemptions awaiting settle,
+  // oldest first.
+  rpc ListRedemptionQueue(ListRedemptionQueueRequest) returns (RedemptionQueue);
+
+  // The caller's position in one fund (units, NAV, value, cost basis, P&L).
+  rpc GetPosition(GetPositionRequest) returns (Position);
+
+  // All of the caller's fund positions.
+  rpc ListPositions(ListPositionsRequest) returns (PositionList);
+
+  // The current NAV (price per share) for a fund, plus freshness.
+  rpc GetFundNav(GetFundNavRequest) returns (FundNav);
+
+  // The posted valuation marks of one allocation over a window, plus the caller's own
+  // participation (units held × NAV) through it — the two series of the performance chart.
+  rpc ListFundNavHistory(ListFundNavHistoryRequest) returns (FundNavHistory);
+
+  // Post a fund's total AUM (`invest:valuation:post`); NAV is derived = AUM /
+  // units_outstanding (units read live from TigerBeetle). Rejects zero units and a NAV
+  // move beyond the safety threshold — measured against BOTH the previous mark and the
+  // mark that anchored the rolling window, so the cap cannot be walked past in steps.
+  // There is NO per-request override: a move past the cap is for the owners to approve.
+  rpc PostFundValuation(PostFundValuationRequest) returns (FundNav);
+}
+
+message SubscribeRequest {
+  string service = 1;  // the fund/service id
+  string amount = 2;   // decimal USDT to subscribe (cash in)
+}
+
+message ListSubscriptionsRequest {}
+
+message RedeemRequest {
+  string service = 1;  // the fund/service id
+  string units = 2;    // decimal units to redeem
+}
+
+message CancelRedemptionRequest {
+  string redemption_id = 1;
+}
+
+message ListRedemptionsRequest {}
+
+message SettleRedemptionRequest {
+  string redemption_id = 1;
+}
+
+message FailRedemptionRequest {
+  string redemption_id = 1;
+}
+
+message ListRedemptionQueueRequest {}
+
+// One queued redemption for the operator queue. `created_at` is unix seconds.
+message RedemptionQueueItem {
+  string redemption_id = 1;
+  string user_id = 2;
+  // banking.v1 carried the holder's mirrored email here; invest keeps no identity copy
+  // (the user id is concierge's), so the number stays free of any other meaning.
+  reserved 3;
+  reserved "email";
+  string service = 4;
+  string units = 5;
+  int64 created_at = 6;
+}
+
+message RedemptionQueue {
+  repeated RedemptionQueueItem items = 1;
+}
+
+message GetPositionRequest {
+  string service = 1;
+}
+
+message ListPositionsRequest {}
+
+message GetFundNavRequest {
+  string service = 1;
+}
+
+// Keyed by the ALLOCATION (the product's registry key — today equal to the service id)
+// rather than the service, so a hidden allocation such as the fee fund can serve its
+// holders' history later without a second route. `from`/`to` are unix seconds,
+// inclusive; 0 means "from the first mark" / "up to now".
+message ListFundNavHistoryRequest {
+  string allocation = 1;
+  int64 from = 2;
+  int64 to = 3;
+}
+
+// A user's holding in one fund. `value = (units + units_in_orders) × nav`; `pnl = value − cost_basis`
+// (a signed decimal — losses are negative). `nav_as_of` is the unix-seconds timestamp
+// of the NAV mark used (0 when the fund is on the bootstrap seed NAV).
+message Position {
+  string service = 1;
+  string units = 2;       // units held free in the holding (decimal)
+  string nav = 3;         // current NAV per share (decimal USDT)
+  string value = 4;       // units × nav (decimal USDT)
+  string cost_basis = 5;  // net cash invested, average cost (decimal USDT)
+  string pnl = 6;         // value − cost_basis (signed decimal USDT)
+  int64 nav_as_of = 7;    // unix seconds of the NAV mark (0 = seed NAV)
+  // Units committed to the holder's resting sell orders on the book (BookService).
+  // Still theirs — `value` and `pnl` price `units + units_in_orders` — but not free to
+  // redeem or sell again until the order fills or is cancelled.
+  string units_in_orders = 8;
+}
+
+message PositionList {
+  repeated Position positions = 1;
+}
+
+// One subscription: `cash` of the caller's compartment buying `units` at `nav`. State ∈
+// {reserving, reserved, settled, failed}; the position reflects it once `settled`.
+message Subscription {
+  string id = 1;
+  string service = 2;
+  string cash = 3;
+  string nav = 4;
+  string units = 5;
+  string state = 6;
+  // Why it failed — banking's refusal reason, or the relay's rollback; empty otherwise.
+  string failure_reason = 7;
+  int64 created_at = 8;  // unix seconds
+}
+
+message SubscriptionList {
+  repeated Subscription subscriptions = 1;
+}
+
+// A redemption in the accept-and-queue saga. `units` are fixed at request; `nav`/`cash`
+// are empty until settle (settle-time pricing). State ∈ {queued, settling, completed,
+// failed, cancelled}.
+message Redemption {
+  string id = 1;
+  string service = 2;
+  string units = 3;
+  string nav = 4;    // settle NAV (empty until settled)
+  string cash = 5;   // cash priced at settle (empty until settled)
+  string state = 6;
+  // Why banking refused the payout (`failed` after settle); empty otherwise.
+  string failure_reason = 7;
+}
+
+message RedemptionList {
+  repeated Redemption redemptions = 1;
+}
+
+// The current price of a fund's share, derived (AUM / units_outstanding) and frozen
+// between operator marks. `posted_at` is 0 when the fund has never been marked (seed
+// NAV 1.0); `stale` is true when the latest mark is older than the dealing window.
+message FundNav {
+  string service = 1;
+  string nav = 2;                // decimal USDT per share
+  string aum = 3;                // last posted AUM (decimal USDT; empty if seed)
+  string units_outstanding = 4;  // decimal units in circulation (the NAV denominator)
+  int64 posted_at = 5;           // unix seconds of the mark (0 = seed)
+  bool stale = 6;
+  // The allocation's authorised unit supply and what is left of it. `remaining_capacity`
+  // counts in-flight mints as issued, so a client that offers it can never offer more
+  // than the supply gate will accept.
+  string unit_cap = 7;           // decimal units
+  string remaining_capacity = 8; // decimal units still issuable (0 once at the cap)
+  // Field 9 was `company_units`, the company's own in-kind stake. The company is not a
+  // holder any more (#245): every unit is a person's, directly or through the units of
+  // a reserved allocation, and the cap table (`AllocationsService.ListUnitHolders`) is
+  // where the split lives. Reserved so no later field inherits the number.
+  reserved 9;
+  reserved "company_units";
+}
+
+// One operator valuation mark, as posted. Same figures as FundNav, without the live
+// supply/capacity fields that only make sense for the current mark.
+message NavMark {
+  string nav = 1;        // decimal USDT per share
+  string aum = 2;        // the posted AUM (decimal USDT)
+  int64 posted_at = 3;   // unix seconds
+}
+
+// The value of the caller's holding at one instant: the units they held then × the
+// NAV in force then (the seed NAV 1.0 before the first mark).
+message ParticipationPoint {
+  int64 at = 1;          // unix seconds
+  string value = 2;      // decimal USDT
+}
+
+// A fund's valuation log over the requested window (oldest first), and the caller's
+// participation through it. `participation` steps at every mark and every change to the
+// caller's units (subscribe, redeem, fee charge, in-kind issuance, book fill) and always
+// ends at the window's end — "now" unless `to` was given — priced off the live holding,
+// so the last point equals the position card. Empty `marks` means the fund is still on
+// the seed NAV (or no mark fell in the window); it is not an error. `truncated` is true
+// when more marks fell in the window than the cap allows and the OLDEST were dropped.
+message FundNavHistory {
+  string allocation = 1;
+  repeated NavMark marks = 2;
+  repeated ParticipationPoint participation = 3;
+  bool truncated = 4;
+}
+
+message PostFundValuationRequest {
+  string service = 1;   // the fund/service id
+  string aum = 2;       // decimal USDT — the fund's total assets under management
+  // Field 3 was `bool override` in banking.v1, the flag that let the poster lift their
+  // own guard (banking#232). Reserved so no field can inherit the number.
+  reserved 3;
+  reserved "override";
+}
