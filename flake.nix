@@ -229,11 +229,12 @@
           env = {
             NEXT_TELEMETRY_DISABLED = "1";
             CABINET_BACKEND_URL = cabinetBackendUrl;
-            # NEXT_PUBLIC_* is inlined at BUILD time, and config.ts requires the browser DSN
-            # in production — the pod refuses to boot without it. Public (it ships to every
-            # browser), so a literal. banking's cabinet project until invest has its own:
-            # this cabinet was cut from that one, and its errors read the same.
-            NEXT_PUBLIC_SENTRY_DSN = "https://702d594df36cfbd3c5a711613d3981e7@o4511508657012736.ingest.de.sentry.io/4511508677066832";
+            # NEXT_PUBLIC_* is inlined at BUILD time, so the browser DSN cannot come from the
+            # pod env. Public (it ships to every browser), hence a literal. Optional: empty
+            # counts as unset and browser reporting stays off until invest's own Sentry
+            # project exists (issue #18), rather than reporting into banking's project.
+            # The server's SENTRY_DSN is a pod Secret and needs no rebuild.
+            NEXT_PUBLIC_SENTRY_DSN = "";
             # The project key the site and banking's cabinet use, so one PostHog person
             # carries a visitor from the landing into this cabinet. The host is pinned beside
             # it: shared/config/security.ts puts its origin into the CSP `connect-src`.

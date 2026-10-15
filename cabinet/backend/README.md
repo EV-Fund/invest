@@ -111,7 +111,7 @@ it on every run.
 | `CABINET_PUBLIC_ORIGIN` | — | `https://invest.evinvest.ltd`; the redirect URI's origin and the only accepted `Origin` |
 | `AUTH_COOKIE_SECURE` | from the origin's scheme | `__Host-` + `Secure` cookies; must match the frontend's. `false` with an https origin exits 78 |
 | `APP_ENV` | — | `development` / `production` |
-| `SENTRY_DSN` | — | required in production |
+| `SENTRY_DSN` | — | optional; unset ⇒ errors are not reported |
 
 ## Layout
 

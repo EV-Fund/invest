@@ -100,6 +100,9 @@ fn main() -> color_eyre::Result<()> {
 	});
 	// Held for the process lifetime — dropping flushes OTel logs/traces.
 	let _otel_guard = init_tracing(&config.app_env);
+	if config.sentry_dsn.is_none() && config.app_env == "production" {
+		tracing::warn!("no SENTRY_DSN: errors are not reported");
+	}
 
 	let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build().context("failed to build tokio runtime")?;
 	runtime.block_on(run(config, scope_ledger, concierge_streams))
@@ -388,5 +391,12 @@ mod tests {
 		assert_eq!(parse(&["--print-required-vars"]), Command::PrintRequiredVars("production".into()));
 		assert_eq!(parse(&["--print-required-vars=dev"]), Command::PrintRequiredVars("dev".into()));
 		assert_eq!(parse(&["--print-required-vars", "dev"]), Command::PrintRequiredVars("dev".into()));
+	}
+
+	/// The gitops preflight diffs the cluster Secret against `--print-required-vars`; listing
+	/// `SENTRY_DSN` would block deploys until invest's Sentry project exists.
+	#[test]
+	fn error_monitoring_is_optional_in_production() {
+		assert!(!config::AppConfig::required_var_names("production").contains(&"SENTRY_DSN".to_string()));
 	}
 }

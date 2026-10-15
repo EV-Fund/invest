@@ -54,6 +54,9 @@ fn main() -> color_eyre::Result<()> {
 		traces_sample_rate: SentryConfig::traces_sample_rate_for(&config.app_env),
 	});
 	let _otel_guard = init_tracing(&config.app_env);
+	if config.sentry_dsn.is_none() && config.app_env == "production" {
+		tracing::warn!("no SENTRY_DSN: errors are not reported");
+	}
 
 	tokio::runtime::Builder::new_multi_thread()
 		.enable_all()

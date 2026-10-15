@@ -173,7 +173,7 @@ its env var is set, so local dev needs no configuration.
   (browser) in providers; server/runtime init + request-error capture in
   [`instrumentation.ts`](./instrumentation.ts). No build-time integration — see the
   note at the end of [`next.config.ts`](./next.config.ts). Reads
-  `NEXT_PUBLIC_SENTRY_DSN` (browser, required in production) / `SENTRY_DSN` (server).
+  `NEXT_PUBLIC_SENTRY_DSN` (browser, optional, baked at build) / `SENTRY_DSN` (server, optional, pod env).
 - **Experiments** (`@evinvest/experiments`) — the A/B registry lives in
   [`application/experiments.ts`](./application/experiments.ts); sticky variant
   assignment runs in [`proxy.ts`](./proxy.ts). Read a variant in a Server

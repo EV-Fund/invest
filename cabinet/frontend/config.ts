@@ -8,7 +8,7 @@
 // accepts traffic. The client/server split is automatic: only NEXT_PUBLIC_*
 // keys reach the browser bundle; accessing a server key there is a no-op.
 
-import { createSettings, bool, optional as opt, requiredIn, str, url } from "@evinvest/settings";
+import { createSettings, bool, optional as opt, str, url } from "@evinvest/settings";
 
 // ── Lazy settings — re-created on every access ─────────────────────────
 // No caching: tests mutate `process.env` between calls, and the overhead of
@@ -40,8 +40,10 @@ function getSettings() {
       NEXT_PUBLIC_POSTHOG_KEY: opt(str()),
       NEXT_PUBLIC_POSTHOG_HOST: opt(str()),
       // Unset ⇒ browser error monitoring is a silent no-op: the cabinet's
-      // client-side crashes reach nobody. Acceptable locally, not in a deploy.
-      NEXT_PUBLIC_SENTRY_DSN: requiredIn(opt(str()), "production"),
+      // client-side crashes reach nobody. Optional on purpose until invest's own Sentry
+      // project exists (#18); the value is inlined at BUILD time, so it is set in
+      // flake.nix, while the server's `SENTRY_DSN` is read at runtime from the pod env.
+      NEXT_PUBLIC_SENTRY_DSN: opt(str()),
     },
     // `requiredIn` matches against this. NODE_ENV is what Next.js already sets
     // and what every other check here reads, so it stays the single name for
