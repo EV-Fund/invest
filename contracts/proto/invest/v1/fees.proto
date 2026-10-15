@@ -27,8 +27,10 @@ package invest.v1;
 //
 // SettleFeeShares is the one operation that crosses into cash, converting a whole
 // fund's accumulated fee units in one go rather than once per investor — at the NAV of
-// the day, out of the product's account in banking into the scope's fee route, which
-// lands invest's own fees on the `fee` allocation's cash. Amounts and prices are exact
+// the day, out of the product's account in banking into invest's fee collector, which
+// lands invest's own fees on the `fee` allocation's cash. Only products in invest's own
+// scope are charged in units and settled: the fees of another scope's products (`sa`) are
+// banking's and go to its treasury, never to the `fee` holders. Amounts and prices are exact
 // decimal strings. Permissions are `invest:*`.
 service FeesService {
   // One fund's terms, or an empty policy when the product charges nothing. Readable

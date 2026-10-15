@@ -19,7 +19,8 @@
 //!
 //! Moved from banking 9ffafce3 (`piggybank/core/tests/fee_policy.rs`). The cash is
 //! banking's, played by the in-memory money ledger: a compartment per holder, an `alloc:`
-//! account per product, and the fee route into `(invest, alloc:fee)`. Every test holds
+//! account per product, and the fee route into `(invest, alloc:fee)` (invest's own scope
+//! only: another scope's fees are banking's). Every test holds
 //! the binary's outbox guard through `common::engine`, so the suite runs serially — which
 //! is also what keeps the global sweep and the one `fee` account from interleaving.
 
@@ -32,6 +33,7 @@ use invest_core::{
 		fees as fee_app, funds as funds_app,
 	},
 	infrastructure::{
+		allocations::PgAllocations,
 		book::PgBook,
 		fee_policy_changes::PgFeePolicyChanges,
 		fee_sweeper::FeeSweeper,
@@ -755,6 +757,7 @@ async fn the_sweeper_charges_every_due_position_and_records_a_statement() {
 	backdate(&h, user, &service, YEAR).await;
 
 	let sweeper = FeeSweeper::new(
+		Arc::new(PgAllocations::new(h.pool.clone())),
 		Arc::new(PgFeePolicies::new(h.pool.clone())),
 		Arc::new(PgFeePolicyChanges::new(h.pool.clone())),
 		Arc::new(PgPositionAccruals::new(h.pool.clone())),

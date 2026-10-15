@@ -736,9 +736,11 @@ impl EmitsEvents for FeeAssessment {
 /// manager does this once for a whole period's fees, not once per holder.
 ///
 /// It is the mirror of a redemption settle: pay the units' value out of the product's
-/// account in banking into the scope's fee route — `(<scope>, fee)`, which banking sweeps
+/// account in banking into invest's fee collector — `(invest, fee)`, which banking sweeps
 /// on to `(invest, alloc:fee)` — then burn the units. Pay-first, because the payment is the
-/// leg banking may refuse: a product short of cash leaves the units unburned.
+/// leg banking may refuse: a product short of cash leaves the units unburned. Only invest's
+/// own scope has fee units to settle (D24(3)): another scope's fees are banking's, so its
+/// products are never charged in units and never settled.
 #[derive(Clone, Debug)]
 pub struct FeeSettlement {
 	id: FeeSettlementId,
@@ -850,8 +852,8 @@ pub enum FeeEvent {
 	},
 	/// Accumulated fee units converted to cash (relay, pay-first: sweep `cash` from
 	/// `(<scope>, alloc:<service>)` into `(<scope>, fee)` in banking, then post
-	/// `Dr SharesOutstanding / Cr FeeShares`). The fee route lands invest's own fees on the
-	/// `fee` allocation's cash, whose holders are people (#245).
+	/// `Dr SharesOutstanding / Cr FeeShares`). Invest's own scope only: its fee collector is
+	/// emptied onto the `fee` allocation's cash, whose holders are people (#245).
 	SharesSettled {
 		settlement_id: FeeSettlementId,
 		service: ServiceId,

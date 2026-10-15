@@ -21,9 +21,12 @@
 //! - **Fill** — pending `Dr UserShares(buyer) / Cr BookShares(seller)`, capture the
 //!   buyer's hold into the seller's compartment (the notional, less a selling taker's
 //!   fee), post the units; then the taker's fee: captured into the product's account and
-//!   swept on into the scope's fee route. A refused cash capture voids the units leg.
-//! - **Fee settlement** — reserve the burn of the fee units, sweep their value out of the
-//!   product's account into `(<scope>, fee)`, post the burn; a refused sweep voids it.
+//!   swept on into the scope's fee collector `(<scope>, fee)`, which banking empties — into
+//!   `(invest, alloc:fee)` for invest's own scope, into `(main, treasury)` for any other
+//!   (D24(3)). A refused cash capture voids the units leg.
+//! - **Fee settlement** — invest's own scope only: reserve the burn of the fee units, sweep
+//!   their value out of the product's account into `(invest, fee)`, post the burn; a refused
+//!   sweep voids it.
 //!
 //! Every step is idempotent on redelivery: a TigerBeetle leg by its deterministic id
 //! (derived from the aggregate id and a FROZEN salt — banking's where banking had the
@@ -702,9 +705,10 @@ impl Relay {
 	}
 
 	/// The taker's fee on a fill: captured out of the buyer's hold into the product's
-	/// account, then swept on into the scope's fee route (`(<scope>, fee)`, which banking
-	/// forwards to `(invest, alloc:fee)` from every scope, `sa` included). Both after the parties
-	/// settled, so a refusal here costs the fee route, never a party.
+	/// account, then swept on into the scope's fee collector (`(<scope>, fee)`). banking empties
+	/// it: into `(invest, alloc:fee)` for invest's own scope, into `(main, treasury)` for any
+	/// other — an `sa` taker fee never reaches the `fee` holders (D24(3)). Both after the
+	/// parties settled, so a refusal here costs the fee route, never a party.
 	async fn collect_fee(&self, scope: &ScopeId, service: &ServiceId, hold: &str, fee: Usdt, trade: Uuid) -> Result<(), Outcome> {
 		let label = alloc_label(service)?;
 		let capture = CaptureRequest {
@@ -766,8 +770,17 @@ impl Relay {
 				let Some(scope) = scope else {
 					return Outcome::park("fee settlement: the allocation is not registered".into());
 				};
+				let scope = step!(ScopeId::parse(&scope).map_err(|err| Outcome::park(format!("allocation scope: {err}"))));
+				// Fee units are the `fee` allocation's, whose holders are paid from invest's own scope
+				// only; a settlement of another scope's product would burn their units against cash
+				// that goes to banking's treasury. Refused at the door — this is the backstop.
+				if !scope.is_invest() {
+					return Outcome::park(format!(
+						"fee settlement: '{service}' lives in scope '{scope}', whose fees are banking's — nothing burned, nothing swept"
+					));
+				}
 				let sweep = FeeSweepRequest {
-					scope: step!(ScopeId::parse(&scope).map_err(|err| Outcome::park(format!("allocation scope: {err}")))),
+					scope,
 					from: step!(alloc_label(&service)),
 					amount: cash,
 					key: step!(money_key("fee_settlement", id, "sweep")),

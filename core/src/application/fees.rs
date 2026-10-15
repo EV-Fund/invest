@@ -11,6 +11,12 @@
 //! redemption) is NOT one of those cases: it is recorded, carried whole as debt, and the
 //! clock moves — see [`invest_domain::fees::FeeCharge::is_empty`].
 //!
+//! **Only invest's own scope pays fees to the `fee` allocation (D24(3)).** A charge moves
+//! units into the product's fee class, which the `fee` allocation — and so its holders —
+//! owns; a product whose cash lives in another scope (`sa`) earns for banking's treasury
+//! instead, which units cannot reach. Such a product is never assessed, and its fee class
+//! is never settled ([`fee_bearing`]).
+//!
 //! **The NAV a fee is charged at is the dealing NAV**, staleness guard included. That is
 //! a safety property, not an accident: if an operator stops posting marks, fees stop
 //! accruing rather than accruing against a price nobody has confirmed. A fee is the one
@@ -68,6 +74,7 @@ pub struct AccruedFees {
 // struct would serve the sweeper's one call site.
 #[allow(clippy::too_many_arguments)]
 pub async fn assess_position(
+	allocations: &dyn AllocationRegistry,
 	policies: &dyn FeePolicies,
 	accruals: &dyn PositionAccruals,
 	assessments: &dyn FeeAssessments,
@@ -80,6 +87,9 @@ pub async fn assess_position(
 	trigger: Trigger,
 	now_unix: i64,
 ) -> Result<Option<FeeAssessment>, DomainError> {
+	if !fee_bearing(allocations, &service).await? {
+		return Ok(None);
+	}
 	let Some((policy, snapshot, price)) = load_assessment_inputs(policies, accruals, ledger, money, nav, user, &service, now_unix).await? else {
 		return Ok(None);
 	};
@@ -103,6 +113,7 @@ pub async fn assess_position(
 // The fee plane's two read seams, the two ledgers and the marks, plus a three-field request.
 #[allow(clippy::too_many_arguments)]
 pub async fn accrued_fees(
+	allocations: &dyn AllocationRegistry,
 	policies: &dyn FeePolicies,
 	accruals: &dyn PositionAccruals,
 	ledger: &dyn Ledger,
@@ -112,11 +123,22 @@ pub async fn accrued_fees(
 	service: &ServiceId,
 	now_unix: i64,
 ) -> Result<Option<AccruedFees>, DomainError> {
+	if !fee_bearing(allocations, service).await? {
+		return Ok(None);
+	}
 	let Some((policy, snapshot, price)) = load_assessment_inputs(policies, accruals, ledger, money, nav, user, service, now_unix).await? else {
 		return Ok(None);
 	};
 	let charge = fees::assess(&policy, &snapshot, price, Trigger::Period, now_unix)?;
 	Ok(Some(disclose(&charge, snapshot.high_water_mark)))
+}
+
+/// Whether `service` pays fees to the `fee` allocation: only a product whose cash lives in
+/// invest's own scope does. In any other scope the fee is banking's (it sweeps `(<scope>,
+/// fee)` into `(main, treasury)`), and a unit clawback would hand the `fee` holders a claim
+/// on a product that owes them nothing.
+async fn fee_bearing(allocations: &dyn AllocationRegistry, service: &ServiceId) -> Result<bool, DomainError> {
+	Ok(allocations.scope(service).await?.is_invest())
 }
 
 /// The accrued view of a charge: the *accrued* performance figure, never the
@@ -224,6 +246,13 @@ pub async fn schedule_policy(ports: &FeePolicyPorts<'_>, requester: UserId, requ
 	// graph is reserved → product, one hop), so the units would have no holder.
 	if request.service.is_reserved() {
 		return Err(DomainError::Validation(format!("'{}' is a reserved allocation and charges no fee", request.service)));
+	}
+	// Terms that are never charged would only mislead holders (and owe them a notice).
+	if !request.policy.is_zero() && !fee_bearing(ports.allocations, &request.service).await? {
+		return Err(DomainError::Precondition(format!(
+			"'{}' lives outside invest's scope: its fees go to banking, not to the fee allocation, so it takes no fee terms",
+			request.service
+		)));
 	}
 	if request.requested_effective_from_unix > now.saturating_add(fees::MAX_EFFECTIVE_FROM_HORIZON_SECS) {
 		return Err(DomainError::Validation("effective_from may be at most 366 days ahead".into()));
@@ -402,8 +431,10 @@ pub async fn fee_shares(ledger: &dyn Ledger, money: &dyn MoneyLedger, nav: &dyn 
 
 /// Convert accumulated fee units into the `fee` allocation's cash (operator) — the
 /// product buying its fee class back from the `fee` allocation at the day's NAV: the cash
-/// is swept from `(<scope>, alloc:<product>)` into the scope's fee route, which banking
-/// forwards to `(invest, alloc:fee)` from every scope (plan §3.9). `units` defaults to the whole
+/// is swept from `(invest, alloc:<product>)` into `(invest, fee)`, which banking forwards to
+/// `(invest, alloc:fee)` (D24(3)). A product in another scope has no fee units to settle
+/// ([`DomainError::Precondition`]): its fees are banking's, and burning units against a sweep
+/// into `(<scope>, fee)` would pay the `fee` holders nothing. `units` defaults to the whole
 /// accumulated balance.
 ///
 /// This is the **only** operation in the fee plane that moves cash, and it runs once per
@@ -466,6 +497,12 @@ pub async fn settle_fee_shares(
 		}
 		return Ok(existing);
 	}
+	let scope = allocations.scope(&service).await?;
+	if !scope.is_invest() {
+		return Err(DomainError::Precondition(format!(
+			"'{service}' lives in scope '{scope}': its fees go to banking's treasury, so there is nothing to settle into the fee allocation"
+		)));
+	}
 	let held = Shares::from_base_units(ledger.balance(&LedgerAccountKey::FeeShares(service.clone())).await?.available());
 	let units = units.unwrap_or(held);
 	if units.is_zero() {
@@ -477,7 +514,6 @@ pub async fn settle_fee_shares(
 	refuse_recent_poster(nav, ledger, &service, settler, now_unix).await?;
 	let price = dealing_nav(nav, ledger, money, &service, now_unix).await?;
 	let mut settlement = FeeSettlement::record(id, service.clone(), units, price)?;
-	let scope = allocations.scope(&service).await?;
 	let fund = account_cash(money, &scope, &service).await?;
 	let reserved = queued_redemption_cash(redemptions, &service, price).await?;
 	let required = settlement

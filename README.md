@@ -158,7 +158,7 @@ a key derived from the aggregate (`core/src/infrastructure/relay/sagas.rs`):
 | Subscribe | `Reserve` on the subscriber's compartment (synchronous, TTL 1 h), then `Capture` into `(<scope>, alloc:<slug>)` | pending mint, posted after the capture; voided with the hold when banking refuses |
 | Redeem | `Payout` from `(<scope>, alloc:<slug>)` at settle, only once the burn is reserved; past the automatic ceilings (`approval_required`) a `RequestPayout` instead, the redemption `awaiting_approval` until banking's verdict | pending burn at request — admitted only for units free and not claimed by an undrained event — posted after the payout (or the executed approval); voided when banking refuses or the owners reject |
 | Book buy | `Reserve` before the order is written; each fill `Capture`s to the seller, the release `Void`s the rest | sells escrow units, and only escrowed orders of active holders are matched; a fill is pending until its cash moved, and one that cannot settle is busted — the seller's units back, the buy's hold voided; a buy whose hold banking voids or expires on its own comes off the book `rejected` |
-| Fees | the taker fee (at most 1 %) and a fee-class settlement go `alloc:<slug>` → `(<scope>, fee)`, which banking forwards to `(invest, alloc:fee)` from every scope | a charge moves units into the product's fee class; a settlement reserves their burn before the sweep and posts or voids it after; one settlement per product at a time, idempotent by its key |
+| Fees | the taker fee (at most 1 %) goes `alloc:<slug>` → `(<scope>, fee)`; a fee-class settlement (invest's scope only) goes `(invest, alloc:<slug>)` → `(invest, fee)`. banking empties `(invest, fee)` into `(invest, alloc:fee)` and every other scope's collector into `(main, treasury)` (D24(3)) | an invest product's charge moves units into its fee class, held by the `fee` allocation; a settlement reserves their burn before the sweep and posts or voids it after; one settlement per product at a time, idempotent by its key. A product in another scope (`sa`) is never charged in units, takes no fee terms and has nothing to settle |
 
 Opening a product (`SetAllocationState open`) opens its `alloc:<slug>` account in banking
 first. A saga step banking does not serve yet (UNIMPLEMENTED) retries from the same outbox
@@ -172,6 +172,8 @@ re-asked every minute for redemptions still awaiting). It runs whenever `SCOPE_L
 is set — same listener, same credentials. `failure_reason` on a subscription or a redemption
 is a machine code: banking's refusal as banking names it, its verdict on an approval, or one
 of invest's own (`units_unavailable`, `money_ledger_unavailable`).
+
+Not on banking's side yet (cf38ba57): the automatic sweep of `(<scope>, fee)` that ledger.proto promises — cash sits on the collector until banking runs it, so `(invest, alloc:fee)` receives nothing, and no scope's fee reaches the treasury.
 
 Not here yet: the owners' approval of a fee change beyond the house envelope (refused until
 invest is a client of concierge's approvals), delivering holder notices of a fee change

@@ -52,6 +52,7 @@ use crate::{
 	application::fees as fee_app,
 	infrastructure::now_unix,
 	ports::{
+		allocations::AllocationRegistry,
 		fees::{FeeAssessments, FeePolicies, FeePolicyChanges, PositionAccruals},
 		ledger::Ledger,
 		money::MoneyLedger,
@@ -76,6 +77,7 @@ const MIN_ACCRUAL_AGE: i64 = 24 * 60 * 60;
 const BATCH: i64 = 500;
 
 pub struct FeeSweeper {
+	allocations: Arc<dyn AllocationRegistry>,
 	policies: Arc<dyn FeePolicies>,
 	changes: Arc<dyn FeePolicyChanges>,
 	accruals: Arc<dyn PositionAccruals>,
@@ -90,6 +92,7 @@ impl FeeSweeper {
 	// One handle per port the worker reads; a struct would exist for this call alone.
 	#[allow(clippy::too_many_arguments)]
 	pub fn new(
+		allocations: Arc<dyn AllocationRegistry>,
 		policies: Arc<dyn FeePolicies>,
 		changes: Arc<dyn FeePolicyChanges>,
 		accruals: Arc<dyn PositionAccruals>,
@@ -100,6 +103,7 @@ impl FeeSweeper {
 		notify: Arc<Notify>,
 	) -> Self {
 		Self {
+			allocations,
 			policies,
 			changes,
 			accruals,
@@ -150,6 +154,7 @@ impl FeeSweeper {
 		let mut charged = 0usize;
 		for accrual in due {
 			let assessed = fee_app::assess_position(
+				self.allocations.as_ref(),
 				self.policies.as_ref(),
 				self.accruals.as_ref(),
 				self.assessments.as_ref(),
