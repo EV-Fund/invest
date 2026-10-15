@@ -4,12 +4,12 @@
 //! user who can see the product: an investor is entitled to know what they are paying
 //! before they pay it, what they will be paying next, and how the terms came to be; a
 //! product hidden from them is `NOT_FOUND`, exactly as `GetAllocation` answers, unless they
-//! hold `bank:allocation:manage`. Reads of a *charge* are scoped
+//! hold `invest:allocation:manage`. Reads of a *charge* are scoped
 //! to the caller's own statement. Everything that changes terms or moves value is gated on
-//! `bank:allocation:manage` — the same trust seam as registering the product or
+//! `invest:allocation:manage` — the same trust seam as registering the product or
 //! posting its valuation, because a fee policy is part of what the product *is* — and a
-//! change that tightens the terms beyond the house envelope needs the owners besides
-//! (`docs/FEES.md` § "Changing the terms").
+//! change that tightens the terms beyond the house envelope needs the owners besides,
+//! which invest refuses until it can ask concierge for their approval.
 //!
 //! Only [`SettleFeeShares`](FeesService::settle_fee_shares) moves money, and it
 //! notifies the relay. Charging happens on the sweeper, not on this surface: a fee is
@@ -20,13 +20,13 @@
 //! we don't control, so the large-err lint does not apply in this module.
 #![allow(clippy::result_large_err)]
 
-use concierge_domain::authz::bank;
-use domain::{
+use invest_contracts::invest::v1::{self as pb, fees_service_server::FeesService};
+use invest_domain::{
+	authz::Permission,
 	balance::ServiceId,
 	fees::{CrystallizationPeriod, FeePolicy, FeePolicyChangeId, ManagementBasis},
 	money::Shares,
 };
-use evbanking_contracts::banking::v1::{self as pb, fees_service_server::FeesService};
 use tonic::{Request, Response, Status};
 use uuid::Uuid;
 
@@ -54,9 +54,6 @@ impl AppState {
 			policies: self.fees.policies.as_ref(),
 			changes: self.fees.changes.as_ref(),
 			allocations: self.allocations.as_ref(),
-			consilia: self.consilia.as_ref(),
-			approval_url_base: &self.consilium_approval_url_base,
-			governance_mail_wired: crate::infrastructure::governance_mail::is_wired(),
 		}
 	}
 }
@@ -103,9 +100,9 @@ impl FeesService for FeesSvc {
 	}
 
 	async fn schedule_fee_policy(&self, request: Request<pb::ScheduleFeePolicyRequest>) -> Result<Response<pb::FeePolicyChange>, Status> {
-		require_permission(&self.state, &request, bank::Allocation::Manage).await?;
+		require_permission(&self.state, &request, Permission::AllocationManage).await?;
 		// The requester is the trust seam on the terms, exactly as `posted_by` is on a
-		// valuation — and, for a change that needs the owners, the initiator of their consilium.
+		// valuation.
 		let requester = caller_id(&request)?;
 		let req = request.into_inner();
 		let service = ServiceId::parse(&req.service).map_err(map_err)?;
@@ -138,25 +135,23 @@ impl FeesService for FeesSvc {
 	}
 
 	async fn cancel_fee_policy_change(&self, request: Request<pb::CancelFeePolicyChangeRequest>) -> Result<Response<pb::FeePolicyChange>, Status> {
-		require_permission(&self.state, &request, bank::Allocation::Manage).await?;
+		require_permission(&self.state, &request, Permission::AllocationManage).await?;
 		let by = caller_id(&request)?;
 		let req = request.get_ref();
 		let service = ServiceId::parse(&req.service).map_err(map_err)?;
 		let id = parse_change_id(&req.change_id)?;
-		let change = fee_app::cancel_change(self.state.fees.changes.as_ref(), self.state.consilia.as_ref(), &service, id, by, unix_now())
-			.await
-			.map_err(map_err)?;
+		let change = fee_app::cancel_change(self.state.fees.changes.as_ref(), &service, id, by, unix_now()).await.map_err(map_err)?;
 		Ok(Response::new(change_to_proto(&change, Audience::Operator)))
 	}
 
 	async fn acknowledge_undelivered_notices(&self, request: Request<pb::AcknowledgeUndeliveredNoticesRequest>) -> Result<Response<pb::FeePolicyChange>, Status> {
-		require_permission(&self.state, &request, bank::Allocation::Manage).await?;
+		require_permission(&self.state, &request, Permission::AllocationManage).await?;
 		let by = caller_id(&request)?;
 		let req = request.get_ref();
 		let service = ServiceId::parse(&req.service).map_err(map_err)?;
 		let id = parse_change_id(&req.change_id)?;
 		let now = unix_now();
-		let change = fee_app::acknowledge_undelivered_notices(self.state.fees.changes.as_ref(), self.state.consilia.as_ref(), &service, id, by, now)
+		let change = fee_app::acknowledge_undelivered_notices(self.state.fees.changes.as_ref(), &service, id, by, now)
 			.await
 			.map_err(map_err)?;
 		// WARN on success, as scheduling is: somebody just took responsibility for holders
@@ -196,7 +191,7 @@ impl FeesService for FeesSvc {
 	}
 
 	async fn list_fund_fee_assessments(&self, request: Request<pb::ListFundFeeAssessmentsRequest>) -> Result<Response<pb::FeeAssessmentList>, Status> {
-		require_permission(&self.state, &request, bank::Allocation::Manage).await?;
+		require_permission(&self.state, &request, Permission::AllocationManage).await?;
 		let service = ServiceId::parse(&request.get_ref().service).map_err(map_err)?;
 		let records = fee_app::list_fund_assessments(self.state.fees.assessments.as_ref(), &service).await.map_err(map_err)?;
 		Ok(Response::new(pb::FeeAssessmentList {
@@ -211,6 +206,7 @@ impl FeesService for FeesSvc {
 			self.state.fees.policies.as_ref(),
 			self.state.fees.accruals.as_ref(),
 			self.state.ledger.as_ref(),
+			self.state.money.as_ref(),
 			self.state.nav.as_ref(),
 			caller,
 			&service,
@@ -244,9 +240,9 @@ impl FeesService for FeesSvc {
 	}
 
 	async fn get_fee_shares(&self, request: Request<pb::GetFeeSharesRequest>) -> Result<Response<pb::FeeShares>, Status> {
-		require_permission(&self.state, &request, bank::Allocation::Manage).await?;
+		require_permission(&self.state, &request, Permission::AllocationManage).await?;
 		let service = ServiceId::parse(&request.get_ref().service).map_err(map_err)?;
-		let (units, value) = fee_app::fee_shares(self.state.ledger.as_ref(), self.state.nav.as_ref(), &service, unix_now())
+		let (units, value) = fee_app::fee_shares(self.state.ledger.as_ref(), self.state.money.as_ref(), self.state.nav.as_ref(), &service, unix_now())
 			.await
 			.map_err(map_err)?;
 		Ok(Response::new(pb::FeeShares {
@@ -257,7 +253,7 @@ impl FeesService for FeesSvc {
 	}
 
 	async fn settle_fee_shares(&self, request: Request<pb::SettleFeeSharesRequest>) -> Result<Response<pb::FeeSettlement>, Status> {
-		require_permission(&self.state, &request, bank::Allocation::Manage).await?;
+		require_permission(&self.state, &request, Permission::AllocationManage).await?;
 		let settler = caller_id(&request)?;
 		let req = request.into_inner();
 		let service = ServiceId::parse(&req.service).map_err(map_err)?;
@@ -268,7 +264,9 @@ impl FeesService for FeesSvc {
 		};
 		let settlement = fee_app::settle_fee_shares(
 			self.state.fees.settlements.as_ref(),
+			self.state.allocations.as_ref(),
 			self.state.ledger.as_ref(),
+			self.state.money.as_ref(),
 			self.state.nav.as_ref(),
 			self.state.redemptions.as_ref(),
 			&self.state.relay_notify,
@@ -289,8 +287,8 @@ impl FeesService for FeesSvc {
 }
 
 /// Who is reading a change. The terms, the state, the moments and the reason are public
-/// information about a product; WHO asked and WHICH consilium decides are governance
-/// detail, shown to operators and blanked for everyone else.
+/// information about a product; WHO asked is governance detail, shown to operators and
+/// blanked for everyone else.
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum Audience {
 	Operator,
@@ -302,7 +300,7 @@ enum Audience {
 /// handlers serve everyone and merely widen for a manager.
 async fn reader_of<'a, T>(state: &'a AppState, request: &Request<T>) -> Result<(PolicyReader<'a>, Audience), Status> {
 	let caller = caller_id(request)?;
-	let unrestricted = holds_permission(state, request, bank::Allocation::Manage).await?;
+	let unrestricted = holds_permission(state, request, Permission::AllocationManage).await?;
 	let reader = PolicyReader {
 		allocations: state.allocations.as_ref(),
 		caller,
@@ -360,7 +358,8 @@ fn change_to_proto(change: &FeePolicyChange, audience: Audience) -> pb::FeePolic
 		crystallization: change.policy.crystallization().as_str().to_owned(),
 		effective_from: change.effective_from_unix,
 		requirement: change.requirement.as_str().to_owned(),
-		consilium_id: change.consilium_id.filter(|_| operator).map(|id| id.to_string()).unwrap_or_default(),
+		// invest records no change the owners decide (see `fee_app::schedule_policy`).
+		consilium_id: String::new(),
 		requested_by: if operator { change.requested_by.clone() } else { String::new() },
 		requested_at: change.requested_at_unix,
 		scheduled_at: change.scheduled_at_unix.unwrap_or_default(),

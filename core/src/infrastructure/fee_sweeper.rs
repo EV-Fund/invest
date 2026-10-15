@@ -43,17 +43,18 @@ use std::{
 	time::{Duration, Instant},
 };
 
-use domain::fees::Trigger;
+use invest_domain::fees::Trigger;
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
 
 use crate::{
 	application::fees as fee_app,
-	infrastructure::rails::now_unix_i64,
+	infrastructure::now_unix,
 	ports::{
 		fees::{FeeAssessments, FeePolicies, FeePolicyChanges, PositionAccruals},
 		ledger::Ledger,
+		money::MoneyLedger,
 		nav::NavMarks,
 	},
 };
@@ -80,17 +81,21 @@ pub struct FeeSweeper {
 	accruals: Arc<dyn PositionAccruals>,
 	assessments: Arc<dyn FeeAssessments>,
 	ledger: Arc<dyn Ledger>,
+	money: Arc<dyn MoneyLedger>,
 	nav: Arc<dyn NavMarks>,
 	notify: Arc<Notify>,
 }
 
 impl FeeSweeper {
+	// One handle per port the worker reads; a struct would exist for this call alone.
+	#[allow(clippy::too_many_arguments)]
 	pub fn new(
 		policies: Arc<dyn FeePolicies>,
 		changes: Arc<dyn FeePolicyChanges>,
 		accruals: Arc<dyn PositionAccruals>,
 		assessments: Arc<dyn FeeAssessments>,
 		ledger: Arc<dyn Ledger>,
+		money: Arc<dyn MoneyLedger>,
 		nav: Arc<dyn NavMarks>,
 		notify: Arc<Notify>,
 	) -> Self {
@@ -100,6 +105,7 @@ impl FeeSweeper {
 			accruals,
 			assessments,
 			ledger,
+			money,
 			nav,
 			notify,
 		}
@@ -111,7 +117,7 @@ impl FeeSweeper {
 		let mut last_sweep: Option<Instant> = None;
 		let mut promotion_failures = HashMap::new();
 		loop {
-			let now = now_unix_i64();
+			let now = now_unix();
 			if last_sweep.is_none_or(|at| at.elapsed() >= SWEEP_INTERVAL) {
 				match self.sweep(now).await {
 					Ok(charged) if charged > 0 => info!(charged, "fee sweeper: charged management/performance fees"),
@@ -139,7 +145,7 @@ impl FeeSweeper {
 	/// Only the backlog read can fail the sweep. Everything per-position — a fund with no
 	/// policy, a stale NAV, a locked holding, a charge that floors to nothing — is a
 	/// non-event that leaves the position exactly as it was for the next cycle.
-	pub async fn sweep(&self, now_unix: i64) -> Result<usize, domain::error::DomainError> {
+	pub async fn sweep(&self, now_unix: i64) -> Result<usize, invest_domain::error::DomainError> {
 		let due = self.accruals.due(now_unix.saturating_sub(MIN_ACCRUAL_AGE), BATCH).await?;
 		let mut charged = 0usize;
 		for accrual in due {
@@ -148,6 +154,7 @@ impl FeeSweeper {
 				self.accruals.as_ref(),
 				self.assessments.as_ref(),
 				self.ledger.as_ref(),
+				self.money.as_ref(),
 				self.nav.as_ref(),
 				&self.notify,
 				accrual.user,

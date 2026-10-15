@@ -2,14 +2,14 @@
 //! collects into cash.
 //!
 //! Every write here is the same shape: read the policy, read the holding's *live* unit
-//! balances from TigerBeetle, ask [`domain::fees::assess`] what is owed, and persist only
+//! balances from TigerBeetle, ask [`invest_domain::fees::assess`] what is owed, and persist only
 //! if something is actually owed. Nothing is charged when the fund has no policy, when
 //! the policy is all zeros, when the investor has no position, or when the charge floors
 //! to nothing — and in the last case the clocks are deliberately left alone so the
 //! accrual simply continues into the next sweep. A charge that is owed but cannot be
 //! collected right now (the units are escrowed by a resting sell or reserved by a queued
 //! redemption) is NOT one of those cases: it is recorded, carried whole as debt, and the
-//! clock moves — see [`domain::fees::FeeCharge::is_empty`].
+//! clock moves — see [`invest_domain::fees::FeeCharge::is_empty`].
 //!
 //! **The NAV a fee is charged at is the dealing NAV**, staleness guard included. That is
 //! a safety property, not an accident: if an operator stops posting marks, fees stop
@@ -19,11 +19,10 @@
 
 use std::collections::{HashMap, HashSet};
 
-use domain::{
+use invest_domain::{
 	balance::{LedgerAccountKey, ServiceId},
-	consilium::{Consilium, ConsiliumId, ConsiliumKind, ConsiliumTerms},
 	error::DomainError,
-	fees::{self, ChangeRequirement, FeeAssessment, FeeAssessmentId, FeeCharge, FeePolicy, FeePolicyChangeId, FeePolicySubject, FeeSettlement, FeeSettlementId, PositionSnapshot, Trigger},
+	fees::{self, ChangeRequirement, FeeAssessment, FeeAssessmentId, FeeCharge, FeePolicy, FeePolicyChangeId, FeeSettlement, FeeSettlementId, PositionSnapshot, Trigger},
 	money::{Nav, Shares, Usdt},
 	users::UserId,
 };
@@ -32,18 +31,13 @@ use tokio::sync::Notify;
 use crate::{
 	application::{
 		allocations as allocations_app,
-		consilium::{mint_credential, require_governance_mail, require_settled_roster},
-		funds::{dealing_nav, refuse_recent_poster},
+		funds::{account_cash, dealing_nav, refuse_recent_poster},
 	},
-	infrastructure::consilium::digest,
 	ports::{
 		allocations::AllocationRegistry,
-		consilium::ConsiliumRepository,
-		fees::{
-			AssessmentRecord, ConsiliumOpening, FeeAssessments, FeePolicies, FeePolicyChange, FeePolicyChanges, FeeSettlements, NewFeePolicyChange, PolicyRecord, PositionAccruals,
-			SettlementRecord,
-		},
+		fees::{AssessmentRecord, FeeAssessments, FeePolicies, FeePolicyChange, FeePolicyChanges, FeeSettlements, NewFeePolicyChange, PolicyRecord, PositionAccruals, SettlementRecord},
 		ledger::Ledger,
+		money::MoneyLedger,
 		nav::NavMarks,
 		redemptions::RedemptionRepository,
 	},
@@ -68,12 +62,15 @@ pub struct AccruedFees {
 ///
 /// Returns `None` — not an error — for every "nothing to do" case, because the sweeper
 /// walks thousands of positions and a fund without a policy is normal, not exceptional.
+// The fee plane's three seams, the two ledgers and the marks, plus a four-field request; a
+// struct would serve the sweeper's one call site.
 #[allow(clippy::too_many_arguments)]
 pub async fn assess_position(
 	policies: &dyn FeePolicies,
 	accruals: &dyn PositionAccruals,
 	assessments: &dyn FeeAssessments,
 	ledger: &dyn Ledger,
+	money: &dyn MoneyLedger,
 	nav: &dyn NavMarks,
 	relay: &Notify,
 	user: UserId,
@@ -81,7 +78,7 @@ pub async fn assess_position(
 	trigger: Trigger,
 	now_unix: i64,
 ) -> Result<Option<FeeAssessment>, DomainError> {
-	let Some((policy, snapshot, price)) = load_assessment_inputs(policies, accruals, ledger, nav, user, &service, now_unix).await? else {
+	let Some((policy, snapshot, price)) = load_assessment_inputs(policies, accruals, ledger, money, nav, user, &service, now_unix).await? else {
 		return Ok(None);
 	};
 	let charge = fees::assess(&policy, &snapshot, price, trigger, now_unix)?;
@@ -101,16 +98,19 @@ pub async fn assess_position(
 
 /// What a holding owes right now, without charging it — the disclosure behind a
 /// position's net-of-fees value. A fund with no policy owes nothing.
+// The fee plane's two read seams, the two ledgers and the marks, plus a three-field request.
+#[allow(clippy::too_many_arguments)]
 pub async fn accrued_fees(
 	policies: &dyn FeePolicies,
 	accruals: &dyn PositionAccruals,
 	ledger: &dyn Ledger,
+	money: &dyn MoneyLedger,
 	nav: &dyn NavMarks,
 	user: UserId,
 	service: &ServiceId,
 	now_unix: i64,
 ) -> Result<Option<AccruedFees>, DomainError> {
-	let Some((policy, snapshot, price)) = load_assessment_inputs(policies, accruals, ledger, nav, user, service, now_unix).await? else {
+	let Some((policy, snapshot, price)) = load_assessment_inputs(policies, accruals, ledger, money, nav, user, service, now_unix).await? else {
 		return Ok(None);
 	};
 	let charge = fees::assess(&policy, &snapshot, price, Trigger::Period, now_unix)?;
@@ -147,10 +147,13 @@ fn disclose(charge: &FeeCharge, high_water_mark: Nav) -> AccruedFees {
 /// clawback, by contrast, may only take the holding's **available** balance: the escrow
 /// belongs to the order until the book releases it, and the reserve to the redemption,
 /// so the charge defers into debt instead of racing either.
+// Every port an assessment reads; a struct would serve these two callers only.
+#[allow(clippy::too_many_arguments)]
 async fn load_assessment_inputs(
 	policies: &dyn FeePolicies,
 	accruals: &dyn PositionAccruals,
 	ledger: &dyn Ledger,
+	money: &dyn MoneyLedger,
 	nav: &dyn NavMarks,
 	user: UserId,
 	service: &ServiceId,
@@ -165,7 +168,7 @@ async fn load_assessment_inputs(
 	let Some(accrual) = accruals.find(user, service).await? else {
 		return Ok(None);
 	};
-	let price = dealing_nav(nav, ledger, service, now_unix).await?;
+	let price = dealing_nav(nav, ledger, money, service, now_unix).await?;
 	let holding = ledger.balance(&LedgerAccountKey::UserShares(service.clone(), user)).await?;
 	let escrowed = ledger.balance(&LedgerAccountKey::BookShares(service.clone(), user)).await?.posted;
 	let units = Shares::from_base_units(holding.posted)
@@ -183,18 +186,11 @@ async fn load_assessment_inputs(
 	Ok(Some((policy, snapshot, price)))
 }
 
-/// The driven ports a change of terms borrows. Only [`schedule_policy`] needs the consilium
-/// side; reading and cancelling touch the fee plane alone.
+/// The driven ports a change of terms borrows.
 pub struct FeePolicyPorts<'a> {
 	pub policies: &'a dyn FeePolicies,
 	pub changes: &'a dyn FeePolicyChanges,
 	pub allocations: &'a dyn AllocationRegistry,
-	pub consilia: &'a dyn ConsiliumRepository,
-	/// Base URL the owners' emailed approval link is built on.
-	pub approval_url_base: &'a str,
-	/// Whether a governance mailer is wired — see
-	/// [`require_governance_mail`](crate::application::consilium::require_governance_mail).
-	pub governance_mail_wired: bool,
 }
 
 /// A change of terms as the operator asks for it.
@@ -209,13 +205,14 @@ pub struct PolicyChangeRequest {
 
 /// Propose a change of a fund's fee terms (operator).
 ///
-/// The requirement is decided by the pure rule in [`fees::requirement_for`]: the owners'
-/// consilium exactly when the change tightens the terms beyond the house envelope, one
+/// The requirement is decided by the pure rule in [`fees::requirement_for`]: the owners
+/// exactly when the change tightens the terms beyond the house envelope, one
 /// `AllocationManage` holder otherwise. An administrator's change is scheduled at once and
-/// the holders are notified; a change needing the owners opens a consilium the requester
-/// must be an owner to open, and the holders are notified when the owners carry it. Either
-/// way the terms bind no earlier than the notice period while anyone holds units — see
-/// `docs/FEES.md` § "Changing the terms".
+/// a notice is recorded for every holder; the terms bind no earlier than the notice period
+/// while anyone holds units, and a dearer change binds over a holder only once they were
+/// told or an operator acknowledged them. A change that needs the owners is refused
+/// ([`DomainError::Precondition`]): their approval is concierge's, and invest is not its
+/// client yet.
 pub async fn schedule_policy(ports: &FeePolicyPorts<'_>, requester: UserId, request: PolicyChangeRequest, now: i64) -> Result<FeePolicyChange, DomainError> {
 	// The registry is the same gate subscribe runs through: terms for an unregistered
 	// product are always a typo.
@@ -232,15 +229,6 @@ pub async fn schedule_policy(ports: &FeePolicyPorts<'_>, requester: UserId, requ
 	let current = ports.policies.find(&request.service).await?;
 	let requirement = fees::requirement_for(current.as_ref(), &request.policy);
 	fees::validate_reason(&request.reason, requirement == ChangeRequirement::OwnerConsilium)?;
-	// The notice IS the protection, on either path. A change over a held product with no
-	// mailer would be scheduled, its notices queued into a relay that never runs, and bind
-	// 24h later on holders who were told nothing — the guardrail looking healthy the whole
-	// time. A product nobody holds owes nobody a notice and may proceed.
-	if !ports.governance_mail_wired && ports.changes.holder_count(&request.service).await? > 0 {
-		return Err(DomainError::Conflict(
-			"governance mail is not configured, so the holders of this product could not be given notice of a change of terms. Build with the `concierge_governance_mail` feature and configure the concierge mail relay first.".into(),
-		));
-	}
 	let change = NewFeePolicyChange {
 		id: FeePolicyChangeId::new(),
 		service: request.service.clone(),
@@ -252,94 +240,41 @@ pub async fn schedule_policy(ports: &FeePolicyPorts<'_>, requester: UserId, requ
 		now_unix: now,
 	};
 	match requirement {
-		ChangeRequirement::Admin => ports.changes.schedule(&change, None).await,
-		ChangeRequirement::OwnerConsilium => {
-			require_governance_mail(ports.governance_mail_wired)?;
-			require_settled_roster(ports.consilia, ConsiliumKind::FeePolicy, now).await?;
-			let owners = ports.consilia.owner_roster().await?;
-			// Said in the fee plane's words before the aggregate says it in its own: an
-			// administrator who is not an owner needs to know WHY this particular change is
-			// out of their reach, not merely that a consilium is.
-			if !owners.contains(&requester) {
-				return Err(DomainError::Forbidden(
-					"this change tightens the terms beyond the house envelope, so it needs the owners' consilium — only a fund owner may propose it".into(),
-				));
-			}
-			let terms = ConsiliumTerms::FeePolicy(FeePolicySubject {
-				change_id: change.id,
-				service: request.service,
-				from: current,
-				to: request.policy,
-				reason: request.reason,
-				requested_effective_from: request.requested_effective_from_unix,
-			});
-			let payload_hash = digest(&terms.canonical_bytes());
-			let mut consilium = Consilium::open(ConsiliumId::new(), terms, payload_hash, requester, &owners, now)?;
-			let credentials = consilium.eligible().iter().map(|voter| mint_credential(*voter)).collect::<Result<Vec<_>, _>>()?;
-			ports
-				.changes
-				.schedule(
-					&change,
-					Some(ConsiliumOpening {
-						consilium: &mut consilium,
-						credentials: &credentials,
-						approval_url_base: ports.approval_url_base,
-					}),
-				)
-				.await
-		}
+		ChangeRequirement::Admin => ports.changes.schedule(&change).await,
+		// TODO(concierge approvals): propose `invest:fee_policy` in concierge and schedule
+		// the change when the owners carry it, as banking's consilium did.
+		ChangeRequirement::OwnerConsilium => Err(DomainError::Precondition(
+			"this change tightens the terms beyond the house envelope, so it needs the owners' approval — invest cannot ask for it yet".into(),
+		)),
 	}
 }
 
-/// Withdraw a pending change (operator). One still awaiting the owners takes its consilium
-/// down with it — and for that reason only the owner who proposed it, or another owner,
-/// may withdraw it: an administrator who could not have opened the quorum must not be able
-/// to close it either, or every consilium-gated change is one `AllocationManage` holder
-/// away from never reaching a vote.
-pub async fn cancel_change(
-	changes: &dyn FeePolicyChanges,
-	consilia: &dyn ConsiliumRepository,
-	service: &ServiceId,
-	id: FeePolicyChangeId,
-	by: UserId,
-	now: i64,
-) -> Result<FeePolicyChange, DomainError> {
-	let change = changes.find(id).await?.filter(|change| &change.service == service).ok_or_else(|| DomainError::NotFound {
+/// Withdraw a pending change (operator).
+pub async fn cancel_change(changes: &dyn FeePolicyChanges, service: &ServiceId, id: FeePolicyChangeId, by: UserId, now: i64) -> Result<FeePolicyChange, DomainError> {
+	changes.find(id).await?.filter(|change| &change.service == service).ok_or_else(|| DomainError::NotFound {
 		entity: "fee policy change",
 		id: id.to_string(),
 	})?;
-	if change.requirement == ChangeRequirement::OwnerConsilium && change.requested_by != by.to_string() && !consilia.owner_roster().await?.contains(&by) {
-		return Err(DomainError::Forbidden(
-			"a change awaiting the owners' consilium may be withdrawn only by the owner who proposed it or by another owner".into(),
-		));
-	}
 	changes.cancel(service, id, &by.to_string(), now).await
 }
 
 /// Take responsibility for the holders of a scheduled tightening who could not be told
-/// (operator): the terms then bind over exactly the holders whose notice the mailer has given
-/// up on at this moment, on the record — who, when, and whom for. The move is refused to
-/// anyone but the one who asked for the change or a fund owner: the holders' notice is the
-/// protection the owners' envelope and the notice period exist for, and waiving it must not
-/// be one `AllocationManage` holder away from a change somebody else proposed. Nothing to
-/// acknowledge (a loosening, a change not scheduled, no notice given up on yet) is a
-/// conflict rather than a no-op — see [`FeePolicyChanges::acknowledge_undelivered_notices`].
-pub async fn acknowledge_undelivered_notices(
-	changes: &dyn FeePolicyChanges,
-	consilia: &dyn ConsiliumRepository,
-	service: &ServiceId,
-	id: FeePolicyChangeId,
-	by: UserId,
-	now: i64,
-) -> Result<FeePolicyChange, DomainError> {
+/// (operator): the terms then bind over exactly the holders whose notice was given up on
+/// at this moment, on the record — who, when, and whom for. The move is refused to anyone
+/// but the one who asked for the change: the holders' notice is the protection the notice
+/// period exists for, and waiving it must not be one `AllocationManage` holder away from a
+/// change somebody else proposed. Nothing to acknowledge (a loosening, a change not
+/// scheduled, no notice given up on yet) is a conflict rather than a no-op — see
+/// [`FeePolicyChanges::acknowledge_undelivered_notices`].
+// TODO(concierge approvals): banking also let any fund owner acknowledge; invest learns who
+// the owners are from concierge, not yet wired.
+pub async fn acknowledge_undelivered_notices(changes: &dyn FeePolicyChanges, service: &ServiceId, id: FeePolicyChangeId, by: UserId, now: i64) -> Result<FeePolicyChange, DomainError> {
 	let change = changes.find(id).await?.filter(|change| &change.service == service).ok_or_else(|| DomainError::NotFound {
 		entity: "fee policy change",
 		id: id.to_string(),
 	})?;
-	if change.requested_by != by.to_string() && !consilia.owner_roster().await?.contains(&by) {
-		return Err(DomainError::Forbidden(
-			"the holders' notice may be waived only by the one who requested the change or by a fund owner".into(),
-		));
+	if change.requested_by != by.to_string() {
+		return Err(DomainError::Forbidden("the holders' notice may be waived only by the one who requested the change".into()));
 	}
 	changes.acknowledge_undelivered_notices(service, id, &by.to_string(), now).await
 }
@@ -457,20 +392,21 @@ pub async fn list_fund_assessments(assessments: &dyn FeeAssessments, service: &S
 }
 
 /// The manager's uncollected fee units in a fund, and what they are worth right now.
-pub async fn fee_shares(ledger: &dyn Ledger, nav: &dyn NavMarks, service: &ServiceId, now_unix: i64) -> Result<(Shares, Usdt), DomainError> {
+pub async fn fee_shares(ledger: &dyn Ledger, money: &dyn MoneyLedger, nav: &dyn NavMarks, service: &ServiceId, now_unix: i64) -> Result<(Shares, Usdt), DomainError> {
 	let units = Shares::from_base_units(ledger.balance(&LedgerAccountKey::FeeShares(service.clone())).await?.available());
-	let price = dealing_nav(nav, ledger, service, now_unix).await?;
+	let price = dealing_nav(nav, ledger, money, service, now_unix).await?;
 	Ok((units, price.value(units)?))
 }
 
 /// Convert accumulated fee units into the `fee` allocation's cash (operator) — the
-/// product buying its fee class back from the `fee` allocation at the day's NAV, `Dr
-/// ServiceClaim(product) / Cr ServiceClaim(fee)`. `units` defaults to the whole
+/// product buying its fee class back from the `fee` allocation at the day's NAV: the cash
+/// is swept from `(<scope>, alloc:<product>)` into the scope's fee route, which banking
+/// forwards to `(invest, alloc:fee)` from every scope (plan §3.9). `units` defaults to the whole
 /// accumulated balance.
 ///
 /// This is the **only** operation in the fee plane that moves cash, and it runs once per
 /// period for a whole fund rather than once per investor — which is the entire point of
-/// collecting in units. It is Read-First gated on the fund's claim covering the payout
+/// collecting in units. It is Read-First gated on the product's account covering the payout
 /// and **refuses** when short rather than queueing: unlike an investor's redemption,
 /// nobody is waiting on this, and a fee that cannot be paid today is simply left
 /// accumulating as units at no cost — the `fee` allocation's holders keep their claim
@@ -479,8 +415,8 @@ pub async fn fee_shares(ledger: &dyn Ledger, nav: &dyn NavMarks, service: &Servi
 /// # The queue is reserved before the manager is paid
 ///
 /// Queuing a redemption reserves the investor's *units* (a pending burn) but **no cash** —
-/// there is none to reserve, because the redemption is priced at settle. So the fund's
-/// claim carries no trace of what the queue will shortly cost, and a settlement gated only
+/// there is none to reserve, because the redemption is priced at settle. So the product's
+/// account carries no trace of what the queue will shortly cost, and a settlement gated only
 /// on `available` would happily hand the manager money the queue is about to need, leaving
 /// investors unpayable while the fee revenue sits collected.
 ///
@@ -494,15 +430,18 @@ pub async fn fee_shares(ledger: &dyn Ledger, nav: &dyn NavMarks, service: &Servi
 /// # The settler is bound by the redeem cooldown
 ///
 /// The settlement prices the fee class at the product's dealing NAV and turns it into cash
-/// on `service:fee` — cash the `fee` holders are then paid out of. An administrator who marks
+/// on the `fee` allocation — cash the `fee` holders are then paid out of. An administrator who marks
 /// the product up and settles at once has converted their own mark into the fee holders'
 /// (very possibly their own) cash, which is the move the redeem cooldown exists to stop one
 /// step later. So the same cooldown binds the settler (#245, M-1): within
 /// [`VALUATION_REDEEM_COOLDOWN_SECS`] of their own mark, the settlement is refused.
+// Four ports, the relay and a four-field request; a struct would serve this one call site.
 #[allow(clippy::too_many_arguments)]
 pub async fn settle_fee_shares(
 	settlements: &dyn FeeSettlements,
+	allocations: &dyn AllocationRegistry,
 	ledger: &dyn Ledger,
+	money: &dyn MoneyLedger,
 	nav: &dyn NavMarks,
 	redemptions: &dyn RedemptionRepository,
 	relay: &Notify,
@@ -520,20 +459,21 @@ pub async fn settle_fee_shares(
 		return Err(DomainError::Validation("cannot settle more fee units than the fund has accumulated".into()));
 	}
 	refuse_recent_poster(nav, ledger, &service, settler, now_unix).await?;
-	let price = dealing_nav(nav, ledger, &service, now_unix).await?;
+	let price = dealing_nav(nav, ledger, money, &service, now_unix).await?;
 	let mut settlement = FeeSettlement::record(FeeSettlementId::new(), service.clone(), units, price)?;
-	let fund = ledger.balance(&LedgerAccountKey::ServiceClaim(service.clone())).await?;
+	let scope = allocations.scope(&service).await?;
+	let fund = account_cash(money, &scope, &service).await?;
 	let reserved = queued_redemption_cash(redemptions, &service, price).await?;
 	let required = settlement
 		.cash()
 		.checked_add(reserved)
 		.ok_or_else(|| DomainError::Repository("fee settlement plus the queue overflows".into()))?;
-	if Usdt::from_base_units(fund.available()) < required {
+	if fund < required {
 		return Err(DomainError::Validation(if reserved.is_zero() {
-			"the fund's claim cannot cover this fee settlement — top it up or settle fewer units".into()
+			"the fund's account cannot cover this fee settlement — top it up or settle fewer units".into()
 		} else {
 			format!(
-				"the fund's claim cannot cover this fee settlement on top of {reserved} USDT of queued redemptions — \
+				"the fund's account cannot cover this fee settlement on top of {reserved} USDT of queued redemptions — \
 				 settle the queue first, top the fund up, or settle fewer units"
 			)
 		}));

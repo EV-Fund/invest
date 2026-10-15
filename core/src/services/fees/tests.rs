@@ -1,12 +1,10 @@
 //! The one piece of this surface the integration suites cannot reach without a full gRPC
 //! harness: what an INVESTOR is shown of a change of terms versus what an OPERATOR is
 //! (banking#250). The terms, the state, the moments and the reason are public; who asked
-//! and which consilium decides are governance detail, blanked for everyone without
-//! `AllocationManage`.
+//! is governance detail, blanked for everyone without `AllocationManage`.
 
-use domain::{
+use invest_domain::{
 	balance::ServiceId,
-	consilium::ConsiliumId,
 	fees::{ChangeRequirement, CrystallizationPeriod, FeePolicy, FeePolicyChangeId, FeePolicyChangeState, ManagementBasis},
 	users::UserId,
 };
@@ -18,20 +16,19 @@ use crate::{
 	ports::fees::{FeePolicyChange, NoticeWaiver, PolicyRecord},
 };
 
-fn consilium_gated_change() -> FeePolicyChange {
+fn scheduled_change() -> FeePolicyChange {
 	FeePolicyChange {
 		id: FeePolicyChangeId::from_raw(Uuid::from_u128(0x233)),
 		service: ServiceId::parse("trading").unwrap(),
 		version: 2,
 		policy: FeePolicy::new(300, 2_000, 0, ManagementBasis::InvestedCapital, CrystallizationPeriod::Annual).unwrap(),
-		state: FeePolicyChangeState::AwaitingConsilium,
-		requirement: ChangeRequirement::OwnerConsilium,
+		state: FeePolicyChangeState::Scheduled,
+		requirement: ChangeRequirement::Admin,
 		effective_from_unix: 1_700_100_000,
-		consilium_id: Some(ConsiliumId::from_raw(Uuid::from_u128(0xc0))),
 		requested_by: "8f0d2a8e-2b3e-4a1a-9a53-6d5a0d1d2e3f".to_owned(),
 		requested_at_unix: 1_700_000_000,
 		reason: "the new mandate costs more to run".to_owned(),
-		scheduled_at_unix: None,
+		scheduled_at_unix: Some(1_700_000_000),
 		applied_at_unix: None,
 		undelivered_notices: 0,
 		notices_given_up: 0,
@@ -54,35 +51,34 @@ fn acknowledged_change() -> FeePolicyChange {
 			at_unix: 1_700_050_000,
 			users: vec![UserId::from_raw(Uuid::from_u128(0xa1)), UserId::from_raw(Uuid::from_u128(0xa2))],
 		}),
-		..consilium_gated_change()
+		..scheduled_change()
 	}
 }
 
 #[test]
-fn an_investor_is_shown_the_terms_but_not_who_asked_or_which_consilium_decides() {
-	let change = consilium_gated_change();
+fn an_investor_is_shown_the_terms_but_not_who_asked() {
+	let change = scheduled_change();
 	let shown = change_to_proto(&change, Audience::Investor);
 
 	assert_eq!(shown.requested_by, "", "who asked is governance detail");
-	assert_eq!(shown.consilium_id, "", "which consilium decides is governance detail");
+	assert_eq!(shown.consilium_id, "", "invest records no change the owners decide");
 	// Everything an investor is entitled to stays: the terms they will be on, when, and why.
 	assert_eq!(shown.id, change.id.to_string());
 	assert_eq!(shown.management_bps, 300);
 	assert_eq!(shown.performance_bps, 2_000);
-	assert_eq!(shown.state, "awaiting_consilium");
-	assert_eq!(shown.requirement, "owner_consilium");
+	assert_eq!(shown.state, "scheduled");
+	assert_eq!(shown.requirement, "admin");
 	assert_eq!(shown.effective_from, 1_700_100_000);
 	assert_eq!(shown.requested_at, 1_700_000_000);
 	assert_eq!(shown.reason, "the new mandate costs more to run");
 }
 
 #[test]
-fn an_operator_is_shown_who_asked_and_which_consilium_decides() {
-	let change = consilium_gated_change();
+fn an_operator_is_shown_who_asked() {
+	let change = scheduled_change();
 	let shown = change_to_proto(&change, Audience::Operator);
 
 	assert_eq!(shown.requested_by, "8f0d2a8e-2b3e-4a1a-9a53-6d5a0d1d2e3f");
-	assert_eq!(shown.consilium_id, ConsiliumId::from_raw(Uuid::from_u128(0xc0)).to_string());
 }
 
 #[test]
@@ -109,7 +105,7 @@ fn the_waiver_and_the_undelivered_figures_are_governance_detail() {
 	// That the notice was waived, and when, is a fact about the terms they are on.
 	assert_eq!(investor.notices_waived_at, 1_700_050_000);
 
-	let untouched = change_to_proto(&consilium_gated_change(), Audience::Operator);
+	let untouched = change_to_proto(&scheduled_change(), Audience::Operator);
 	assert_eq!(untouched.notices_waived_at, 0);
 	assert_eq!(untouched.notices_waived_by, "");
 	assert!(untouched.notices_waived_users.is_empty());
@@ -128,17 +124,15 @@ fn the_redaction_follows_the_pending_change_onto_the_policy_view() {
 			effective_from_unix: 1_690_000_000,
 			updated_at_unix: 1_690_000_000,
 		}),
-		pending: Some(consilium_gated_change()),
+		pending: Some(scheduled_change()),
 	};
 
 	let investor = policy_to_proto(&service, &view, Audience::Investor);
 	let pending = investor.pending.expect("the change on its way is shown to everyone");
 	assert_eq!(pending.requested_by, "");
-	assert_eq!(pending.consilium_id, "");
 	assert_eq!(investor.management_bps, 200, "the live terms are public");
 
 	let operator = policy_to_proto(&service, &view, Audience::Operator);
 	let pending = operator.pending.expect("the change on its way is shown to everyone");
 	assert_ne!(pending.requested_by, "");
-	assert_ne!(pending.consilium_id, "");
 }

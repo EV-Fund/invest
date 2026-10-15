@@ -24,7 +24,7 @@
 //! actually crystallized — so a mid-period charge cannot silently restart the period.
 
 use async_trait::async_trait;
-use domain::{
+use invest_domain::{
 	architecture::Repository,
 	balance::ServiceId,
 	error::DomainError,

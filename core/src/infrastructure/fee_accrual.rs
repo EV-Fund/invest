@@ -18,7 +18,7 @@
 //! old basis earned is computed here and carried into `fee_debt`, exactly as an
 //! uncollectable charge is carried, and the next assessment collects it as `debt_opening`.
 
-use domain::{
+use invest_domain::{
 	error::DomainError,
 	fees::{self, FeePolicy, ManagementBasis, PositionSnapshot},
 	money::{Nav, Shares, Usdt},
