@@ -16,7 +16,11 @@ export const PERMISSION = {
   valuationPost: "invest:valuation:post",
 } as const;
 
-/** A section's requirement: a session, one of a set of permissions, or nothing at all. */
+/**
+ * A section's requirement: an active session, one of a set of permissions, or nothing at
+ * all. There is no participant permission — concierge grants a seat only what was given
+ * explicitly — so an investor's surfaces ask for the session alone.
+ */
 export type Requirement = { kind: "signedIn" } | { kind: "anyOf"; permissions: readonly string[] } | null;
 
 const SIGNED_IN: Requirement = { kind: "signedIn" };
@@ -44,7 +48,9 @@ export function requirementOf(path: string): Requirement {
 /** Whether `session` meets `requirement`. */
 export function meets(requirement: Requirement, session: SessionInfo): boolean {
   if (requirement === null) return true;
-  if (!session.authenticated) return false;
+  // A suspended seat holds nothing (invest-core fails it closed); concierge says so as
+  // `disabled`. Any other word reads as active: the gate is cosmetic, the BFF decides.
+  if (!session.authenticated || session.user?.status === "disabled") return false;
   if (requirement.kind === "signedIn") return true;
   return requirement.permissions.some((permission) => session.permissions.includes(permission));
 }
