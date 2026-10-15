@@ -280,12 +280,12 @@ impl Relay {
 					}
 					return DrainStep::Throttle;
 				}
-				Outcome::RetryBounded(reason) => {
+				Outcome::RetryBounded { reason, applied_legs } => {
 					// A retryable that can never resolve (a completion whose pending was
 					// itself parked, so it is never found) must not wedge the single-worker
 					// queue forever — park it after a bound so later events keep flowing.
 					if row.attempts + 1 >= MAX_RETRYABLE_ATTEMPTS {
-						self.park(row, &format!("retryable exhausted after {} attempts: {reason}", row.attempts + 1), 0).await;
+						self.park(row, &format!("retryable exhausted after {} attempts: {reason}", row.attempts + 1), applied_legs).await;
 						advanced = true;
 					} else {
 						if let Err(err) = outbox::record_failure(&self.pool, row.seq, &reason).await {
@@ -362,7 +362,7 @@ impl Relay {
 					applied += 1;
 				}
 				Err(LedgerError::Unavailable(err)) => return Outcome::Retry(err),
-				Err(LedgerError::Retryable(err)) => return Outcome::RetryBounded(err),
+				Err(LedgerError::Retryable(reason)) => return Outcome::RetryBounded { reason, applied_legs: applied },
 				Err(LedgerError::InsufficientFunds) => {
 					return Outcome::Park {
 						reason: "insufficient funds".into(),
@@ -451,7 +451,12 @@ enum Outcome {
 	/// A retryable ledger state (a pending not yet visible) — retry from this `seq`, but
 	/// **bounded**: a pending that can never appear (its reserve was itself parked) must
 	/// not wedge the single-worker queue forever, so park after `MAX_RETRYABLE_ATTEMPTS`.
-	RetryBounded(String),
+	/// `applied_legs` as for `Park`: the exhausted retry parks the event with it, so one
+	/// that half-applied is flagged for compensation rather than parked as untouched.
+	RetryBounded {
+		reason: String,
+		applied_legs: usize,
+	},
 	/// Terminal for this event — move it to the distinct **parked** state (stays queryable,
 	/// excluded from the drain). `applied_legs` is how many legs of this (possibly
 	/// multi-leg) event already posted before the park: `> 0` means it half-applied and a

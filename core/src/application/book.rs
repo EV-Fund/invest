@@ -243,8 +243,14 @@ pub async fn place_order(ports: &BookPorts<'_>, user: UserId, request: PlaceOrde
 	}
 	let id = order_id_for(user, &request.client_order_id);
 	let scope = ports.allocations.scope(&request.service).await?;
+	// Every read that can fail comes before banking is asked to hold anything, so a refusal
+	// here leaves no hold behind.
+	let nav = current_nav(ports.nav, ports.ledger, ports.money, &request.service).await?;
 	let (reserved, hold) = match request.side {
 		Side::Sell => {
+			// A fill pays the seller into the compartment banking names by this subject; a
+			// seller banking cannot name would only be found out by the relay, after the match.
+			funds_app::require_auth_subject(ports.users, user).await?;
 			let holding = ports.ledger.balance(&LedgerAccountKey::UserShares(request.service.clone(), user)).await?;
 			if Shares::from_base_units(holding.available()) < size.shares() {
 				return Err(DomainError::Validation("insufficient units to sell".into()));
@@ -271,11 +277,26 @@ pub async fn place_order(ports: &BookPorts<'_>, user: UserId, request: PlaceOrde
 			// banking answers a repeated key with the ORIGINAL result, even if the world moved
 			// since (ledger.proto, IDEMPOTENCY) — so only a read tells a live hold from one an
 			// earlier attempt under this client order id already gave back, which cannot back
-			// a new order.
-			let hold = ports.money.hold(&scope, &reserved.id).await?;
+			// a new order. A read that fails leaves us not knowing, and no order is written,
+			// so the hold is given back.
+			let hold = match ports.money.hold(&scope, &reserved.id).await {
+				Ok(hold) => hold,
+				Err(err) => {
+					release_unplaced_hold(ports.money, &scope, &reserved, id).await;
+					return Err(err.into());
+				}
+			};
 			if hold.state != HoldState::Active {
 				return Err(DomainError::Conflict(format!(
 					"client order id '{}' was already used for an order that was not placed — use a new one",
+					request.client_order_id.as_str()
+				)));
+			}
+			// The hold this order stands on must be the one it asked for, untouched: the right
+			// scope, the whole reserve, nothing captured yet.
+			if hold.scope != scope || hold.amount != reserve || hold.remaining != reserve {
+				return Err(DomainError::Conflict(format!(
+					"client order id '{}' names a hold banking holds on other terms — use a new one",
 					request.client_order_id.as_str()
 				)));
 			}
@@ -286,7 +307,6 @@ pub async fn place_order(ports: &BookPorts<'_>, user: UserId, request: PlaceOrde
 		scope: scope.clone(),
 		hold: hold.as_ref().map(|hold| hold.id.clone()),
 	};
-	let nav = current_nav(ports.nav, ports.ledger, ports.money, &request.service).await?;
 	let order = Order::place(
 		id,
 		request.service.clone(),
@@ -356,7 +376,10 @@ async fn release_unplaced_hold(money: &dyn MoneyLedger, scope: &ScopeId, hold: &
 }
 
 fn same_request_or_conflict(existing: OrderRecord, request: &PlaceOrderRequest) -> Result<OrderRecord, DomainError> {
-	if existing.order.matches_request(&request.service, request.side, request.kind, request.tif, request.size) {
+	if existing
+		.order
+		.matches_request(&request.service, request.side, request.kind, request.tif, request.price, request.size)
+	{
 		Ok(existing)
 	} else {
 		Err(DomainError::Conflict(format!(

@@ -1,16 +1,19 @@
 //! Postgres adapter for the [`RedemptionRepository`] port.
 //!
 //! Row-locked commands that apply the aggregate transition and drain its events in one
-//! transaction. `open` takes a `FOR UPDATE` lock on the user's `fund_positions` row to
-//! serialize concurrent requests. The cost-basis reduction a settle owes is NOT made here:
+//! transaction. `open` serializes the requests on one holding under an advisory lock and
+//! admits a redemption only for units free in the ledger and not claimed by an undrained
+//! event. The cost-basis reduction a settle owes is NOT made here:
 //! the payout is banking's and may still be refused, so the relay makes it once the cash
 //! has left ([`reduce_cost_basis`], under the saga's marker) — a refused payout then has no
 //! basis to give back.
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use invest_domain::{
 	architecture::{Reader, Repository},
-	balance::ServiceId,
+	balance::{LedgerAccountKey, ServiceId},
 	error::DomainError,
 	money::{Nav, Shares, Usdt},
 	redemptions::{Redemption, RedemptionId, RedemptionState},
@@ -21,7 +24,7 @@ use uuid::Uuid;
 
 use crate::{
 	infrastructure::{fee_accrual, outbox},
-	ports::{QueuedRedemption, RedemptionRecord, RedemptionRepository},
+	ports::{QueuedRedemption, RedemptionRecord, RedemptionRepository, ledger::Ledger},
 };
 
 const SELECT_BY_ID: &str = "SELECT id, user_id, service, units, nav, cash, state, failure_reason FROM redemptions WHERE id = $1";
@@ -30,11 +33,14 @@ const SELECT_BY_USER: &str = "SELECT id, user_id, service, units, nav, cash, sta
 
 pub struct PgRedemptions {
 	pool: PgPool,
+	/// Read under the position lock in [`RedemptionRepository::open`]: the holding the
+	/// request is judged against.
+	ledger: Arc<dyn Ledger>,
 }
 
 impl PgRedemptions {
-	pub fn new(pool: PgPool) -> Self {
-		Self { pool }
+	pub fn new(pool: PgPool, ledger: Arc<dyn Ledger>) -> Self {
+		Self { pool, ledger }
 	}
 }
 
@@ -171,13 +177,23 @@ pub(crate) async fn reduce_cost_basis(conn: &mut PgConnection, user: UserId, ser
 impl RedemptionRepository for PgRedemptions {
 	async fn open(&self, redemption: &mut Redemption) -> Result<(), DomainError> {
 		let mut tx = self.pool.begin().await.map_err(repo_err)?;
-		// Serialize concurrent requests on this position (TB is the over-redeem backstop).
-		sqlx::query("SELECT 1 FROM fund_positions WHERE user_id = $1 AND service = $2 FOR UPDATE")
-			.bind(redemption.user().raw())
-			.bind(redemption.service().as_str())
-			.fetch_optional(&mut *tx)
+		let (user, service) = (redemption.user(), redemption.service().clone());
+		// Serialize the requests on this holding, then decide on what is free once the
+		// requests before this one have spoken: the ledger's `available` minus the units their
+		// undrained events already claim. Read after the lock, so a sibling committed while we
+		// waited is counted either way — as an event, or in the ledger once relayed. The
+		// ledger's non-negative flag stays the backstop; this keeps the relay from having to use it.
+		sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('units:' || $1 || ':' || $2, 0))")
+			.bind(user.raw().to_string())
+			.bind(service.as_str())
+			.execute(&mut *tx)
 			.await
 			.map_err(repo_err)?;
+		let available = self.ledger.balance(&LedgerAccountKey::UserShares(service.clone(), user)).await?.available();
+		let claimed = outbox::units_in_flight(&mut tx, user.raw(), service.as_str()).await?;
+		if available.saturating_sub(claimed) < redemption.units().base_units() {
+			return Err(DomainError::Validation("insufficient units to redeem".into()));
+		}
 		insert_row(&mut tx, redemption).await?;
 		outbox::drain_to_outbox(&mut tx, redemption, true).await?;
 		tx.commit().await.map_err(repo_err)?;

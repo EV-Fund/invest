@@ -221,11 +221,13 @@ impl Grpc {
 		Ok(self.fees().get_fee_shares(bearer(token, req)?).await?.into_inner())
 	}
 
-	/// Convert accumulated fee units into cash. Empty `units` settles the whole balance.
-	pub async fn settle_fee_shares(&self, token: &str, service: &str, units: &str) -> Result<iv::FeeSettlement, Status> {
+	/// Convert accumulated fee units into cash. Empty `units` settles the whole balance;
+	/// `idempotency_key` names the settlement, so a retry moves no cash twice.
+	pub async fn settle_fee_shares(&self, token: &str, service: &str, units: &str, idempotency_key: &str) -> Result<iv::FeeSettlement, Status> {
 		let req = iv::SettleFeeSharesRequest {
 			service: service.to_string(),
 			units: units.to_string(),
+			idempotency_key: idempotency_key.to_string(),
 		};
 		Ok(self.fees().settle_fee_shares(bearer(token, req)?).await?.into_inner())
 	}

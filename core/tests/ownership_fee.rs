@@ -36,7 +36,7 @@ use invest_domain::{
 	allocations::{AllocationAccess, AllocationIcon},
 	balance::{LedgerAccountKey, ServiceId, ValuationId},
 	error::DomainError,
-	fees::{FeePolicy, Trigger},
+	fees::FeePolicy,
 	issuance::UnitHolder,
 	money::{Nav, Shares, Usdt},
 	redemptions::RedemptionState,
@@ -172,41 +172,13 @@ async fn charge_a_year(h: &Harness, investor: UserId, service: &ServiceId) -> Sh
 	.execute(&h.pool)
 	.await
 	.unwrap();
-	let assessment = fee_app::assess_position(
-		&h.policies,
-		&h.accruals,
-		&h.assessments,
-		h.ledger.as_ref(),
-		h.money.as_ref(),
-		&h.nav,
-		&h.notify,
-		investor,
-		service.clone(),
-		Trigger::Period,
-		now_unix(),
-	)
-	.await
-	.unwrap()
-	.expect("a year owes a fee");
+	let assessment = common::assess_period(h, investor, service, now_unix()).await.unwrap().expect("a year owes a fee");
 	common::drain_to_quiescence(&h.relay, &h.pool).await;
 	assessment.charge().charged_units
 }
 
 async fn settle_fee_shares(h: &Harness, service: &ServiceId, settler: UserId) -> Result<invest_domain::fees::FeeSettlement, DomainError> {
-	let settlement = fee_app::settle_fee_shares(
-		&h.settlements,
-		&h.allocations,
-		h.ledger.as_ref(),
-		h.money.as_ref(),
-		&h.nav,
-		&h.redemptions,
-		&h.notify,
-		service.clone(),
-		None,
-		settler,
-		now_unix(),
-	)
-	.await?;
+	let settlement = common::settle_fee_class(h, service, None, &common::fresh_key(), settler).await?;
 	common::drain_to_quiescence(&h.relay, &h.pool).await;
 	Ok(settlement)
 }
@@ -432,21 +404,7 @@ async fn a_refused_fee_sweep_parks_the_settlement_and_burns_nothing() {
 	let cash_before = fee_cash(&h);
 
 	h.money.refuse("Transfer", invest_core::ports::money::Refusal::ScopeFrozen);
-	let settlement = fee_app::settle_fee_shares(
-		&h.settlements,
-		&h.allocations,
-		h.ledger.as_ref(),
-		h.money.as_ref(),
-		&h.nav,
-		&h.redemptions,
-		&h.notify,
-		service.clone(),
-		None,
-		UserId::new(),
-		now_unix(),
-	)
-	.await
-	.unwrap();
+	let settlement = common::settle_fee_class(&h, &service, None, &common::fresh_key(), UserId::new()).await.unwrap();
 	// The park IS what this test pins, so one pass instead of `drain_to_quiescence`, which
 	// reports a park raised during the call as a failure.
 	h.relay.drain().await;
@@ -603,4 +561,85 @@ async fn the_admin_who_marked_a_product_cannot_settle_its_fee_class_for_seven_da
 	assert_eq!(settlement.units(), fee_class);
 	assert_eq!(units_of(&h, LedgerAccountKey::FeeShares(service.clone())).await, Shares::ZERO);
 	assert_eq!(fee_cash(&h), cash_before.checked_add(settlement.cash()).unwrap());
+}
+
+/// Two settlements of one fee class asked for before the relay applied the first: the
+/// second must not sweep the same value out of the product's account again.
+#[tokio::test]
+async fn a_fee_class_is_swept_once_however_often_it_is_settled() {
+	let Some(h) = harness().await else { return };
+	let scope = ScopeId::invest();
+	let service = unique_service();
+	open_fund(&h, &scope, &service).await;
+	let investor = invest(&h, &scope, &service, "1000").await;
+	let fee_class = charge_a_year(&h, investor, &service).await;
+	let product_before = product_cash(&h, &scope, &service);
+
+	let first = settle_without_draining(&h, &service).await.expect("the first settlement is accepted");
+	assert_eq!(first.units(), fee_class);
+	let second = settle_without_draining(&h, &service).await;
+	assert!(second.is_err(), "the fee class is already on its way to be settled: {second:?}");
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+
+	assert_eq!(product_cash(&h, &scope, &service), product_before.checked_sub(first.cash()).unwrap(), "swept once");
+	assert_eq!(units_of(&h, LedgerAccountKey::FeeShares(service.clone())).await, Shares::ZERO);
+}
+
+/// The fee units a settlement names are gone by the time the relay carries it: it must not
+/// sweep cash for units it cannot burn.
+#[tokio::test]
+async fn a_settlement_whose_fee_units_are_gone_sweeps_nothing() {
+	let Some(h) = harness().await else { return };
+	let scope = ScopeId::invest();
+	let service = unique_service();
+	open_fund(&h, &scope, &service).await;
+	let investor = invest(&h, &scope, &service, "1000").await;
+	let fee_class = charge_a_year(&h, investor, &service).await;
+	let product_before = product_cash(&h, &scope, &service);
+
+	settle_without_draining(&h, &service).await.unwrap();
+	h.ledger
+		.post(&invest_core::ports::ledger::LedgerTransfer {
+			id: Uuid::new_v4().as_u128(),
+			debit: LedgerAccountKey::UserShares(service.clone(), investor),
+			credit: LedgerAccountKey::FeeShares(service.clone()),
+			amount: fee_class.base_units(),
+			code: invest_domain::balance::TransferCode::FeeClawback,
+			reference: 0,
+		})
+		.await
+		.unwrap();
+	// The park IS what this test pins, so one pass instead of `drain_to_quiescence`.
+	h.relay.drain().await;
+
+	assert_eq!(product_cash(&h, &scope, &service), product_before, "nothing swept");
+	assert_eq!(h.money.collected(&scope), Usdt::ZERO);
+}
+
+async fn settle_without_draining(h: &Harness, service: &ServiceId) -> Result<invest_domain::fees::FeeSettlement, DomainError> {
+	common::settle_fee_class(h, service, None, &common::fresh_key(), UserId::new()).await
+}
+
+/// A retried settlement — the same idempotency key — is the settlement the first call made,
+/// and moves no cash again.
+#[tokio::test]
+async fn a_retried_settlement_returns_the_first_and_sweeps_once() {
+	let Some(h) = harness().await else { return };
+	let scope = ScopeId::invest();
+	let service = unique_service();
+	open_fund(&h, &scope, &service).await;
+	let investor = invest(&h, &scope, &service, "1000").await;
+	charge_a_year(&h, investor, &service).await;
+	let product_before = product_cash(&h, &scope, &service);
+	let key = invest_domain::issuance::IdempotencyKey::parse(&format!("retry-{}", Uuid::new_v4())).unwrap();
+	let settle = || common::settle_fee_class(&h, &service, None, &key, UserId::new());
+	let first = settle().await.unwrap();
+	let again = settle().await.unwrap();
+	assert_eq!(again.id(), first.id(), "the key names the settlement");
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	let after_drain = settle().await.unwrap();
+	assert_eq!(after_drain.id(), first.id());
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	assert_eq!(product_cash(&h, &scope, &service), product_before.checked_sub(first.cash()).unwrap(), "swept once");
+	assert_eq!(h.settlements.list_by_service(&service).await.unwrap().len(), 1);
 }

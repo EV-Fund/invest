@@ -69,7 +69,7 @@ and `ListUnitHolders` of the `fee` allocation (invest-core has no `GetFundRevenu
 e-mails beside user ids (`grants[].email`, `notices_waived_by_email`, the redemption
 queue's `email`) are always empty — an `invest` token opens concierge's `GetMe` and nothing
 else; `funds/subscribe` answers the saga's `state` and `failure_reason`;
-`admin/allocations/register` forwards an optional `scope`. Not served:
+`admin/allocations/register` forwards an optional `scope`. `admin/fees/settle` requires an `idempotency_key` in the body (invest-core's retry contract). Not served:
 `admin/valuation/override` and the consilium (owners' approval moves to concierge, S2-6).
 
 ## Run

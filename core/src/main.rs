@@ -1,6 +1,7 @@
 //! invest-core's composition root: read the config, dial Postgres, TigerBeetle, banking and
 //! concierge, apply the migrations, and run the gRPC server, the outbox relay, the fee
-//! sweeper and the users projection as branches of one structured `join!` until a signal.
+//! sweeper, the users projection and the catalog publication as branches of one structured
+//! `join!` until a signal.
 
 use std::{future::Future, sync::Arc};
 
@@ -15,7 +16,10 @@ use invest_core::{
 	infrastructure::{
 		allocations::PgAllocations,
 		book::PgBook,
-		concierge::{self, ConciergeProjection},
+		concierge::{
+			self, ConciergeProjection,
+			catalog::{ClientCatalogPublisher, publish_at_boot},
+		},
 		db,
 		fee_policy_changes::PgFeePolicyChanges,
 		fee_sweeper::FeeSweeper,
@@ -31,12 +35,21 @@ use invest_core::{
 		tigerbeetle::TigerBeetle,
 		users::PgUsers,
 	},
-	ports::{Ledger, MoneyLedger, fees::FeePorts},
+	ports::{
+		Ledger, MoneyLedger,
+		catalog::{CATALOG_VERSION, CatalogPublisher},
+		fees::FeePorts,
+	},
 	services,
 };
-use invest_domain::book::PriceTimeEngine;
+use invest_domain::{authz::PermissionCatalog, book::PriceTimeEngine};
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
+
+/// The identity plane's issuer — the only one whose tokens invest-core accepts.
+const CONCIERGE_ISSUER: &str = "https://auth.concierge.ev";
+/// invest's relying-party client in concierge — the only audience accepted.
+const INVEST_AUDIENCE: &str = "invest";
 
 // Sentry must be initialised before the async runtime starts — no #[tokio::main].
 fn main() -> color_eyre::Result<()> {
@@ -92,7 +105,7 @@ async fn run(config: config::AppConfig) -> color_eyre::Result<()> {
 		// Not refused: invest-core serves the registry without anyone known to it, and every
 		// check that needs a person fails closed — loud, not wrong.
 		None => tracing::warn!(
-			"no concierge streams configured (CONCIERGE_GRPC_ADDR unset) — the users projection does not run: nobody is known to invest, so every permission check and every mint is refused"
+			"no concierge streams configured (CONCIERGE_GRPC_ADDR unset) — the users projection does not run and the permission catalog is not published: nobody is known to invest, so every permission check and every mint is refused"
 		),
 		Some(streams) if streams.ca_pem.is_none() && config.app_env == "production" => {
 			tracing::warn!("CONCIERGE_GRPC_ADDR is cleartext in production — the client secret crosses the cluster network unencrypted; point it at concierge's TLS listener");
@@ -106,12 +119,18 @@ async fn run(config: config::AppConfig) -> color_eyre::Result<()> {
 		jwks_grpc_endpoint: config.auth_jwks_grpc_endpoint.clone(),
 	};
 	// concierge's own `assert_plane` would refuse an `invest` audience (it insists on the
-	// word "concierge"); what it guards — a verifier pointed at banking's issuer — is asked
-	// here directly.
+	// word "concierge"); what it guards — a verifier pointed at another plane's issuer, or
+	// accepting tokens minted for another relying party — is asked here directly, and
+	// exactly: a substring would admit any issuer that merely mentions concierge.
 	ensure!(
-		verifier_config.issuer.contains("concierge"),
-		"AUTH_ISSUER {} is not the concierge plane's — invest-core accepts concierge's tokens only",
+		verifier_config.issuer == CONCIERGE_ISSUER,
+		"AUTH_ISSUER {} is not the concierge plane's ({CONCIERGE_ISSUER}) — invest-core accepts concierge's tokens only",
 		verifier_config.issuer
+	);
+	ensure!(
+		verifier_config.audiences == [INVEST_AUDIENCE],
+		"AUTH_AUDIENCE {:?} is not invest's ({INVEST_AUDIENCE}) — invest-core accepts tokens minted for invest only",
+		verifier_config.audiences
 	);
 	let verifier = Verifier::try_new(verifier_config).map_err(|err| eyre!("invalid concierge JWKS endpoint: {err}"))?;
 
@@ -146,6 +165,7 @@ async fn run(config: config::AppConfig) -> color_eyre::Result<()> {
 		}
 		None => None,
 	};
+	let catalog_publisher = concierge_streams.as_ref().map(ClientCatalogPublisher::connect).transpose()?;
 
 	let relay_notify = Arc::new(Notify::new());
 	let relay = Relay::new(relay_pool, ledger.clone(), money.clone(), relay_notify.clone());
@@ -154,7 +174,7 @@ async fn run(config: config::AppConfig) -> color_eyre::Result<()> {
 		changes: Arc::new(PgFeePolicyChanges::new(pool.clone())),
 		accruals: Arc::new(PgPositionAccruals::new(pool.clone())),
 		assessments: Arc::new(PgFeeAssessments::new(pool.clone())),
-		settlements: Arc::new(PgFeeSettlements::new(pool.clone())),
+		settlements: Arc::new(PgFeeSettlements::new(pool.clone(), ledger.clone())),
 	};
 	let nav = Arc::new(PgNav::new(pool.clone()));
 	let fee_sweeper = FeeSweeper::new(
@@ -169,13 +189,13 @@ async fn run(config: config::AppConfig) -> color_eyre::Result<()> {
 	);
 	let state = AppState {
 		pool: pool.clone(),
-		ledger,
+		ledger: ledger.clone(),
 		money,
 		users: Arc::new(PgUsers::new(pool.clone())),
 		allocations: Arc::new(PgAllocations::new(pool.clone())),
 		issuances: Arc::new(PgUnitIssuances::new(pool.clone())),
 		subscriptions: Arc::new(PgSubscriptions::new(pool.clone())),
-		redemptions: Arc::new(PgRedemptions::new(pool.clone())),
+		redemptions: Arc::new(PgRedemptions::new(pool.clone(), ledger.clone())),
 		book: Arc::new(PgBook::new(pool.clone())),
 		book_engine: Arc::new(PriceTimeEngine),
 		book_feed: BookFeed::new(),
@@ -187,11 +207,12 @@ async fn run(config: config::AppConfig) -> color_eyre::Result<()> {
 
 	tracing::info!(addr = %config.grpc_addr, "invest-core serving");
 	// Graceful shutdown, structured (no detached spawns): the server, the relay, the fee
-	// sweeper and the users projection run as branches of one `join!` on this task. A signal cancels a shared token;
+	// sweeper, the users projection and the catalog publication run as branches of one
+	// `join!` on this task. A signal cancels a shared token;
 	// the server drains in-flight calls, the workers stop at a batch boundary, and `join!`
 	// waits for all of them.
 	let shutdown = CancellationToken::new();
-	let ((), served, relayed, swept, projected) = tokio::join!(
+	let ((), served, relayed, swept, projected, published) = tokio::join!(
 		await_signal(shutdown.clone()),
 		branch(&shutdown, "gRPC server", services::serve(config.grpc_addr, state, verifier, shutdown.clone().cancelled_owned())),
 		branch(&shutdown, "relay", infallible(relay.run(shutdown.clone()))),
@@ -207,8 +228,20 @@ async fn run(config: config::AppConfig) -> color_eyre::Result<()> {
 				}
 			})
 		),
+		branch(
+			&shutdown,
+			"catalog publisher",
+			infallible(async {
+				if let Some(publisher) = &catalog_publisher {
+					// Done, refused or cancelled — each already logged; nothing else waits on it.
+					let _ = publish_at_boot(publisher as &dyn CatalogPublisher, &PermissionCatalog::invest(), CATALOG_VERSION, &shutdown).await;
+				}
+				// A one-shot: idle afterwards, so its end does not stop the rest.
+				shutdown.cancelled().await;
+			})
+		),
 	);
-	served.and(relayed).and(swept).and(projected)
+	served.and(relayed).and(swept).and(projected).and(published)
 }
 
 /// Run one branch of the root `join!`: whatever ends it — an error or a clean return —

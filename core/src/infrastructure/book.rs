@@ -66,11 +66,16 @@ const SELECT_ORDER_BY_CLIENT_ID: &str = "SELECT id, service, user_id, client_ord
 /// `$3` is the caller's limit: a buy needs only the asks at or below it, a sell only the
 /// bids at or above it — the matcher stops at the first that does not cross anyway, so
 /// the rows past it are never worth reading.
+// Only orders that can settle are matched: an escrow in place (a sell's units are locked
+// once the relay posts them; a buy's hold precedes its row) and an owner who may deal — a
+// fill against either other kind would park and have to be busted.
 const SELECT_ASKS_CROSSING: &str = "SELECT id, user_id, price, size, filled FROM book_orders \
-	 WHERE service = $1 AND side = 'sell' AND state IN ('open', 'partially_filled') AND price::numeric <= $2::numeric \
+	 WHERE service = $1 AND side = 'sell' AND state IN ('open', 'partially_filled') AND price::numeric <= $2::numeric AND escrowed_at IS NOT NULL \
+	   AND user_id IN (SELECT id FROM users WHERE status = 'active') \
 	 ORDER BY price::numeric ASC, seq ASC";
 const SELECT_BIDS_CROSSING: &str = "SELECT id, user_id, price, size, filled FROM book_orders \
-	 WHERE service = $1 AND side = 'buy' AND state IN ('open', 'partially_filled') AND price::numeric >= $2::numeric \
+	 WHERE service = $1 AND side = 'buy' AND state IN ('open', 'partially_filled') AND price::numeric >= $2::numeric AND escrowed_at IS NOT NULL \
+	   AND user_id IN (SELECT id FROM users WHERE status = 'active') \
 	 ORDER BY price::numeric DESC, seq ASC";
 const SELECT_BEST_ASK: &str = "SELECT price FROM book_orders WHERE service = $1 AND side = 'sell' AND state IN ('open', 'partially_filled') ORDER BY price::numeric ASC, seq ASC LIMIT 1";
 const SELECT_BEST_BID: &str = "SELECT price FROM book_orders WHERE service = $1 AND side = 'buy' AND state IN ('open', 'partially_filled') ORDER BY price::numeric DESC, seq ASC LIMIT 1";
@@ -321,8 +326,8 @@ fn reserved_units(order: &Order) -> u128 {
 
 async fn insert_order(conn: &mut PgConnection, order: &Order, revision: i64, escrow: &OrderEscrow) -> Result<(), DomainError> {
 	sqlx::query(
-		"INSERT INTO book_orders (id, service, user_id, client_order_id, side, kind, tif, price, size, filled, notional_filled, fee_paid, reserved, state, revision, scope, hold_id) \
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)",
+		"INSERT INTO book_orders (id, service, user_id, client_order_id, side, kind, tif, price, size, filled, notional_filled, fee_paid, reserved, state, revision, scope, hold_id, escrowed_at) \
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, CASE WHEN $5 = 'buy' THEN now() END)",
 	)
 	.bind(order.id().raw())
 	.bind(order.service().as_str())
@@ -837,32 +842,81 @@ impl BookStore for PgBook {
 	}
 }
 
-/// Mark an order the ledger refused to escrow as `rejected` — the relay's write, after
-/// the `OrderPlaced` fact parked. The order stands on the book with nothing behind it
-/// until this lands, so it is taken off (no longer resting, never matched again) and the
-/// caller sees why. Its own revision is bumped so a watching client refetches.
-pub async fn mark_rejected(pool: &PgPool, order_id: Uuid, reason: &str) -> Result<(), sqlx::Error> {
-	let mut tx = pool.begin().await?;
-	let service: Option<String> = sqlx::query_scalar("SELECT service FROM book_orders WHERE id = $1 AND state IN ('open', 'partially_filled')")
+/// Take a resting order off the book as `rejected`, under the book's lock — the matcher
+/// reads the resting side under the same lock, so it never fills an order this is taking
+/// off. A no-op for an order no longer resting. Bumps the book's revision so a watching
+/// client refetches.
+async fn reject_resting(conn: &mut PgConnection, order_id: Uuid, reason: &str) -> Result<(), sqlx::Error> {
+	let service: Option<String> = sqlx::query_scalar("SELECT service FROM book_orders WHERE id = $1")
 		.bind(order_id)
-		.fetch_optional(&mut *tx)
+		.fetch_optional(&mut *conn)
 		.await?;
 	let Some(service) = service else {
 		return Ok(());
 	};
+	sqlx::query("SELECT pg_advisory_xact_lock(hashtext($1))").bind(&service).execute(&mut *conn).await?;
+	let resting: Option<Uuid> = sqlx::query_scalar("SELECT id FROM book_orders WHERE id = $1 AND state IN ('open', 'partially_filled') FOR UPDATE")
+		.bind(order_id)
+		.fetch_optional(&mut *conn)
+		.await?;
+	if resting.is_none() {
+		return Ok(());
+	}
 	let revision: i64 = sqlx::query_scalar(
 		"INSERT INTO book_revisions (service, revision) VALUES ($1, 1) \
 		 ON CONFLICT (service) DO UPDATE SET revision = book_revisions.revision + 1, updated_at = now() RETURNING revision",
 	)
 	.bind(&service)
-	.fetch_one(&mut *tx)
+	.fetch_one(&mut *conn)
 	.await?;
-	sqlx::query("UPDATE book_orders SET state = 'rejected', reject_reason = $2, revision = $3, updated_at = now() WHERE id = $1 AND state IN ('open', 'partially_filled')")
+	sqlx::query("UPDATE book_orders SET state = 'rejected', reject_reason = $2, revision = $3, updated_at = now() WHERE id = $1")
 		.bind(order_id)
 		.bind(reason)
 		.bind(revision)
+		.execute(&mut *conn)
+		.await?;
+	Ok(())
+}
+
+/// Mark an order the ledger refused to escrow as `rejected` — the relay's write, after
+/// the `OrderPlaced` fact parked. The order stands on the book with nothing behind it
+/// until this lands, so it is taken off (no longer resting, never matched again) and the
+/// caller sees why.
+pub async fn mark_rejected(pool: &PgPool, order_id: Uuid, reason: &str) -> Result<(), sqlx::Error> {
+	let mut tx = pool.begin().await?;
+	reject_resting(&mut tx, order_id, reason).await?;
+	tx.commit().await
+}
+
+/// A sell's escrow is in place: the relay posted its lock, and the matcher may fill it.
+pub async fn mark_escrowed(pool: &PgPool, order_id: Uuid) -> Result<(), sqlx::Error> {
+	sqlx::query("UPDATE book_orders SET escrowed_at = now() WHERE id = $1 AND escrowed_at IS NULL")
+		.bind(order_id)
+		.execute(pool)
+		.await?;
+	Ok(())
+}
+
+/// Whether an order's escrow was ever in place — for a sell, whether its units sit in the
+/// book's escrow for the relay to hand back.
+pub async fn is_escrowed(pool: &PgPool, order_id: Uuid) -> Result<bool, sqlx::Error> {
+	let escrowed: Option<bool> = sqlx::query_scalar("SELECT escrowed_at IS NOT NULL FROM book_orders WHERE id = $1")
+		.bind(order_id)
+		.fetch_optional(pool)
+		.await?;
+	Ok(escrowed.unwrap_or(false))
+}
+
+/// Record a trade the relay undid before its units moved, and take the buy that it drew
+/// on off the book: its hold no longer stands behind further fills. One transaction.
+pub async fn bust_trade(pool: &PgPool, trade_id: Uuid, buy_order_id: Uuid, reason: &str) -> Result<(), sqlx::Error> {
+	let mut tx = pool.begin().await?;
+	sqlx::query("UPDATE book_trades SET busted_at = now(), bust_reason = $2 WHERE id = $1 AND busted_at IS NULL")
+		.bind(trade_id)
+		.bind(reason)
 		.execute(&mut *tx)
 		.await?;
+	reject_resting(&mut tx, buy_order_id, &format!("a fill of this order was busted: {reason}")).await?;
 	tx.commit().await
 }
 

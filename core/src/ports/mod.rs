@@ -16,7 +16,8 @@
 //! banking.
 //!
 //! [`UserDirectory`] is the projection of the people concierge knows: who may hold, and
-//! which `invest:*` permissions they carry.
+//! which `invest:*` permissions they carry; [`catalog::CatalogPublisher`] tells concierge
+//! which permissions those are.
 //!
 //! The dealing ports follow the same rule: [`SubscriptionRepository`] and
 //! [`RedemptionRepository`] record the money sagas, [`BookStore`] the order book, and the
@@ -25,6 +26,7 @@
 
 pub mod allocations;
 pub mod book;
+pub mod catalog;
 pub mod fees;
 pub mod issuance;
 pub mod ledger;

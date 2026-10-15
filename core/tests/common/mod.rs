@@ -19,7 +19,7 @@
 use std::sync::{Arc, LazyLock};
 
 use invest_core::{
-	application::{funds::FundPorts, issuance::IssueUnitsRequest},
+	application::{fees as fee_app, funds::FundPorts, issuance::IssueUnitsRequest},
 	infrastructure::{
 		allocations::PgAllocations,
 		db,
@@ -40,6 +40,8 @@ use invest_core::{
 };
 use invest_domain::{
 	balance::ServiceId,
+	error::DomainError,
+	fees::{FeeAssessment, FeeSettlement, Trigger},
 	issuance::{IdempotencyKey, UnitHolder},
 	money::{Shares, Usdt},
 	users::UserId,
@@ -443,12 +445,12 @@ pub async fn engine(suite: &str) -> Option<Engine> {
 		positions: PgFundPositions::new(pool.clone()),
 		nav: PgNav::new(pool.clone()),
 		subscriptions: PgSubscriptions::new(pool.clone()),
-		redemptions: PgRedemptions::new(pool.clone()),
+		redemptions: PgRedemptions::new(pool.clone(), ledger.clone()),
 		policies: PgFeePolicies::new(pool.clone()),
 		changes: PgFeePolicyChanges::new(pool.clone()),
 		accruals: PgPositionAccruals::new(pool.clone()),
 		assessments: PgFeeAssessments::new(pool.clone()),
-		settlements: PgFeeSettlements::new(pool.clone()),
+		settlements: PgFeeSettlements::new(pool.clone(), ledger.clone()),
 		relay: Relay::new(pool.clone(), ledger.clone(), money.clone(), notify.clone()),
 		money,
 		ledger,
@@ -499,4 +501,52 @@ pub fn mint_request(service: &ServiceId, holder: UnitHolder, units: &str, cost_b
 		cost_basis: cost_basis.map(|basis| Usdt::parse_decimal(basis).unwrap()),
 		idempotency_key: IdempotencyKey::parse(key).unwrap(),
 	}
+}
+
+/// A fresh idempotency key — a settlement the test means as new.
+pub fn fresh_key() -> IdempotencyKey {
+	IdempotencyKey::parse(&format!("itest-{}", uuid::Uuid::new_v4())).unwrap()
+}
+
+/// Settle `service`'s fee class (all of it when `units` is `None`) as `settler`, under `key`,
+/// through the use case the operator's RPC runs — without draining the relay.
+pub async fn settle_fee_class(e: &Engine, service: &ServiceId, units: Option<Shares>, key: &IdempotencyKey, settler: UserId) -> Result<FeeSettlement, DomainError> {
+	fee_app::settle_fee_shares(
+		&e.settlements,
+		&e.allocations,
+		e.ledger.as_ref(),
+		e.money.as_ref(),
+		&e.nav,
+		&e.redemptions,
+		&e.notify,
+		service.clone(),
+		units,
+		key,
+		settler,
+		now_unix(),
+	)
+	.await
+}
+
+/// Assess `user`'s position in `service` for the elapsed period, as the sweeper does —
+/// without draining the relay.
+pub async fn assess_period(e: &Engine, user: UserId, service: &ServiceId, now: i64) -> Result<Option<FeeAssessment>, DomainError> {
+	fee_app::assess_position(
+		&e.policies,
+		&e.accruals,
+		&e.assessments,
+		e.ledger.as_ref(),
+		e.money.as_ref(),
+		&e.nav,
+		&e.notify,
+		user,
+		service.clone(),
+		Trigger::Period,
+		now,
+	)
+	.await
+}
+
+fn now_unix() -> i64 {
+	std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |elapsed| elapsed.as_secs() as i64)
 }

@@ -168,10 +168,13 @@ pub async fn settle_fee_shares(State(st): State<AppState>, jar: Cookies, headers
 	}
 	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	let v = parse_body(&body);
-	let Some(service) = required(&v, "service") else {
-		return Err(ApiError::BadRequest("service is required".into()));
+	// The key is the retry contract invest-core requires, as on `/allocations/issue`: the
+	// console makes one per submission and re-sends it on a timeout, so a double click
+	// settles once. Not invented here — a key the BFF made up per request protects nothing.
+	let (Some(service), Some(idempotency_key)) = (required(&v, "service"), required(&v, "idempotency_key")) else {
+		return Err(ApiError::BadRequest("service and idempotency_key are required".into()));
 	};
-	let settlement = st.grpc.settle_fee_shares(&token, &service, &required(&v, "units").unwrap_or_default()).await?;
+	let settlement = st.grpc.settle_fee_shares(&token, &service, &required(&v, "units").unwrap_or_default(), &idempotency_key).await?;
 	Ok(Json(settlement.into()))
 }
 
@@ -1118,9 +1121,21 @@ mod admin_route_tests {
 	#[tokio::test]
 	async fn settling_without_an_amount_asks_for_the_whole_balance() {
 		let Some(f) = fixture(Core::default(), MANAGER).await else { return };
-		let (status, body) = f.send("POST", "/cabinet/api/admin/fees/settle", Some(r#"{"service":"quy-nhon"}"#), true).await;
+		let (status, body) = f
+			.send("POST", "/cabinet/api/admin/fees/settle", Some(r#"{"service":"quy-nhon","idempotency_key":"settle-1"}"#), true)
+			.await;
 		assert_eq!((status, body["cash"].as_str()), (StatusCode::OK, Some("1375.00")));
-		assert_eq!(f.seen().settle_fees.as_ref().map(|r| r.units.as_str()), Some(""));
+		assert_eq!(f.seen().settle_fees.as_ref().map(|r| (r.units.as_str(), r.idempotency_key.as_str())), Some(("", "settle-1")));
+	}
+
+	/// The settlement's key is invest-core's retry contract; one the console did not send is
+	/// a 400 here, not a key the BFF makes up.
+	#[tokio::test]
+	async fn a_settlement_without_its_key_is_refused() {
+		let Some(f) = fixture(Core::default(), MANAGER).await else { return };
+		let (status, _) = f.send("POST", "/cabinet/api/admin/fees/settle", Some(r#"{"service":"quy-nhon"}"#), true).await;
+		assert_eq!(status, StatusCode::BAD_REQUEST);
+		assert!(f.seen().settle_fees.is_none());
 	}
 
 	// ── allocations ─────────────────────────────────────────────────────────────
