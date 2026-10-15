@@ -493,7 +493,8 @@ impl From<MoneyLedgerError> for DomainError {
 	/// a client verbatim.
 	fn from(err: MoneyLedgerError) -> Self {
 		match err {
-			MoneyLedgerError::Refused(refusal) => DomainError::Precondition(refusal.reason().to_owned()),
+			// A reason banking sends that is not a machine code never reaches a client verbatim.
+			MoneyLedgerError::Refused(refusal) => DomainError::Precondition(machine_reason(refusal.reason(), "refused")),
 			MoneyLedgerError::NotFound => DomainError::NotFound {
 				entity: "scope account",
 				id: "money ledger".into(),

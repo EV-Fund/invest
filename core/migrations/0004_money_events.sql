@@ -45,6 +45,21 @@ CREATE TABLE money_events_applied (
 );
 COMMENT ON TABLE money_events_applied IS 'Money events the consumer acted on, by banking''s event id — a redelivery finds its id here and does nothing.';
 
+CREATE TABLE money_events_attempts (
+    event_id   TEXT PRIMARY KEY,
+    attempts   INTEGER NOT NULL CHECK (attempts >= 1),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+COMMENT ON TABLE money_events_attempts IS 'Failed tries of an event on invest''s own side; at the limit it is parked and the row goes, so one event never holds the stream behind it.';
+
+CREATE TABLE money_events_voided_holds (
+    scope     TEXT NOT NULL,
+    hold_id   TEXT NOT NULL,
+    noted_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (scope, hold_id)
+);
+COMMENT ON TABLE money_events_voided_holds IS 'Holds banking released before any order was written on them (between Reserve and the insert). A buy that names one is refused: it would rest on cash no longer held.';
+
 CREATE TABLE money_events_parked (
     event_id  TEXT PRIMARY KEY,
     position  BIGINT NOT NULL,
@@ -53,4 +68,4 @@ CREATE TABLE money_events_parked (
     reason    TEXT NOT NULL,
     parked_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-COMMENT ON TABLE money_events_parked IS 'Money events the consumer could not read (a kind this build cannot name). Re-pulled by position on every start and applied once the build knows them.';
+COMMENT ON TABLE money_events_parked IS 'Money events the consumer could not apply: a kind this build cannot name (kind = its wire value), or one that kept failing (kind = 0, reason "failed N times: …"). Re-pulled by position on every start and applied once they can be.';

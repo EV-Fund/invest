@@ -506,6 +506,9 @@ async fn set_aside_leftovers(pool: &PgPool) {
 async fn forget_money_events(pool: &PgPool) {
 	sqlx::query("DELETE FROM money_events_cursor").execute(pool).await.expect("reset the money-event cursor");
 	sqlx::query("DELETE FROM money_events_parked").execute(pool).await.expect("clear the parked money events");
+	// The in-memory banking numbers its holds from 1 in every test; banking's own ids never repeat.
+	sqlx::query("DELETE FROM money_events_voided_holds").execute(pool).await.expect("clear the noted voided holds");
+	sqlx::query("DELETE FROM money_events_attempts").execute(pool).await.expect("clear the event attempts");
 }
 
 /// One mint as an operator or an approval asks for it, in decimal strings.

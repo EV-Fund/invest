@@ -56,6 +56,9 @@ const MONEY_EVENTS_LOCK_KEY: i64 = 0x4556_494e_4d4e_595f_u64 as i64;
 /// Events asked for per pull. banking caps it at its own ceiling anyway.
 const PAGE: u32 = 256;
 
+/// Tries an event gets before it is parked and the stream moves on.
+pub const MAX_EVENT_ATTEMPTS: u32 = 5;
+
 /// The wait between pulls once caught up.
 const POLL: Duration = Duration::from_secs(2);
 
@@ -223,7 +226,13 @@ impl MoneyEventsConsumer {
 		loop {
 			let page = self.source.pull(cursor, PAGE).await?;
 			for event in &page.events {
-				self.apply(event, false, &mut pass).await?;
+				if let Err(err) = self.apply(event, false, &mut pass).await {
+					// banking being away is not this event's fault; a failure of invest's own
+					// side is, and one event must not hold the stream behind it for ever.
+					if matches!(err, ConsumerError::Banking(_)) || !self.give_up_on(event, &err, &mut pass).await? {
+						return Err(err);
+					}
+				}
 			}
 			let caught_up = page.events.is_empty();
 			if page.next_position > cursor {
@@ -253,7 +262,10 @@ impl MoneyEventsConsumer {
 			if matches!(event.kind, MoneyEventKind::Unknown(_)) {
 				continue;
 			}
-			self.apply(&event, true, &mut pass).await?;
+			// One that still fails stays parked; it must not keep the others from replaying.
+			if let Err(err) = self.apply(&event, true, &mut pass).await {
+				warn!(%event_id, "money events: a parked event still cannot be applied (left parked): {err}");
+			}
 		}
 		Ok(pass.applied + pass.duplicates)
 	}
@@ -264,18 +276,65 @@ impl MoneyEventsConsumer {
 	pub async fn sweep_awaiting(&self) -> Result<u64, ConsumerError> {
 		let mut landed = 0;
 		for awaiting in redemptions::awaiting_payouts(&self.pool).await? {
-			let Some(verdict) = self.verdict(&awaiting).await? else {
-				continue;
+			// One record banking cannot answer for, or one that does not apply, is skipped and
+			// read again on the next sweep; the others still land.
+			let verdict = match self.verdict(&awaiting).await {
+				Ok(Some(verdict)) => verdict,
+				Ok(None) => continue,
+				Err(err) => {
+					warn!(redemption = %awaiting.id, operation = %awaiting.operation, "money events: could not read a payout's verdict (next sweep): {err}");
+					continue;
+				}
 			};
-			let mut tx = self.pool.begin().await?;
-			let applied = redemptions::apply_payout_verdict(&mut tx, &awaiting.operation, verdict.as_ref()).await?;
-			tx.commit().await?;
-			if applied {
-				landed += 1;
-				self.relay.notify_one();
+			match self.land(&awaiting, &verdict).await {
+				Ok(true) => {
+					landed += 1;
+					self.relay.notify_one();
+				}
+				Ok(false) => {}
+				Err(err) => warn!(redemption = %awaiting.id, operation = %awaiting.operation, "money events: could not apply a payout's verdict (next sweep): {err}"),
 			}
 		}
 		Ok(landed)
+	}
+
+	/// Count a failed try of `event`; at [`MAX_EVENT_ATTEMPTS`] park it (reason `failed N
+	/// times: …`) so the stream moves on. `true` when it was parked — the pass goes on —
+	/// `false` while it will be tried again.
+	async fn give_up_on(&self, event: &MoneyEvent, err: &ConsumerError, pass: &mut Pass) -> Result<bool, ConsumerError> {
+		let attempts: i32 = sqlx::query_scalar(
+			"INSERT INTO money_events_attempts (event_id, attempts) VALUES ($1, 1) \
+			 ON CONFLICT (event_id) DO UPDATE SET attempts = money_events_attempts.attempts + 1, updated_at = now() RETURNING attempts",
+		)
+		.bind(&event.event_id)
+		.fetch_one(&self.pool)
+		.await?;
+		if u32::try_from(attempts).unwrap_or(u32::MAX) < MAX_EVENT_ATTEMPTS {
+			return Ok(false);
+		}
+		let mut tx = self.pool.begin().await?;
+		sqlx::query("INSERT INTO money_events_parked (event_id, position, kind, scope, reason) VALUES ($1, $2, 0, $3, $4) ON CONFLICT (event_id) DO NOTHING")
+			.bind(&event.event_id)
+			.bind(event.position)
+			.bind(&event.scope)
+			.bind(format!("failed {attempts} times: {err}"))
+			.execute(&mut *tx)
+			.await?;
+		sqlx::query("DELETE FROM money_events_attempts WHERE event_id = $1")
+			.bind(&event.event_id)
+			.execute(&mut *tx)
+			.await?;
+		tx.commit().await?;
+		error!(event_id = %event.event_id, position = event.position, kind = ?event.kind, attempts, "money events: an event kept failing — parked, the stream moves on (needs intervention): {err}");
+		pass.parked += 1;
+		Ok(true)
+	}
+
+	async fn land(&self, awaiting: &AwaitingPayout, verdict: &OwnedVerdict) -> Result<bool, ConsumerError> {
+		let mut tx = self.pool.begin().await?;
+		let applied = redemptions::apply_payout_verdict(&mut tx, &awaiting.operation, verdict.as_ref()).await?;
+		tx.commit().await?;
+		Ok(applied)
 	}
 
 	/// Apply one event: decide its effect (asking banking when the event is a nudge), then
@@ -294,6 +353,10 @@ impl MoneyEventsConsumer {
 		match effect {
 			Effect::Pass => {}
 			Effect::Park { code } => {
+				let same_kind: i64 = sqlx::query_scalar("SELECT count(*) FROM money_events_parked WHERE kind = $1")
+					.bind(code)
+					.fetch_one(&mut *tx)
+					.await?;
 				let parked = sqlx::query("INSERT INTO money_events_parked (event_id, position, kind, scope, reason) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (event_id) DO NOTHING")
 					.bind(&event.event_id)
 					.bind(event.position)
@@ -304,7 +367,13 @@ impl MoneyEventsConsumer {
 					.await?
 					.rows_affected();
 				if parked == 1 {
-					error!(event_id = %event.event_id, position = event.position, kind = code, "money events: an event of a kind this build cannot name — parked (needs a newer invest-core)");
+					// Loud once per kind: a new kind that is frequent would otherwise page for
+					// every event while the first alert already says what to do.
+					if same_kind == 0 {
+						error!(event_id = %event.event_id, position = event.position, kind = code, "money events: an event of a kind this build cannot name — parked (needs a newer invest-core)");
+					} else {
+						debug!(event_id = %event.event_id, kind = code, "money events: another event of an unknown kind parked");
+					}
 					pass.parked += 1;
 				} else {
 					pass.duplicates += 1;
@@ -395,19 +464,29 @@ impl MoneyEventsConsumer {
 		let Some(awaiting) = awaiting else {
 			return Ok(Effect::Pass);
 		};
-		Ok(match self.verdict(&awaiting).await? {
-			Some(verdict) => Effect::Verdict {
+		Ok(match self.verdict(&awaiting).await {
+			Ok(Some(verdict)) => Effect::Verdict {
 				operation: awaiting.operation,
 				verdict,
 			},
-			None => Effect::Pass,
+			Ok(None) => Effect::Pass,
+			// The event is only a nudge: the sweep asks again, so a verdict banking cannot give
+			// right now must not hold the stream — or park what is behind it.
+			Err(err) => {
+				warn!(redemption = %awaiting.id, operation = %awaiting.operation, "money events: could not read a payout's verdict; left to the sweep: {err}");
+				Effect::Pass
+			}
 		})
 	}
 
 	/// banking's verdict on the operation `awaiting` waits on — `None` while the owners have
-	/// not decided. A transient failure stops the pass; an operation banking does not know
-	/// (or answers malformed) is left awaiting and logged, for an operator: failing the
-	/// redemption on it would give the units back while the payout may still execute.
+	/// not decided. A transient failure is an error for the caller to defer; an operation
+	/// banking does not know, answers malformed, or answers for another operation or
+	/// redemption is left awaiting and logged, for an operator: failing the redemption on it
+	/// would give the units back while the payout may still execute.
+	// TODO(F4): a redemption can wait here for ever when banking never answers. It needs an
+	// operator RPC `ResolveAwaitingRedemption(id, outcome)` under `invest:allocation:manage`
+	// that re-polls banking, and a metric for the oldest awaiting one.
 	async fn verdict(&self, awaiting: &AwaitingPayout) -> Result<Option<OwnedVerdict>, ConsumerError> {
 		let scope = match ScopeId::parse(&awaiting.scope) {
 			Ok(scope) => scope,
@@ -426,6 +505,12 @@ impl MoneyEventsConsumer {
 				return Ok(None);
 			}
 		};
+		// The verdict is acted on for THIS redemption: what banking sends back must be the
+		// operation asked about, requested for this redemption.
+		if operation.id.0 != awaiting.operation || operation.subject_ref != format!("redemption:{}", awaiting.id.hyphenated()) {
+			error!(redemption = %awaiting.id, operation = %awaiting.operation, answered = %operation.id.0, subject_ref = %operation.subject_ref, "money events: banking answered for another operation or redemption; left awaiting (needs intervention)");
+			return Ok(None);
+		}
 		Ok(match operation.state {
 			PendingOperationState::AwaitingApproval => None,
 			PendingOperationState::Executed => Some(OwnedVerdict::Executed),

@@ -94,6 +94,11 @@ const BOOK_TRADE_POSITION: &[u8] = b"book:trade:position";
 
 /// The `saga_steps.leg` a projection marker is filed under — past every ledger leg.
 const PROJECTION_LEG: i32 = 100;
+/// The marker that `RequestPayout` was (about to be) asked for a redemption's settlement:
+/// once it is there a retry of the event never calls `Payout` again — see
+/// [`Relay::request_payout_approval`].
+const PAYOUT_REQUEST_LEG: i32 = 101;
+const PAYOUT_REQUESTED: &[u8] = b"redeem:payout:requested";
 
 /// The idempotency key of one money step: `<aggregate type>:<id>:<step>`. Derived, never
 /// minted, so a redelivery asks banking the same question and gets the original answer.
@@ -397,6 +402,14 @@ impl Relay {
 						},
 					Err(err) => return ledger_failure("redeem_reserve", err, 0),
 				}
+				// Asked for before (a crash between the request and its stamp): the operation may
+				// stand, so `Payout` is not tried again — it could pay on its own what the owners
+				// are about to be asked to pay, or be refused and give the units back under them.
+				match payout_requested(&self.pool, row).await {
+					Ok(true) => return self.request_payout_approval(row, id, payout, &burn).await,
+					Ok(false) => {}
+					Err(err) => return Outcome::Retry(format!("payout request marker read: {err}")),
+				}
 				match self.money.payout(&payout).await {
 					Ok(_) => {}
 					Err(MoneyLedgerError::Refused(Refusal::ApprovalRequired)) => return self.request_payout_approval(row, id, payout, &burn).await,
@@ -441,6 +454,16 @@ impl Relay {
 	/// banking refused the payout: the burn is voided — the units go back — and the
 	/// redemption fails with banking's reason.
 	async fn refuse_redemption_payout(&self, row: &OutboxRow, id: Uuid, burn: &TwoPhase, reason: &str) -> Outcome {
+		// With an operation on the row the owners may still approve it: voiding the burn here
+		// would give the units back and then let the payout through. Never a refusal's business.
+		match redemption_operation(&self.pool, id).await {
+			Ok(None) => {}
+			Ok(Some(operation)) =>
+				return Outcome::park(format!(
+					"redemption refused ({reason}) while banking holds operation {operation} — burn kept (needs intervention)"
+				)),
+			Err(err) => return Outcome::Retry(format!("redemption operation read: {err}")),
+		}
 		step!(
 			self.complete_leg(row, 0, "redeem_void", &burn.completion(tid(id, BURN_VOID_REFUSED), CompletionKind::Void), 0)
 				.await
@@ -456,6 +479,11 @@ impl Relay {
 	/// pending. A refusal of the request itself (the account is short, the holder frozen,
 	/// too many already waiting) fails the redemption as a refused payout would.
 	async fn request_payout_approval(&self, row: &OutboxRow, id: Uuid, payout: PayoutRequest, burn: &TwoPhase) -> Outcome {
+		// The marker goes in BEFORE the request: the request is idempotent by its key, so a
+		// retry that finds the marker asks again and gets the same operation back.
+		if let Err(err) = mark_payout_requested(&self.pool, row).await {
+			return Outcome::Retry(format!("payout request marker: {err}"));
+		}
 		let request = RequestPayoutRequest {
 			memo: format!("invest redemption from {}", payout.from.as_str().trim_start_matches("alloc:"))
 				.chars()
@@ -469,7 +497,11 @@ impl Relay {
 		};
 		match self.money.request_payout(&request).await {
 			Ok(operation) => match await_approval(&self.pool, id, &operation.id).await {
-				Ok(()) => Outcome::Done,
+				Ok(true) => Outcome::Done,
+				Ok(false) => Outcome::park(format!(
+					"redemption left settling while its payout was requested as operation {} — the burn is kept (needs intervention)",
+					operation.id.0
+				)),
 				Err(err) => Outcome::Retry(format!("redemption awaiting-approval stamp: {err}")),
 			},
 			Err(err) => match refusal_reason(&err) {
@@ -835,11 +867,52 @@ async fn settle_subscription(pool: &PgPool, row: &OutboxRow, user: UserId, servi
 const UNITS_UNAVAILABLE: &str = "units_unavailable";
 
 /// The payout went to the owners: wait on `operation`, the burn still pending. Only from
-/// `settling` — a redelivery after the verdict changes nothing.
-async fn await_approval(pool: &PgPool, id: Uuid, operation: &OperationId) -> Result<(), sqlx::Error> {
-	sqlx::query("UPDATE redemptions SET state = 'awaiting_approval', payout_operation_id = $2, updated_at = now() WHERE id = $1 AND state = 'settling' AND payout_operation_id IS NULL")
+/// `settling`. `true` when the row waits on exactly this operation now (stamped here, or by
+/// an earlier try of the same event); `false` when it cannot — it left `settling` or names
+/// another operation — and the caller parks rather than lose the operation silently.
+async fn await_approval(pool: &PgPool, id: Uuid, operation: &OperationId) -> Result<bool, sqlx::Error> {
+	let stamped =
+		sqlx::query("UPDATE redemptions SET state = 'awaiting_approval', payout_operation_id = $2, updated_at = now() WHERE id = $1 AND state = 'settling' AND payout_operation_id IS NULL")
+			.bind(id)
+			.bind(&operation.0)
+			.execute(pool)
+			.await?
+			.rows_affected();
+	if stamped == 1 {
+		return Ok(true);
+	}
+	let standing: Option<String> = sqlx::query_scalar("SELECT payout_operation_id FROM redemptions WHERE id = $1")
 		.bind(id)
-		.bind(&operation.0)
+		.fetch_optional(pool)
+		.await?
+		.flatten();
+	Ok(standing.as_deref() == Some(operation.0.as_str()))
+}
+
+/// The operation a redemption waits on, if it has one.
+async fn redemption_operation(pool: &PgPool, id: Uuid) -> Result<Option<String>, sqlx::Error> {
+	Ok(sqlx::query_scalar("SELECT payout_operation_id FROM redemptions WHERE id = $1")
+		.bind(id)
+		.fetch_optional(pool)
+		.await?
+		.flatten())
+}
+
+/// Whether this settlement already went as far as asking banking for the owners' payout.
+async fn payout_requested(pool: &PgPool, row: &OutboxRow) -> Result<bool, sqlx::Error> {
+	sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM saga_steps WHERE event_id = $1 AND leg = $2)")
+		.bind(row.event_id)
+		.bind(PAYOUT_REQUEST_LEG)
+		.fetch_one(pool)
+		.await
+}
+
+async fn mark_payout_requested(pool: &PgPool, row: &OutboxRow) -> Result<(), sqlx::Error> {
+	let marker_id = tid(row.aggregate_id, PAYOUT_REQUESTED);
+	sqlx::query("INSERT INTO saga_steps (event_id, leg, role, tb_transfer_id) VALUES ($1, $2, 'payout_requested', $3) ON CONFLICT (event_id, leg) DO NOTHING")
+		.bind(row.event_id)
+		.bind(PAYOUT_REQUEST_LEG)
+		.bind(&marker_id.to_be_bytes()[..])
 		.execute(pool)
 		.await?;
 	Ok(())
@@ -848,7 +921,7 @@ async fn await_approval(pool: &PgPool, id: Uuid, operation: &OperationId) -> Res
 /// Fail a redemption the relay could not carry — before its payout (`queued` or
 /// `settling`); a terminal row is left as it is.
 async fn fail_redemption(pool: &PgPool, id: Uuid, reason: &str) -> Result<(), sqlx::Error> {
-	sqlx::query("UPDATE redemptions SET state = 'failed', failure_reason = $2, updated_at = now() WHERE id = $1 AND state IN ('queued', 'settling')")
+	sqlx::query("UPDATE redemptions SET state = 'failed', failure_reason = $2, updated_at = now() WHERE id = $1 AND state IN ('queued', 'settling') AND payout_operation_id IS NULL")
 		.bind(id)
 		.bind(reason)
 		.execute(pool)

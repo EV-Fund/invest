@@ -763,6 +763,113 @@ async fn a_payout_the_owners_reject_fails_the_redemption_and_returns_the_units()
 	assert_eq!(units_available(&h, &user_shares).await, shares("100"));
 }
 
+/// A crash between `RequestPayout` and the `awaiting_approval` stamp leaves the operation
+/// standing and the redemption `settling` with no operation id. The retry must not ask for
+/// the payout again as if nothing had happened: even when `Payout` would now answer something
+/// else (here `user_frozen`), the operation exists, so the redemption goes back to waiting on
+/// it — never voids its burn while the owners can still approve a payout. Paid once.
+#[tokio::test]
+async fn a_retry_after_the_payout_was_requested_waits_on_that_operation_and_pays_once() {
+	let Some(h) = harness().await else { return };
+	let consumer = h.money_events(BookFeed::new());
+	let service = registered_service(&h).await;
+	let user = funded_user(&h, &ScopeId::invest(), "100").await;
+	let user_shares = LedgerAccountKey::UserShares(service.clone(), user);
+	let id = redemption_past_the_ceilings(&h, user, &service).await;
+	let operation = h.money.operations_for(&format!("redemption:{}", id.raw().hyphenated())).remove(0);
+
+	// The crash: the stamp never landed and the event is delivered again.
+	sqlx::query("UPDATE redemptions SET state = 'settling', payout_operation_id = NULL WHERE id = $1")
+		.bind(id.raw())
+		.execute(&h.pool)
+		.await
+		.unwrap();
+	sqlx::query("UPDATE outbox SET dispatched_at = NULL WHERE aggregate_id = $1 AND payload->>'type' = 'settled'")
+		.bind(id.raw())
+		.execute(&h.pool)
+		.await
+		.unwrap();
+	h.money.refuse("Payout", Refusal::UserFrozen);
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	h.money.serve("Payout");
+
+	let record = redemption_record(&h, user, id).await;
+	assert_eq!((record.redemption.state(), record.failure_reason), (RedemptionState::AwaitingApproval, None));
+	assert_eq!(
+		h.money.operations_for(&format!("redemption:{}", id.raw().hyphenated())),
+		vec![operation.clone()],
+		"the same operation, not a second"
+	);
+	assert_eq!(units_available(&h, &user_shares).await, shares("60"), "the burn is still pending");
+
+	h.money.approve(&operation.id);
+	consumer.pass().await.unwrap();
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	assert_eq!(redemption_record(&h, user, id).await.redemption.state(), RedemptionState::Completed);
+	assert_eq!((alloc_cash(&h, &service), compartment(&h, user)), (usdt("60"), usdt("40")), "paid once");
+}
+
+/// Two redemptions of one holder waiting on the owners: 40 and 20 of 100 units.
+async fn two_awaiting(h: &Harness, user: UserId, service: &ServiceId) -> [RedemptionId; 2] {
+	let first = redemption_past_the_ceilings(h, user, service).await;
+	h.money.refuse("Payout", Refusal::ApprovalRequired);
+	let second = funds_app::request_redemption(&h.fund_ports(), &h.redemptions, &h.users, user, service.clone(), shares("20"), now_unix())
+		.await
+		.unwrap();
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	h.money.serve("Payout");
+	[first, second.id()]
+}
+
+fn approve_all(h: &Harness, ids: &[RedemptionId]) {
+	for id in ids {
+		let operation = h.money.operations_for(&format!("redemption:{}", id.raw().hyphenated())).remove(0);
+		h.money.approve(&operation.id);
+	}
+}
+
+/// One verdict banking cannot give right now must not stop the stream behind it: the event
+/// passes, the sweep is the safety net.
+#[tokio::test]
+async fn a_verdict_banking_cannot_give_does_not_stop_the_stream() {
+	let Some(h) = harness().await else { return };
+	let consumer = h.money_events(BookFeed::new());
+	let service = registered_service(&h).await;
+	let user = funded_user(&h, &ScopeId::invest(), "100").await;
+	let ids = two_awaiting(&h, user, &service).await;
+	approve_all(&h, &ids);
+
+	h.money.outage("GetPendingOperation", 1);
+	consumer.pass().await.expect("the stream goes on past a verdict it could not read");
+	assert_eq!(consumer.sweep_awaiting().await.unwrap(), 1, "the sweep lands what the first event could not");
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	for id in ids {
+		assert_eq!(redemption_record(&h, user, id).await.redemption.state(), RedemptionState::Completed);
+	}
+}
+
+/// ... and one record the sweep cannot read does not stop it over the others.
+#[tokio::test]
+async fn a_verdict_banking_cannot_give_does_not_stop_the_sweep() {
+	let Some(h) = harness().await else { return };
+	let consumer = h.money_events(BookFeed::new());
+	let service = registered_service(&h).await;
+	let user = funded_user(&h, &ScopeId::invest(), "100").await;
+	let ids = two_awaiting(&h, user, &service).await;
+	consumer.pass().await.unwrap();
+	approve_all(&h, &ids);
+	// The events are skipped: only the sweep can tell.
+	sqlx::query("UPDATE money_events_cursor SET position = position + 100").execute(&h.pool).await.unwrap();
+
+	h.money.outage("GetPendingOperation", 1);
+	assert_eq!(consumer.sweep_awaiting().await.expect("a record it cannot read is skipped"), 1);
+	assert_eq!(consumer.sweep_awaiting().await.unwrap(), 1, "and read on the next sweep");
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	for id in ids {
+		assert_eq!(redemption_record(&h, user, id).await.redemption.state(), RedemptionState::Completed);
+	}
+}
+
 /// banking refuses the request itself — the account fell short between the payout and the
 /// request: no operation, the units back, the reason banking gave.
 #[tokio::test]

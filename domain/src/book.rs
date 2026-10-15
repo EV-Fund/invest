@@ -896,6 +896,9 @@ pub enum Rejection {
 	SelfTrade,
 	/// A post-only order would have taken liquidity.
 	WouldCross,
+	/// A buy's hold was released by the money ledger before the order was written, so the
+	/// order would rest on cash that is no longer held.
+	HoldReleased,
 }
 
 impl Rejection {
@@ -903,6 +906,7 @@ impl Rejection {
 		match self {
 			Self::SelfTrade => "order would trade against your own resting order",
 			Self::WouldCross => "post-only order would cross the book",
+			Self::HoldReleased => "the cash held for this order was released before it was placed — place it again",
 		}
 	}
 }

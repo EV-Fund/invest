@@ -344,6 +344,7 @@ pub async fn place_order(ports: &BookPorts<'_>, user: UserId, request: PlaceOrde
 			}
 			Err(match rejection {
 				Rejection::SelfTrade | Rejection::WouldCross => DomainError::Validation(rejection.reason().to_owned()),
+				Rejection::HoldReleased => DomainError::Precondition(rejection.reason().to_owned()),
 			})
 		}
 		// The same order id, so the same hold — it stays with the order that stands.

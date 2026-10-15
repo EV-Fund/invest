@@ -285,7 +285,7 @@ impl MoneyEventSource for ScopeLedgerClient {
 		};
 		let page = self.events.clone().pull(self.request(message)).await.map_err(|status| from_status("Pull", status))?.into_inner();
 		Ok(MoneyEventPage {
-			events: page.events.into_iter().map(event_from_proto).collect(),
+			events: page.events.into_iter().map(event_from_proto).collect::<Result<_, _>>()?,
 			next_position: page.next_position,
 		})
 	}
@@ -321,7 +321,13 @@ fn operation_from_proto(operation: pb::PendingOperation) -> Result<PendingOperat
 	})
 }
 
-fn event_from_proto(event: pb::MoneyEvent) -> MoneyEvent {
+/// An event the consumer can key a dedupe on: banking's `event_id` is the unit of delivery
+/// and positions start at 1, so an empty id (every such event would collapse into one
+/// "duplicate") or a position below 1 is a broken answer, not an event.
+fn event_from_proto(event: pb::MoneyEvent) -> Result<MoneyEvent, MoneyLedgerError> {
+	if event.event_id.is_empty() || event.position < 1 {
+		return Err(MoneyLedgerError::Protocol(format!("Pull: an event with id {:?} at position {}", event.event_id, event.position)));
+	}
 	let kind = match Kind::try_from(event.kind) {
 		Ok(Kind::AccountOpened) => MoneyEventKind::AccountOpened,
 		Ok(Kind::CompartmentIn) => MoneyEventKind::CompartmentIn,
@@ -345,7 +351,7 @@ fn event_from_proto(event: pb::MoneyEvent) -> MoneyEvent {
 		// UNSPECIFIED names nothing either: parked like a kind from a newer banking.
 		Ok(Kind::Unspecified) | Err(_) => MoneyEventKind::Unknown(event.kind),
 	};
-	MoneyEvent {
+	Ok(MoneyEvent {
 		event_id: event.event_id,
 		position: event.position,
 		scope: event.scope,
@@ -353,7 +359,7 @@ fn event_from_proto(event: pb::MoneyEvent) -> MoneyEvent {
 		ref_id: event.ref_id,
 		subject_ref: event.subject_ref,
 		failure_reason: event.failure_reason,
-	}
+	})
 }
 
 /// The scope's fee collector — banking's own account in every scope, the only credit a
@@ -428,11 +434,34 @@ mod tests {
 
 	#[test]
 	fn an_event_kind_this_build_cannot_name_is_unknown_not_ignored() {
-		let event = |kind: i32| pb::MoneyEvent { kind, ..Default::default() };
-		assert_eq!(event_from_proto(event(Kind::HoldVoided as i32)).kind, MoneyEventKind::HoldVoided);
-		assert_eq!(event_from_proto(event(Kind::OperationFailed as i32)).kind, MoneyEventKind::OperationFailed);
-		assert_eq!(event_from_proto(event(99)).kind, MoneyEventKind::Unknown(99));
-		assert_eq!(event_from_proto(event(0)).kind, MoneyEventKind::Unknown(0));
+		let kind_of = |kind: i32| {
+			event_from_proto(pb::MoneyEvent {
+				event_id: "e".into(),
+				position: 1,
+				kind,
+				..Default::default()
+			})
+			.unwrap()
+			.kind
+		};
+		assert_eq!(kind_of(Kind::HoldVoided as i32), MoneyEventKind::HoldVoided);
+		assert_eq!(kind_of(Kind::OperationFailed as i32), MoneyEventKind::OperationFailed);
+		assert_eq!(kind_of(99), MoneyEventKind::Unknown(99));
+		assert_eq!(kind_of(0), MoneyEventKind::Unknown(0));
+	}
+
+	#[test]
+	fn an_event_without_an_id_or_a_position_is_a_protocol_violation() {
+		let event = |event_id: &str, position: i64| pb::MoneyEvent {
+			event_id: event_id.into(),
+			position,
+			kind: Kind::HoldVoided as i32,
+			..Default::default()
+		};
+		assert!(event_from_proto(event("e", 1)).is_ok());
+		assert!(matches!(event_from_proto(event("", 1)), Err(MoneyLedgerError::Protocol(_))));
+		assert!(matches!(event_from_proto(event("e", 0)), Err(MoneyLedgerError::Protocol(_))));
+		assert!(matches!(event_from_proto(event("e", -4)), Err(MoneyLedgerError::Protocol(_))));
 	}
 
 	#[test]
