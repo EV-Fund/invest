@@ -3,9 +3,9 @@ cargo-features = ["codegen-backend"]
 [workspace]
 # `domain` is the wasm-safe domain (invest_domain), `contracts` the invest.v1 gRPC
 # stubs (invest_contracts), `core` the invest-core server: gRPC, the unit ledger in
-# TigerBeetle, the outbox and its relay. Same shape as banking's workspace, which the
-# allocation code was moved out of (9ffafce3).
-members = ["contracts", "core", "domain"]
+# TigerBeetle, the outbox and its relay; `cabinet/backend` the cabinet's BFF. Same shape
+# as banking's workspace, which the allocation code was moved out of (9ffafce3).
+members = ["cabinet/backend", "contracts", "core", "domain"]
 # `.tb-client` must live at the repo root, NOT inside a member dir: cargo's
 # exclude check is `!explicit_member && excluded`, and member matching is
 # prefix-based — anything under a member dir can never be excluded.
@@ -14,6 +14,8 @@ resolver = "3"
 
 [workspace.dependencies]
 async-trait = "0.1.89"
+# The cabinet BFF's HTTP server; `ws` for the order book's live feed.
+axum = "0.8"
 color-eyre = "0.6"
 dotenvy = "0.15.7"
 ev = { version = "0.24.2", package = "ev_lib", default-features = false, features = ["architecture"] }
@@ -25,7 +27,9 @@ evbanking_contracts = { git = "https://github.com/EV-Main/banking.git", rev = "9
 # party and verifies them locally against concierge's JWKS. v0.16.0, the deployed one.
 evconcierge_auth = { git = "https://github.com/EV-Main/concierge.git", rev = "151a347d79abf131c58d7da87d61ae6f52ae3239" }
 # A relying party's calls into concierge: invest-core publishes its permission catalog with
-# it (`AuthService.PublishCatalog`, client credential). The same release as the BFF's.
+# it (`AuthService.PublishCatalog`, client credential); the cabinet BFF signs people in with
+# its code flow (PKCE, ExchangeCode, RefreshClientToken, GetMe). 0.3.0: it speaks
+# evconcierge_contracts 0.3, the copy evconcierge_projection links.
 evconcierge_client = "0.3.0"
 # The pull engine over concierge's lifecycle and scope streams (cursors, dedupe, per-key
 # order, parking) that the `users` projection is written by. concierge's own published crate
@@ -36,12 +40,19 @@ getrandom = { version = "0.3", features = ["wasm_js"] }
 invest_contracts = { path = "contracts" }
 invest_domain = { path = "domain" }
 prost = "0.14"
+# HKDF + ChaCha20-Poly1305 for the cabinet BFF's sealed session tokens. Already linked by
+# the TLS stack (tonic `tls-ring`, rustls), so no new crate.
+ring = "0.17"
 # Only to name a process-level crypto provider: tonic carries `ring`, and rustls refuses
 # to guess when two providers are linked (see `core/src/crypto.rs`).
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.150"
+# The cabinet BFF names a session row by the hash of its cookie, never by the cookie.
+sha2 = "0.11"
 sqlx = "0.9.0"
+# Constant-time comparison of the CSRF pair and the sign-in state.
+subtle = "2.6"
 thiserror = "2.0.18"
 # via the symlink (kept current by the flake shellHook), not the canonicalized store path - hardcoding the hash goes stale on every tigerbeetle derivation rebuild
 tigerbeetle = { path = ".tb-client" }

@@ -20,6 +20,7 @@ banking's on purpose.
 | `domain/` (`invest_domain`) | Pure, wasm-safe. No I/O, no clock, no `sqlx`/`tonic`/`tigerbeetle`. |
 | `contracts/` (`invest_contracts`) | `proto/invest/v1/*.proto` → tonic stubs. The wire is banking's `banking.v1` shape under `invest.v1`. |
 | `core/` (`invest-core`) | `services` (gRPC) → `application` (use cases) → `ports` → `infrastructure` (Postgres, TigerBeetle, banking). |
+| `cabinet/backend/` (`invest-cabinet-backend`) | The cabinet's BFF (HTTP): concierge sign-in, sessions in the `cabinet` schema, routes → invest-core. Cut from banking's `cabinet/backend` at `9ffafce3`. |
 
 ## Invariants — what not to break
 
@@ -45,12 +46,19 @@ banking's on purpose.
   Its bookkeeping (`concierge_projection_*`) is created at boot by the crate, versioned
   apart from `core/migrations/`; truncate it together with `users` or not at all.
 - **Health stays outside auth.** `grpc.health.v1` is not wrapped in the auth layer.
+- **The browser holds no token.** The cabinet BFF keeps concierge's tokens sealed (key
+  derived from the cookie) in `cabinet.sessions`, keyed by the hash of the session cookie. Every mutating route calls
+  `verify_csrf` (double-submit + `Origin`); the redirect URI is concierge's registered
+  `/cabinet/auth/callback`, byte for byte.
 
 ## Database
 
 - Migrations: `core/migrations/`, applied on boot (`db::migrate`). Author with the CLI in the
   dev shell: `sqlx migrate add --source core/migrations --sequential <name>`. A merged
   migration is immutable; fix forward.
+- The cabinet BFF's own: `cabinet/backend/migrations/`, schema `cabinet`, history in
+  `cabinet._sqlx_migrations` (apart from invest-core's). Same CLI, `--source
+  cabinet/backend/migrations`.
 - SQL is runtime `sqlx::query*` with `.bind()`, never the `query!` macros; every query must
   be executed by a test against a real database.
 

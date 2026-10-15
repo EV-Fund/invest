@@ -19,6 +19,7 @@ rewritten.
 | `contracts/` | `invest_contracts` | `invest.v1` protos (`AllocationsService`, `FundsService`, `BookService`, `FeesService`) → tonic stubs, plus the `allocation` and `book` facades |
 | `core/` | `invest-core` | The server: gRPC, use cases, Postgres, the TigerBeetle unit ledger, the outbox relay and its money sagas, the fee sweeper, the money port |
 | `core/migrations/` | — | sqlx migrations, applied on boot |
+| `cabinet/backend/` | `invest-cabinet-backend` | The cabinet's BFF: sign-in as concierge's relying party `invest`, server-side sessions, `/cabinet/api/*` → invest-core ([README](cabinet/backend/README.md)) |
 | `cabinet/frontend/` | — | The investor cabinet (separate PR) |
 
 ## Run
@@ -30,6 +31,7 @@ nix run .#dev           # shared Postgres + invest's TigerBeetle (:3034) + inves
 nix run .#db            # the shared Postgres + the `invest` database
 nix run .#tb            # invest's TigerBeetle on :3034 (data under .tb/)
 nix run .#invest-core   # invest-core alone
+nix run .#cabinet-backend  # the cabinet BFF (:50072) alone; needs .#db
 nix run .#check-rust    # clippy (warnings denied) + tests against a throwaway Postgres + TigerBeetle
 ```
 
@@ -51,8 +53,9 @@ drop them when done.
 | Port | What |
 | ---- | ---- |
 | 50071 | invest-core gRPC (`invest.v1.*`, `grpc.health.v1`) |
+| 50072 | the cabinet BFF's HTTP (`/cabinet/api/*`, `/cabinet/auth/callback`) |
 | 3034 | invest's TigerBeetle in dev (banking's is 3033) |
-| 5432 | the shared ev_invest Postgres, database `invest` |
+| 5432 | the shared ev_invest Postgres, database `invest` (the BFF owns its `cabinet` schema) |
 
 ## Configuration
 

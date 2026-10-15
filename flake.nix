@@ -27,14 +27,16 @@
         # Postgres is the SHARED ev_invest cluster every sibling repo uses (banking owns its
         # bring-up; this repo only ensures its own database, `invest`). TigerBeetle is
         # invest's OWN cluster (D19, plan §6.2) — 3034, beside banking's 3033, so both run
-        # at once. invest-core's gRPC takes 50071, a 5007x range of its own (banking holds
-        # 5005x/5006x, admin 50066). DEFAULTS, not overrides: anything already in the
-        # environment (or a sourced `.env`) wins.
+        # at once. invest-core's gRPC takes 50071 and the cabinet BFF's HTTP 50072, a 5007x
+        # range of invest's own (banking holds 5005x/5006x, admin 50066). DEFAULTS, not
+        # overrides: anything already in the environment (or a sourced `.env`) wins.
         corePort = 50071;
+        cabinetBackendPort = 50072;
         ports = {
           POSTGRES_PORT = "5432";
           TIGERBEETLE_PORT = "3034";
           INVEST_CORE_PORT = toString corePort;
+          CABINET_BACKEND_PORT = toString cabinetBackendPort;
           CONCIERGE_PORT = "55670";
           SCOPE_LEDGER_PORT = "50054";
         };
@@ -175,7 +177,9 @@
           fi
         '';
 
-        # ── production binary + OCI image ───────────────────────────────────
+        # ── production binaries + OCI images ────────────────────────────────
+        # One build for both servers, as banking builds its binaries: the dependency graph
+        # is shared, so a second derivation would compile it twice.
         coreCargo = (builtins.fromTOML (builtins.readFile ./core/Cargo.toml)).package;
         rustPlatform = pkgs.makeRustPlatform { cargo = rustBuild; rustc = rustBuild; };
         buildSrc = pkgs.lib.cleanSourceWith {
@@ -185,8 +189,8 @@
           filter = path: _type:
             ! builtins.elem (baseNameOf path) [ "target" ".tb-client" ".tb" ".direnv" ".git" ".cargo" "tmp" "docs" "result" ];
         };
-        coreBin = rustPlatform.buildRustPackage {
-          pname = coreCargo.name;
+        investBins = rustPlatform.buildRustPackage {
+          pname = "invest";
           version = coreCargo.version;
           src = buildSrc;
           cargoLock = {
@@ -196,8 +200,8 @@
             allowBuiltinFetchGit = true;
           };
           postPatch = "ln -sfn ${tigerbeetleClient} .tb-client";
-          # Forget this flag and the image builds fine with no binary inside.
-          cargoBuildFlags = [ "-p" "invest-core" ];
+          # Forget a flag and its image builds fine with no binary inside.
+          cargoBuildFlags = [ "-p" "invest-core" "-p" "invest-cabinet-backend" ];
           nativeBuildInputs = with pkgs; [ protobuf pkg-config ];
           buildInputs = [ pkgs.openssl ];
           PROTOC = "${pkgs.protobuf}/bin/protoc";
@@ -217,7 +221,7 @@
             healthPath = "/";
             criticality = "normal";
             entrypoint = [ "/bin/invest-core" ];
-            contents = [ coreBin ];
+            contents = [ investBins ];
             env = {
               RUST_LOG = "info";
               # The canonical prod topology (secret-free, committable): the binary reads env
@@ -233,6 +237,37 @@
               AUTH_JWKS_GRPC_ENDPOINT = "http://concierge.ev-banking.svc.cluster.local:55670";
               # CONCIERGE_GRPC_ADDR is deliberately absent too: set, it makes
               # CONCIERGE_CLIENT_SECRET required at boot, so it ships with that secret.
+              APP_ENV = "production";
+            };
+          };
+          # The cabinet's BFF. Secrets (CONCIERGE_CLIENT_SECRET = concierge's
+          # RP_CLIENT_SECRET_INVEST, SENTRY_DSN) arrive via the gitops Secret.
+          containers.invest-cabinet-backend = {
+            port = cabinetBackendPort;
+            # The SHALLOW check on purpose: `healthPath` feeds all three kubelet probes, and
+            # `/cabinet/api/health` dials invest-core and Postgres — with one replica, a
+            # probe on it turns every invest-core rollout into a NotReady BFF and the
+            # cabinet's "temporarily unavailable" banner (banking#355).
+            healthPath = "/cabinet/api/health/live";
+            criticality = "normal";
+            entrypoint = [ "/bin/invest-cabinet-backend" ];
+            contents = [ investBins ];
+            env = {
+              RUST_LOG = "info";
+              # The canonical prod topology (secret-free, committable); gitops' Deployment
+              # env carries the same values.
+              CABINET_BACKEND_BIND = "0.0.0.0:${toString cabinetBackendPort}";
+              # The BFF owns the `cabinet` schema of invest's database, migrated on boot.
+              DATABASE_URL = "postgres://evinvest@10.42.0.1:5432/invest";
+              # INVEST_CORE_GRPC_ADDR is deliberately absent: invest-core's in-cluster name is
+              # gitops' to give, and a guessed one here would override it. The boot refuses
+              # to start without it.
+              CONCIERGE_GRPC_ADDR = "http://concierge.ev-banking.svc.cluster.local:55670";
+              CONCIERGE_CLIENT_ID = "invest";
+              CONCIERGE_PUBLIC_ORIGIN = "https://evinvest.ltd";
+              # The redirect URI's origin and the one `Origin` a mutation is accepted from —
+              # public topology, not a secret.
+              CABINET_PUBLIC_ORIGIN = "https://invest.evinvest.ltd";
               APP_ENV = "production";
             };
           };
@@ -342,6 +377,40 @@
             export APP_ENV="''${APP_ENV:-development}"
             export RUST_LOG="''${RUST_LOG:-info,invest_core=debug}"
             exec cargo run -p invest-core
+          '';
+        };
+
+        # ── the cabinet BFF ─────────────────────────────────────────────────
+        # Migrates the `cabinet` schema on boot; needs `.#db`. Defaults mirror
+        # cabinet/backend/.env.example; any value already set wins. Signing in needs a
+        # concierge that knows the client `invest` and its secret (CONCIERGE_CLIENT_SECRET).
+        runCabinetBackend = pkgs.writeShellApplication {
+          name = "run-cabinet-backend";
+          runtimeInputs = with pkgs; [ rust pkg-config openssl protobuf mold git ];
+          text = ''
+            ${dyldFallback}
+            ${protocEnv}
+            ${noWrapper}
+            repo="$(git rev-parse --show-toplevel)"
+            cd "$repo"
+            ${linkTbClient}
+
+            set -a
+            if [ -f cabinet/backend/.env ]; then
+              # shellcheck disable=SC1091
+              . cabinet/backend/.env
+            fi
+            set +a
+
+            ${portEnv}
+            export CABINET_BACKEND_BIND="''${CABINET_BACKEND_BIND:-127.0.0.1:$CABINET_BACKEND_PORT}"
+            export DATABASE_URL="''${DATABASE_URL:-postgres://postgres@localhost:$POSTGRES_PORT/invest}"
+            export INVEST_CORE_GRPC_ADDR="''${INVEST_CORE_GRPC_ADDR:-http://127.0.0.1:$INVEST_CORE_PORT}"
+            export CONCIERGE_GRPC_ADDR="''${CONCIERGE_GRPC_ADDR:-http://127.0.0.1:$CONCIERGE_PORT}"
+            export CABINET_PUBLIC_ORIGIN="''${CABINET_PUBLIC_ORIGIN:-http://localhost:3000}"
+            export APP_ENV="''${APP_ENV:-development}"
+            export RUST_LOG="''${RUST_LOG:-info,invest_cabinet_backend=debug}"
+            exec cargo run -p invest-cabinet-backend
           '';
         };
 
@@ -455,11 +524,13 @@
           cat <<EOF
           nix run .#dev           postgres (shared) + invest's tigerbeetle (:3034) + invest-core (:${toString corePort})
           nix run .#invest-core   invest-core alone (needs .#db and .#tb)
+          nix run .#cabinet-backend   the cabinet BFF on :${toString cabinetBackendPort} (needs .#db)
           nix run .#db            ensure the shared Postgres and the 'invest' database
           nix run .#tb            invest's local TigerBeetle on :3034
           nix run .#check-rust    clippy (warnings denied) + workspace tests, as CI runs them
           nix run .#drift-check   Cargo.lock matches the manifests
           nix build .#ev_invest-invest-core-container   the invest-core OCI image (containers.invest-core)
+          nix build .#ev_invest-invest-cabinet-backend-container   the cabinet BFF's OCI image
           EOF
         '';
       in
@@ -475,6 +546,7 @@
         apps = {
           dev = { type = "app"; program = "${runDev}/bin/run-dev"; };
           invest-core = { type = "app"; program = "${runCore}/bin/run-invest-core"; };
+          cabinet-backend = { type = "app"; program = "${runCabinetBackend}/bin/run-cabinet-backend"; };
           db = { type = "app"; program = "${runPostgres}/bin/run-postgres"; };
           tb = { type = "app"; program = "${runTigerbeetle}/bin/run-tigerbeetle"; };
           check-rust = { type = "app"; program = "${runCheckRust}/bin/run-check-rust"; };
@@ -483,7 +555,7 @@
         };
 
         packages = {
-          default = coreBin;
+          default = investBins;
         } // containerStd.packages;
 
         containers = containerStd.containers;
