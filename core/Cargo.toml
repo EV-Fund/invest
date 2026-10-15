@@ -18,6 +18,7 @@ dotenvy.workspace = true
 ev = { workspace = true, features = ["error_monitoring", "otel", "settings"] }
 evbanking_contracts.workspace = true
 evconcierge_auth.workspace = true
+evconcierge_projection.workspace = true
 invest_contracts.workspace = true
 invest_domain.workspace = true
 # The process-level crypto provider `main` installs before any TLS client is built (`crypto.rs`).

@@ -1654,7 +1654,7 @@ source = "git+https://github.com/EV-Main/concierge.git?rev=151a347d79abf131c58d7
 dependencies = [
  "color-eyre",
  "ev_lib",
- "evconcierge_contracts",
+ "evconcierge_contracts 0.2.0",
  "form_urlencoded",
  "http 1.5.0",
  "jsonwebtoken",
@@ -1681,6 +1681,35 @@ dependencies = [
  "tonic 0.14.6",
  "tonic-prost",
  "tonic-prost-build",
+]
+
+[[package]]
+name = "evconcierge_contracts"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c13a2828767fe45829c20e803d244b093bb86b758de5172f0524825c067243d7"
+dependencies = [
+ "prost",
+ "prost-build",
+ "protoc-bin-vendored",
+ "tonic 0.14.6",
+ "tonic-prost",
+ "tonic-prost-build",
+]
+
+[[package]]
+name = "evconcierge_projection"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16f902ac39690910d9ab633fb9ae9b88ba92e843c8cb0ff4edb04ac486b47838"
+dependencies = [
+ "async-trait",
+ "evconcierge_contracts 0.3.0",
+ "sqlx",
+ "thiserror 2.0.21",
+ "tokio",
+ "tonic 0.14.6",
+ "tracing",
 ]
 
 [[package]]
@@ -2495,6 +2524,7 @@ dependencies = [
  "ev_lib",
  "evbanking_contracts",
  "evconcierge_auth",
+ "evconcierge_projection",
  "invest_contracts",
  "invest_domain",
  "rustls",

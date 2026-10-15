@@ -22,7 +22,13 @@ pub async fn connect_sized(database_url: &str, max_connections: u32) -> color_ey
 /// (`sqlx migrate add --source core/migrations --sequential <name>`),
 /// never by hand; the embedded runner here is interoperable with the CLI (same
 /// `_sqlx_migrations` table).
+///
+/// Then the `concierge_projection_*` tables of the users projection's pull engine, which
+/// `evconcierge_projection` versions itself apart from this history: a release that bumps
+/// that crate past a new schema step is a schema rollout too, and the older build refuses
+/// the newer schema rather than run on it.
 pub async fn migrate(pool: &PgPool) -> color_eyre::Result<()> {
 	sqlx::migrate!().run(pool).await?;
+	evconcierge_projection::pg::migrate(pool).await?;
 	Ok(())
 }
