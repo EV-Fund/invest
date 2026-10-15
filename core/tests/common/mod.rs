@@ -274,9 +274,17 @@ async fn ensure_migrated_template(admin: &mut PgConnection, base_url: &str, temp
 /// `migrate!()` here resolves `./migrations` against this crate's manifest, so it is the
 /// same set `db::migrate` embeds — that helper is not used because it erases the error
 /// into `color_eyre::Report`, and the caller needs the typed [`MigrateError`].
+///
+/// The users projection's engine tables follow, as in `db::migrate`; their own version table
+/// keeps them apart from `_sqlx_migrations`, so they never cause a mismatch above.
 async fn migrate_template(template_url: &str) -> Result<(), MigrateError> {
 	let pool = PgPoolOptions::new().max_connections(1).connect(template_url).await.expect("connect to the template database");
 	let result = sqlx::migrate!().run(&pool).await;
+	if result.is_ok() {
+		evconcierge_projection::pg::migrate(&pool)
+			.await
+			.expect("create the users projection's engine tables in the template");
+	}
 	pool.close().await;
 	result
 }
