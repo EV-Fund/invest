@@ -14,6 +14,14 @@
 //! [`InMemoryMoneyLedger::outage`] (a transient failure for the next few calls) — all at
 //! run time, since the ledger is shared with the relay behind an `Arc`.
 //!
+//! It is also banking's money-event log ([`MoneyEventSource`]): every hold, capture, void,
+//! payout and requested operation is written as banking writes it, and what banking does on
+//! its own is a test's to trigger — [`InMemoryMoneyLedger::expire_hold`],
+//! [`InMemoryMoneyLedger::void_by_banking`] (a revoked mandate, a ledger refusal),
+//! [`InMemoryMoneyLedger::approve`] and [`InMemoryMoneyLedger::reject`] (the owners'
+//! verdict on a `RequestPayout`), [`InMemoryMoneyLedger::redeliver`] (at-least-once) and
+//! [`InMemoryMoneyLedger::emit_unknown`] (a kind from a newer banking).
+//!
 //! Never wired into a running server: a fake ledger behind a real price is worse than none.
 
 use std::{
@@ -25,8 +33,8 @@ use async_trait::async_trait;
 use invest_domain::{architecture::Gateway, balance::ServiceId, money::Usdt};
 
 use crate::ports::money::{
-	AccountLabel, CaptureRequest, CaptureTo, FeeSweepRequest, Hold, HoldId, HoldState, MoneyKey, MoneyLedger, MoneyLedgerError, Payout, PayoutRequest, Refusal, ReserveRequest, ScopeAccount,
-	ScopeId, Transfer, VoidRequest,
+	AccountLabel, CaptureRequest, CaptureTo, FeeSweepRequest, Hold, HoldId, HoldState, MoneyEvent, MoneyEventKind, MoneyEventPage, MoneyEventSource, MoneyKey, MoneyLedger, MoneyLedgerError,
+	OperationId, Payout, PayoutLine, PayoutRequest, PendingOperation, PendingOperationState, Refusal, RequestPayoutRequest, ReserveRequest, ScopeAccount, ScopeId, Transfer, VoidRequest,
 };
 
 #[derive(Default)]
@@ -49,6 +57,18 @@ struct State {
 	refusals: HashMap<&'static str, Refusal>,
 	/// rpc → how many more calls answer UNAVAILABLE.
 	outages: HashMap<&'static str, u32>,
+	/// The money-event log, oldest first; positions step by one here (banking's have gaps).
+	events: Vec<MoneyEvent>,
+	operations: HashMap<OperationId, Operation>,
+}
+
+/// A `RequestPayout` as banking stores it.
+#[derive(Clone)]
+struct Operation {
+	scope: ScopeId,
+	from: AccountLabel,
+	lines: Vec<PayoutLine>,
+	view: PendingOperation,
 }
 
 #[derive(Clone)]
@@ -57,6 +77,7 @@ enum Answer {
 	Hold(Hold),
 	Payout(Payout),
 	Transfer(Transfer),
+	Operation(PendingOperation),
 }
 
 impl InMemoryMoneyLedger {
@@ -129,6 +150,107 @@ impl InMemoryMoneyLedger {
 		holds
 	}
 
+	/// The operations invest requested for `subject_ref`, as they stand.
+	pub fn operations_for(&self, subject_ref: &str) -> Vec<PendingOperation> {
+		let state = self.lock();
+		let mut operations: Vec<PendingOperation> = state.operations.values().filter(|op| op.view.subject_ref == subject_ref).map(|op| op.view.clone()).collect();
+		operations.sort_by(|a, b| a.id.0.cmp(&b.id.0));
+		operations
+	}
+
+	/// Every money event written so far, oldest first.
+	pub fn events(&self) -> Vec<MoneyEvent> {
+		self.lock().events.clone()
+	}
+
+	/// banking's TTL ran out on an active hold: the rest goes back to the user.
+	pub fn expire_hold(&self, hold_id: &HoldId) {
+		self.release_hold(hold_id, HoldState::Expired, "");
+	}
+
+	/// banking voided an active hold on its own — the user revoked the mandate it stood on
+	/// (`reason` empty), or the ledger refused to place it (`ledger_refused`).
+	pub fn void_by_banking(&self, hold_id: &HoldId, reason: &str) {
+		self.release_hold(hold_id, HoldState::Voided, reason);
+	}
+
+	fn release_hold(&self, hold_id: &HoldId, to: HoldState, reason: &str) {
+		let mut state = self.lock();
+		let Some(mut hold) = state.holds.get(hold_id).cloned().filter(|hold| hold.state == HoldState::Active) else {
+			panic!("hold {} is not active", hold_id.0);
+		};
+		let released = hold.remaining;
+		if let Err(err) = state.credit_compartment(&hold.scope, &hold.auth_subject, released) {
+			panic!("release hold {}: {err}", hold_id.0);
+		}
+		hold.remaining = Usdt::ZERO;
+		hold.state = to;
+		let kind = if to == HoldState::Expired { MoneyEventKind::HoldExpired } else { MoneyEventKind::HoldVoided };
+		state.emit(kind, &hold.scope, &hold.id.0, &hold.subject_ref, reason);
+		state.holds.insert(hold.id.clone(), hold);
+	}
+
+	/// The owners approved: banking executes the stored payout once — or, when the source no
+	/// longer covers it, fails it with `insufficient_funds`.
+	pub fn approve(&self, operation: &OperationId) {
+		let mut state = self.lock();
+		let Some(mut stored) = state.operations.get(operation).cloned().filter(|op| op.view.state == PendingOperationState::AwaitingApproval) else {
+			panic!("operation {} is not awaiting approval", operation.0);
+		};
+		let total = stored
+			.lines
+			.iter()
+			.try_fold(Usdt::ZERO, |sum, line| sum.checked_add(line.amount))
+			.unwrap_or(Usdt::from_base_units(u128::MAX));
+		match state.debit_account(&stored.scope, &stored.from, total) {
+			Ok(()) => {
+				let payout = state.mint_id("payout");
+				for line in &stored.lines {
+					if let Err(err) = state.credit_compartment(&stored.scope, &line.auth_subject, line.amount) {
+						panic!("approve {}: {err}", operation.0);
+					}
+					state.emit(MoneyEventKind::PaidOut, &stored.scope, &payout, &stored.view.subject_ref, "");
+				}
+				stored.view.state = PendingOperationState::Executed;
+			}
+			Err(_) => {
+				stored.view.state = PendingOperationState::Failed;
+				stored.view.failure_reason = "insufficient_funds".into();
+				state.emit(MoneyEventKind::OperationFailed, &stored.scope, &operation.0, &stored.view.subject_ref, "insufficient_funds");
+			}
+		}
+		state.operations.insert(operation.clone(), stored);
+	}
+
+	/// The approval said no or lapsed: `reason` is banking's (`approval_rejected`,
+	/// `approval_expired`, `proposal_refused`, …).
+	pub fn reject(&self, operation: &OperationId, reason: &str) {
+		let mut state = self.lock();
+		let Some(mut stored) = state.operations.get(operation).cloned().filter(|op| op.view.state == PendingOperationState::AwaitingApproval) else {
+			panic!("operation {} is not awaiting approval", operation.0);
+		};
+		stored.view.state = PendingOperationState::Rejected;
+		stored.view.failure_reason = reason.to_owned();
+		state.emit(MoneyEventKind::OperationRejected, &stored.scope, &operation.0, &stored.view.subject_ref, reason);
+		state.operations.insert(operation.clone(), stored);
+	}
+
+	/// Deliver the event at `position` once more, at the end of the log — the same
+	/// `event_id`, as an at-least-once delivery would.
+	pub fn redeliver(&self, position: i64) {
+		let mut state = self.lock();
+		let Some(mut event) = state.events.iter().find(|event| event.position == position).cloned() else {
+			panic!("no money event at position {position}");
+		};
+		event.position = state.next_position();
+		state.events.push(event);
+	}
+
+	/// Write an event of a kind this build cannot name.
+	pub fn emit_unknown(&self, scope: &ScopeId, code: i32) {
+		self.lock().emit(MoneyEventKind::Unknown(code), scope, "", "", "");
+	}
+
 	fn lock(&self) -> std::sync::MutexGuard<'_, State> {
 		// A test that panicked while holding the lock already failed; the state it left is
 		// still the best answer for the assertions that follow.
@@ -169,6 +291,24 @@ impl State {
 
 	fn remember(&mut self, rpc: &'static str, scope: &ScopeId, key: &MoneyKey, terms: String, answer: Answer) {
 		self.keys.insert((rpc, scope.clone(), key.as_str().to_owned()), (terms, answer));
+	}
+
+	fn next_position(&self) -> i64 {
+		self.events.last().map_or(1, |event| event.position + 1)
+	}
+
+	fn emit(&mut self, kind: MoneyEventKind, scope: &ScopeId, ref_id: &str, subject_ref: &str, failure_reason: &str) {
+		let position = self.next_position();
+		self.events.push(MoneyEvent {
+			// Unique across the tests of one binary, which share the consumer's tables.
+			event_id: uuid::Uuid::new_v4().to_string(),
+			position,
+			scope: scope.as_str().to_owned(),
+			kind,
+			ref_id: ref_id.to_owned(),
+			subject_ref: subject_ref.to_owned(),
+			failure_reason: failure_reason.to_owned(),
+		});
 	}
 
 	fn mint_id(&mut self, kind: &str) -> String {
@@ -263,6 +403,7 @@ impl MoneyLedger for InMemoryMoneyLedger {
 			subject_ref: request.subject_ref.as_str().to_owned(),
 		};
 		state.holds.insert(hold.id.clone(), hold.clone());
+		state.emit(MoneyEventKind::HoldPlaced, &request.scope, &hold.id.0, &hold.subject_ref, "");
 		state.remember("Reserve", &request.scope, &request.key, terms, Answer::Hold(hold.clone()));
 		Ok(hold)
 	}
@@ -308,6 +449,7 @@ impl MoneyLedger for InMemoryMoneyLedger {
 			}
 		}
 		state.holds.insert(hold.id.clone(), hold.clone());
+		state.emit(MoneyEventKind::HoldCaptured, &request.scope, &hold.id.0, request.subject_ref.as_str(), "");
 		state.remember("Capture", &request.scope, &request.key, terms, Answer::Hold(hold.clone()));
 		Ok(hold)
 	}
@@ -334,6 +476,7 @@ impl MoneyLedger for InMemoryMoneyLedger {
 			hold.remaining = Usdt::ZERO;
 			hold.state = HoldState::Voided;
 			state.holds.insert(hold.id.clone(), hold.clone());
+			state.emit(MoneyEventKind::HoldVoided, &request.scope, &hold.id.0, request.subject_ref.as_str(), "");
 		}
 		state.remember("Void", &request.scope, &request.key, terms, Answer::Hold(hold.clone()));
 		Ok(hold)
@@ -368,6 +511,9 @@ impl MoneyLedger for InMemoryMoneyLedger {
 			state.credit_compartment(&request.scope, &line.auth_subject, line.amount)?;
 		}
 		let payout = Payout { id: state.mint_id("payout"), total };
+		for _ in &request.lines {
+			state.emit(MoneyEventKind::PaidOut, &request.scope, &payout.id, request.subject_ref.as_str(), "");
+		}
 		state.remember("Payout", &request.scope, &request.key, terms, Answer::Payout(payout.clone()));
 		Ok(payout)
 	}
@@ -397,12 +543,85 @@ impl MoneyLedger for InMemoryMoneyLedger {
 		state.remember("Transfer", &request.scope, &request.key, terms, Answer::Transfer(transfer.clone()));
 		Ok(transfer)
 	}
+
+	async fn request_payout(&self, request: &RequestPayoutRequest) -> Result<PendingOperation, MoneyLedgerError> {
+		self.served("RequestPayout")?;
+		let mut state = self.lock();
+		let terms = format!("{}|{:?}|{}", request.from, request.lines, request.memo);
+		if let Some(answer) = state.replay("RequestPayout", &request.scope, &request.key, &terms) {
+			return match answer? {
+				Answer::Operation(operation) => Ok(operation),
+				_ => Err(unexpected("RequestPayout")),
+			};
+		}
+		if request.lines.is_empty() || request.lines.len() > 1000 {
+			return Err(MoneyLedgerError::Invalid("a payout carries 1..1000 lines".into()));
+		}
+		let total = request
+			.lines
+			.iter()
+			.try_fold(Usdt::ZERO, |sum, line| sum.checked_add(line.amount))
+			.ok_or_else(|| MoneyLedgerError::Invalid("payout total overflows".into()))?;
+		// Nothing is reserved, but the source must cover it at the request.
+		let balance = *state
+			.accounts
+			.get(&(request.scope.clone(), request.from.clone()))
+			.ok_or(MoneyLedgerError::Refused(Refusal::NotAccountOwner))?;
+		if balance < total {
+			return Err(MoneyLedgerError::Refused(Refusal::InsufficientFunds));
+		}
+		let view = PendingOperation {
+			id: OperationId(uuid::Uuid::new_v4().to_string()),
+			state: PendingOperationState::AwaitingApproval,
+			subject_ref: request.subject_ref.as_str().to_owned(),
+			failure_reason: String::new(),
+		};
+		state.operations.insert(
+			view.id.clone(),
+			Operation {
+				scope: request.scope.clone(),
+				from: request.from.clone(),
+				lines: request.lines.clone(),
+				view: view.clone(),
+			},
+		);
+		state.emit(MoneyEventKind::OperationRequested, &request.scope, &view.id.0, &view.subject_ref, "");
+		state.remember("RequestPayout", &request.scope, &request.key, terms, Answer::Operation(view.clone()));
+		Ok(view)
+	}
+
+	async fn pending_operation(&self, scope: &ScopeId, operation_id: &OperationId) -> Result<PendingOperation, MoneyLedgerError> {
+		self.served("GetPendingOperation")?;
+		self.lock()
+			.operations
+			.get(operation_id)
+			.filter(|op| op.scope == *scope)
+			.map(|op| op.view.clone())
+			.ok_or(MoneyLedgerError::NotFound)
+	}
+}
+
+#[async_trait]
+impl MoneyEventSource for InMemoryMoneyLedger {
+	async fn pull(&self, after_position: i64, limit: u32) -> Result<MoneyEventPage, MoneyLedgerError> {
+		self.served("Pull")?;
+		let state = self.lock();
+		let events: Vec<MoneyEvent> = state
+			.events
+			.iter()
+			.filter(|event| event.position > after_position)
+			.take(usize::try_from(limit).unwrap_or(usize::MAX))
+			.cloned()
+			.collect();
+		let next_position = events.last().map_or(after_position, |event| event.position);
+		Ok(MoneyEventPage { events, next_position })
+	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::ports::money::{PayoutLine, PayoutReason, SubjectRef};
+	use crate::ports::money::{PayoutReason, SubjectRef};
 
 	fn usdt(raw: &str) -> Usdt {
 		Usdt::parse_decimal(raw).unwrap()
@@ -538,6 +757,58 @@ mod tests {
 		assert_eq!(ledger.account(&sa, &alloc()), usdt("6"), "the retry moved nothing");
 		assert_eq!(ledger.collected(&sa), usdt("4"));
 		assert_eq!(ledger.account(&ScopeId::invest(), &fee), usdt("4"));
+	}
+
+	// What banking does on its own reaches invest only as events: a hold's whole life, and a
+	// requested payout's verdict, in the order it happened.
+	#[tokio::test]
+	async fn every_move_and_every_verdict_is_written_to_the_event_log() {
+		let ledger = InMemoryMoneyLedger::new();
+		let scope = ScopeId::invest();
+		ledger.fund(&scope, "fay", usdt("10"));
+		let reserve = ReserveRequest {
+			scope: scope.clone(),
+			auth_subject: "fay".into(),
+			amount: usdt("4"),
+			ttl_seconds: None,
+			key: key("r1"),
+			subject_ref: subject(),
+		};
+		let hold = ledger.reserve(&reserve).await.unwrap();
+		ledger.expire_hold(&hold.id);
+		assert_eq!(ledger.compartment(&scope, "fay"), usdt("10"), "the expiry gave it back");
+
+		ledger.credit(&scope, &alloc(), usdt("5"));
+		let request = RequestPayoutRequest {
+			scope: scope.clone(),
+			from: alloc(),
+			lines: vec![PayoutLine {
+				auth_subject: "fay".into(),
+				amount: usdt("3"),
+			}],
+			key: key("q1"),
+			subject_ref: SubjectRef::new("redemption", uuid::Uuid::nil()).unwrap(),
+			memo: String::new(),
+		};
+		let operation = ledger.request_payout(&request).await.unwrap();
+		assert_eq!(ledger.request_payout(&request).await.unwrap(), operation, "a retry is the original operation");
+		assert_eq!(ledger.account(&scope, &alloc()), usdt("5"), "nothing moves before the approval");
+		ledger.approve(&operation.id);
+		assert_eq!(ledger.pending_operation(&scope, &operation.id).await.unwrap().state, PendingOperationState::Executed);
+		assert_eq!(ledger.compartment(&scope, "fay"), usdt("13"));
+
+		let kinds: Vec<MoneyEventKind> = ledger.pull(0, 100).await.unwrap().events.into_iter().map(|event| event.kind).collect();
+		assert_eq!(
+			kinds,
+			[
+				MoneyEventKind::HoldPlaced,
+				MoneyEventKind::HoldExpired,
+				MoneyEventKind::OperationRequested,
+				MoneyEventKind::PaidOut
+			]
+		);
+		let page = ledger.pull(2, 1).await.unwrap();
+		assert_eq!((page.events.len(), page.next_position), (1, 3), "a page ends where it stopped");
 	}
 
 	#[tokio::test]

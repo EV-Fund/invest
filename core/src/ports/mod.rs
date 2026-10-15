@@ -40,7 +40,7 @@ pub mod users;
 pub use allocations::{AllocationAccessGrant, AllocationRecord, AllocationRegistry};
 pub use issuance::{IssueOutcome, UnitIssuanceRecord, UnitIssuanceRepository};
 pub use ledger::{CompletionKind, Ledger, LedgerBalance, LedgerError, LedgerTransfer, PendingCompletion};
-pub use money::{MoneyLedger, MoneyLedgerError};
+pub use money::{MoneyEventSource, MoneyLedger, MoneyLedgerError};
 pub use nav::{NavMarks, Valuation};
 pub use positions::{FundPosition, FundPositionReader, UnitFlow};
 pub use redemptions::{QueuedRedemption, RedemptionRecord, RedemptionRepository};

@@ -12,7 +12,8 @@ use async_trait::async_trait;
 use invest_domain::architecture::Gateway;
 
 use crate::ports::money::{
-	AccountLabel, CaptureRequest, FeeSweepRequest, Hold, HoldId, MoneyKey, MoneyLedger, MoneyLedgerError, Payout, PayoutRequest, ReserveRequest, ScopeAccount, ScopeId, Transfer, VoidRequest,
+	AccountLabel, CaptureRequest, FeeSweepRequest, Hold, HoldId, MoneyKey, MoneyLedger, MoneyLedgerError, OperationId, Payout, PayoutRequest, PendingOperation, RequestPayoutRequest,
+	ReserveRequest, ScopeAccount, ScopeId, Transfer, VoidRequest,
 };
 
 pub mod fake;
@@ -58,6 +59,14 @@ impl MoneyLedger for Unconfigured {
 	}
 
 	async fn sweep_fees(&self, _: &FeeSweepRequest) -> Result<Transfer, MoneyLedgerError> {
+		unconfigured()
+	}
+
+	async fn request_payout(&self, _: &RequestPayoutRequest) -> Result<PendingOperation, MoneyLedgerError> {
+		unconfigured()
+	}
+
+	async fn pending_operation(&self, _: &ScopeId, _: &OperationId) -> Result<PendingOperation, MoneyLedgerError> {
 		unconfigured()
 	}
 }
