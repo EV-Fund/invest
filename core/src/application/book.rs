@@ -376,7 +376,10 @@ async fn release_unplaced_hold(money: &dyn MoneyLedger, scope: &ScopeId, hold: &
 }
 
 fn same_request_or_conflict(existing: OrderRecord, request: &PlaceOrderRequest) -> Result<OrderRecord, DomainError> {
-	if existing.order.matches_request(&request.service, request.side, request.kind, request.tif, request.size) {
+	if existing
+		.order
+		.matches_request(&request.service, request.side, request.kind, request.tif, request.price, request.size)
+	{
 		Ok(existing)
 	} else {
 		Err(DomainError::Conflict(format!(

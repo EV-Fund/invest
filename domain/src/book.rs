@@ -713,8 +713,11 @@ impl Order {
 	}
 
 	/// Whether a retry under the same client order id is asking for the same thing.
-	pub fn matches_request(&self, service: &ServiceId, side: Side, kind: OrderKind, tif: Tif, size: Shares) -> bool {
-		&self.service == service && self.side == side && self.kind == kind && self.tif == tif && self.size == size
+	/// Whether a repeated request under this order's client order id asks for the same order.
+	/// A limit's price is part of it; a market order's is derived from the book at the time,
+	/// so a retry's `price` is `None` and not compared.
+	pub fn matches_request(&self, service: &ServiceId, side: Side, kind: OrderKind, tif: Tif, price: Option<Price>, size: Shares) -> bool {
+		&self.service == service && self.side == side && self.kind == kind && self.tif == tif && price.is_none_or(|price| price == self.price) && self.size == size
 	}
 
 	/// The engine's view of this order while it rests.

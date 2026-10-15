@@ -804,6 +804,8 @@ async fn a_client_order_id_makes_a_retry_land_once_and_a_reuse_a_conflict() {
 
 	let err = place_keyed(&h, seller, &service, Side::Sell, OrderKind::Limit, Tif::Gtc, Some("1"), "4", &key).await.unwrap_err();
 	assert!(matches!(err, DomainError::Conflict(_)), "the same key for a different order: {err:?}");
+	let err = place_keyed(&h, seller, &service, Side::Sell, OrderKind::Limit, Tif::Gtc, Some("2"), "3", &key).await.unwrap_err();
+	assert!(matches!(err, DomainError::Conflict(_)), "the same key at another price is another order: {err:?}");
 }
 
 #[tokio::test]
