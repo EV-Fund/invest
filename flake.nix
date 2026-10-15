@@ -315,7 +315,7 @@
         # `.#dev`). Defaults mirror core/.env.example; any value already set wins.
         runCore = pkgs.writeShellApplication {
           name = "run-invest-core";
-          runtimeInputs = with pkgs; [ rust pkg-config openssl protobuf git ];
+          runtimeInputs = with pkgs; [ rust pkg-config openssl protobuf mold git ];
           text = ''
             ${dyldFallback}
             ${protocEnv}
@@ -379,7 +379,10 @@
         # past the 103-byte sun_path limit.
         runCheckRust = pkgs.writeShellApplication {
           name = "run-check-rust";
-          runtimeInputs = (with pkgs; [ rust git protobuf pkg-config openssl postgresql coreutils ]) ++ [ tigerbeetleBin ];
+          # mold: the generated .cargo/config.toml links x86_64-linux with `-fuse-ld=mold`,
+          # and a CI runner has no linker of that name outside the dev shell (banking's gate
+          # carries it for the same reason).
+          runtimeInputs = (with pkgs; [ rust git protobuf pkg-config openssl mold postgresql coreutils ]) ++ [ tigerbeetleBin ];
           text = ''
             cd "$(git rev-parse --show-toplevel)"
             ${linkTbClient}
@@ -499,6 +502,7 @@
               pkg-config
               protobuf
               rust
+              mold
               postgresql
               sqlx-cli
               tigerbeetleBin
