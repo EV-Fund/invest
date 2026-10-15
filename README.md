@@ -82,9 +82,9 @@ a key derived from the aggregate (`core/src/infrastructure/relay/sagas.rs`):
 | Flow | Cash in banking | Units in invest |
 | ---- | --------------- | --------------- |
 | Subscribe | `Reserve` on the subscriber's compartment (synchronous, TTL 1 h), then `Capture` into `(<scope>, alloc:<slug>)` | pending mint, posted after the capture; voided with the hold when banking refuses |
-| Redeem | `Payout` from `(<scope>, alloc:<slug>)` at settle | pending burn at request, posted after the payout; voided when banking refuses |
-| Book buy | `Reserve` before the order is written; each fill `Capture`s to the seller, the release `Void`s the rest | sells escrow units; a fill is pending until its cash moved |
-| Fees | the taker fee and a fee-class settlement go `alloc:<slug>` → `(<scope>, fee)`, which banking forwards to `(invest, alloc:fee)` from every scope | a charge moves units into the product's fee class; a settlement burns them |
+| Redeem | `Payout` from `(<scope>, alloc:<slug>)` at settle, only once the burn is reserved | pending burn at request — admitted only for units free and not claimed by an undrained event — posted after the payout; voided when banking refuses |
+| Book buy | `Reserve` before the order is written; each fill `Capture`s to the seller, the release `Void`s the rest | sells escrow units, and only escrowed orders of active holders are matched; a fill is pending until its cash moved, and one that cannot settle is busted — the seller's units back, the buy's hold voided |
+| Fees | the taker fee (at most 1 %) and a fee-class settlement go `alloc:<slug>` → `(<scope>, fee)`, which banking forwards to `(invest, alloc:fee)` from every scope | a charge moves units into the product's fee class; a settlement reserves their burn before the sweep and posts or voids it after; one settlement per product at a time, idempotent by its key |
 
 Opening a product (`SetAllocationState open`) opens its `alloc:<slug>` account in banking
 first. banking serves only `OpenAccount`, `GetBalances` and `Transfer` today; a saga step
