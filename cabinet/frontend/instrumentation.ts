@@ -12,6 +12,7 @@ export async function register() {
   // before the server accepts traffic. Gated on NEXT_RUNTIME (statically
   // inlined) so config.ts — and its process.exit — stays out of the Edge
   // bundle Next also compiles this file into.
+  // eslint-disable-next-line no-restricted-properties -- NEXT_RUNTIME is Next's build-time constant, not config, and config.ts is exactly what this gate keeps out of the Edge bundle
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const { orExit } = await import("@evinvest/settings");
     const { assertConfig } = await import("@/config");
