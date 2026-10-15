@@ -46,6 +46,7 @@ use crate::{
 	ports::{
 		allocations::{AllocationAccessGrant, AllocationRecord},
 		issuance::UnitIssuanceRecord,
+		money::ScopeId,
 	},
 	services::support::{caller_id, holds_permission, map_err, optional, parse_target_user, require_permission, unix_now},
 };
@@ -119,7 +120,14 @@ impl AllocationsService for AllocationsSvc {
 		let req = request.into_inner();
 		let service = ServiceId::parse(&req.service).map_err(map_err)?;
 		let icon = parse_icon(&req.icon)?;
-		allocations_app::register(self.state.allocations.as_ref(), service.clone(), &req.title, &req.summary, icon)
+		// Empty means "not chosen": invest's own scope, where every product but the panel's
+		// lives (plan §3.3).
+		let scope = if req.scope.is_empty() {
+			ScopeId::invest()
+		} else {
+			ScopeId::parse(&req.scope).map_err(map_err)?
+		};
+		allocations_app::register(self.state.allocations.as_ref(), service.clone(), &scope, &req.title, &req.summary, icon)
 			.await
 			.map_err(map_err)?;
 		self.manager_view(caller, &service).await
@@ -155,7 +163,7 @@ impl AllocationsService for AllocationsSvc {
 		let req = request.into_inner();
 		let service = ServiceId::parse(&req.service).map_err(map_err)?;
 		match req.state.as_str() {
-			wire_state::OPEN => allocations_app::open(self.state.allocations.as_ref(), &service).await,
+			wire_state::OPEN => allocations_app::open(self.state.allocations.as_ref(), self.state.money.as_ref(), &service).await,
 			wire_state::CLOSED => allocations_app::close(self.state.allocations.as_ref(), &service).await,
 			// `draft` is entered only by RegisterAllocation — a product that has taken
 			// money must never be able to travel back to "never opened".

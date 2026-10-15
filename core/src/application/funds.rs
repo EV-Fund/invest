@@ -13,13 +13,16 @@
 //! the money port — over their own supply, by [`nav_of`], the one reader every price in
 //! this module and beyond goes through.
 //!
-//! Subscribe and redeem (PR 1b) deal on the same price; they move cash through banking.
+//! Subscribe and redeem deal on the same price; their cash is banking's, held, captured
+//! and paid out through the money port as sagas the relay carries (plan §6.3).
 
 use invest_domain::{
 	balance::{LedgerAccountKey, ServiceId, ValuationId},
 	error::DomainError,
 	issuance::UnitHolder,
 	money::{Nav, Shares, Usdt},
+	redemptions::{Redemption, RedemptionId, RedemptionState},
+	subscriptions::{Subscription, SubscriptionId},
 	users::UserId,
 };
 use tokio::sync::Notify;
@@ -27,11 +30,12 @@ use tokio::sync::Notify;
 use crate::{
 	application::allocations as allocations_app,
 	ports::{
-		FundPositionReader, UnitFlow,
+		FundPositionReader, RedemptionRecord, RedemptionRepository, SubscriptionRecord, SubscriptionRepository, UnitFlow,
 		allocations::{AllocationRecord, AllocationRegistry},
 		ledger::{HoldingScope, Ledger},
-		money::{AccountLabel, MoneyLedger, MoneyLedgerError, ScopeId},
+		money::{AccountLabel, MoneyKey, MoneyLedger, MoneyLedgerError, ReserveRequest, ScopeId, SubjectRef},
 		nav::{NavMarks, Valuation},
+		users::UserDirectory,
 	},
 };
 
@@ -48,6 +52,17 @@ pub const MAX_NAV_MOVE_PCT: u128 = 50;
 /// (or the fund's first mark, when none is) bounds what one poster can move the price by
 /// in a week to the cap itself, however many steps they take.
 pub const NAV_MOVE_WINDOW_SECS: i64 = 7 * 24 * 60 * 60;
+/// How long after posting a valuation for a fund the poster may not redeem from it.
+///
+/// The redeem settles at the price the poster set; a cooldown means the person who moved
+/// the price is not the person who cashes out at it, within the window the move guard
+/// measures. Fee settlement is gated by the same cooldown (`fees::settle_fee_shares`).
+pub const VALUATION_REDEEM_COOLDOWN_SECS: i64 = 7 * 24 * 60 * 60;
+/// How long banking holds a subscriber's cash before releasing it by itself. The relay
+/// captures within seconds; the TTL is the safety net under a hold whose subscription
+/// never reached the relay (banking answered, invest did not hear it) — the cash goes
+/// back to the user instead of staying held for good.
+pub const SUBSCRIPTION_HOLD_TTL_SECS: u32 = 60 * 60;
 /// A mark older than this (seconds) is stale; deals and issuances refuse to price on it
 /// rather than price off a drifted NAV (the backward-pricing arbitrage guard). 24h for v1.
 pub const MAX_NAV_AGE_SECS: i64 = 24 * 60 * 60;
@@ -203,13 +218,19 @@ pub async fn nav_of(nav: &dyn NavMarks, ledger: &dyn Ledger, money: &dyn MoneyLe
 }
 
 /// The cash a reserved allocation holds: the balance of `(invest, alloc:<slug>)` in banking
-/// (plan §3.3 — invest keeps no copy of it). An account invest has not opened yet holds
-/// nothing, and banking answers it NOT_FOUND exactly as it would a label of another
-/// client's — a label invest's `alloc:` grant makes impossible here — so NOT_FOUND reads as
-/// zero. Every other failure is one: a price built on a guessed zero would be wrong.
+/// (plan §3.3 — invest keeps no copy of it).
 pub async fn allocation_cash(money: &dyn MoneyLedger, service: &ServiceId) -> Result<Usdt, DomainError> {
+	account_cash(money, &ScopeId::invest(), service).await
+}
+
+/// The cash on an allocation's account `(<scope>, alloc:<slug>)`. An account invest has not
+/// opened yet holds nothing, and banking answers it NOT_FOUND exactly as it would a label
+/// of another client's — a label invest's `alloc:` grant makes impossible here — so
+/// NOT_FOUND reads as zero. Every other failure is one: a price built on a guessed zero
+/// would be wrong.
+pub async fn account_cash(money: &dyn MoneyLedger, scope: &ScopeId, service: &ServiceId) -> Result<Usdt, DomainError> {
 	let label = AccountLabel::allocation(service)?;
-	match money.balances(&ScopeId::invest(), std::slice::from_ref(&label)).await {
+	match money.balances(scope, std::slice::from_ref(&label)).await {
 		Ok(accounts) => accounts
 			.into_iter()
 			.find(|account| account.label == label)
@@ -283,6 +304,249 @@ async fn holds_units(ledger: &dyn Ledger, service: &ServiceId, user: UserId) -> 
 pub(crate) async fn issued_units(ledger: &dyn Ledger, service: &ServiceId) -> Result<Shares, DomainError> {
 	let balance = ledger.balance(&LedgerAccountKey::SharesOutstanding(service.clone())).await?;
 	Ok(Shares::from_base_units(balance.posted.saturating_add(balance.pending)))
+}
+
+/// A user subscribes `cash` of their compartment in the product's scope into `service`,
+/// minting `floor(cash / NAV)` units at the current (fresh) NAV — the first step of the
+/// subscription saga (`invest_domain::subscriptions`): the record is written, banking is
+/// asked to hold the cash, and the relay mints and captures from there.
+///
+/// The **registry gate runs first**, before any pricing: `service` must be a registered,
+/// `open` allocation this user holds `invest` access to — by the product's default or by
+/// a grant. The access refusal is its own kind ([`DomainError::Precondition`]) so a client
+/// can tell "ask an operator" from "the product is closed" from "over the cap".
+///
+/// A **reserved allocation** is refused before either (#245): `fee` and `fund` are the
+/// platform's own money, and a seat at them is the owners' quorum's to give, never
+/// something cash buys.
+///
+/// The **supply gate** runs once the mint is priced: `issued + minting` must fit the unit
+/// cap. It is Read-First with no TigerBeetle backstop behind it (a ledger can refuse to go
+/// below zero but has no notion of a ceiling), and `issued` counts what the relay has
+/// applied — so concurrent subscriptions can overshoot by what is in flight. The cap is an
+/// **issuance gate, not an invariant**: exact would mean a second source of truth for a
+/// figure TigerBeetle already owns.
+///
+/// **The cash gate is banking's.** invest cannot read a compartment, so it asks for the
+/// hold and takes banking's answer: a refusal (`mandate_required`, `insufficient_funds`,
+/// `user_frozen`, …) fails the subscription and comes back as
+/// [`DomainError::Precondition`] carrying banking's reason. banking unreachable fails it
+/// too — nothing has moved that the hold's TTL does not give back
+/// ([`SUBSCRIPTION_HOLD_TTL_SECS`]).
+pub async fn subscribe(
+	ports: &FundPorts<'_>,
+	subscriptions: &dyn SubscriptionRepository,
+	users: &dyn UserDirectory,
+	user: UserId,
+	service: ServiceId,
+	cash: Usdt,
+	now_unix: i64,
+) -> Result<SubscriptionRecord, DomainError> {
+	if service.is_reserved() {
+		return Err(DomainError::Forbidden(format!(
+			"units of the reserved '{service}' allocation are seated only by a holder grant or a seed, never bought"
+		)));
+	}
+	let allocation = allocations_app::require_subscribable(ports.allocations, &service, user).await?;
+	let auth_subject = require_auth_subject(users, user).await?;
+	let price = dealing_nav(ports.nav, ports.ledger, ports.money, &service, now_unix).await?;
+	allocation.ensure_capacity(issued_units(ports.ledger, &service).await?, Shares::from_cash(cash, price)?)?;
+	let scope = ports.allocations.scope(&service).await?;
+	let mut subscription = Subscription::open(SubscriptionId::new(), user, service, cash, price)?;
+	subscriptions.open(&subscription, &scope).await?;
+	let id = subscription.id().raw();
+	let reserve = ReserveRequest {
+		scope: scope.clone(),
+		auth_subject,
+		amount: cash,
+		ttl_seconds: Some(SUBSCRIPTION_HOLD_TTL_SECS),
+		key: MoneyKey::parse(&format!("subscription:{}:reserve", id.hyphenated()))?,
+		subject_ref: SubjectRef::new("subscription", id)?,
+	};
+	match ports.money.reserve(&reserve).await {
+		Ok(hold) => {
+			subscriptions.reserved(&mut subscription, &hold.id).await?;
+			ports.relay.notify_one();
+		}
+		Err(err) => {
+			let reason = match &err {
+				MoneyLedgerError::Refused(refusal) => format!("hold refused: {}", refusal.reason()),
+				other => format!("hold not placed: {other}"),
+			};
+			subscriptions.refused(&mut subscription, &reason).await?;
+			return Err(err.into());
+		}
+	}
+	subscriptions
+		.find_by_id(subscription.id())
+		.await?
+		.ok_or_else(|| DomainError::Repository(format!("subscription {id} vanished after it was recorded")))
+}
+
+/// The subject banking names `user`'s compartments by. Without it no money of theirs can
+/// move: the projection has not heard of them from concierge yet.
+pub(crate) async fn require_auth_subject(users: &dyn UserDirectory, user: UserId) -> Result<String, DomainError> {
+	users
+		.auth_subject(user)
+		.await?
+		.ok_or_else(|| DomainError::Precondition("your account is not known to the money ledger yet — try again shortly".into()))
+}
+
+/// A user's subscriptions, newest first.
+pub async fn list_subscriptions(subscriptions: &dyn SubscriptionRepository, user: UserId) -> Result<Vec<SubscriptionRecord>, DomainError> {
+	subscriptions.list_by_user(user).await
+}
+
+/// A user redeems `units` of `service` back to cash. Read-First confirms the user holds
+/// the units (TigerBeetle's flag is the over-redeem backstop); the staleness guard
+/// refuses to deal on a drifted mark. The redemption is **accepted and queued**: the
+/// relay reserves a pending burn now, and the cash is priced + paid at **settle**. If the
+/// allocation's account can already cover the payout, this settles immediately via a
+/// **separate** command (never co-emitting `Requested`+`Settled`); otherwise it stays
+/// `Queued` for an operator `settle_redemption` once the fund tops up.
+///
+/// The registry gate here is the **laxer** one: a `closed` allocation still redeems, and
+/// the caller's access is never consulted, so neither winding a product down nor locking
+/// it can trap an investor's units inside it.
+///
+/// A reserved allocation (`fee`, `fund`) is priced by [`nav_of`] and paid out of its own
+/// account like any product — but a shortfall there is **refused, never queued**: nobody
+/// tops a reserved allocation up on request, its cash grows only as products settle their
+/// fee classes, and a queue of the platform's own holders waiting on themselves would be
+/// a queue nobody drains.
+pub async fn request_redemption(
+	ports: &FundPorts<'_>,
+	redemptions: &dyn RedemptionRepository,
+	users: &dyn UserDirectory,
+	user: UserId,
+	service: ServiceId,
+	units: Shares,
+	now_unix: i64,
+) -> Result<Redemption, DomainError> {
+	allocations_app::require_redeemable(ports.allocations, &service).await?;
+	refuse_recent_poster(ports.nav, ports.ledger, &service, user, now_unix).await?;
+	// The payout lands on the holder's compartment; one banking cannot name is refused
+	// before a unit is locked.
+	require_auth_subject(users, user).await?;
+	let holding = ports.ledger.balance(&LedgerAccountKey::UserShares(service.clone(), user)).await?;
+	if Shares::from_base_units(holding.available()) < units {
+		return Err(DomainError::Validation("insufficient units to redeem".into()));
+	}
+	// Fresh NAV (staleness guard) — also the auto-settle liquidity estimate.
+	let price = dealing_nav(ports.nav, ports.ledger, ports.money, &service, now_unix).await?;
+	let cash_out = price.value(units)?;
+	let scope = ports.allocations.scope(&service).await?;
+	let covered = account_cash(ports.money, &scope, &service).await? >= cash_out;
+	if !covered && service.is_reserved() {
+		return Err(DomainError::Validation(format!(
+			"the '{service}' allocation's cash cannot cover this redemption — settle fee units into it first, or redeem fewer units"
+		)));
+	}
+	let mut redemption = Redemption::request(RedemptionId::new(), user, service.clone(), units)?;
+	redemptions.open(&mut redemption).await?;
+	ports.relay.notify_one();
+	if covered {
+		// The settle can lose a race to a concurrent cancel or fail. The redemption was
+		// accepted either way, so a `Conflict` reports its actual current state rather than
+		// surfacing an error for an already-opened redemption.
+		return match settle_redemption(ports, redemptions, redemption.id(), now_unix).await {
+			Err(DomainError::Conflict(_)) => redemptions.find_by_id(redemption.id()).await?.ok_or_else(|| DomainError::NotFound {
+				entity: "redemption",
+				id: redemption.id().to_string(),
+			}),
+			settled => settled,
+		};
+	}
+	Ok(redemption)
+}
+
+/// Settle a queued redemption (the auto follow-on, or an operator once the fund is
+/// liquid): prices the cash at the **settle-time** NAV (`units × NAV`) and hands it to the
+/// relay, which pays it out through banking and posts the burn — or, when banking refuses
+/// the payout, voids the burn and fails the redemption.
+pub async fn settle_redemption(ports: &FundPorts<'_>, redemptions: &dyn RedemptionRepository, id: RedemptionId, now_unix: i64) -> Result<Redemption, DomainError> {
+	let existing = redemptions.find_by_id(id).await?.ok_or_else(|| DomainError::NotFound {
+		entity: "redemption",
+		id: id.to_string(),
+	})?;
+	// Settling or completed is past pricing, so this unlocked read is safe to short-circuit
+	// on: the documented-idempotent retry must not re-check NAV freshness (a mark gone stale
+	// since the real settle would fail it). Concurrent settles that both pass this
+	// pre-check serialize on the repo's row lock, where the same guard is authoritative.
+	if matches!(existing.state(), RedemptionState::Settling | RedemptionState::Completed) {
+		return Ok(existing);
+	}
+	// Checked at settle too, not only at request: a queued redemption can outlive a mark
+	// its owner posts later, and settle is where the cash is actually priced.
+	refuse_recent_poster(ports.nav, ports.ledger, existing.service(), existing.user(), now_unix).await?;
+	let price = dealing_nav(ports.nav, ports.ledger, ports.money, existing.service(), now_unix).await?;
+	let redemption = redemptions.settle(id, price).await?;
+	ports.relay.notify_one();
+	Ok(redemption)
+}
+
+/// The redeem cooldown: refuse when `user` posted a mark for `service` within
+/// [`VALUATION_REDEEM_COOLDOWN_SECS`]. `posted_by` is compared as the string the direct
+/// RPC records — `claims.sub`, which `caller_id` parses as this same `UserId`, so the two
+/// spellings agree by construction.
+///
+/// A reserved allocation takes no mark of its own; its price is the marks of the products
+/// it holds units of (see [`nav_of`]). So the cooldown on it is the cooldown on EVERY one of
+/// those products (#245, H-3): a `fee` holder who marks a product up and redeems `fee` at
+/// once cashes out at the price they set, exactly what the cooldown exists to stop, and the
+/// same person settling the product's fee class into `fee` cash after their own mark is
+/// the same move one step earlier (M-1) — hence `pub(crate)`, for `fees::settle_fee_shares`.
+pub(crate) async fn refuse_recent_poster(nav: &dyn NavMarks, ledger: &dyn Ledger, service: &ServiceId, user: UserId, now_unix: i64) -> Result<(), DomainError> {
+	let since = now_unix.saturating_sub(VALUATION_REDEEM_COOLDOWN_SECS);
+	let subject = user.to_string();
+	let days = VALUATION_REDEEM_COOLDOWN_SECS / (24 * 60 * 60);
+	if !service.is_reserved() {
+		if nav.posted_by_since(service, &subject, since).await? {
+			return Err(DomainError::Precondition(format!(
+				"you posted a valuation for this fund within the last {days} days — redemption is refused until it ages out"
+			)));
+		}
+		return Ok(());
+	}
+	for (key, units) in ledger.share_holdings(&HoldingScope::Holder(UnitHolder::Allocation(service.clone()))).await? {
+		if units == 0 {
+			continue;
+		}
+		let Some((product, _)) = UnitHolder::of_holding(&key) else { continue };
+		if nav.posted_by_since(&product, &subject, since).await? {
+			return Err(DomainError::Precondition(format!(
+				"you posted a valuation for '{product}', which the '{service}' allocation holds, within the last {days} days — dealing in it is refused until the mark ages out"
+			)));
+		}
+	}
+	Ok(())
+}
+
+/// Cancel a queued redemption (the calling user): the relay voids the burn, returning the
+/// units. Ownership is checked here; the aggregate refuses to cancel once settling.
+pub async fn cancel_redemption(redemptions: &dyn RedemptionRepository, relay: &Notify, id: RedemptionId, user: UserId) -> Result<Redemption, DomainError> {
+	let existing = redemptions.find_by_id(id).await?.ok_or_else(|| DomainError::NotFound {
+		entity: "redemption",
+		id: id.to_string(),
+	})?;
+	if existing.user() != user {
+		return Err(DomainError::Forbidden("not your redemption".into()));
+	}
+	let redemption = redemptions.cancel(id).await?;
+	relay.notify_one();
+	Ok(redemption)
+}
+
+/// Fail a queued redemption (operator): the relay voids the burn, returning the units.
+pub async fn fail_redemption(redemptions: &dyn RedemptionRepository, relay: &Notify, id: RedemptionId) -> Result<Redemption, DomainError> {
+	let redemption = redemptions.fail(id).await?;
+	relay.notify_one();
+	Ok(redemption)
+}
+
+/// A user's redemptions (projection), newest first.
+pub async fn list_redemptions(redemptions: &dyn RedemptionRepository, user: UserId) -> Result<Vec<RedemptionRecord>, DomainError> {
+	redemptions.list_by_user(user).await
 }
 
 /// The caller's position in one fund: live units × current NAV, with the cost basis for

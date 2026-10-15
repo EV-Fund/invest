@@ -1,8 +1,7 @@
 //! Postgres adapter for the [`FundPositionReader`] port — reads the `fund_positions`
 //! projection (cost basis + high-water mark) the relay maintains, and the holder's unit
-//! flows merged from the records of every channel that moves units. The subscription,
-//! redemption, fee and book tables are empty until those flows arrive (PR 1b); the merge
-//! reads them already so the history needs no second shape then.
+//! flows merged from the records of every channel that moves units — subscriptions,
+//! redemptions, fee charges, in-kind issuances and book fills.
 
 use async_trait::async_trait;
 use invest_domain::{
@@ -17,16 +16,17 @@ use crate::ports::positions::{FundPosition, FundPositionReader, UnitFlow};
 
 /// A holder's unit moves in one fund, merged in the database like the operation feed
 /// is. Each branch is the control-plane record the write side already keeps, stamped at
-/// the moment the units actually moved: a subscription at request (its mint is the very
-/// next relay tick), a redemption at settlement (`updated_at` once `completed` — the
-/// reserve at request leaves the units owned), a fee at assessment, an issuance when the
+/// the moment the units actually moved: a subscription once settled (`updated_at` once
+/// `settled` — a hold banking refused or a capture rolled back moved no units), a
+/// redemption once completed (`updated_at` once `completed` — the reserve at request leaves
+/// the units owned), a fee at assessment, an issuance when the
 /// relay applied it, a book fill at execution — the buyer gains `size`, the seller loses
 /// it. `delta` is signed TEXT: the tables store unsigned base units as TEXT (never a
 /// number SQL reasons about), and the sign is the one thing added here. Seconds are
 /// floored like the marks' (`nav.rs`), so a flow and a mark in the same second agree.
 const UNIT_FLOWS_SQL: &str = "SELECT FLOOR(EXTRACT(EPOCH FROM ts))::bigint AS at_unix, delta FROM (
-    SELECT created_at AS ts, units AS delta
-      FROM subscriptions WHERE user_id = $1 AND service = $2
+    SELECT updated_at AS ts, units AS delta
+      FROM subscriptions WHERE user_id = $1 AND service = $2 AND state = 'settled'
     UNION ALL
     SELECT updated_at, '-' || units
       FROM redemptions WHERE user_id = $1 AND service = $2 AND state = 'completed'

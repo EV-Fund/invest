@@ -9,7 +9,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use evconcierge_auth::claims_of;
-use invest_domain::{authz::Permission, error::DomainError, users::UserId};
+use invest_domain::{authz::Permission, error::DomainError, redemptions::RedemptionId, users::UserId};
 use tonic::{Request, Status};
 use uuid::Uuid;
 
@@ -57,6 +57,22 @@ pub(super) async fn holds_permission<T>(state: &AppState, request: &Request<T>, 
 		return Err(Status::permission_denied("account is suspended"));
 	}
 	Ok(standing.may(permission))
+}
+
+/// The caller, when they may deal now: known to the projection and not suspended. Asked
+/// before a money RPC writes anything — the relay would refuse a suspended holder's mint
+/// anyway, but only after banking had held their cash for it.
+pub(super) async fn active_caller<T>(state: &AppState, request: &Request<T>) -> Result<UserId, Status> {
+	let caller = caller_id(request)?;
+	match state.users.standing(caller).await.map_err(|_| Status::unavailable("internal error"))? {
+		Some(standing) if standing.active => Ok(caller),
+		Some(_) => Err(Status::permission_denied("account is suspended")),
+		None => Err(Status::failed_precondition("your account is not known to invest yet — try again shortly")),
+	}
+}
+
+pub(super) fn parse_redemption_id(raw: &str) -> Result<RedemptionId, Status> {
+	Uuid::parse_str(raw).map(RedemptionId::from_raw).map_err(|_| Status::invalid_argument("invalid redemption id"))
 }
 
 /// A user an operator's request names — a concierge user id. A malformed one is

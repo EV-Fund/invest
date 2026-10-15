@@ -1,7 +1,8 @@
 //! `funds` context — a holder's units at the fund's price, and the price itself.
 //!
-//! Position and NAV reads act on the caller's own `sub`; posting a valuation is gated on
-//! `invest:valuation:post`. Subscribe and redeem arrive with the money sagas (PR 1b).
+//! Subscribe, redeem, position and NAV reads act on the caller's own `sub`; posting a
+//! valuation is gated on `invest:valuation:post`, and the redemption queue — settle, fail,
+//! list — on `invest:allocation:manage`.
 //!
 //! `Result<_, Status>` is tonic's mandated handler signature; `Status` is a large
 //! type we don't control, so the large-err lint does not apply in this module.
@@ -9,13 +10,19 @@
 
 use evconcierge_auth::claims_of;
 use invest_contracts::invest::v1::{self as pb, funds_service_server::FundsService};
-use invest_domain::{authz::Permission, balance::ServiceId, money::Usdt};
+use invest_domain::{
+	authz::Permission,
+	balance::ServiceId,
+	money::{Shares, Usdt},
+	redemptions::Redemption,
+};
 use tonic::{Request, Response, Status};
 
 use crate::{
 	AppState,
 	application::funds as funds_app,
-	services::support::{caller_id, holds_permission, map_err, require_permission, unix_now},
+	ports::{RedemptionRecord, SubscriptionRecord},
+	services::support::{active_caller, caller_id, holds_permission, map_err, parse_redemption_id, require_permission, unix_now},
 };
 
 #[derive(Clone)]
@@ -31,6 +38,102 @@ impl FundsSvc {
 
 #[tonic::async_trait]
 impl FundsService for FundsSvc {
+	async fn subscribe(&self, request: Request<pb::SubscribeRequest>) -> Result<Response<pb::Subscription>, Status> {
+		let user = active_caller(&self.state, &request).await?;
+		let req = request.into_inner();
+		let service = ServiceId::parse(&req.service).map_err(map_err)?;
+		let amount = Usdt::parse_decimal(&req.amount).map_err(map_err)?;
+		let record = funds_app::subscribe(
+			&self.state.fund_ports(),
+			self.state.subscriptions.as_ref(),
+			self.state.users.as_ref(),
+			user,
+			service,
+			amount,
+			unix_now(),
+		)
+		.await
+		.map_err(map_err)?;
+		Ok(Response::new(subscription_to_proto(&record)))
+	}
+
+	async fn list_subscriptions(&self, request: Request<pb::ListSubscriptionsRequest>) -> Result<Response<pb::SubscriptionList>, Status> {
+		let user = caller_id(&request)?;
+		let records = funds_app::list_subscriptions(self.state.subscriptions.as_ref(), user).await.map_err(map_err)?;
+		Ok(Response::new(pb::SubscriptionList {
+			subscriptions: records.iter().map(subscription_to_proto).collect(),
+		}))
+	}
+
+	async fn redeem(&self, request: Request<pb::RedeemRequest>) -> Result<Response<pb::Redemption>, Status> {
+		let user = active_caller(&self.state, &request).await?;
+		let req = request.into_inner();
+		let service = ServiceId::parse(&req.service).map_err(map_err)?;
+		let units = Shares::parse_decimal(&req.units).map_err(map_err)?;
+		let redemption = funds_app::request_redemption(
+			&self.state.fund_ports(),
+			self.state.redemptions.as_ref(),
+			self.state.users.as_ref(),
+			user,
+			service,
+			units,
+			unix_now(),
+		)
+		.await
+		.map_err(map_err)?;
+		Ok(Response::new(redemption_to_proto(&redemption, None)))
+	}
+
+	async fn cancel_redemption(&self, request: Request<pb::CancelRedemptionRequest>) -> Result<Response<pb::Redemption>, Status> {
+		let user = caller_id(&request)?;
+		let id = parse_redemption_id(&request.get_ref().redemption_id)?;
+		let redemption = funds_app::cancel_redemption(self.state.redemptions.as_ref(), &self.state.relay_notify, id, user)
+			.await
+			.map_err(map_err)?;
+		Ok(Response::new(redemption_to_proto(&redemption, None)))
+	}
+
+	async fn list_redemptions(&self, request: Request<pb::ListRedemptionsRequest>) -> Result<Response<pb::RedemptionList>, Status> {
+		let user = caller_id(&request)?;
+		let records = funds_app::list_redemptions(self.state.redemptions.as_ref(), user).await.map_err(map_err)?;
+		Ok(Response::new(pb::RedemptionList {
+			redemptions: records.iter().map(redemption_record_to_proto).collect(),
+		}))
+	}
+
+	async fn settle_redemption(&self, request: Request<pb::SettleRedemptionRequest>) -> Result<Response<pb::Redemption>, Status> {
+		require_permission(&self.state, &request, Permission::AllocationManage).await?;
+		let id = parse_redemption_id(&request.get_ref().redemption_id)?;
+		let redemption = funds_app::settle_redemption(&self.state.fund_ports(), self.state.redemptions.as_ref(), id, unix_now())
+			.await
+			.map_err(map_err)?;
+		Ok(Response::new(redemption_to_proto(&redemption, None)))
+	}
+
+	async fn fail_redemption(&self, request: Request<pb::FailRedemptionRequest>) -> Result<Response<pb::Redemption>, Status> {
+		require_permission(&self.state, &request, Permission::AllocationManage).await?;
+		let id = parse_redemption_id(&request.get_ref().redemption_id)?;
+		let redemption = funds_app::fail_redemption(self.state.redemptions.as_ref(), &self.state.relay_notify, id).await.map_err(map_err)?;
+		Ok(Response::new(redemption_to_proto(&redemption, None)))
+	}
+
+	async fn list_redemption_queue(&self, request: Request<pb::ListRedemptionQueueRequest>) -> Result<Response<pb::RedemptionQueue>, Status> {
+		require_permission(&self.state, &request, Permission::AllocationManage).await?;
+		let queued = self.state.redemptions.list_queued().await.map_err(map_err)?;
+		Ok(Response::new(pb::RedemptionQueue {
+			items: queued
+				.into_iter()
+				.map(|q| pb::RedemptionQueueItem {
+					redemption_id: q.id.to_string(),
+					user_id: q.user_id.to_string(),
+					service: q.service.to_string(),
+					units: q.units.to_decimal_string(),
+					created_at: q.created_at,
+				})
+				.collect(),
+		}))
+	}
+
 	async fn get_position(&self, request: Request<pb::GetPositionRequest>) -> Result<Response<pb::Position>, Status> {
 		let user = caller_id(&request)?;
 		let service = ServiceId::parse(&request.get_ref().service).map_err(map_err)?;
@@ -107,8 +210,8 @@ impl FundsService for FundsSvc {
 	async fn post_fund_valuation(&self, request: Request<pb::PostFundValuationRequest>) -> Result<Response<pb::FundNav>, Status> {
 		require_permission(&self.state, &request, Permission::ValuationPost).await?;
 		let caller = caller_id(&request)?;
-		// The token's `sub`, as recorded — the subject a redeem cooldown compares against
-		// (PR 1b), so the two spellings agree by construction.
+		// The token's `sub`, as recorded — the subject the redeem cooldown compares against,
+		// so the two spellings agree by construction.
 		let posted_by = claims_of(&request).ok_or_else(|| Status::unauthenticated("missing claims"))?.sub.clone();
 		let req = request.into_inner();
 		let service = ServiceId::parse(&req.service).map_err(map_err)?;
@@ -131,6 +234,36 @@ impl FundsService for FundsSvc {
 		// they just wrote must not vanish behind their own (possibly `hidden`) access level.
 		let view = funds_app::fund_nav_view(&self.state.fund_ports(), service, caller, true, unix_now()).await.map_err(map_err)?;
 		Ok(Response::new(fund_nav_to_proto(&view)))
+	}
+}
+
+fn subscription_to_proto(record: &SubscriptionRecord) -> pb::Subscription {
+	let subscription = &record.subscription;
+	pb::Subscription {
+		id: subscription.id().to_string(),
+		service: subscription.service().to_string(),
+		cash: subscription.cash().to_decimal_string(),
+		nav: subscription.nav().to_decimal_string(),
+		units: subscription.units().to_decimal_string(),
+		state: subscription.state().as_str().to_owned(),
+		failure_reason: record.failure_reason.clone().unwrap_or_default(),
+		created_at: record.created_at,
+	}
+}
+
+fn redemption_record_to_proto(record: &RedemptionRecord) -> pb::Redemption {
+	redemption_to_proto(&record.redemption, record.failure_reason.as_deref())
+}
+
+fn redemption_to_proto(redemption: &Redemption, failure_reason: Option<&str>) -> pb::Redemption {
+	pb::Redemption {
+		id: redemption.id().to_string(),
+		service: redemption.service().to_string(),
+		units: redemption.units().to_decimal_string(),
+		nav: redemption.nav().map(|n| n.to_decimal_string()).unwrap_or_default(),
+		cash: redemption.cash().map(|c| c.to_decimal_string()).unwrap_or_default(),
+		state: redemption.state().as_str().to_owned(),
+		failure_reason: failure_reason.unwrap_or_default().to_owned(),
 	}
 }
 

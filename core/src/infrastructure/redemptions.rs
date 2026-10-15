@@ -1,18 +1,14 @@
 //! Postgres adapter for the [`RedemptionRepository`] port.
 //!
-//! Mirrors [`PgWithdrawals`](super::withdrawals::PgWithdrawals): row-locked commands
-//! that apply the aggregate transition and drain its events in one transaction. `open`
-//! takes a `FOR UPDATE` lock on the user's `fund_positions` row to serialize concurrent
-//! requests; `settle` re-takes that lock and reduces the position's cost basis
-//! proportionally to the redeemed fraction (average cost) for P&L — dividing by the
-//! position's own projection-tracked `units` (decremented in the same locked tx), NOT a
-//! TigerBeetle balance that lags the async burn, so concurrent settles compound
-//! deterministically. The reduction applies **exactly once** per redemption: a repeat
-//! settle of a completed redemption is a full no-op, and a settle that outruns the
-//! subscribe projection rolls back (`Conflict`) rather than skipping the reduction.
+//! Row-locked commands that apply the aggregate transition and drain its events in one
+//! transaction. `open` takes a `FOR UPDATE` lock on the user's `fund_positions` row to
+//! serialize concurrent requests. The cost-basis reduction a settle owes is NOT made here:
+//! the payout is banking's and may still be refused, so the relay makes it once the cash
+//! has left ([`reduce_cost_basis`], under the saga's marker) — a refused payout then has no
+//! basis to give back.
 
 use async_trait::async_trait;
-use domain::{
+use invest_domain::{
 	architecture::{Reader, Repository},
 	balance::ServiceId,
 	error::DomainError,
@@ -24,13 +20,13 @@ use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
 use crate::{
-	infrastructure::{fee_accrual, outbox, rails::now_unix_i64},
-	ports::{QueuedRedemption, RedemptionRepository},
+	infrastructure::{fee_accrual, outbox},
+	ports::{QueuedRedemption, RedemptionRecord, RedemptionRepository},
 };
 
-const SELECT_BY_ID: &str = "SELECT id, user_id, service, units, nav, cash, state FROM redemptions WHERE id = $1";
-const SELECT_BY_ID_FOR_UPDATE: &str = "SELECT id, user_id, service, units, nav, cash, state FROM redemptions WHERE id = $1 FOR UPDATE";
-const SELECT_BY_USER: &str = "SELECT id, user_id, service, units, nav, cash, state FROM redemptions WHERE user_id = $1 ORDER BY created_at DESC";
+const SELECT_BY_ID: &str = "SELECT id, user_id, service, units, nav, cash, state, failure_reason FROM redemptions WHERE id = $1";
+const SELECT_BY_ID_FOR_UPDATE: &str = "SELECT id, user_id, service, units, nav, cash, state, failure_reason FROM redemptions WHERE id = $1 FOR UPDATE";
+const SELECT_BY_USER: &str = "SELECT id, user_id, service, units, nav, cash, state, failure_reason FROM redemptions WHERE user_id = $1 ORDER BY created_at DESC";
 
 pub struct PgRedemptions {
 	pool: PgPool,
@@ -59,9 +55,18 @@ struct RedemptionRow {
 	nav: Option<String>,
 	cash: Option<String>,
 	state: String,
+	failure_reason: Option<String>,
 }
 
 impl RedemptionRow {
+	fn into_record(self) -> Result<RedemptionRecord, DomainError> {
+		let failure_reason = self.failure_reason.clone();
+		Ok(RedemptionRecord {
+			redemption: self.into_domain()?,
+			failure_reason,
+		})
+	}
+
 	fn into_domain(self) -> Result<Redemption, DomainError> {
 		let nav = self.nav.as_deref().map(|s| parse_units(s, "redemption nav")).transpose()?.map(Nav::from_base_units);
 		let cash = self.cash.as_deref().map(|s| parse_units(s, "redemption cash")).transpose()?.map(Usdt::from_base_units);
@@ -132,38 +137,33 @@ async fn load_for_update(conn: &mut PgConnection, id: RedemptionId) -> Result<Re
 }
 
 /// Reduce a position's average-cost basis by the redeemed fraction and decrement its
-/// tracked units — in one statement, under the row lock the caller already holds, so the
-/// ratio's denominator is the position's *own* `units` (not a relay-lagging TB balance) and
-/// back-to-back settles compound: `cost_basis ← trunc(cost_basis × (units − redeemed) /
-/// units)` then `units ← units − redeemed`. The row must already track at least the redeemed
-/// units: the projection is written by the relay *after* the subscribe mint posts, so a
-/// settle admitted off the TB balance can outrun the first projection write — silently
-/// skipping the reduction here would let the projection then land the full basis over units
-/// already burned, a permanent overstate. The `Conflict` rolls the settle back; the
-/// redemption stays queued and is settleable (operator retry) once the projection lands.
-async fn reduce_cost_basis(conn: &mut PgConnection, redemption: &Redemption) -> Result<(), DomainError> {
+/// tracked units, on the relay's transaction once the payout has gone through:
+/// `cost_basis ← trunc(cost_basis × (units − redeemed) / units)` then `units ← units −
+/// redeemed`. The denominator is the position's *own* `units` (not a relay-lagging TB
+/// balance), and the relay is single and ordered, so back-to-back redemptions compound
+/// deterministically and a subscription's projection always precedes the redemption of its
+/// units. The reduction clamps at zero rather than refusing, for the reason a trade's does
+/// (`relay::project_trade`): a refusal here would be a retry that wedges the relay on a
+/// projection that can never catch up, and an understated basis is the recoverable side.
+pub(crate) async fn reduce_cost_basis(conn: &mut PgConnection, user: UserId, service: &ServiceId, units: Shares, now_unix: i64) -> Result<(), DomainError> {
 	// Settle what the pre-redemption basis accrued before shrinking it. The direction is
 	// the investor's favour here rather than the manager's — a smaller basis under-bills
 	// the elapsed window — but the asymmetry is the bug either way, and the same call
 	// keeps both sides of a basis move honest. See [`super::fee_accrual`].
-	fee_accrual::carry_accrual(&mut *conn, redemption.user().raw(), redemption.service().as_str(), now_unix_i64()).await?;
-	let reduced = sqlx::query(
+	fee_accrual::carry_accrual(&mut *conn, user.raw(), service.as_str(), now_unix).await?;
+	sqlx::query(
 		"UPDATE fund_positions SET \
-		 cost_basis = trunc(cost_basis::numeric * (units::numeric - $3::numeric) / units::numeric)::text, \
-		 units = (units::numeric - $3::numeric)::text, \
+		 cost_basis = CASE WHEN units::numeric > $3::numeric THEN trunc(cost_basis::numeric * (units::numeric - $3::numeric) / units::numeric)::text ELSE '0' END, \
+		 units = GREATEST(units::numeric - $3::numeric, 0)::text, \
 		 updated_at = now() \
-		 WHERE user_id = $1 AND service = $2 AND units::numeric >= $3::numeric",
+		 WHERE user_id = $1 AND service = $2",
 	)
-	.bind(redemption.user().raw())
-	.bind(redemption.service().as_str())
-	.bind(redemption.units().base_units().to_string())
+	.bind(user.raw())
+	.bind(service.as_str())
+	.bind(units.base_units().to_string())
 	.execute(&mut *conn)
 	.await
-	.map_err(repo_err)?
-	.rows_affected();
-	if reduced != 1 {
-		return Err(DomainError::Conflict("position projection has not caught up to the subscribe — retry the settle".into()));
-	}
+	.map_err(repo_err)?;
 	Ok(())
 }
 
@@ -187,23 +187,12 @@ impl RedemptionRepository for PgRedemptions {
 	async fn settle(&self, id: RedemptionId, nav: Nav) -> Result<Redemption, DomainError> {
 		let mut tx = self.pool.begin().await.map_err(repo_err)?;
 		let mut redemption = load_for_update(&mut tx, id).await?;
-		// A repeat settle is a full no-op under the row lock: the aggregate transition is
-		// idempotent, but the proportional reduction below is not.
-		if redemption.state() == RedemptionState::Completed {
+		// A repeat settle is a full no-op under the row lock: the price is fixed by the first.
+		if matches!(redemption.state(), RedemptionState::Settling | RedemptionState::Completed) {
 			return Ok(redemption);
 		}
 		redemption.settle(nav)?;
-		// Lock this position's row so the proportional reduction (and its units decrement)
-		// serializes against concurrent settles on the same (user, service) — they compound
-		// rather than each dividing by the same pre-settle units.
-		sqlx::query("SELECT 1 FROM fund_positions WHERE user_id = $1 AND service = $2 FOR UPDATE")
-			.bind(redemption.user().raw())
-			.bind(redemption.service().as_str())
-			.fetch_optional(&mut *tx)
-			.await
-			.map_err(repo_err)?;
 		update_row(&mut tx, &redemption).await?;
-		reduce_cost_basis(&mut tx, &redemption).await?;
 		outbox::drain_to_outbox(&mut tx, &mut redemption, true).await?;
 		tx.commit().await.map_err(repo_err)?;
 		Ok(redemption)
@@ -238,20 +227,19 @@ impl RedemptionRepository for PgRedemptions {
 		row.map(RedemptionRow::into_domain).transpose()
 	}
 
-	async fn list_by_user(&self, user: UserId) -> Result<Vec<Redemption>, DomainError> {
+	async fn list_by_user(&self, user: UserId) -> Result<Vec<RedemptionRecord>, DomainError> {
 		let rows = sqlx::query_as::<_, RedemptionRow>(SELECT_BY_USER)
 			.bind(user.raw())
 			.fetch_all(&self.pool)
 			.await
 			.map_err(repo_err)?;
-		rows.into_iter().map(RedemptionRow::into_domain).collect()
+		rows.into_iter().map(RedemptionRow::into_record).collect()
 	}
 
 	async fn list_queued(&self) -> Result<Vec<QueuedRedemption>, DomainError> {
 		let rows = sqlx::query_as::<_, QueuedRow>(
-			"SELECT r.id, r.user_id, u.email, r.service, r.units, EXTRACT(EPOCH FROM r.created_at)::BIGINT AS created_at \
-			 FROM redemptions r LEFT JOIN users u ON u.id = r.user_id \
-			 WHERE r.state = 'queued' ORDER BY r.created_at ASC",
+			"SELECT id, user_id, service, units, EXTRACT(EPOCH FROM created_at)::BIGINT AS created_at \
+			 FROM redemptions WHERE state = 'queued' ORDER BY created_at ASC",
 		)
 		.fetch_all(&self.pool)
 		.await
@@ -261,7 +249,6 @@ impl RedemptionRepository for PgRedemptions {
 				Ok(QueuedRedemption {
 					id: RedemptionId::from_raw(r.id),
 					user_id: UserId::from_raw(r.user_id),
-					email: r.email.unwrap_or_default(),
 					service: ServiceId::parse(&r.service)?,
 					units: Shares::from_base_units(parse_units(&r.units, "redemption units")?),
 					created_at: r.created_at,
@@ -271,13 +258,11 @@ impl RedemptionRepository for PgRedemptions {
 	}
 }
 
-/// A lightweight row for the operator queue read (joins the mirrored identity email +
-/// the DB-managed `created_at`).
+/// A lightweight row for the operator queue read (with the DB-managed `created_at`).
 #[derive(sqlx::FromRow)]
 struct QueuedRow {
 	id: Uuid,
 	user_id: Uuid,
-	email: Option<String>,
 	service: String,
 	units: String,
 	created_at: i64,

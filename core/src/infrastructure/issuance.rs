@@ -24,7 +24,7 @@ use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
 use crate::{
-	infrastructure::outbox,
+	infrastructure::{fee_accrual, now_unix, outbox},
 	ports::issuance::{IssueOutcome, UnitIssuanceRecord, UnitIssuanceRepository},
 };
 
@@ -216,9 +216,12 @@ pub(crate) async fn project_holder_position(
 		return Ok(());
 	};
 	// Every writer of `cost_basis` owes the fee plane one step first: settle what the OLD
-	// basis accrued (banking's `fee_accrual::carry_accrual`), or the next assessment charges
-	// the whole elapsed window on the new basis. invest has no fees yet, so nothing has
-	// accrued; the call comes back with the fee plane (PR 1b), here and on every writer.
+	// basis accrued, or the next assessment charges the whole elapsed window on the new
+	// basis (see [`super::fee_accrual`]). Stamped with the moment the relay applies it, as
+	// every relay projection is.
+	fee_accrual::carry_accrual(&mut *tx, user.raw(), service.as_str(), now_unix())
+		.await
+		.map_err(|err| sqlx::Error::Protocol(format!("carry fee accrual before an issuance moves the basis: {err}")))?;
 	match source {
 		IssuanceSource::Mint => {
 			sqlx::query(

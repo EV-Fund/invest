@@ -1,7 +1,7 @@
 //! Allocation registry use cases — the catalog of investable products.
 //!
-//! Pure control plane: nothing here touches TigerBeetle or the relay, so no handler
-//! notifies it. The write side is gated at the service boundary
+//! Control plane: nothing here touches TigerBeetle or the relay, so no handler notifies
+//! it. The one call out is [`open`], which opens the product's cash account in banking. The write side is gated at the service boundary
 //! (`invest:allocation:manage`); the read side is open to any authenticated user,
 //! filtered to what that user may see, with the unrestricted view behind the same
 //! permission.
@@ -27,7 +27,10 @@ use invest_domain::{
 	users::UserId,
 };
 
-use crate::ports::allocations::{AllocationAccessGrant, AllocationRecord, AllocationRegistry};
+use crate::ports::{
+	allocations::{AllocationAccessGrant, AllocationRecord, AllocationRegistry},
+	money::{AccountLabel, MoneyKey, MoneyLedger, ScopeId},
+};
 
 /// The one gate every operator write runs first: a reserved allocation is the platform's
 /// own money, held by people the owners seated, and nothing about it is one administrator's
@@ -45,12 +48,13 @@ pub(crate) fn refuse_on_reserved(service: &ServiceId) -> Result<(), DomainError>
 }
 
 /// Register `service` as a new investable product, in `draft` and at the default
-/// access level (`view`: listed once opened, locked until an operator says otherwise).
-/// A slug already in the registry is a [`DomainError::Conflict`] — registration never
-/// silently overwrites a live product's title or state.
-pub async fn register(allocations: &dyn AllocationRegistry, service: ServiceId, title: &str, summary: &str, icon: AllocationIcon) -> Result<Allocation, DomainError> {
+/// access level (`view`: listed once opened, locked until an operator says otherwise),
+/// with its cash in `scope`. A slug already in the registry is a
+/// [`DomainError::Conflict`] — registration never silently overwrites a live product's
+/// title or state.
+pub async fn register(allocations: &dyn AllocationRegistry, service: ServiceId, scope: &ScopeId, title: &str, summary: &str, icon: AllocationIcon) -> Result<Allocation, DomainError> {
 	let mut allocation = Allocation::register(AllocationId::new(), service, title, summary, icon)?;
-	allocations.register(&mut allocation).await?;
+	allocations.register(&mut allocation, scope).await?;
 	Ok(allocation)
 }
 
@@ -70,8 +74,17 @@ pub async fn set_unit_cap(allocations: &dyn AllocationRegistry, service: &Servic
 }
 
 /// Open an allocation for subscriptions (idempotent).
-pub async fn open(allocations: &dyn AllocationRegistry, service: &ServiceId) -> Result<Allocation, DomainError> {
+///
+/// Its cash account `(<scope>, alloc:<slug>)` is opened in banking first: every capture,
+/// payout and fee sweep names it, and banking answers an account it never opened as not
+/// invest's — a product open before its account would take holds it can never capture.
+/// The key is derived from the account, so a repeat (or a re-open after a close) asks
+/// banking the same question and gets the same account back.
+pub async fn open(allocations: &dyn AllocationRegistry, money: &dyn MoneyLedger, service: &ServiceId) -> Result<Allocation, DomainError> {
 	refuse_on_reserved(service)?;
+	let scope = allocations.scope(service).await?;
+	let label = AccountLabel::allocation(service)?;
+	money.open_account(&scope, &label, &MoneyKey::parse(&format!("open:{label}"))?).await?;
 	allocations.open(service).await
 }
 

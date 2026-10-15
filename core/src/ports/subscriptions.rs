@@ -1,29 +1,52 @@
-//! Persistence + read port for the [`Subscription`] aggregate.
+//! Persistence + read port for the [`Subscription`] aggregate — the record of the
+//! subscription saga (`invest_domain::subscriptions`).
 //!
-//! A subscription is an immutable mint record, so the write side is a single `open`
-//! (no state transitions). `open` takes the shared per-user claim lock, writes the
-//! subscription row, and drains its `Subscribed` event — all in one transaction. The
-//! relay then posts the cash move + unit mint (Write-Last) and, only after the cash leg
-//! lands, the `fund_positions` cost-basis projection — so a parked cash leg can never
-//! strand a phantom basis.
+//! The use case writes the record (`Reserving`) BEFORE it asks banking for the hold, so a
+//! hold banking placed is always traceable to a row; then stamps the outcome — the hold's
+//! id and the `Reserved` event (whose outbox row the relay turns into the mint and the
+//! capture), or the refusal. Each method is atomic. The relay writes the terminal states
+//! itself, after the ledgers moved.
 
 use async_trait::async_trait;
-use domain::{
+use invest_domain::{
 	architecture::Repository,
 	error::DomainError,
 	subscriptions::{Subscription, SubscriptionId},
+	users::UserId,
 };
 
-use crate::ports::ledger::SpendGuard;
+use crate::ports::money::{HoldId, ScopeId};
 
 #[async_trait]
 pub trait SubscriptionRepository: Repository<Aggregate = Subscription> {
-	/// Persist a brand-new subscription, drain its `Subscribed` event, and upsert the
-	/// user's `fund_positions` cost basis / high-water mark — atomically. `guard` runs under
-	/// the user's claim lock, before anything is written.
-	async fn open(&self, subscription: &mut Subscription, guard: &dyn SpendGuard) -> Result<(), DomainError>;
+	/// Persist a brand-new subscription, `Reserving`, in `scope` — the scope its hold will
+	/// be placed in and captured from.
+	async fn open(&self, subscription: &Subscription, scope: &ScopeId) -> Result<(), DomainError>;
 
-	/// Load a subscription by id (no lock; for queries) — a caller that derives the id
-	/// from its input asks this whether its mint already exists.
-	async fn find_by_id(&self, id: SubscriptionId) -> Result<Option<Subscription>, DomainError>;
+	/// banking holds the cash: apply [`Subscription::reserved`], record `hold`, and drain
+	/// the `Reserved` event into the outbox — in one transaction.
+	async fn reserved(&self, subscription: &mut Subscription, hold: &HoldId) -> Result<(), DomainError>;
+
+	/// banking refused the hold (or could not be asked): apply [`Subscription::refuse`]
+	/// and record why.
+	async fn refused(&self, subscription: &mut Subscription, reason: &str) -> Result<(), DomainError>;
+
+	/// Load a subscription by id (no lock; for queries).
+	async fn find_by_id(&self, id: SubscriptionId) -> Result<Option<SubscriptionRecord>, DomainError>;
+
+	/// A user's subscriptions, newest first.
+	async fn list_by_user(&self, user: UserId) -> Result<Vec<SubscriptionRecord>, DomainError>;
+}
+
+/// A subscription as the store holds it: the aggregate plus what the saga recorded about
+/// it.
+#[derive(Clone, Debug)]
+pub struct SubscriptionRecord {
+	pub subscription: Subscription,
+	pub scope: ScopeId,
+	pub hold_id: Option<HoldId>,
+	/// Why it failed — banking's refusal reason, or the relay's rollback reason.
+	pub failure_reason: Option<String>,
+	/// Unix seconds.
+	pub created_at: i64,
 }
