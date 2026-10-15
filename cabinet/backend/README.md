@@ -33,6 +33,12 @@ Cookies (`__Host-` prefixed and `Secure` in production, bare in dev):
 | `invest_csrf` | no | The double-submit token, echoed in `x-ev-csrf` on every mutation. |
 | `invest_sign_in` | yes | The state of a sign-in in flight; ten minutes, cleared by the callback. |
 
+**The login and the callback must be rate-limited at the ingress** (devops
+`ingress.rateLimitPathPrefixes`: `/cabinet/api/auth/login`, `/cabinet/auth/callback`).
+The login is anonymous and writes a `cabinet.sign_ins` row; without a limit a flood fills
+the table and drains the pool (`DB_MAX_CONNECTIONS`, 3 s acquire timeout). Expired
+sign-ins are pruned when a session opens, not by the login.
+
 Every mutating route (and the book socket's handshake) also requires
 `Origin == CABINET_PUBLIC_ORIGIN`; a request without `Origin` is refused.
 

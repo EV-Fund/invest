@@ -172,9 +172,6 @@ impl Sessions {
 
 	/// A fresh state and PKCE verifier, recorded for the callback, and the authorize URL.
 	pub async fn begin(&self, authorize: SignInTarget<'_>, return_to: &str, now: i64) -> Result<Begun, Report> {
-		// The login is open to anyone, so what it leaves behind is bounded here rather than
-		// by a sweeper: at most the sign-ins of the last ten minutes stand.
-		store::prune(&self.pool, now).await?;
 		let verifier = PkceVerifier::generate()?;
 		let state = random_state()?;
 		store::insert_sign_in(&self.pool, &state_hash(&state), verifier.as_str(), return_to, now + SIGN_IN_TTL_SECS).await?;
@@ -199,8 +196,9 @@ impl Sessions {
 		}))
 	}
 
-	/// Open a session for the pair concierge just issued. Whatever is past its deadline goes
-	/// on the way.
+	/// Open a session for the pair concierge just issued. Whatever is past its deadline —
+	/// sessions and abandoned sign-ins — goes on the way: here, behind a code concierge
+	/// issued, and not in the login, which anyone can call (security review F1).
 	pub async fn open(&self, tokens: &ClientTokens, now: i64) -> Result<Opened, Report> {
 		let pruned = store::prune(&self.pool, now).await?;
 		if pruned > 0 {
