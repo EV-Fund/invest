@@ -31,7 +31,7 @@ use crate::{
 	error::ApiError,
 	now_secs,
 	routes::{
-		book::{BookQuery, required_service},
+		book::{BookQuery, MAX_DEPTH, bounded, required_service},
 		origin_allowed, require_session,
 		ws::{CLOSE_FEED_UNAVAILABLE, CLOSE_NORMAL, CLOSE_TOKEN_EXPIRED, HEARTBEAT, close, time_left},
 	},
@@ -57,7 +57,7 @@ pub async fn upgrade(State(st): State<AppState>, jar: Cookies, headers: HeaderMa
 	// Taken before the upgrade and held by the socket's task, so a refused fifth socket costs
 	// no upstream stream, and a socket that never upgrades frees its place on drop.
 	let slot = st.sessions.claim_socket(session.key).ok_or(ApiError::TooMany)?;
-	let depth = q.depth.unwrap_or(0);
+	let depth = bounded(q.depth, MAX_DEPTH);
 	Ok(ws.on_upgrade(move |socket| serve(st, socket, session, slot, service, depth)))
 }
 

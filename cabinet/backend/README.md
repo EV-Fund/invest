@@ -17,7 +17,7 @@ banking or moves to concierge and the central admin (plan §6).
 | Login | `GET /cabinet/api/auth/login?return_to=/cabinet/…` | A state and a PKCE verifier are recorded in `cabinet.sign_ins` (by the state's hash); the state goes to the browser in an HttpOnly cookie; 302 to `https://evinvest.ltd/api/auth/authorize?client_id=invest&…`. `return_to` outside `/cabinet` is a 400. Silent when the evinvest.ltd session exists. |
 | Callback | `GET /cabinet/auth/callback?code&state` | The URL's state must equal the cookie's (constant time) and its record must not be redeemed; then `ExchangeCode(code, verifier)`; a session row; the session and CSRF cookies; 303 to `return_to`. |
 | Requests | `/cabinet/api/*` | The session is read by the SHA-256 of its cookie; an access token within 30 s of expiry is rotated first (`RefreshClientToken`), one rotation per session across replicas (a lease on the row). |
-| Session | `GET /cabinet/api/auth/session` | The principal (`SessionInfo`, camelCase) or a guest — always 200 unless the answer is unknown (503). Rotates and re-reads `GetMe`. |
+| Session | `GET /cabinet/api/auth/session` | The principal (`SessionInfo`, camelCase) or a guest — always 200 unless the answer is unknown (503). Rotates the tokens when they are about to lapse; `GetMe` through the same one-minute cache as the console. |
 | Logout | `POST /cabinet/api/auth/logout` | CSRF + `Origin`; the session row deleted, the cookies cleared. concierge's confirm page ends the evinvest.ltd session. |
 
 The callback is **`/cabinet/auth/callback`, without `/api`**: that is the redirect URI

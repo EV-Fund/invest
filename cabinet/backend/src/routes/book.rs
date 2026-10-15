@@ -57,6 +57,16 @@ pub struct CandlesQuery {
 	to: Option<i64>,
 }
 
+/// invest-core's own ceilings (`core/src/services/book.rs`), applied here too so an
+/// oversized `depth` or `limit` is never forwarded at all.
+pub const MAX_DEPTH: u32 = 50;
+pub const MAX_LIST_LIMIT: u32 = 200;
+
+/// `0` (absent) stays `0`, which invest-core reads as its default.
+pub fn bounded(value: Option<u32>, max: u32) -> u32 {
+	value.unwrap_or(0).min(max)
+}
+
 /// The one allocation a per-book read names. A missing or blank service is a client error
 /// decided here — never a call to invest-core with an empty id.
 pub fn required_service(service: Option<String>) -> Result<String, ApiError> {
@@ -85,7 +95,7 @@ pub async fn get_book(State(st): State<AppState>, jar: Cookies, Query(q): Query<
 	let token = require_token(&st, &jar).await?;
 	let book = st
 		.grpc
-		.get_book(&token, &service, q.depth.unwrap_or(0))
+		.get_book(&token, &service, bounded(q.depth, MAX_DEPTH))
 		.await
 		.map_err(|s| ApiError::read(s, "book unavailable"))?;
 	Ok(Json(book.into()))
@@ -98,7 +108,7 @@ pub async fn list_trades(State(st): State<AppState>, jar: Cookies, Query(q): Que
 	let token = require_token(&st, &jar).await?;
 	let tape = st
 		.grpc
-		.list_trades(&token, &service, q.limit.unwrap_or(0))
+		.list_trades(&token, &service, bounded(q.limit, MAX_LIST_LIMIT))
 		.await
 		.map_err(|s| ApiError::read(s, "trades unavailable"))?;
 	Ok(Json(tape.into()))
@@ -202,7 +212,7 @@ pub async fn list_order_history(State(st): State<AppState>, jar: Cookies, Query(
 	let token = require_token(&st, &jar).await?;
 	let orders = st
 		.grpc
-		.list_order_history(&token, &q.service.unwrap_or_default(), q.limit.unwrap_or(0))
+		.list_order_history(&token, &q.service.unwrap_or_default(), bounded(q.limit, MAX_LIST_LIMIT))
 		.await
 		.map_err(|s| ApiError::read(s, "order history unavailable"))?;
 	Ok(Json(orders.into()))
@@ -214,7 +224,7 @@ pub async fn list_fills(State(st): State<AppState>, jar: Cookies, Query(q): Quer
 	let token = require_token(&st, &jar).await?;
 	let fills = st
 		.grpc
-		.list_user_trades(&token, &q.service.unwrap_or_default(), q.limit.unwrap_or(0))
+		.list_user_trades(&token, &q.service.unwrap_or_default(), bounded(q.limit, MAX_LIST_LIMIT))
 		.await
 		.map_err(|s| ApiError::read(s, "fills unavailable"))?;
 	Ok(Json(fills.into()))
@@ -1083,6 +1093,25 @@ mod book_route_tests {
 		let seen = seen.lock().unwrap();
 		let watched = seen.watch.as_ref().expect("invest-core saw the subscription, with the session's token");
 		assert_eq!((watched.service.as_str(), watched.depth), (SERVICE, 10));
+	}
+
+	/// An oversized page is cut to invest-core's own ceiling here, not forwarded.
+	#[tokio::test]
+	async fn depth_and_limits_are_clamped_before_invest_core() {
+		let hub = Hub::new();
+		let seen = hub.seen.clone();
+		let Some(f) = fixture(hub, INVESTOR).await else { return };
+		for uri in [
+			"/cabinet/api/book?service=quy-nhon&depth=5000",
+			"/cabinet/api/book/trades?service=quy-nhon&limit=100000",
+			"/cabinet/api/book/fills?limit=4000000000",
+		] {
+			assert_eq!(send(&f, signed(&f, "GET", uri, None, false)).await.0, StatusCode::OK, "{uri}");
+		}
+		let seen = seen.lock().unwrap();
+		assert_eq!(seen.book.as_ref().map(|r| r.depth), Some(MAX_DEPTH));
+		assert_eq!(seen.trades.as_ref().map(|r| r.limit), Some(MAX_LIST_LIMIT));
+		assert_eq!(seen.user_trades.as_ref().map(|r| r.limit), Some(MAX_LIST_LIMIT));
 	}
 
 	fn live_book() -> Hub {
