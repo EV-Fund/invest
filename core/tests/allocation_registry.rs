@@ -1,35 +1,40 @@
-//! Integration tests for the allocation registry — real Postgres **and** TigerBeetle
-//! (no mocks, per the project rules). They run when `DATABASE_URL` is set and a
-//! TigerBeetle replica is reachable (e.g. `nix run .#db` + `.#tb`), and skip otherwise.
+//! Integration tests for the allocation registry and in-kind issuance — real Postgres
+//! **and** TigerBeetle (no mocks of either). They run when `DATABASE_URL` is set and a
+//! TigerBeetle replica is reachable (e.g. `nix run .#db` + `.#tb`), skip otherwise, and
+//! fail instead of skipping under `CI`. Cash is banking's and comes from the in-memory
+//! money ledger: nothing here moves any.
 //!
 //! The load-bearing behaviour here is the **gate**: before this registry existed,
 //! `subscribe` accepted any well-formed slug and a service with no valuation bootstrapped
 //! silently at the seed NAV — so a user could mint a fund by typing an unknown id. These
-//! tests pin that door shut, and pin the one door that must stay open: a `closed`
-//! allocation still redeems, so winding a product down never traps an investor.
+//! tests pin that door shut at the gate every deal runs (`require_subscribable`), and pin
+//! the one door that must stay open: a `closed` allocation still redeems
+//! (`require_redeemable`), so winding a product down never traps an investor. The deals
+//! themselves arrive with PR 1b.
+//!
+//! Moved from banking 9ffafce3 (`piggybank/core/tests/allocation_registry.rs`). The tests
+//! that drove a subscription or a redemption end to end are not here yet: they need the
+//! money sagas (PR 1b) — see the list in this crate's README.
 
 use std::sync::Arc;
 
-use domain::{
+use invest_core::{
+	application::{allocations as allocations_app, funds as funds_app, issuance as issuance_app},
+	infrastructure::{allocations::PgAllocations, issuance::PgUnitIssuances, money::fake::InMemoryMoneyLedger, nav::PgNav, positions::PgFundPositions, relay::Relay, users::PgUsers},
+	ports::{
+		AllocationRegistry, FundPositionReader, MoneyLedger, MoneyLedgerError, UnitIssuanceRepository,
+		issuance::{IssueOutcome, UnitIssuanceRecord},
+		ledger::{Ledger, LedgerTransfer},
+		money::{AccountLabel, ScopeId},
+	},
+};
+use invest_domain::{
 	allocations::{Allocation, AllocationAccess, AllocationBacking, AllocationEvent, AllocationIcon, AllocationId, AllocationState},
-	auth::AuthSubject,
-	balance::{LedgerAccountKey, ServiceId},
+	balance::{LedgerAccountKey, ServiceId, TransferCode},
 	error::DomainError,
 	issuance::{IdempotencyKey, IssuanceSource, IssuanceState, UnitHolder, UnitIssuance, UnitIssuanceId},
-	money::{Nav, Network, Shares, TxRef, Usdt},
-	users::{Email, UserId},
-};
-use piggybank_core::{
-	application::{allocations as allocations_app, balance as balance_app, funds as funds_app, issuance as issuance_app},
-	infrastructure::{
-		allocations::PgAllocations, custody::StubCustody, deposits::PgDeposits, issuance::PgUnitIssuances, nav::PgNav, positions::PgFundPositions, redemptions::PgRedemptions, relay::Relay,
-		subscriptions::PgSubscriptions, users::PgUsers,
-	},
-	ports::{
-		AllocationRegistry, FundPositionReader, UnitIssuanceRepository, UserRepository,
-		issuance::{IssueOutcome, StoredIssuance, UnitIssuanceRecord},
-		ledger::Ledger,
-	},
+	money::{Nav, Shares, Usdt},
+	users::UserId,
 };
 use sqlx::{
 	AssertSqlSafe, PgPool,
@@ -44,13 +49,11 @@ struct Harness {
 	pool: PgPool,
 	allocations: PgAllocations,
 	users: PgUsers,
-	subs: PgSubscriptions,
-	reds: PgRedemptions,
 	issuances: PgUnitIssuances,
 	positions: PgFundPositions,
 	nav: PgNav,
-	deposits: PgDeposits,
 	ledger: Arc<dyn Ledger>,
+	money: InMemoryMoneyLedger,
 	relay: Relay,
 	notify: Arc<Notify>,
 	/// Held for the test's whole life — declared last so it is released after the relay.
@@ -60,19 +63,16 @@ struct Harness {
 async fn harness() -> Option<Harness> {
 	let serial = common::outbox_serial().await;
 	let pool = common::pool().await?;
-	let ledger = common::seeded_ledger(&pool, "allocation-registry test").await?;
-
+	let ledger = common::reachable_ledger(&pool, "allocation-registry test").await?;
 	let notify = Arc::new(Notify::new());
 	Some(Harness {
 		allocations: PgAllocations::new(pool.clone()),
 		users: PgUsers::new(pool.clone()),
-		subs: PgSubscriptions::new(pool.clone()),
-		reds: PgRedemptions::new(pool.clone()),
 		issuances: PgUnitIssuances::new(pool.clone()),
 		positions: PgFundPositions::new(pool.clone()),
 		nav: PgNav::new(pool.clone()),
-		deposits: PgDeposits::new(pool.clone()),
-		relay: Relay::new(pool.clone(), ledger.clone(), Arc::new(StubCustody), notify.clone()),
+		money: InMemoryMoneyLedger::new(),
+		relay: Relay::new(pool.clone(), ledger.clone(), notify.clone()),
 		ledger,
 		notify,
 		pool,
@@ -86,6 +86,7 @@ fn fund_ports(h: &Harness) -> funds_app::FundPorts<'_> {
 	funds_app::FundPorts {
 		allocations: &h.allocations,
 		ledger: h.ledger.as_ref(),
+		money: &h.money,
 		nav: &h.nav,
 		relay: &h.notify,
 	}
@@ -118,11 +119,9 @@ async fn open_to_everyone(h: &Harness, service: &ServiceId) {
 	h.allocations.set_access(service, AllocationAccess::Invest).await.unwrap();
 }
 
-/// A real `users` row — grants reference the table, as they do in production.
+/// A real `users` row — grants and issuances reference the table, as they do in production.
 async fn provisioned_user(h: &Harness) -> UserId {
-	let subject = AuthSubject::parse(&format!("itest-{}", Uuid::new_v4())).unwrap();
-	let email = Email::parse(&format!("u{}@example.com", Uuid::new_v4().simple())).unwrap();
-	h.users.provision(subject, email, true).await.unwrap().id()
+	common::active_user(&h.users).await
 }
 
 async fn register_with_icon(h: &Harness, service: &ServiceId, icon: AllocationIcon) -> Allocation {
@@ -131,15 +130,15 @@ async fn register_with_icon(h: &Harness, service: &ServiceId, icon: AllocationIc
 	allocation
 }
 
-/// Credit `amount` to the user's unified claim so a subscribe has money to move.
-async fn fund_user(h: &Harness, user: UserId, amount: &str) {
-	let tx_ref = TxRef::parse(&format!("itest-{}", Uuid::new_v4())).unwrap();
-	balance_app::record_deposit(&h.deposits, &h.notify, tx_ref, user, Network::Bep20, usdt(amount)).await.unwrap();
-	common::drain_to_quiescence(&h.relay, &h.pool).await;
+/// The gate a subscription runs before pricing or touching cash — the part of `subscribe`
+/// this release carries.
+async fn subscribable(h: &Harness, user: UserId, service: &ServiceId) -> Result<(), DomainError> {
+	allocations_app::require_subscribable(&h.allocations, service, user).await.map(drop)
 }
 
-async fn subscribe(h: &Harness, user: UserId, service: &ServiceId, amount: &str) -> Result<(), domain::error::DomainError> {
-	funds_app::subscribe(&fund_ports(h), &h.subs, user, service.clone(), usdt(amount), now_unix()).await.map(|_| ())
+/// The gate a redemption runs first — the part of `request_redemption` this release carries.
+async fn redeemable(h: &Harness, service: &ServiceId) -> Result<(), DomainError> {
+	allocations_app::require_redeemable(&h.allocations, service).await
 }
 
 /// An operator's in-kind mint through the use case, keyed by `key`.
@@ -230,61 +229,46 @@ async fn units_of(h: &Harness, key: LedgerAccountKey) -> Shares {
 #[tokio::test]
 async fn an_unregistered_service_cannot_be_subscribed_into() {
 	let Some(h) = harness().await else { return };
-	let user = UserId::new();
+	let user = provisioned_user(&h).await;
 	let service = unique_service();
-	fund_user(&h, user, "100").await;
 
 	// The regression this whole feature exists for: a well-formed but unknown slug used
-	// to mint a fund at the seed NAV. It must now be refused outright.
-	let err = subscribe(&h, user, &service, "100").await.unwrap_err();
-	assert!(matches!(err, domain::error::DomainError::NotFound { entity: "allocation", .. }), "got {err:?}");
-
-	// And it must be refused BEFORE any money moves — no claim spent, no service claim born.
-	common::drain_to_quiescence(&h.relay, &h.pool).await;
-	let user_claim = h.ledger.balance(&LedgerAccountKey::UserClaim(user)).await.unwrap();
-	assert_eq!(Usdt::from_base_units(user_claim.available()), usdt("100"), "the user's balance is untouched");
-	let service_claim = h.ledger.balance(&LedgerAccountKey::ServiceClaim(service.clone())).await.unwrap();
-	assert_eq!(Usdt::from_base_units(service_claim.posted), Usdt::ZERO, "no phantom fund claim was created");
+	// to mint a fund at the seed NAV. The gate every subscription runs first refuses it
+	// outright — before a balance is read or a price is set.
+	let err = subscribable(&h, user, &service).await.unwrap_err();
+	assert!(matches!(err, DomainError::NotFound { entity: "allocation", .. }), "got {err:?}");
+	// And no supply was born for it.
+	assert_eq!(units_of(&h, LedgerAccountKey::SharesOutstanding(service.clone())).await, Shares::ZERO);
 }
 
 #[tokio::test]
 async fn a_draft_allocation_takes_no_money_until_opened() {
 	let Some(h) = harness().await else { return };
-	let user = UserId::new();
+	let user = provisioned_user(&h).await;
 	let service = unique_service();
-	fund_user(&h, user, "100").await;
 	register(&h, &service).await;
 
 	// Registered but still `draft` — listing and funding are separate operator decisions.
-	assert!(subscribe(&h, user, &service, "50").await.is_err(), "a draft must not accept money");
+	assert!(subscribable(&h, user, &service).await.is_err(), "a draft must not accept money");
 
 	open_to_everyone(&h, &service).await;
-	subscribe(&h, user, &service, "50").await.unwrap();
-	common::drain_to_quiescence(&h.relay, &h.pool).await;
-	let held = h.ledger.balance(&LedgerAccountKey::UserShares(service.clone(), user)).await.unwrap();
-	assert_eq!(Shares::from_base_units(held.posted), shares("50"), "units minted at the seed NAV once open");
+	subscribable(&h, user, &service).await.expect("open to everyone, so it takes money");
 }
 
 #[tokio::test]
 async fn closing_stops_new_money_but_never_traps_an_investor() {
 	let Some(h) = harness().await else { return };
-	let user = UserId::new();
+	let user = provisioned_user(&h).await;
 	let service = unique_service();
-	fund_user(&h, user, "100").await;
 	register(&h, &service).await;
 	open_to_everyone(&h, &service).await;
-	subscribe(&h, user, &service, "100").await.unwrap();
-	common::drain_to_quiescence(&h.relay, &h.pool).await;
 
 	h.allocations.close(&service).await.unwrap();
-	assert!(subscribe(&h, user, &service, "1").await.is_err(), "a closed allocation refuses new subscriptions");
+	assert!(subscribable(&h, user, &service).await.is_err(), "a closed allocation refuses new subscriptions");
 
 	// The asymmetry that matters: the investor can still get out. Refusing here would
-	// lock 100 units of real money inside a wound-down product.
-	let redemption = funds_app::request_redemption(&fund_ports(&h), &h.reds, user, service.clone(), shares("100"), now_unix())
-		.await
-		.expect("a closed allocation must still redeem");
-	assert_eq!(redemption.service(), &service);
+	// lock real money inside a wound-down product.
+	redeemable(&h, &service).await.expect("a closed allocation must still redeem");
 }
 
 #[tokio::test]
@@ -296,7 +280,7 @@ async fn registering_twice_is_a_conflict_not_a_silent_reset() {
 
 	let mut duplicate = Allocation::register(AllocationId::new(), service.clone(), "Impostor", "", AllocationIcon::Venture).unwrap();
 	let err = h.allocations.register(&mut duplicate).await.unwrap_err();
-	assert!(matches!(err, domain::error::DomainError::Conflict(_)), "got {err:?}");
+	assert!(matches!(err, DomainError::Conflict(_)), "got {err:?}");
 
 	// The live product kept its identity and, crucially, its open state.
 	let current = h.allocations.find(&service).await.unwrap().unwrap();
@@ -333,7 +317,7 @@ async fn transitions_on_an_unregistered_service_are_not_found() {
 		h.allocations.close(&service).await,
 		h.allocations.update_details(&service, "x", "", Some(AllocationIcon::default())).await,
 	] {
-		assert!(matches!(result, Err(domain::error::DomainError::NotFound { entity: "allocation", .. })));
+		assert!(matches!(result, Err(DomainError::NotFound { entity: "allocation", .. })));
 	}
 }
 
@@ -396,57 +380,6 @@ async fn registration_is_audited_but_never_reaches_the_relay() {
 }
 
 #[tokio::test]
-async fn a_subscription_past_the_unit_cap_is_refused_before_any_money_moves() {
-	let Some(h) = harness().await else { return };
-	let user = UserId::new();
-	let service = unique_service();
-	fund_user(&h, user, "200").await;
-	register(&h, &service).await;
-	open_to_everyone(&h, &service).await;
-	// Sized to a hundred units — the whole point of the cap is that "open" and "unbounded"
-	// are different things.
-	h.allocations.set_unit_cap(&service, shares("100")).await.unwrap();
-
-	// At the seed NAV of 1.0 this mints exactly the cap. Landing on it is allowed.
-	subscribe(&h, user, &service, "100").await.unwrap();
-	common::drain_to_quiescence(&h.relay, &h.pool).await;
-
-	let err = subscribe(&h, user, &service, "1").await.unwrap_err();
-	assert!(matches!(err, domain::error::DomainError::Validation(ref m) if m.contains("unit cap")), "got {err:?}");
-
-	// Refused before the ledger, like the registry gate above it: the remaining 100 USDT is
-	// still the user's, and the fund did not quietly issue a 101st unit.
-	common::drain_to_quiescence(&h.relay, &h.pool).await;
-	let claim = h.ledger.balance(&LedgerAccountKey::UserClaim(user)).await.unwrap();
-	assert_eq!(Usdt::from_base_units(claim.available()), usdt("100"), "the refused subscription spent nothing");
-	let outstanding = h.ledger.balance(&LedgerAccountKey::SharesOutstanding(service.clone())).await.unwrap();
-	assert_eq!(Shares::from_base_units(outstanding.posted), shares("100"), "supply stopped at the cap");
-}
-
-#[tokio::test]
-async fn narrowing_the_cap_below_the_issued_supply_stops_issuance_without_trapping_anyone() {
-	let Some(h) = harness().await else { return };
-	let user = UserId::new();
-	let service = unique_service();
-	fund_user(&h, user, "100").await;
-	register(&h, &service).await;
-	open_to_everyone(&h, &service).await;
-	subscribe(&h, user, &service, "100").await.unwrap();
-	common::drain_to_quiescence(&h.relay, &h.pool).await;
-
-	// An operator decides the product has run further than intended and pulls the cap in
-	// under what is already out. Legal, and it means "no more units" — not "some units are
-	// now invalid".
-	h.allocations.set_unit_cap(&service, shares("10")).await.unwrap();
-	assert!(subscribe(&h, user, &service, "1").await.is_err(), "no further issuance");
-
-	// The same asymmetry the lifecycle gate has: the holder still gets out in full.
-	funds_app::request_redemption(&fund_ports(&h), &h.reds, user, service.clone(), shares("100"), now_unix())
-		.await
-		.expect("a narrowed cap must never block a redemption");
-}
-
-#[tokio::test]
 async fn the_cap_defaults_on_registration_persists_and_is_reported_with_the_nav() {
 	let Some(h) = harness().await else { return };
 	let service = unique_service();
@@ -455,7 +388,7 @@ async fn the_cap_defaults_on_registration_persists_and_is_reported_with_the_nav(
 
 	// Registration lands on the default rather than on "unset", so the registry always has
 	// a number to show and to refuse against.
-	assert_eq!(h.allocations.find(&service).await.unwrap().unwrap().unit_cap(), domain::allocations::DEFAULT_UNIT_CAP);
+	assert_eq!(h.allocations.find(&service).await.unwrap().unwrap().unit_cap(), invest_domain::allocations::DEFAULT_UNIT_CAP);
 
 	h.allocations.set_unit_cap(&service, shares("1000")).await.unwrap();
 	assert_eq!(h.allocations.find(&service).await.unwrap().unwrap().unit_cap(), shares("1000"), "the new cap survives a reload");
@@ -466,9 +399,7 @@ async fn the_cap_defaults_on_registration_persists_and_is_reported_with_the_nav(
 	// And the read side the screens use reports the headroom, so a client never offers
 	// capacity the subscribe gate would then refuse.
 	let investor = provisioned_user(&h).await;
-	let view = funds_app::fund_nav_view(&h.allocations, &h.nav, h.ledger.as_ref(), service.clone(), investor, false, now_unix())
-		.await
-		.unwrap();
+	let view = funds_app::fund_nav_view(&fund_ports(&h), service.clone(), investor, false, now_unix()).await.unwrap();
 	assert_eq!(view.unit_cap, shares("1000"));
 	assert_eq!(view.remaining_capacity, shares("1000"), "nothing issued yet, so the whole cap is available");
 }
@@ -499,16 +430,14 @@ async fn units_issued_in_kind_land_on_the_holder_and_in_the_supply_with_no_cash_
 		shares("16250"),
 		"supply is the sum of both holders"
 	);
-	// No cash moved: the fund's claim is untouched and the investor spent nothing.
-	assert_eq!(
-		Usdt::from_base_units(h.ledger.balance(&LedgerAccountKey::ServiceClaim(service.clone())).await.unwrap().posted),
-		Usdt::ZERO
-	);
-	assert_eq!(Usdt::from_base_units(h.ledger.balance(&LedgerAccountKey::UserClaim(investor)).await.unwrap().posted), Usdt::ZERO);
+	// No cash moved: invest's ledger holds units only, and nothing asked banking for any —
+	// the product's cash account was never even opened.
+	let cash_account = AccountLabel::allocation(&service).unwrap();
+	assert!(matches!(h.money.balances(&ScopeId::invest(), &[cash_account]).await, Err(MoneyLedgerError::NotFound)));
 
 	// The relay stamped both rows applied once the mint posted — never before.
 	for record in [&to_investor, &to_company] {
-		let applied = h.issuances.find_by_id(record.issuance.id()).await.unwrap().and_then(StoredIssuance::live).unwrap();
+		let applied = h.issuances.find_by_id(record.issuance.id()).await.unwrap().unwrap();
 		assert_eq!(applied.issuance.state(), IssuanceState::Applied);
 		assert!(applied.applied_at.is_some());
 	}
@@ -540,9 +469,7 @@ async fn units_issued_in_kind_land_on_the_holder_and_in_the_supply_with_no_cash_
 	);
 	assert_eq!(fee_units(&holders), Shares::ZERO, "nothing was minted into the fee allocation");
 	// And what the investor's own screen shows.
-	let view = funds_app::fund_nav_view(&h.allocations, &h.nav, h.ledger.as_ref(), service.clone(), investor, false, now_unix())
-		.await
-		.unwrap();
+	let view = funds_app::fund_nav_view(&fund_ports(&h), service.clone(), investor, false, now_unix()).await.unwrap();
 	assert_eq!(view.units_outstanding, shares("16250"));
 }
 
@@ -598,13 +525,7 @@ async fn an_issuance_defaults_its_cost_basis_to_units_times_nav() {
 	assert_eq!(position.cost_basis, usdt("250"));
 	assert_eq!(position.high_water_mark, Nav::parse_decimal("1.25").unwrap());
 	// The owner's explicit zero basis was taken as given.
-	let seed = h
-		.issuances
-		.find_by_key(&service, &IdempotencyKey::parse("seed").unwrap())
-		.await
-		.unwrap()
-		.and_then(StoredIssuance::live)
-		.unwrap();
+	let seed = h.issuances.find_by_key(&service, &IdempotencyKey::parse("seed").unwrap()).await.unwrap().unwrap();
 	assert_eq!(seed.issuance.cost_basis(), Usdt::ZERO);
 }
 
@@ -656,26 +577,19 @@ async fn capping_at_the_issued_supply_closes_the_product_to_further_units() {
 	common::drain_to_quiescence(&h.relay, &h.pool).await;
 
 	h.allocations.set_unit_cap(&service, shares("16250")).await.unwrap();
-	let view = funds_app::fund_nav_view(&h.allocations, &h.nav, h.ledger.as_ref(), service.clone(), investor, false, now_unix())
-		.await
-		.unwrap();
+	let view = funds_app::fund_nav_view(&fund_ports(&h), service.clone(), investor, false, now_unix()).await.unwrap();
 	assert_eq!(view.remaining_capacity, Shares::ZERO, "cap == issued means nothing is left");
 
-	// Opened to everyone, and still no subscription fits.
+	// Opened to everyone, and still no further unit fits.
 	open_to_everyone(&h, &service).await;
-	let buyer = UserId::new();
-	fund_user(&h, buyer, "1").await;
-	let err = subscribe(&h, buyer, &service, "1").await.unwrap_err();
+	let err = issue(&h, &service, owner, "1", None, "one-more").await.unwrap_err();
 	assert!(matches!(err, DomainError::Validation(ref m) if m.contains("unit cap")), "got {err:?}");
-	assert!(issue(&h, &service, owner, "1", None, "one-more").await.is_err());
 
 	// The asymmetry every gate here has: the investor still gets out — once the fund
 	// holds cash for the units. The mint flipped the product to `in_kind`; the operator
 	// declares the cash is there, and the cap gate still stands aside.
 	h.allocations.set_backing(&service, AllocationBacking::Cash).await.unwrap();
-	funds_app::request_redemption(&fund_ports(&h), &h.reds, investor, service.clone(), shares("3250"), now_unix())
-		.await
-		.expect("a fully subscribed product must never block a redemption");
+	redeemable(&h, &service).await.expect("a fully subscribed product must never block a redemption");
 }
 
 #[tokio::test]
@@ -706,26 +620,23 @@ async fn an_issuance_is_logged_and_reaches_the_relay_as_its_own_kind() {
 }
 
 // The company holder, its mint and its hand-over are gone from the vocabulary (#245): the
-// schema refuses them since 0047, and the two production rows are pinned as history by
-// `tests/ownership_contract.rs`, over a database migrated to 0046 first.
+// schema refuses them (`unit_issuances_holder_kind_check`, `unit_issuances_source_check`).
 
 /// H-2 / M-2 of the #245 security review: one `AllocationManage` holder could grant
 /// themselves `invest` on `fee` or `fund` and subscribe cash into the owners' money without
 /// a quorum, or close, re-back or cap a reserved allocation and lock its holders in. Every
-/// operator write on a reserved allocation is refused, and a subscription into one is
-/// refused before the catalog is even consulted — so what 0045 wrote stays as written.
+/// operator write on a reserved allocation is refused — so what 0001 wrote stays as written.
+/// (The subscription a grant would have opened is refused by `subscribe` itself, PR 1b.)
 #[tokio::test]
 async fn a_reserved_allocation_is_not_an_operators_to_manage_or_buy_into() {
 	let Some(h) = harness().await else { return };
 	let admin = provisioned_user(&h).await;
-	fund_user(&h, admin, "1000").await;
 	for reserved in [ServiceId::fee(), ServiceId::fund()] {
-		let before = h.allocations.find(&reserved).await.unwrap().expect("0045 wrote the reserved row");
+		let before = h.allocations.find(&reserved).await.unwrap().expect("0001 wrote the reserved row");
 		let forbidden = |err: DomainError, what: &str| {
 			assert!(matches!(err, DomainError::Forbidden(ref m) if m.contains("reserved")), "{reserved} {what}: got {err:?}");
 		};
-		// Letting themselves in: the grant is refused, and so is the subscription it would
-		// have opened — with or without the grant.
+		// Letting themselves in: the grant is refused.
 		forbidden(
 			allocations_app::grant_access(&h.allocations, &reserved, admin, AllocationAccess::Invest, admin)
 				.await
@@ -733,21 +644,6 @@ async fn a_reserved_allocation_is_not_an_operators_to_manage_or_buy_into() {
 			"grant_access",
 		);
 		assert!(h.allocations.list_grants(&reserved).await.unwrap().is_empty(), "{reserved}: no grant was written");
-		forbidden(subscribe(&h, admin, &reserved, "100").await.unwrap_err(), "subscribe");
-		// Even a grant written past the use case (a hand edit of the registry) buys nothing.
-		h.allocations.grant_access(&reserved, admin, AllocationAccess::Invest, admin).await.unwrap();
-		forbidden(subscribe(&h, admin, &reserved, "100").await.unwrap_err(), "subscribe after a direct grant");
-		h.allocations.revoke_access(&reserved, admin, admin).await.unwrap();
-		assert_eq!(
-			sqlx::query_scalar::<_, i64>("SELECT count(*) FROM subscriptions WHERE user_id = $1 AND service = $2")
-				.bind(admin.raw())
-				.bind(reserved.as_str())
-				.fetch_one(&h.pool)
-				.await
-				.unwrap(),
-			0,
-			"{reserved}: nothing was opened"
-		);
 		// Locking the holders in, or out: state, access, backing, cap and presentation.
 		forbidden(allocations_app::set_access(&h.allocations, &reserved, AllocationAccess::Invest).await.unwrap_err(), "set_access");
 		forbidden(allocations_app::close(&h.allocations, &reserved).await.unwrap_err(), "close");
@@ -767,14 +663,14 @@ async fn a_reserved_allocation_is_not_an_operators_to_manage_or_buy_into() {
 		assert_eq!(
 			(after.state(), after.access(), after.backing()),
 			(AllocationState::Open, AllocationAccess::Hidden, AllocationBacking::Cash),
-			"{reserved}: as 0045 wrote it"
+			"{reserved}: as 0001 wrote it"
 		);
 	}
-	// The same admin, with the same cash, still buys into an ordinary open product.
+	// The same admin still manages an ordinary product.
 	let product = unique_service();
 	register(&h, &product).await;
 	open_to_everyone(&h, &product).await;
-	subscribe(&h, admin, &product, "100").await.expect("a product is bought as before");
+	subscribable(&h, admin, &product).await.expect("a product deals as before");
 }
 
 #[tokio::test]
@@ -822,7 +718,7 @@ async fn the_fee_allocation_holds_a_products_fee_class_and_nothing_holds_a_reser
 		.await
 		.unwrap();
 	assert_eq!((kind.as_str(), user, holder_service.as_deref()), ("allocation", None, Some("fee")));
-	let reread = h.issuances.find_by_id(record.issuance.id()).await.unwrap().and_then(StoredIssuance::live).unwrap();
+	let reread = h.issuances.find_by_id(record.issuance.id()).await.unwrap().unwrap();
 	assert_eq!(reread.issuance.holder(), &fee);
 	assert_eq!(reread.issuance.state(), IssuanceState::Applied);
 
@@ -837,7 +733,7 @@ async fn the_fee_allocation_holds_a_products_fee_class_and_nothing_holds_a_reser
 	assert!(matches!(err, DomainError::Validation(ref m) if m.contains("held by people")), "got {err:?}");
 	let err = issue(&h, &service, UnitHolder::Allocation(ServiceId::fund()), "1", None, "fund-holds").await.unwrap_err();
 	assert!(matches!(err, DomainError::Forbidden(ref m) if m.contains("fee accrual")), "got {err:?}");
-	// A person may hold the reserved allocations — migration 0045 registered them, hidden —
+	// A person may hold the reserved allocations — migration 0001 registered them, hidden —
 	// but only the owners seat them: the operator's mint is refused outright, and a
 	// product is not granted.
 	let owner = provisioned_user(&h).await;
@@ -848,7 +744,7 @@ async fn the_fee_allocation_holds_a_products_fee_class_and_nothing_holds_a_reser
 	let err = grant(&h, &service, UnitHolder::User(owner), "10", Some("10"), "grant-a-product").await.unwrap_err();
 	assert!(matches!(err, DomainError::Validation(ref m) if m.contains("not a reserved allocation")), "got {err:?}");
 	for reserved in [ServiceId::fee(), ServiceId::fund()] {
-		let row = h.allocations.find(&reserved).await.unwrap().expect("0045 wrote the reserved row");
+		let row = h.allocations.find(&reserved).await.unwrap().expect("0001 wrote the reserved row");
 		assert_eq!(row.access(), AllocationAccess::Hidden);
 		assert_eq!(row.state(), AllocationState::Open);
 		grant(&h, &reserved, UnitHolder::User(owner), "10", Some("10"), "seed-holder").await.unwrap();
@@ -870,7 +766,7 @@ async fn a_valuation_cannot_be_posted_for_an_unregistered_service() {
 	let err = funds_app::post_fund_valuation(&h.allocations, &h.nav, h.ledger.as_ref(), service.clone(), usdt("100"), "op", now_unix())
 		.await
 		.unwrap_err();
-	assert!(matches!(err, domain::error::DomainError::NotFound { entity: "allocation", .. }), "got {err:?}");
+	assert!(matches!(err, DomainError::NotFound { entity: "allocation", .. }), "got {err:?}");
 }
 
 #[tokio::test]
@@ -917,18 +813,15 @@ async fn a_row_written_by_a_pod_that_predates_the_icon_column_reads_back_as_the_
 	let service = unique_service();
 
 	// Byte for byte the INSERT the CURRENTLY DEPLOYED code runs: it names its columns,
-	// and `icon` is not among them. That is the claim migration 0027's header makes about
-	// rolling deploys, and until now nothing checked it — the previous test wrote
-	// `icon = DEFAULT`, which is a literal 'fund' spelled differently, so it proved
-	// `parse("fund") == Fund` (already a unit test) and could not fail for the reason it
-	// was named after.
+	// and `icon` is not among them — the column default has to fill the gap. (banking added
+	// the column in a migration of its own; the rolling-deploy shape stays worth pinning.)
 	sqlx::query("INSERT INTO allocations (id, service, title, summary, state, unit_cap) VALUES ($1, $2, $3, $4, $5, $6)")
 		.bind(Uuid::new_v4())
 		.bind(service.as_str())
 		.bind("Legacy Fund")
 		.bind("Registered by a pod that had never heard of icons")
 		.bind("open")
-		.bind(domain::allocations::DEFAULT_UNIT_CAP.base_units().to_string())
+		.bind(invest_domain::allocations::DEFAULT_UNIT_CAP.base_units().to_string())
 		.execute(&h.pool)
 		.await
 		.expect("the old INSERT must keep working — a migration that breaks it breaks the rolling deploy");
@@ -964,7 +857,7 @@ async fn every_icon_the_domain_knows_is_accepted_by_the_column() {
 			.bind(icon.as_str())
 			.execute(&h.pool)
 			.await
-			.unwrap_or_else(|err| panic!("the column refuses {icon:?}, which the domain calls legal — migration 0027 is missing it: {err}"));
+			.unwrap_or_else(|err| panic!("the column refuses {icon:?}, which the domain calls legal — migration 0001 is missing it: {err}"));
 		assert_eq!(h.allocations.find(&service).await.unwrap().unwrap().icon(), icon, "{icon:?} did not survive the round trip");
 	}
 }
@@ -975,7 +868,7 @@ async fn the_database_refuses_an_icon_outside_the_vocabulary() {
 	let service = unique_service();
 	register(&h, &service).await;
 
-	// The CHECK in 0027 is the backstop under `AllocationIcon::parse`: a hand-written
+	// The CHECK in 0001 is the backstop under `AllocationIcon::parse`: a hand-written
 	// UPDATE cannot leave a row outside the vocabulary this build ships artwork for.
 	let err = sqlx::query("UPDATE allocations SET icon = 'rocket' WHERE service = $1")
 		.bind(service.as_str())
@@ -998,7 +891,7 @@ async fn an_icon_from_a_wider_vocabulary_reads_back_as_the_default_instead_of_fa
 	// Widening the vocabulary is an ordinary migration: ship it, let an operator pick the
 	// new value, then roll the release back — and this build is reading a string it cannot
 	// parse. Strict parsing on the read path turned that into a failing `list()` (the
-	// whole catalog) and a failing `find()`, which is the gate every subscribe and redeem
+	// whole catalog) and a failing `find()`, which is the gate every deal and issuance
 	// passes through. A presentation column must not be able to stop money.
 	//
 	// Producing such a row needs a table whose CHECK is wider than this build's enum, and
@@ -1022,14 +915,14 @@ async fn an_icon_from_a_wider_vocabulary_reads_back_as_the_default_instead_of_fa
 	.bind(service.as_str())
 	.bind("EV Hologram")
 	.bind("Registered by a build that knew one more icon")
-	.bind(domain::allocations::DEFAULT_UNIT_CAP.base_units().to_string())
+	.bind(invest_domain::allocations::DEFAULT_UNIT_CAP.base_units().to_string())
 	.execute(&h.pool)
 	.await
 	.unwrap();
 
 	// The adapter's SQL names `allocations` unqualified, so a pool whose `search_path`
 	// leads with the probe schema reads the wider table through the ordinary code path —
-	// the same `find`/`list` the money plane calls, not a re-implementation of them.
+	// the same `find`/`list` the use cases call, not a re-implementation of them.
 	let options = url.parse::<PgConnectOptions>().unwrap().options([("search_path", format!("{schema},public"))]);
 	let probe = PgPoolOptions::new().max_connections(2).connect_with(options).await.unwrap();
 	let allocations = PgAllocations::new(probe.clone());
@@ -1039,7 +932,7 @@ async fn an_icon_from_a_wider_vocabulary_reads_back_as_the_default_instead_of_fa
 	probe.close().await;
 	sqlx::query(AssertSqlSafe(format!("DROP SCHEMA {schema} CASCADE"))).execute(&h.pool).await.unwrap();
 
-	let found = found.expect("an unparseable icon must not fail the read every subscribe depends on");
+	let found = found.expect("an unparseable icon must not fail the read every deal depends on");
 	assert_eq!(
 		found.expect("the row is there").icon(),
 		AllocationIcon::Fund,
@@ -1124,13 +1017,13 @@ async fn every_access_level_the_domain_knows_is_accepted_by_the_column() {
 	let Some(h) = harness().await else { return };
 	let service = unique_service();
 	register(&h, &service).await;
-	// The CHECK in 0033 spells the same strings as the enum; a level the domain knows
+	// The CHECK in 0001 spells the same strings as the enum; a level the domain knows
 	// but the column refuses would surface as `internal` on an operator's command.
 	for level in [AllocationAccess::Hidden, AllocationAccess::View, AllocationAccess::Invest] {
 		h.allocations
 			.set_access(&service, level)
 			.await
-			.unwrap_or_else(|err| panic!("the column refuses {level:?}, which the domain calls legal — migration 0033 is missing it: {err}"));
+			.unwrap_or_else(|err| panic!("the column refuses {level:?}, which the domain calls legal — migration 0001 is missing it: {err}"));
 		assert_eq!(h.allocations.find(&service).await.unwrap().unwrap().access(), level);
 	}
 	let err = sqlx::query("UPDATE allocations SET access = 'public' WHERE service = $1")
@@ -1336,19 +1229,19 @@ async fn the_nav_of_a_hidden_product_is_not_found_for_an_investor_but_readable_b
 	// product answered with its NAV, cap and headroom to anyone holding the slug — and,
 	// worse, answered differently from an unregistered one. It now runs the same gate
 	// `GetAllocation` does.
-	let err = funds_app::fund_nav_view(&h.allocations, &h.nav, h.ledger.as_ref(), service.clone(), investor, false, now_unix())
+	let err = funds_app::fund_nav_view(&fund_ports(&h), service.clone(), investor, false, now_unix())
 		.await
 		.err()
 		.expect("a hidden product's NAV is not readable without a grant");
 	assert!(matches!(err, DomainError::NotFound { entity: "allocation", .. }), "{err:?}");
 	// `unrestricted` is the AllocationManage view — the manager reads every product's price.
-	funds_app::fund_nav_view(&h.allocations, &h.nav, h.ledger.as_ref(), service.clone(), investor, true, now_unix())
+	funds_app::fund_nav_view(&fund_ports(&h), service.clone(), investor, true, now_unix())
 		.await
 		.expect("a manager reads the NAV of a hidden product");
 
 	// A `view` grant is enough to read the price: `view` withholds only the subscribe.
 	h.allocations.grant_access(&service, investor, AllocationAccess::View, operator).await.unwrap();
-	let view = funds_app::fund_nav_view(&h.allocations, &h.nav, h.ledger.as_ref(), service.clone(), investor, false, now_unix())
+	let view = funds_app::fund_nav_view(&fund_ports(&h), service.clone(), investor, false, now_unix())
 		.await
 		.expect("a `view` grant reads the NAV without any manager privilege");
 	assert_eq!(view.service, service);
@@ -1367,15 +1260,14 @@ async fn a_row_written_by_a_pod_that_predates_the_access_column_lands_locked() {
 		.bind("Legacy Fund")
 		.bind("Registered by a pod that had never heard of access")
 		.bind("open")
-		.bind(domain::allocations::DEFAULT_UNIT_CAP.base_units().to_string())
+		.bind(invest_domain::allocations::DEFAULT_UNIT_CAP.base_units().to_string())
 		.bind("fund")
 		.execute(&h.pool)
 		.await
 		.expect("the old INSERT must keep working — a migration that breaks it breaks the rolling deploy");
 	assert_eq!(h.allocations.find(&service).await.unwrap().unwrap().access(), AllocationAccess::View);
-	let user = UserId::new();
-	fund_user(&h, user, "10").await;
-	let err = subscribe(&h, user, &service, "10").await.unwrap_err();
+	let user = provisioned_user(&h).await;
+	let err = subscribable(&h, user, &service).await.unwrap_err();
 	assert!(matches!(err, DomainError::Precondition(_)), "listed but locked: {err:?}");
 }
 
@@ -1483,11 +1375,6 @@ async fn retiring_units_on_a_closed_product_burns_them_out_of_the_holder_and_the
 		shares("12250"),
 		"supply shrank by both burns"
 	);
-	assert_eq!(
-		Usdt::from_base_units(h.ledger.balance(&LedgerAccountKey::ServiceClaim(service.clone())).await.unwrap().posted),
-		Usdt::ZERO,
-		"no cash leg"
-	);
 	let holders = issuance_app::unit_holders(&h.allocations, h.ledger.as_ref(), &h.issuances, service.clone()).await.unwrap();
 	assert_eq!(
 		(holders.units_outstanding, units_held(&holders, &owner), units_held(&holders, &UnitHolder::User(investor))),
@@ -1497,7 +1384,7 @@ async fn retiring_units_on_a_closed_product_burns_them_out_of_the_holder_and_the
 	// The relay stamped both rows applied with the source intact, and the investor's
 	// projection shed units and basis pro rata — the mark stays where the mint put it.
 	for record in [&from_investor, &from_company] {
-		let applied = h.issuances.find_by_id(record.issuance.id()).await.unwrap().and_then(StoredIssuance::live).unwrap();
+		let applied = h.issuances.find_by_id(record.issuance.id()).await.unwrap().unwrap();
 		assert_eq!(applied.issuance.state(), IssuanceState::Applied);
 		assert_eq!(applied.issuance.source(), IssuanceSource::Retire, "the source survives the round trip");
 		assert!(applied.applied_at.is_some());
@@ -1579,7 +1466,7 @@ async fn a_retirement_shares_the_issuance_key_space_and_burns_once() {
 	assert_eq!(issuance_rows(&h, &service).await, 2);
 	assert_eq!(units_of(&h, LedgerAccountKey::SharesOutstanding(service.clone())).await, shares("60"));
 
-	// The widened `source` CHECK (0039) took `retire` for the row above and still refuses
+	// The `source` CHECK took `retire` for the row above and still refuses
 	// a value nothing in the vocabulary names.
 	let err = sqlx::query("UPDATE unit_issuances SET source = 'burn' WHERE id = $1")
 		.bind(first.issuance.id().raw())
@@ -1614,14 +1501,21 @@ async fn a_retirement_is_gated_by_the_registry_the_holder_and_what_is_available(
 	let err = retire(&h, &service, UnitHolder::Allocation(ServiceId::fee()), "1", "fee-holds-nothing", false).await.unwrap_err();
 	assert!(matches!(err, DomainError::Validation(_)), "got {err:?}");
 
-	// Units a redemption has reserved are spoken for and do not count. A closed product
-	// still redeems; the fund has no cash, so the redemption queues and the relay locks
-	// the units as a pending burn — `available()` drops, `posted` does not.
-	h.allocations.set_backing(&service, AllocationBacking::Cash).await.unwrap();
-	funds_app::request_redemption(&fund_ports(&h), &h.reds, investor, service.clone(), shares("30"), now_unix())
+	// Units a redemption has reserved are spoken for and do not count. A queued redemption
+	// locks them as a pending burn — `available()` drops, `posted` does not; the burn is
+	// posted here exactly as the relay posts a redemption's reservation (PR 1b brings the
+	// redemption itself).
+	h.ledger
+		.reserve(&LedgerTransfer {
+			id: Uuid::new_v4().as_u128(),
+			debit: LedgerAccountKey::SharesOutstanding(service.clone()),
+			credit: LedgerAccountKey::UserShares(service.clone(), investor),
+			amount: shares("30").base_units(),
+			code: TransferCode::ShareBurn,
+			reference: 0,
+		})
 		.await
 		.unwrap();
-	common::drain_to_quiescence(&h.relay, &h.pool).await;
 	let holding = h.ledger.balance(&LedgerAccountKey::UserShares(service.clone(), investor)).await.unwrap();
 	assert_eq!(Shares::from_base_units(holding.posted), shares("100"), "the burn is only reserved");
 	assert_eq!(Shares::from_base_units(holding.available()), shares("70"));
@@ -1711,38 +1605,24 @@ async fn a_redemption_is_refused_on_an_in_kind_product_until_the_operator_declar
 	open_to_everyone(&h, &service).await;
 
 	// The state gate passes (open), the holder has the units, and still: the fund holds
-	// no cash for them, so the answer is a precondition pointing at the book — and it
-	// comes before any redemption is recorded or any unit reserved.
-	let err = funds_app::request_redemption(&fund_ports(&h), &h.reds, investor, service.clone(), shares("50"), now_unix())
-		.await
-		.unwrap_err();
+	// no cash for them, so the answer is a precondition pointing at the book — the gate a
+	// redemption runs before anything is recorded or any unit reserved.
+	let err = redeemable(&h, &service).await.unwrap_err();
 	assert!(
 		matches!(err, DomainError::Precondition(ref m) if m.contains("not backed by fund cash") && m.contains("book")),
 		"got {err:?}"
 	);
-	let recorded: i64 = sqlx::query_scalar("SELECT count(*) FROM redemptions WHERE service = $1")
-		.bind(service.as_str())
-		.fetch_one(&h.pool)
-		.await
-		.unwrap();
-	assert_eq!(recorded, 0, "refused before anything is written");
-	common::drain_to_quiescence(&h.relay, &h.pool).await;
 	assert_eq!(
 		Shares::from_base_units(h.ledger.balance(&LedgerAccountKey::UserShares(service.clone(), investor)).await.unwrap().available()),
 		shares("100")
 	);
 
-	// The operator declares the fund holds cash for the units; the same request passes
-	// (and queues, since the claim is still empty — the ordinary treasury path).
+	// The operator declares the fund holds cash for the units; the same gate passes.
 	h.allocations.set_backing(&service, AllocationBacking::Cash).await.unwrap();
-	funds_app::request_redemption(&fund_ports(&h), &h.reds, investor, service.clone(), shares("50"), now_unix())
-		.await
-		.expect("a cash-backed product redeems");
+	redeemable(&h, &service).await.expect("a cash-backed product redeems");
 	// And the gate is on backing alone: a closed cash-backed product still lets holders out.
 	h.allocations.close(&service).await.unwrap();
-	funds_app::request_redemption(&fund_ports(&h), &h.reds, investor, service.clone(), shares("50"), now_unix())
-		.await
-		.expect("closed never traps an investor");
+	redeemable(&h, &service).await.expect("closed never traps an investor");
 }
 
 #[tokio::test]
@@ -1758,28 +1638,22 @@ async fn a_row_written_by_a_pod_that_predates_the_backing_column_reads_as_cash()
 		.bind("Legacy Fund")
 		.bind("Registered by a pod that had never heard of backing")
 		.bind("open")
-		.bind(domain::allocations::DEFAULT_UNIT_CAP.base_units().to_string())
+		.bind(invest_domain::allocations::DEFAULT_UNIT_CAP.base_units().to_string())
 		.bind("fund")
 		.bind("invest")
 		.execute(&h.pool)
 		.await
 		.expect("the old INSERT must keep working — a migration that breaks it breaks the rolling deploy");
 	assert_eq!(h.allocations.find(&service).await.unwrap().unwrap().backing(), AllocationBacking::Cash);
-	// A subscriber into such a product can get out — the legacy path end to end.
-	let user = UserId::new();
-	fund_user(&h, user, "10").await;
-	subscribe(&h, user, &service, "10").await.unwrap();
-	common::drain_to_quiescence(&h.relay, &h.pool).await;
-	funds_app::request_redemption(&fund_ports(&h), &h.reds, user, service.clone(), shares("10"), now_unix())
-		.await
-		.expect("a cash-backed legacy row redeems");
+	// A holder of such a product can get out.
+	redeemable(&h, &service).await.expect("a cash-backed legacy row redeems");
 
 	// The CHECK spells the same strings as the enum, and refuses anything else.
 	for backing in [AllocationBacking::Cash, AllocationBacking::InKind] {
 		h.allocations
 			.set_backing(&service, backing)
 			.await
-			.unwrap_or_else(|err| panic!("the column refuses {backing:?}, which the domain calls legal — migration 0039 is missing it: {err}"));
+			.unwrap_or_else(|err| panic!("the column refuses {backing:?}, which the domain calls legal — migration 0001 is missing it: {err}"));
 	}
 	let err = sqlx::query("UPDATE allocations SET backing = 'asset' WHERE service = $1")
 		.bind(service.as_str())

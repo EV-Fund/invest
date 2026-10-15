@@ -18,21 +18,17 @@
 
 use std::sync::{Arc, LazyLock};
 
-use async_trait::async_trait;
-use domain::{
-	error::DomainError,
-	money::{Network, WalletAddress},
-	users::UserId,
-};
-use piggybank_core::{
+use invest_core::{
 	infrastructure::{
 		db,
 		ledger::{self, TbLedger},
 		relay::Relay,
 		tigerbeetle::TigerBeetle,
+		users::PgUsers,
 	},
-	ports::{deposit_addresses::DepositAddresses, ledger::Ledger},
+	ports::{ledger::Ledger, users::UserStanding},
 };
+use invest_domain::users::UserId;
 use sqlx::{AssertSqlSafe, Connection, PgConnection, PgPool, migrate::MigrateError, postgres::PgPoolOptions};
 use tokio::sync::OnceCell;
 
@@ -40,7 +36,7 @@ use tokio::sync::OnceCell;
 /// from the relay's advisory lock, restated for a process that runs several relays.
 ///
 /// Two ways in, one lock, deliberately. A test that runs
-/// [`Relay::run`](piggybank_core::infrastructure::relay::Relay::run) or takes the outbox
+/// [`Relay::run`](invest_core::infrastructure::relay::Relay::run) or takes the outbox
 /// advisory lock (`acquire_outbox_lock`) needs it because the lock is one per database, so a
 /// sibling doing the same blocks — a driver polling for "the relay applied my row" then times
 /// out while `run` is still queued behind it. A test that only calls the unfenced
@@ -49,9 +45,7 @@ use tokio::sync::OnceCell;
 /// been observed. The loser's `saga_steps` insert trips the table's second unique key
 /// (`tb_transfer_id`), which its `ON CONFLICT (event_id, leg)` does not cover; the relay files
 /// that as a transient failure and `drain()` returns early, leaving the calling test's own
-/// rows queued, so it reads a balance the relay has not landed yet (#294/#298). And a row ends
-/// up with `dispatched_at` *and* `parked_at` set, each written by a different custody fake —
-/// the mechanism behind the `relay_recovery` flakes.
+/// rows queued, so it reads a balance the relay has not landed yet (banking#294/#298).
 ///
 /// One lock for both, not one per reason: a mutex per reason serializes each class against
 /// itself and neither against the other, so a `run` test and a `drain` test in one binary
@@ -75,7 +69,7 @@ pub async fn outbox_serial() -> tokio::sync::MutexGuard<'static, ()> {
 /// Drain the outbox to quiescence. `Relay::drain` applies one pass and answers `true` when
 /// a transient failure told it to back off — `Relay::run` sleeps and comes back, so a test
 /// that took one pass for "everything landed" read the ledger before its own rows did
-/// (#294). A few passes, each after a short pause, cover a real hiccup — a ledger that is
+/// (banking#294). A few passes, each after a short pause, cover a real hiccup — a ledger that is
 /// away for tens of milliseconds, not microseconds; a backlog still standing after them is a
 /// finding, named by the outbox's own reasons instead of surfacing as a wrong balance later.
 ///
@@ -83,8 +77,8 @@ pub async fn outbox_serial() -> tokio::sync::MutexGuard<'static, ()> {
 /// skips parked rows, so the pass after a park returns `Drained` — "the outbox is empty" and
 /// "the last live row was parked" are the same `false`. Reading that as "it all landed" is
 /// exactly the silent wrong balance this helper exists to prevent, and it is reachable rather
-/// than theoretical — the settle-time liquidity pre-check parks a whole disbursement when the
-/// rail is short. So a park raised during the call is reported here, with the relay's reason.
+/// than theoretical — a ledger conflict parks a whole event. So a park raised during the call
+/// is reported here, with the relay's reason.
 ///
 /// The caller holds [`outbox_serial`]: without it a sibling's relay is draining the same
 /// table, and the early return this loop retries past is exactly what that race produces.
@@ -128,7 +122,7 @@ fn ci() -> bool {
 
 /// The one exit for "an integration service is missing". Locally that is a skip (`None`,
 /// the caller prints its own notice); in CI it is a failure — a green run that executed
-/// zero integration tests is exactly the outcome CI exists to catch (#259).
+/// zero integration tests is exactly the outcome CI exists to catch (banking#259).
 fn skip_or_fail<T>(reason: &str) -> Option<T> {
 	if ci() {
 		panic!("integration services required in CI: {reason} (or unset CI to skip locally)");
@@ -141,7 +135,7 @@ fn skip_or_fail<T>(reason: &str) -> Option<T> {
 /// (see [`skip_or_fail`]). For suites that build their own pool (`db::connect_sized`,
 /// custom options); everyone else wants [`pool`].
 ///
-/// `DATABASE_URL` names the *base* database (`…/banking_c`). Next to it live
+/// `DATABASE_URL` names the *base* database (`…/invest_test`). Next to it live
 /// `<base>_template`, migrated once and shared by every binary, and one
 /// `<base>_<binary>` per test binary, cloned from the template with `CREATE DATABASE …
 /// TEMPLATE` — a file copy, far cheaper than replaying the migrations. The clone is
@@ -316,8 +310,6 @@ fn database_name(url: &str) -> String {
 }
 
 /// Replace the database path segment of a `postgres://user:pass@host:port/db[?p]` URL.
-/// Mirrors the signer tests' helper; integration tests are separate crates, so it is
-/// copied rather than shared.
 fn swap_db(url: &str, name: &str) -> String {
 	let (base, query) = match url.split_once('?') {
 		Some((base, query)) => (base, Some(query)),
@@ -345,7 +337,7 @@ pub async fn pool() -> Option<PgPool> {
 }
 
 fn tigerbeetle_address() -> String {
-	std::env::var("TIGERBEETLE_ADDRESS").unwrap_or_else(|_| "127.0.0.1:3033".to_owned())
+	std::env::var("TIGERBEETLE_ADDRESS").unwrap_or_else(|_| "127.0.0.1:3034".to_owned())
 }
 
 /// A ledger over the configured TigerBeetle replica. Connecting is lazy on the
@@ -358,11 +350,11 @@ pub fn ledger_for(pool: &PgPool) -> Arc<dyn Ledger> {
 	Arc::new(TbLedger::new(tigerbeetle, pool.clone()))
 }
 
-/// A ledger whose singleton accounts exist, or `None` when the replica is unreachable
-/// locally (a panic under CI). `skipping` names the suite in the skip notice.
-pub async fn seeded_ledger(pool: &PgPool, skipping: &str) -> Option<Arc<dyn Ledger>> {
+/// A ledger whose replica answers, or `None` when it is unreachable locally (a panic under
+/// CI). `skipping` names the suite in the skip notice.
+pub async fn reachable_ledger(pool: &PgPool, skipping: &str) -> Option<Arc<dyn Ledger>> {
 	let ledger = ledger_for(pool);
-	if let Err(err) = ledger::seed_singletons(ledger.as_ref()).await {
+	if let Err(err) = ledger::probe(ledger.as_ref()).await {
 		let address = tigerbeetle_address();
 		eprintln!("TigerBeetle unreachable at {address} ({err}) — skipping {skipping}");
 		return skip_or_fail(&format!("TigerBeetle unreachable at {address} ({err}) — run `nix run .#tb`"));
@@ -370,34 +362,13 @@ pub async fn seeded_ledger(pool: &PgPool, skipping: &str) -> Option<Arc<dyn Ledg
 	Some(ledger)
 }
 
-/// Mirror a concierge KYC tier onto a local user row.
-///
-/// Banking deliberately has no aggregate transition for `kyc_level` — the identity plane
-/// owns the value and the lifecycle bridge is its only writer — so a test that needs a
-/// verified investor sets the column exactly the way the bridge does. `provision` leaves
-/// a fresh user at the schema default (tier 0, unverified), which is what the money gates
-/// refuse.
-/// No deposit rails at all: no user owns any address, so nothing ever attributes a
-/// transfer to a person. For the suites whose consilium ports need an address gateway
-/// but never open a seed — the seed suite fakes its own, with one owned address.
-pub struct NoAddresses;
-
-impl domain::architecture::Gateway for NoAddresses {}
-
-#[async_trait]
-impl DepositAddresses for NoAddresses {
-	async fn address(&self, _user: UserId, _network: Network) -> Result<Option<WalletAddress>, DomainError> {
-		Ok(None)
-	}
-}
-
-pub async fn set_kyc_level(pool: &PgPool, user: UserId, level: i32) {
-	let affected = sqlx::query("UPDATE users SET kyc_level = $2 WHERE id = $1")
-		.bind(user.raw())
-		.bind(level)
-		.execute(pool)
+/// A person concierge told invest about, active, with no permissions — the holder every
+/// issuance names. A fresh id per call, so suites sharing a database never collide.
+pub async fn active_user(users: &PgUsers) -> UserId {
+	let user = UserId::new();
+	users
+		.record(user, &UserStanding { active: true, permissions: None }, Some(&format!("itest-{user}")))
 		.await
-		.expect("mirror the KYC tier")
-		.rows_affected();
-	assert_eq!(affected, 1, "no user row to mirror the KYC tier onto");
+		.expect("record a user in the projection");
+	user
 }
