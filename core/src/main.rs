@@ -36,6 +36,11 @@ use invest_domain::book::PriceTimeEngine;
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 
+/// The identity plane's issuer — the only one whose tokens invest-core accepts.
+const CONCIERGE_ISSUER: &str = "https://auth.concierge.ev";
+/// invest's relying-party client in concierge — the only audience accepted.
+const INVEST_AUDIENCE: &str = "invest";
+
 // Sentry must be initialised before the async runtime starts — no #[tokio::main].
 fn main() -> color_eyre::Result<()> {
 	color_eyre::install()?;
@@ -92,12 +97,18 @@ async fn run(config: config::AppConfig) -> color_eyre::Result<()> {
 		jwks_grpc_endpoint: config.auth_jwks_grpc_endpoint.clone(),
 	};
 	// concierge's own `assert_plane` would refuse an `invest` audience (it insists on the
-	// word "concierge"); what it guards — a verifier pointed at banking's issuer — is asked
-	// here directly.
+	// word "concierge"); what it guards — a verifier pointed at another plane's issuer, or
+	// accepting tokens minted for another relying party — is asked here directly, and
+	// exactly: a substring would admit any issuer that merely mentions concierge.
 	ensure!(
-		verifier_config.issuer.contains("concierge"),
-		"AUTH_ISSUER {} is not the concierge plane's — invest-core accepts concierge's tokens only",
+		verifier_config.issuer == CONCIERGE_ISSUER,
+		"AUTH_ISSUER {} is not the concierge plane's ({CONCIERGE_ISSUER}) — invest-core accepts concierge's tokens only",
 		verifier_config.issuer
+	);
+	ensure!(
+		verifier_config.audiences == [INVEST_AUDIENCE],
+		"AUTH_AUDIENCE {:?} is not invest's ({INVEST_AUDIENCE}) — invest-core accepts tokens minted for invest only",
+		verifier_config.audiences
 	);
 	let verifier = Verifier::try_new(verifier_config).map_err(|err| eyre!("invalid concierge JWKS endpoint: {err}"))?;
 
