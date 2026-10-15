@@ -9,13 +9,12 @@ import type { ReactNode } from "react";
 import { AppShell, BottomTabBar, Button, type NavGroup, type NavItem, ShellNav } from "@evinvest/uikit";
 
 import { prefetchRoute } from "@/application/prefetch";
-import { SystemBanner } from "@/application/layout/system-banner";
 import { allocationsResource } from "@/entities/fund/model/fund-resource";
 import { useSignInDialog } from "@/features/auth";
+import { meets, requirementOf } from "@/shared/config/route-permissions";
 import { SUPPORT_EMAIL } from "@/shared/config/support";
 import { useCabinetPathname } from "@/shared/lib/cabinet-route";
 import { useResource } from "@/shared/lib/resource";
-import { visibleFor } from "@/shared/lib/roles";
 import { useSession } from "@/shared/lib/use-session";
 import { Link } from "@/shared/ui/cabinet-link";
 import { productGlyph } from "@/shared/ui/icons/products";
@@ -28,14 +27,14 @@ const invest = (t: Translate): NavItem => ({ id: "invest", href: "/invest", labe
 const wallet = (t: Translate): NavItem => ({ id: "wallet", href: "/wallet", label: t("nav.wallet", "Wallet"), icon: Wallet });
 const account = (t: Translate): NavItem => ({ id: "account", href: "/account", label: t("nav.account", "Account"), icon: UserRound });
 
-// The allocation console (D11). Fees is narrower than the group: the BFF admits only the
-// admin and owner roles to `/api/admin/fees/*`, so an operator would land on a screen of
-// 403s (banking#269).
-const ADMIN: readonly { item: (t: Translate) => NavItem; roles?: readonly string[] }[] = [
-  { item: (t) => ({ id: "admin-allocations", href: "/admin/allocations", label: t("nav.allocations", "Allocations"), icon: Boxes }) },
-  { item: (t) => ({ id: "admin-valuation", href: "/admin/valuation", label: t("nav.valuation", "Valuation & redemptions"), icon: Receipt }) },
-  { item: (t) => ({ id: "admin-fees", href: "/admin/fees", label: t("nav.fees", "Fees"), icon: Percent }), roles: ["admin", "owner"] },
-  { item: (t) => ({ id: "admin-revenue", href: "/admin/revenue", label: t("nav.revenue", "Revenue stats"), icon: PiggyBank }) },
+// The allocation console (D11). Each row is shown to the seats its screen admits
+// (`shared/config/route-permissions.ts`): an `invest:valuation:post` seat alone sees only
+// Valuation, since every other console route needs `invest:allocation:manage`.
+const ADMIN: readonly ((t: Translate) => NavItem)[] = [
+  (t) => ({ id: "admin-allocations", href: "/admin/allocations", label: t("nav.allocations", "Allocations"), icon: Boxes }),
+  (t) => ({ id: "admin-valuation", href: "/admin/valuation", label: t("nav.valuation", "Valuation & redemptions"), icon: Receipt }),
+  (t) => ({ id: "admin-fees", href: "/admin/fees", label: t("nav.fees", "Fees"), icon: Percent }),
+  (t) => ({ id: "admin-revenue", href: "/admin/revenue", label: t("nav.revenue", "Revenue stats"), icon: PiggyBank }),
 ];
 
 /**
@@ -49,13 +48,12 @@ export function AppFrame({ children }: { children: ReactNode }) {
   const dialog = useSignInDialog();
   const guest = session !== null && !session.authenticated;
   const isAdmin = session?.user?.isAdmin ?? false;
-  const role = session?.user?.role;
   // The open allocation registry, not a fixed list: a fund appears in the rail because an
   // operator registered and opened it. A failed read leaves the group out rather than
   // blocking the rail — the nav is not the place to surface an API error.
   const products = useResource(allocationsResource).data?.allocations ?? [];
 
-  const admin = ADMIN.filter((entry) => visibleFor(entry.roles, role)).map((entry) => entry.item(t));
+  const admin = ADMIN.map((item) => item(t)).filter((item) => session !== null && meets(requirementOf(item.href), session));
   const groups: NavGroup[] = [
     { id: "account", label: t("nav.group.fund", "Your account"), items: [portfolio(t), invest(t), wallet(t)] },
     ...(products.length > 0
@@ -85,7 +83,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
     portfolio(t),
     { ...invest(t), match: "prefix" },
     wallet(t),
-    ...(isAdmin ? [{ id: "admin", href: "/admin/allocations", label: t("nav.admin", "Admin"), icon: Shield, also: ["/admin"] }] : []),
+    ...(isAdmin && admin[0] ? [{ id: "admin", href: admin[0].href, label: t("nav.admin", "Admin"), icon: Shield, also: ["/admin"] }] : []),
     account(t),
   ];
   const warm = (item: NavItem) => {
@@ -115,7 +113,6 @@ export function AppFrame({ children }: { children: ReactNode }) {
         />
       }
       tabBar={<BottomTabBar items={tabs} pathname={pathname} linkComponent={Link} onItemIntent={warm} labels={{ nav: t("nav.a11y.primary", "Primary") }} />}
-      banner={<SystemBanner />}
     >
       {children}
     </AppShell>

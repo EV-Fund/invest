@@ -1,28 +1,33 @@
 // What each cabinet section needs the caller's session to hold — the one table the route
-// gate reads. Cosmetic: the BFF is the boundary, this only keeps a page from firing
-// requests that could only answer 401 or 403.
+// gate and the console's nav read. Cosmetic: the BFF is the boundary, this only keeps a
+// page from firing requests that could only answer 401 or 403.
 
 import type { SessionInfo } from "@/shared/contracts/admin";
 
 /**
- * The investor's own surfaces. `bank:self:invest` became `invest:self:invest` when the
- * allocations moved out of banking (ORG-RESTRUCTURE-PLAN §2).
+ * The permissions invest-core gates on (`invest_domain::authz`), as concierge resolves a
+ * seat into `SessionInfo.permissions`. The investor's own surfaces need none: invest-core
+ * admits any signed-in person it knows and decides per product from their access level.
  */
-export const INVEST_SELF = "invest:self:invest";
+export const PERMISSION = {
+  /** Register, open, size and admit to a product; issue units; fees; the redemption queue; revenue. */
+  allocationManage: "invest:allocation:manage",
+  /** Post a product's AUM, from which its NAV is derived. */
+  valuationPost: "invest:valuation:post",
+} as const;
 
-/**
- * A section's requirement: a permission the session lists, the allocation console, or
- * nothing at all.
- *
- * The console has no single permission: an admin or operator of ANY scope that owns an
- * allocation manages it here (§2, D11), so which seats qualify is the BFF's to derive.
- * It reports the answer as `user.isAdmin`.
- */
-export type Requirement = { kind: "permission"; permission: string } | { kind: "console" } | null;
+/** A section's requirement: a session, one of a set of permissions, or nothing at all. */
+export type Requirement = { kind: "signedIn" } | { kind: "anyOf"; permissions: readonly string[] } | null;
 
+const SIGNED_IN: Requirement = { kind: "signedIn" };
+
+// First match wins, so a narrower prefix precedes the section it sits in. The valuation
+// screen is the one an `invest:valuation:post` seat alone can use: posting a mark is its
+// act, while the redemption queue beside it is `invest:allocation:manage`'s.
 const SECTIONS: readonly (readonly [prefix: `/${string}`, requirement: Exclude<Requirement, null>])[] = [
-  ["/admin", { kind: "console" }],
-  ["/invest", { kind: "permission", permission: INVEST_SELF }],
+  ["/admin/valuation", { kind: "anyOf", permissions: [PERMISSION.allocationManage, PERMISSION.valuationPost] }],
+  ["/admin", { kind: "anyOf", permissions: [PERMISSION.allocationManage] }],
+  ["/invest", SIGNED_IN],
 ];
 
 /**
@@ -31,7 +36,7 @@ const SECTIONS: readonly (readonly [prefix: `/${string}`, requirement: Exclude<R
  * themselves.
  */
 export function requirementOf(path: string): Requirement {
-  if (path === "/") return { kind: "permission", permission: INVEST_SELF };
+  if (path === "/") return SIGNED_IN;
   const match = SECTIONS.find(([prefix]) => path === prefix || path.startsWith(`${prefix}/`));
   return match ? match[1] : null;
 }
@@ -39,6 +44,7 @@ export function requirementOf(path: string): Requirement {
 /** Whether `session` meets `requirement`. */
 export function meets(requirement: Requirement, session: SessionInfo): boolean {
   if (requirement === null) return true;
-  if (requirement.kind === "console") return session.user?.isAdmin ?? false;
-  return session.permissions.includes(requirement.permission);
+  if (!session.authenticated) return false;
+  if (requirement.kind === "signedIn") return true;
+  return requirement.permissions.some((permission) => session.permissions.includes(permission));
 }
