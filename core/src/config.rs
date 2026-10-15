@@ -15,9 +15,10 @@ ev::settings! {
 		/// The gRPC listener. Loopback by default: an internal seam reached by the invest
 		/// BFF; production binds wider behind the cluster's network policy.
 		grpc_addr: SocketAddr = "127.0.0.1:50071",
-		/// `None` ⇒ error monitoring is a silent no-op — right for local and CI; in
-		/// production an unreported error is the one nobody can afford, so the boot fails.
-		#[required_in("production")]
+		/// `None` ⇒ error monitoring is a silent no-op (`ev::error_monitoring::init` returns
+		/// no guard). Optional even in production: invest's own Sentry project is not created
+		/// yet (EV-Fund/invest#18), so the DSN is added to the deploy env later and then just
+		/// starts working.
 		sentry_dsn: Option<String>,
 		app_env: String,
 		/// invest's own TigerBeetle cluster (e.g. `"127.0.0.1:3034"`), never banking's.

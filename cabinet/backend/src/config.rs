@@ -37,9 +37,10 @@ ev::settings! {
 		/// (`__Host-` + `Secure` need HTTPS, which dev lacks). See [`Self::cookie_secure`].
 		auth_cookie_secure: Option<bool>,
 		app_env: String,
-		/// Unset ⇒ error monitoring is a silent no-op. Right locally; in production the BFF's
-		/// errors would reach nobody, so there the boot fails instead.
-		#[required_in("production")]
+		/// Unset ⇒ error monitoring is a silent no-op (`ev::error_monitoring::init` returns
+		/// no guard). Optional even in production: invest's own Sentry project is not created
+		/// yet (EV-Fund/invest#18), so the DSN is added to the deploy env later and then just
+		/// starts working.
 		sentry_dsn: Option<String>,
 	}
 }
@@ -126,16 +127,13 @@ mod tests {
 		);
 	}
 
-	/// What a production deploy must provide beyond development. The gitops preflight diffs
-	/// the cluster Secret against `--print-required-vars`, so a change here is a change to
-	/// the deploy contract.
+	/// The gitops preflight diffs the cluster Secret against `--print-required-vars`, so
+	/// listing `SENTRY_DSN` there would block deploys until invest's Sentry project exists.
 	#[test]
-	fn production_additionally_requires_error_monitoring() {
-		let extra: Vec<String> = AppConfig::required_var_names("production")
-			.into_iter()
-			.filter(|var| !AppConfig::required_var_names("development").contains(var))
-			.collect();
-		assert_eq!(extra, vec!["SENTRY_DSN"]);
+	fn error_monitoring_is_optional_in_production() {
+		assert!(!AppConfig::required_var_names("production").contains(&"SENTRY_DSN".to_string()));
+		let config = load(&[("APP_ENV", "production")]);
+		assert_eq!(config.sentry_dsn, None);
 	}
 
 	fn load(pairs: &[(&str, &str)]) -> AppConfig {
@@ -153,14 +151,7 @@ mod tests {
 	fn cookie_hardening_follows_the_public_origin() {
 		assert!(load(&[("CABINET_PUBLIC_ORIGIN", "https://invest.evinvest.ltd")]).cookie_secure());
 		assert!(!load(&[("CABINET_PUBLIC_ORIGIN", "http://localhost:3000")]).cookie_secure());
-		assert!(
-			!load(&[
-				("CABINET_PUBLIC_ORIGIN", "http://localhost:3000"),
-				("APP_ENV", "production"),
-				("SENTRY_DSN", "https://k@s.invalid/1")
-			])
-			.cookie_secure()
-		);
+		assert!(!load(&[("CABINET_PUBLIC_ORIGIN", "http://localhost:3000"), ("APP_ENV", "production")]).cookie_secure());
 	}
 
 	#[test]
