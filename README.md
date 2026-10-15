@@ -97,6 +97,23 @@ invest-core pulls at a time, under a session advisory lock.
 A suspended person holds no permission and is minted nothing; banking refuses their cash.
 Not kept yet: other scopes' grants (`sa:*`), scope state, the token revoke floor.
 
+At boot invest-core also publishes its permission catalog to concierge
+(`AuthService.PublishCatalog`, same credential), retrying with backoff while concierge is
+unreachable: concierge resolves `invest:*` grants only against it.
+
+| Catalog entry | What |
+| ------------- | ---- |
+| `invest:allocation:manage` | open, close, size and admit to a product; mint and retire units; settle redemptions; fee terms |
+| `invest:valuation:post` | post a product's AUM |
+| alias `invest:admin` | both; the scope's admin seat, granted only by the owners' `concierge:scope_admin_grant`; may grant `invest:operator` |
+| alias `invest:operator` | `invest:valuation:post` |
+
+There is no "may use invest" permission: concierge grants a member nothing by default, so
+an investor is admitted by the projection (known, active), not by a permission. The
+version is `CATALOG_VERSION` (`core/src/ports/catalog.rs`) — bump it with every change.
+The scope catalog (approval kinds, notification topics) is published once invest opens a
+proposal or emits a notice; it does neither yet.
+
 ## Money flows
 
 Every flow with a cash leg is a saga the relay carries across the two ledgers — the units

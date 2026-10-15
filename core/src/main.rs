@@ -1,6 +1,7 @@
 //! invest-core's composition root: read the config, dial Postgres, TigerBeetle, banking and
 //! concierge, apply the migrations, and run the gRPC server, the outbox relay, the fee
-//! sweeper and the users projection as branches of one structured `join!` until a signal.
+//! sweeper, the users projection and the catalog publication as branches of one structured
+//! `join!` until a signal.
 
 use std::{future::Future, sync::Arc};
 
@@ -15,7 +16,10 @@ use invest_core::{
 	infrastructure::{
 		allocations::PgAllocations,
 		book::PgBook,
-		concierge::{self, ConciergeProjection},
+		concierge::{
+			self, ConciergeProjection,
+			catalog::{ClientCatalogPublisher, publish_at_boot},
+		},
 		db,
 		fee_policy_changes::PgFeePolicyChanges,
 		fee_sweeper::FeeSweeper,
@@ -31,10 +35,14 @@ use invest_core::{
 		tigerbeetle::TigerBeetle,
 		users::PgUsers,
 	},
-	ports::{Ledger, MoneyLedger, fees::FeePorts},
+	ports::{
+		Ledger, MoneyLedger,
+		catalog::{CATALOG_VERSION, CatalogPublisher},
+		fees::FeePorts,
+	},
 	services,
 };
-use invest_domain::book::PriceTimeEngine;
+use invest_domain::{authz::PermissionCatalog, book::PriceTimeEngine};
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 
@@ -92,7 +100,7 @@ async fn run(config: config::AppConfig) -> color_eyre::Result<()> {
 		// Not refused: invest-core serves the registry without anyone known to it, and every
 		// check that needs a person fails closed — loud, not wrong.
 		None => tracing::warn!(
-			"no concierge streams configured (CONCIERGE_GRPC_ADDR unset) — the users projection does not run: nobody is known to invest, so every permission check and every mint is refused"
+			"no concierge streams configured (CONCIERGE_GRPC_ADDR unset) — the users projection does not run and the permission catalog is not published: nobody is known to invest, so every permission check and every mint is refused"
 		),
 		Some(streams) if streams.ca_pem.is_none() && config.app_env == "production" => {
 			tracing::warn!("CONCIERGE_GRPC_ADDR is cleartext in production — the client secret crosses the cluster network unencrypted; point it at concierge's TLS listener");
@@ -146,6 +154,7 @@ async fn run(config: config::AppConfig) -> color_eyre::Result<()> {
 		}
 		None => None,
 	};
+	let catalog_publisher = concierge_streams.as_ref().map(ClientCatalogPublisher::connect).transpose()?;
 
 	let relay_notify = Arc::new(Notify::new());
 	let relay = Relay::new(relay_pool, ledger.clone(), money.clone(), relay_notify.clone());
@@ -187,11 +196,12 @@ async fn run(config: config::AppConfig) -> color_eyre::Result<()> {
 
 	tracing::info!(addr = %config.grpc_addr, "invest-core serving");
 	// Graceful shutdown, structured (no detached spawns): the server, the relay, the fee
-	// sweeper and the users projection run as branches of one `join!` on this task. A signal cancels a shared token;
+	// sweeper, the users projection and the catalog publication run as branches of one
+	// `join!` on this task. A signal cancels a shared token;
 	// the server drains in-flight calls, the workers stop at a batch boundary, and `join!`
 	// waits for all of them.
 	let shutdown = CancellationToken::new();
-	let ((), served, relayed, swept, projected) = tokio::join!(
+	let ((), served, relayed, swept, projected, published) = tokio::join!(
 		await_signal(shutdown.clone()),
 		branch(&shutdown, "gRPC server", services::serve(config.grpc_addr, state, verifier, shutdown.clone().cancelled_owned())),
 		branch(&shutdown, "relay", infallible(relay.run(shutdown.clone()))),
@@ -207,8 +217,20 @@ async fn run(config: config::AppConfig) -> color_eyre::Result<()> {
 				}
 			})
 		),
+		branch(
+			&shutdown,
+			"catalog publisher",
+			infallible(async {
+				if let Some(publisher) = &catalog_publisher {
+					// Done, refused or cancelled — each already logged; nothing else waits on it.
+					let _ = publish_at_boot(publisher as &dyn CatalogPublisher, &PermissionCatalog::invest(), CATALOG_VERSION, &shutdown).await;
+				}
+				// A one-shot: idle afterwards, so its end does not stop the rest.
+				shutdown.cancelled().await;
+			})
+		),
 	);
-	served.and(relayed).and(swept).and(projected)
+	served.and(relayed).and(swept).and(projected).and(published)
 }
 
 /// Run one branch of the root `join!`: whatever ends it — an error or a clean return —

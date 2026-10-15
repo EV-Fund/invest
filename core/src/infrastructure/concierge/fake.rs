@@ -1,5 +1,5 @@
-//! An in-memory concierge for tests: the two pull streams relying parties read, without
-//! concierge.
+//! An in-memory concierge for tests: the two pull streams relying parties read, and the
+//! catalog publication ([`InMemoryCatalogPublisher`]), without concierge.
 //!
 //! It keeps what the engine leans on — each stream's own positions, oldest first, rows never
 //! deleted, `next_position` as concierge computes it (the position a full page ends on; the
@@ -18,6 +18,9 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use evconcierge_projection::{EventSource, Page, Pulled, ScopeEvent, SourceError, UnknownEvent, UserEvent};
+use invest_domain::authz::PermissionCatalog;
+
+use crate::ports::catalog::{CatalogPublisher, PublishError};
 
 #[derive(Clone, Default)]
 pub struct InMemoryConcierge {
@@ -141,5 +144,58 @@ impl EventSource for InMemoryConcierge {
 	async fn pull_scope_events(&self, after: i64, limit: u32) -> Result<Page<Pulled<ScopeEvent>>, SourceError> {
 		let state = self.lock();
 		Self::page(&state.scopes, after, limit, state.down)
+	}
+}
+
+/// An in-memory catalog publisher: records what it was asked to publish, and answers each
+/// call with the next scripted outcome (then `Ok` once the script runs out).
+#[derive(Clone, Default)]
+pub struct InMemoryCatalogPublisher {
+	state: Arc<Mutex<PublisherState>>,
+}
+
+#[derive(Default)]
+struct PublisherState {
+	script: std::collections::VecDeque<Result<(), PublishError>>,
+	attempts: u32,
+	published: Vec<(PermissionCatalog, u64)>,
+}
+
+impl InMemoryCatalogPublisher {
+	pub fn new() -> Self {
+		Self::default()
+	}
+
+	/// Answer the next calls with `outcomes`, in order.
+	pub fn script(&self, outcomes: impl IntoIterator<Item = Result<(), PublishError>>) {
+		self.lock().script.extend(outcomes);
+	}
+
+	/// Every call made, successful or not.
+	pub fn attempts(&self) -> u32 {
+		self.lock().attempts
+	}
+
+	/// What was accepted, in order.
+	pub fn published(&self) -> Vec<(PermissionCatalog, u64)> {
+		self.lock().published.clone()
+	}
+
+	fn lock(&self) -> std::sync::MutexGuard<'_, PublisherState> {
+		// See `InMemoryConcierge::lock`.
+		self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+	}
+}
+
+#[async_trait]
+impl CatalogPublisher for InMemoryCatalogPublisher {
+	async fn publish(&self, catalog: &PermissionCatalog, version: u64) -> Result<(), PublishError> {
+		let mut state = self.lock();
+		state.attempts += 1;
+		let outcome = state.script.pop_front().unwrap_or(Ok(()));
+		if outcome.is_ok() {
+			state.published.push((catalog.clone(), version));
+		}
+		outcome
 	}
 }
