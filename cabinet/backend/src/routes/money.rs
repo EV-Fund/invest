@@ -1,0 +1,306 @@
+use axum::{
+	Json,
+	body::Bytes,
+	extract::{Query, State},
+	http::HeaderMap,
+};
+use axum_extra::extract::cookie::CookieJar;
+use evbanking_contracts::banking::v1 as bk;
+use serde::Deserialize;
+use tonic::{Code, Status};
+
+use crate::{
+	dto,
+	error::ApiError,
+	routes::{parse_body, require_money_token, required, verify_csrf},
+	state::AppState,
+};
+
+/// The machine-readable body the cabinet keys on to offer verification instead of reporting
+/// a fault. A token rather than a sentence: it is matched in the browser and worded there,
+/// the way the identity plane's own `kyc_unavailable` is.
+pub const VERIFICATION_REQUIRED: &str = "verification_required";
+
+#[derive(Deserialize)]
+pub struct NetworkQuery {
+	network: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct LimitQuery {
+	limit: Option<u32>,
+}
+
+#[derive(Deserialize)]
+pub struct ServiceQuery {
+	service: Option<String>,
+}
+
+/// `?allocation=&from=&to=` — a history window over one allocation, unix seconds.
+#[derive(Deserialize)]
+pub struct HistoryQuery {
+	allocation: Option<String>,
+	from: Option<i64>,
+	to: Option<i64>,
+}
+
+// ── wallet ───────────────────────────────────────────────────────────────────
+
+/// `GET /api/wallet` — the unified lifecycle balance, deposit rails, and per-rail withdraw options.
+pub async fn get_wallet(State(st): State<AppState>, jar: CookieJar) -> Result<Json<dto::Wallet>, ApiError> {
+	let token = require_money_token(&st, &jar).await?;
+	let wallet = st.grpc.get_wallet(&token).await.map_err(|s| ApiError::read(s, "wallet unavailable"))?;
+	Ok(Json(wallet.into()))
+}
+
+/// `GET /api/wallet/deposit-address?network=` — the caller's deposit address on a network.
+///
+/// The one refusal named rather than flattened. Reads answer with a fixed generic string so
+/// hub detail never leaks, but "you are not verified yet" is a state the caller can leave,
+/// and reporting it as an outage sent every unverified user hunting for a fault that was
+/// never theirs. `PermissionDenied` is unambiguous HERE and nowhere else: the hub raises it
+/// on this read for the verification gate alone — an unconfigured rail answers `Ok(None)`
+/// rather than an error, and this RPC carries no role check. The withdrawal path, where the
+/// same code also means a suspended account or someone else's withdrawal, keeps relaying the
+/// hub's own wording instead of guessing.
+pub async fn deposit_address(State(st): State<AppState>, jar: CookieJar, Query(q): Query<NetworkQuery>) -> Result<Json<dto::DepositAddress>, ApiError> {
+	let token = require_money_token(&st, &jar).await?;
+	let addr = st.grpc.deposit_address(&token, &q.network.unwrap_or_default()).await.map_err(deposit_address_error)?;
+	Ok(Json(addr.into()))
+}
+
+fn deposit_address_error(status: Status) -> ApiError {
+	match status.code() {
+		Code::PermissionDenied => ApiError::read(status, VERIFICATION_REQUIRED),
+		_ => ApiError::read(status, "deposit address unavailable"),
+	}
+}
+
+/// `GET /api/wallet/withdrawals` — the caller's withdrawals, newest first.
+pub async fn list_withdrawals(State(st): State<AppState>, jar: CookieJar) -> Result<Json<dto::WithdrawalList>, ApiError> {
+	let token = require_money_token(&st, &jar).await?;
+	let list = st.grpc.list_withdrawals(&token).await.map_err(|s| ApiError::read(s, "withdrawals unavailable"))?;
+	Ok(Json(list.into()))
+}
+
+/// `GET /api/wallet/deposits` — the caller's confirmed on-chain deposits, newest first.
+pub async fn list_deposits(State(st): State<AppState>, jar: CookieJar) -> Result<Json<dto::DepositList>, ApiError> {
+	let token = require_money_token(&st, &jar).await?;
+	let list = st.grpc.list_deposits(&token).await.map_err(|s| ApiError::read(s, "deposits unavailable"))?;
+	Ok(Json(list.into()))
+}
+
+// ── operations ───────────────────────────────────────────────────────────────
+
+/// `GET /api/operations?limit=` — the caller's unified activity timeline, newest first.
+/// An absent `limit` falls through to the hub's default page; the hub clamps anything
+/// oversized, so no bound is enforced twice.
+pub async fn list_operations(State(st): State<AppState>, jar: CookieJar, Query(q): Query<LimitQuery>) -> Result<Json<dto::OperationList>, ApiError> {
+	let token = require_money_token(&st, &jar).await?;
+	let list = st
+		.grpc
+		.list_operations(&token, q.limit.unwrap_or(0))
+		.await
+		.map_err(|s| ApiError::read(s, "operations unavailable"))?;
+	Ok(Json(list.into()))
+}
+
+/// `POST /api/wallet/withdrawals` — CSRF-checked: open a withdrawal of free balance.
+pub async fn request_withdrawal(State(st): State<AppState>, jar: CookieJar, headers: HeaderMap, body: Bytes) -> Result<Json<dto::Withdrawal>, ApiError> {
+	if !verify_csrf(&st, &jar, &headers) {
+		return Err(ApiError::Csrf);
+	}
+	let token = require_money_token(&st, &jar).await?;
+	let v = parse_body(&body);
+	let (Some(network), Some(address), Some(amount)) = (required(&v, "network"), required(&v, "address"), required(&v, "amount")) else {
+		return Err(ApiError::BadRequest("network, address and amount are required".into()));
+	};
+	let req = bk::RequestWithdrawalRequest { network, address, amount };
+	Ok(Json(st.grpc.request_withdrawal(&token, req).await?.into()))
+}
+
+/// `POST /api/wallet/withdrawals/cancel` — CSRF-checked: cancel a still-queued withdrawal.
+pub async fn cancel_withdrawal(State(st): State<AppState>, jar: CookieJar, headers: HeaderMap, body: Bytes) -> Result<Json<dto::Withdrawal>, ApiError> {
+	if !verify_csrf(&st, &jar, &headers) {
+		return Err(ApiError::Csrf);
+	}
+	let token = require_money_token(&st, &jar).await?;
+	let Some(withdrawal_id) = required(&parse_body(&body), "withdrawal_id") else {
+		return Err(ApiError::BadRequest("withdrawal_id is required".into()));
+	};
+	Ok(Json(st.grpc.cancel_withdrawal(&token, &withdrawal_id).await?.into()))
+}
+
+// ── allocations (the catalog of investable products) ─────────────────────────
+
+/// `GET /api/allocations` — the investor-facing catalog: the `open` allocations the caller
+/// may at least view. Each row carries `access` (the product's default) and `caller_access`
+/// (what THIS investor holds) — the subscribe control keys off the latter. The unlisted
+/// half (draft/closed/hidden) is admin-only and lives on the admin surface.
+pub async fn list_allocations(State(st): State<AppState>, jar: CookieJar) -> Result<Json<dto::AllocationList>, ApiError> {
+	let token = require_money_token(&st, &jar).await?;
+	let list = st.grpc.list_allocations(&token, false).await.map_err(|s| ApiError::read(s, "allocations unavailable"))?;
+	Ok(Json(list.into()))
+}
+
+/// `GET /api/allocations/detail?service=` — one allocation, in any state. An investor
+/// holding units of a closed product still has to render it. A product hidden from this
+/// investor is a 404, exactly as an unknown service is.
+pub async fn get_allocation(State(st): State<AppState>, jar: CookieJar, Query(q): Query<ServiceQuery>) -> Result<Json<dto::Allocation>, ApiError> {
+	let token = require_money_token(&st, &jar).await?;
+	let allocation = st
+		.grpc
+		.get_allocation(&token, &q.service.unwrap_or_default())
+		.await
+		.map_err(|s| ApiError::read(s, "allocation unavailable"))?;
+	Ok(Json(allocation.into()))
+}
+
+// ── funds (the service currency) ─────────────────────────────────────────────
+
+/// `GET /api/funds/nav?service=` — the current NAV (price per share) of a fund.
+pub async fn fund_nav(State(st): State<AppState>, jar: CookieJar, Query(q): Query<ServiceQuery>) -> Result<Json<dto::FundNav>, ApiError> {
+	let token = require_money_token(&st, &jar).await?;
+	let nav = st
+		.grpc
+		.fund_nav(&token, &q.service.unwrap_or_default())
+		.await
+		.map_err(|s| ApiError::read(s, "fund nav unavailable"))?;
+	Ok(Json(nav.into()))
+}
+
+/// `GET /api/funds/nav/history?allocation=&from=&to=` — the valuation log of one
+/// allocation over `[from, to]` (unix seconds; absent = all-time / now) plus the caller's
+/// own participation through it: the two series of the dashboard's performance chart.
+/// Keyed by the allocation, not the service, so a hidden allocation can serve its holders
+/// the same way later. A seed-only fund answers empty `marks`, not an error.
+pub async fn fund_nav_history(State(st): State<AppState>, jar: CookieJar, Query(q): Query<HistoryQuery>) -> Result<Json<dto::FundNavHistory>, ApiError> {
+	let allocation = q.allocation.filter(|a| !a.is_empty()).ok_or_else(|| ApiError::BadRequest("allocation is required".into()))?;
+	let token = require_money_token(&st, &jar).await?;
+	let req = bk::ListFundNavHistoryRequest {
+		allocation,
+		from: q.from.unwrap_or(0),
+		to: q.to.unwrap_or(0),
+	};
+	let history = st.grpc.fund_nav_history(&token, req).await.map_err(|s| ApiError::read(s, "fund history unavailable"))?;
+	Ok(Json(history.into()))
+}
+
+/// `GET /api/funds/fee-policy?service=` — what this fund charges. Not gated on holding a
+/// position: the terms are part of deciding whether to buy in at all.
+pub async fn fee_policy(State(st): State<AppState>, jar: CookieJar, Query(q): Query<ServiceQuery>) -> Result<Json<dto::FeePolicy>, ApiError> {
+	let token = require_money_token(&st, &jar).await?;
+	let policy = st
+		.grpc
+		.fee_policy(&token, &q.service.unwrap_or_default())
+		.await
+		.map_err(|s| ApiError::read(s, "fee policy unavailable"))?;
+	Ok(Json(policy.into()))
+}
+
+/// `GET /api/funds/accrued-fees?service=` — what the caller's holding owes right now,
+/// uncharged. The disclosure behind showing a position's value net of fees.
+pub async fn accrued_fees(State(st): State<AppState>, jar: CookieJar, Query(q): Query<ServiceQuery>) -> Result<Json<dto::AccruedFees>, ApiError> {
+	let token = require_money_token(&st, &jar).await?;
+	let accrued = st
+		.grpc
+		.accrued_fees(&token, &q.service.unwrap_or_default())
+		.await
+		.map_err(|s| ApiError::read(s, "accrued fees unavailable"))?;
+	Ok(Json(accrued.into()))
+}
+
+/// `GET /api/funds/positions` — the caller's fund positions.
+pub async fn list_positions(State(st): State<AppState>, jar: CookieJar) -> Result<Json<dto::PositionList>, ApiError> {
+	let token = require_money_token(&st, &jar).await?;
+	let list = st.grpc.list_positions(&token).await.map_err(|s| ApiError::read(s, "positions unavailable"))?;
+	Ok(Json(list.into()))
+}
+
+/// `GET /api/funds/redemptions` — the caller's redemptions, newest first.
+pub async fn list_redemptions(State(st): State<AppState>, jar: CookieJar) -> Result<Json<dto::RedemptionList>, ApiError> {
+	let token = require_money_token(&st, &jar).await?;
+	let list = st.grpc.list_redemptions(&token).await.map_err(|s| ApiError::read(s, "redemptions unavailable"))?;
+	Ok(Json(list.into()))
+}
+
+/// `POST /api/funds/subscribe` — CSRF-checked: subscribe free balance into a fund (mint units).
+pub async fn subscribe(State(st): State<AppState>, jar: CookieJar, headers: HeaderMap, body: Bytes) -> Result<Json<dto::Subscription>, ApiError> {
+	if !verify_csrf(&st, &jar, &headers) {
+		return Err(ApiError::Csrf);
+	}
+	let token = require_money_token(&st, &jar).await?;
+	let v = parse_body(&body);
+	let (Some(service), Some(amount)) = (required(&v, "service"), required(&v, "amount")) else {
+		return Err(ApiError::BadRequest("service and amount are required".into()));
+	};
+	let req = bk::SubscribeRequest { service, amount };
+	Ok(Json(st.grpc.subscribe(&token, req).await?.into()))
+}
+
+/// `POST /api/funds/redeem` — CSRF-checked: redeem units back to cash (accept-and-queue).
+pub async fn redeem(State(st): State<AppState>, jar: CookieJar, headers: HeaderMap, body: Bytes) -> Result<Json<dto::Redemption>, ApiError> {
+	if !verify_csrf(&st, &jar, &headers) {
+		return Err(ApiError::Csrf);
+	}
+	let token = require_money_token(&st, &jar).await?;
+	let v = parse_body(&body);
+	let (Some(service), Some(units)) = (required(&v, "service"), required(&v, "units")) else {
+		return Err(ApiError::BadRequest("service and units are required".into()));
+	};
+	let req = bk::RedeemRequest { service, units };
+	Ok(Json(st.grpc.redeem(&token, req).await?.into()))
+}
+
+/// `POST /api/funds/redemptions/cancel` — CSRF-checked: cancel a still-queued redemption.
+pub async fn cancel_redemption(State(st): State<AppState>, jar: CookieJar, headers: HeaderMap, body: Bytes) -> Result<Json<dto::Redemption>, ApiError> {
+	if !verify_csrf(&st, &jar, &headers) {
+		return Err(ApiError::Csrf);
+	}
+	let token = require_money_token(&st, &jar).await?;
+	let Some(redemption_id) = required(&parse_body(&body), "redemption_id") else {
+		return Err(ApiError::BadRequest("redemption_id is required".into()));
+	};
+	Ok(Json(st.grpc.cancel_redemption(&token, &redemption_id).await?.into()))
+}
+
+#[cfg(test)]
+mod tests {
+	use axum::{body::to_bytes, http::StatusCode, response::IntoResponse};
+
+	use super::*;
+
+	async fn render(err: ApiError) -> (StatusCode, String) {
+		let resp = err.into_response();
+		let status = resp.status();
+		let bytes = to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+		let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+		(status, body["error"].as_str().unwrap().to_string())
+	}
+
+	/// The cabinet offers verification off the back of this token. If it ever went back to
+	/// the generic string, the deposit screen would silently return to reporting the one
+	/// refusal a user can clear themselves as an outage they cannot.
+	#[tokio::test]
+	async fn verification_refusal_is_named() {
+		let hub = Status::permission_denied("identity verification required before a deposit address is issued");
+		let (status, message) = render(deposit_address_error(hub)).await;
+		assert_eq!(status, StatusCode::FORBIDDEN);
+		assert_eq!(message, VERIFICATION_REQUIRED);
+	}
+
+	/// Everything else stays flattened — the hub's wording on a read is not the browser's
+	/// business, and a signer or ledger fault must not arrive dressed as a KYC problem.
+	#[tokio::test]
+	async fn every_other_failure_stays_generic() {
+		for hub in [
+			Status::unavailable("internal error"),
+			Status::internal("sqlx: connection refused"),
+			Status::invalid_argument("unknown network"),
+		] {
+			let code = hub.code();
+			let (_, message) = render(deposit_address_error(hub)).await;
+			assert_eq!(message, "deposit address unavailable", "{code:?}");
+		}
+	}
+}
