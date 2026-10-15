@@ -35,3 +35,42 @@ pub async fn health(State(st): State<AppState>) -> Response {
 		}
 	}
 }
+
+/// The probe path, through the real router and its layers, with every dependency
+/// unreachable.
+#[cfg(test)]
+mod probe_tests {
+	use axum::{
+		body::{Body, to_bytes},
+		http::{Request, StatusCode},
+	};
+	use tower::ServiceExt;
+
+	use crate::routes::{router, test_support};
+
+	async fn get(uri: &str) -> (StatusCode, serde_json::Value) {
+		let request = Request::builder().uri(uri).body(Body::empty()).expect("build the request");
+		let response = router(test_support::unreachable_state()).oneshot(request).await.expect("the router responds");
+		let status = response.status();
+		let body = to_bytes(response.into_body(), 1 << 16).await.expect("read the body");
+		(status, serde_json::from_slice(&body).expect("a JSON body"))
+	}
+
+	/// The kubelet's question is "is the process alive" — the answer must not depend on
+	/// invest-core being up, or an invest-core rollout takes the BFF's only replica with it.
+	#[tokio::test]
+	async fn live_answers_ok_with_every_dependency_unreachable() {
+		let (status, body) = get("/cabinet/api/health/live").await;
+		assert_eq!(status, StatusCode::OK);
+		assert_eq!(body, serde_json::json!({ "ok": true }));
+	}
+
+	/// The contrast that makes the split necessary: the deep check does dial out and reports
+	/// the dependency down — right for a smoke check, ruinous for a probe.
+	#[tokio::test]
+	async fn deep_health_reports_the_unreachable_dependency() {
+		let (status, body) = get("/cabinet/api/health").await;
+		assert_eq!(status, StatusCode::BAD_GATEWAY);
+		assert_eq!(body["ok"], serde_json::json!(false));
+	}
+}

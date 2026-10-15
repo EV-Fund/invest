@@ -4,6 +4,8 @@ pub mod book;
 pub mod book_ws;
 pub mod funds;
 pub mod system;
+#[cfg(test)]
+pub(crate) mod test_support;
 pub mod ws;
 
 use std::time::Duration;

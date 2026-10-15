@@ -366,3 +366,273 @@ mod tests {
 		assert_eq!(return_target(Some(&format!("/cabinet/{}", "a".repeat(MAX_RETURN_TO)))), None);
 	}
 }
+
+/// The sign-in and the session against a real Postgres and a fake concierge (S2-13).
+#[cfg(test)]
+mod flow_tests {
+	use axum::http::{StatusCode, header};
+
+	use crate::{
+		now_secs,
+		routes::test_support::{CSRF, Harness, INVESTOR, Refresh, USER, request, set_cookies},
+	};
+
+	fn location(headers: &axum::http::HeaderMap) -> String {
+		headers.get(header::LOCATION).and_then(|v| v.to_str().ok()).expect("a Location").to_owned()
+	}
+
+	fn query_param(url: &str, name: &str) -> String {
+		let query = url.split_once('?').expect("a query").1;
+		query
+			.split('&')
+			.find_map(|pair| pair.strip_prefix(&format!("{name}=")))
+			.unwrap_or_else(|| panic!("{name} in {url}"))
+			.to_owned()
+	}
+
+	/// Login → concierge → callback, as a browser runs it. Answers the callback's status, its
+	/// headers, and the state the login issued.
+	async fn sign_in_through_concierge(h: &Harness, return_to: &str) -> (StatusCode, axum::http::HeaderMap) {
+		let (status, _, headers) = h.send(request("GET", &format!("/cabinet/api/auth/login?return_to={return_to}"), None, None, false)).await;
+		assert_eq!(status, StatusCode::FOUND);
+		let authorize = location(&headers);
+		h.concierge.expect_challenge(&query_param(&authorize, "code_challenge"));
+		let state = set_cookies(&headers).remove("invest_sign_in").expect("the sign-in cookie");
+		let callback = axum::http::Request::builder()
+			.uri(format!("/cabinet/auth/callback?code=the-code&state={state}"))
+			.header(header::COOKIE, format!("invest_sign_in={state}"))
+			.body(axum::body::Body::empty())
+			.unwrap();
+		let (status, _, headers) = h.send(callback).await;
+		(status, headers)
+	}
+
+	#[tokio::test]
+	async fn login_sends_the_browser_to_concierge_with_pkce_and_a_bound_state() {
+		let Some(h) = Harness::new(None).await else { return };
+		let (status, _, headers) = h.send(request("GET", "/cabinet/api/auth/login?return_to=/cabinet/ru/invest", None, None, false)).await;
+		assert_eq!(status, StatusCode::FOUND);
+		let authorize = location(&headers);
+		assert!(authorize.starts_with("https://concierge.test/api/auth/authorize?"), "{authorize}");
+		assert_eq!(query_param(&authorize, "client_id"), "invest");
+		assert_eq!(query_param(&authorize, "redirect_uri"), "https%3A%2F%2Finvest.test%2Fcabinet%2Fauth%2Fcallback");
+		assert_eq!(query_param(&authorize, "code_challenge_method"), "S256");
+		let state = query_param(&authorize, "state");
+		assert_eq!(set_cookies(&headers).get("invest_sign_in"), Some(&state), "the browser carries the state it was sent with");
+		let raw = headers.get(header::SET_COOKIE).unwrap().to_str().unwrap();
+		assert!(raw.contains("HttpOnly") && raw.contains("SameSite=Lax"), "{raw}");
+		assert_eq!(headers.get(header::CACHE_CONTROL).unwrap(), "no-store");
+	}
+
+	#[tokio::test]
+	async fn a_return_to_outside_the_cabinet_is_refused_before_anything_is_recorded() {
+		let Some(h) = Harness::new(None).await else { return };
+		for bad in ["https://evil.test/cabinet", "//evil.test", "/admin", "/cabinet/../admin"] {
+			let (status, _, headers) = h.send(request("GET", &format!("/cabinet/api/auth/login?return_to={bad}"), None, None, false)).await;
+			assert_eq!(status, StatusCode::BAD_REQUEST, "{bad}");
+			assert!(set_cookies(&headers).is_empty(), "{bad}: no sign-in is started");
+		}
+	}
+
+	#[tokio::test]
+	async fn the_callback_opens_a_session_and_lands_on_the_page() {
+		let Some(h) = Harness::new(None).await else { return };
+		h.concierge.grant(INVESTOR);
+		let (status, headers) = sign_in_through_concierge(&h, "/cabinet/ru/invest").await;
+		assert_eq!(status, StatusCode::SEE_OTHER);
+		assert_eq!(location(&headers), "/cabinet/ru/invest");
+		let cookies = set_cookies(&headers);
+		assert_eq!(cookies.get("invest_sign_in").map(String::as_str), Some(""), "the sign-in cookie is spent");
+		let session = cookies.get("invest_session").expect("a session cookie").clone();
+		let csrf = cookies.get("invest_csrf").expect("a CSRF cookie").clone();
+		assert_eq!(session.len(), 64);
+		assert_ne!(session, csrf);
+		assert_eq!(h.session_rows(&session).await, 1);
+		assert_eq!(h.concierge.exchanges(), 1);
+
+		let signed = crate::routes::test_support::Signed {
+			cookie: format!("invest_session={session}; invest_csrf={csrf}"),
+			session,
+		};
+		let (status, body, _) = h.send(request("GET", "/cabinet/api/auth/session", Some(&signed), None, false)).await;
+		assert_eq!(status, StatusCode::OK);
+		assert_eq!(body["authenticated"], true);
+		assert_eq!(body["user"]["userId"], USER.to_string());
+		assert_eq!(body["user"]["isAdmin"], false);
+		assert_eq!(body["permissions"], serde_json::json!(INVESTOR));
+	}
+
+	/// A callback carrying a state this browser never started — a leaked URL, or an
+	/// attacker's own sign-in fed to a victim — never presents its code.
+	#[tokio::test]
+	async fn a_state_that_is_not_this_browsers_is_refused_before_the_code_is_presented() {
+		let Some(h) = Harness::new(None).await else { return };
+		let (_, _, headers) = h.send(request("GET", "/cabinet/api/auth/login", None, None, false)).await;
+		let state = set_cookies(&headers).remove("invest_sign_in").unwrap();
+		for cookie in [String::new(), "invest_sign_in=someone-elses-state".to_owned()] {
+			let callback = axum::http::Request::builder()
+				.uri(format!("/cabinet/auth/callback?code=the-code&state={state}"))
+				.header(header::COOKIE, cookie)
+				.body(axum::body::Body::empty())
+				.unwrap();
+			let (status, _, headers) = h.send(callback).await;
+			assert_eq!(status, StatusCode::BAD_REQUEST);
+			assert!(!set_cookies(&headers).contains_key("invest_session"));
+		}
+		assert_eq!(h.concierge.exchanges(), 0, "the code was never presented");
+	}
+
+	#[tokio::test]
+	async fn a_replayed_callback_is_refused() {
+		let Some(h) = Harness::new(None).await else { return };
+		let (_, _, headers) = h.send(request("GET", "/cabinet/api/auth/login", None, None, false)).await;
+		let state = set_cookies(&headers).remove("invest_sign_in").unwrap();
+		let callback = || {
+			axum::http::Request::builder()
+				.uri(format!("/cabinet/auth/callback?code=the-code&state={state}"))
+				.header(header::COOKIE, format!("invest_sign_in={state}"))
+				.body(axum::body::Body::empty())
+				.unwrap()
+		};
+		assert_eq!(h.send(callback()).await.0, StatusCode::SEE_OTHER);
+		let (status, _, headers) = h.send(callback()).await;
+		assert_eq!(status, StatusCode::BAD_REQUEST);
+		assert!(!set_cookies(&headers).contains_key("invest_session"));
+		assert_eq!(h.concierge.exchanges(), 1);
+	}
+
+	/// The verifier presented is the one recorded at the login: concierge refuses one that
+	/// does not answer the challenge, and the BFF opens nothing.
+	#[tokio::test]
+	async fn a_verifier_that_does_not_answer_the_challenge_opens_no_session() {
+		let Some(h) = Harness::new(None).await else { return };
+		let (_, _, headers) = h.send(request("GET", "/cabinet/api/auth/login", None, None, false)).await;
+		let state = set_cookies(&headers).remove("invest_sign_in").unwrap();
+		h.concierge.expect_challenge("a-challenge-from-another-sign-in");
+		let callback = axum::http::Request::builder()
+			.uri(format!("/cabinet/auth/callback?code=the-code&state={state}"))
+			.header(header::COOKIE, format!("invest_sign_in={state}"))
+			.body(axum::body::Body::empty())
+			.unwrap();
+		let (status, _, headers) = h.send(callback).await;
+		assert_eq!(status, StatusCode::BAD_REQUEST);
+		assert!(!set_cookies(&headers).contains_key("invest_session"));
+		assert_eq!(h.concierge.exchanges(), 1);
+	}
+
+	#[tokio::test]
+	async fn a_guest_reads_as_signed_out_not_as_an_error() {
+		let Some(h) = Harness::new(None).await else { return };
+		let (status, body, _) = h.send(request("GET", "/cabinet/api/auth/session", None, None, false)).await;
+		assert_eq!(status, StatusCode::OK);
+		assert_eq!(body, serde_json::json!({ "authenticated": false, "permissions": [] }));
+	}
+
+	/// A session past its deadline is gone: the API answers 401 and the row is dropped.
+	#[tokio::test]
+	async fn an_expired_session_is_refused_and_dropped() {
+		let Some(h) = Harness::new(None).await else { return };
+		let tokens = evconcierge_client::ClientTokens {
+			user_id: USER,
+			access_token: "stale".into(),
+			access_expires_at: now_secs() - 600,
+			refresh_token: "stale-refresh".into(),
+			refresh_expires_at: now_secs() - 1,
+		};
+		let opened = h.state.sessions.open(&tokens, now_secs() - 900).await.unwrap();
+		let signed = crate::routes::test_support::Signed {
+			cookie: format!("invest_session={}; invest_csrf={CSRF}", opened.cookie),
+			session: opened.cookie,
+		};
+		let (status, _, _) = h.send(request("GET", "/cabinet/api/funds/positions", Some(&signed), None, false)).await;
+		assert_eq!(status, StatusCode::UNAUTHORIZED);
+		assert_eq!(h.session_rows(&signed.session).await, 0);
+		assert_eq!(h.concierge.refreshes(), 0, "a dead session is not refreshed");
+	}
+
+	#[tokio::test]
+	async fn a_lapsing_access_token_is_rotated_once_and_kept() {
+		let Some(h) = Harness::new(None).await else { return };
+		let signed = h.sign_in_with(INVESTOR, now_secs() + 5).await;
+		let (status, body, _) = h.send(request("GET", "/cabinet/api/auth/session", Some(&signed), None, false)).await;
+		assert_eq!((status, body["authenticated"].clone()), (StatusCode::OK, serde_json::json!(true)));
+		assert_eq!(h.concierge.refreshes(), 1);
+		// The rotated token is good for minutes: the next read does not rotate again.
+		let (status, _, _) = h.send(request("GET", "/cabinet/api/auth/session", Some(&signed), None, false)).await;
+		assert_eq!(status, StatusCode::OK);
+		assert_eq!(h.concierge.refreshes(), 1);
+		let session = h.state.sessions.resolve(&signed.session, now_secs()).await.unwrap();
+		assert!(session.access_token.contains("-rotated-"), "the row holds the rotated pair");
+	}
+
+	/// concierge refusing the refresh (signed out on evinvest.ltd, suspended) ends the session
+	/// here too: a guest answer, cookies cleared, the row gone.
+	#[tokio::test]
+	async fn a_refused_refresh_signs_the_browser_out() {
+		let Some(h) = Harness::new(None).await else { return };
+		let signed = h.sign_in_with(INVESTOR, now_secs() + 5).await;
+		h.concierge.on_refresh(Refresh::Refuse);
+		let (status, body, headers) = h.send(request("GET", "/cabinet/api/auth/session", Some(&signed), None, false)).await;
+		assert_eq!(status, StatusCode::OK);
+		assert_eq!(body["authenticated"], false);
+		assert_eq!(set_cookies(&headers).get("invest_session").map(String::as_str), Some(""));
+		assert_eq!(h.session_rows(&signed.session).await, 0);
+	}
+
+	/// concierge down is not a sign-out: 503, and the session survives for the next try.
+	#[tokio::test]
+	async fn concierge_down_at_a_rotation_keeps_the_session() {
+		let Some(h) = Harness::new(None).await else { return };
+		let signed = h.sign_in_with(INVESTOR, now_secs() + 5).await;
+		h.concierge.on_refresh(Refresh::Unavailable);
+		let (status, _, _) = h.send(request("GET", "/cabinet/api/funds/positions", Some(&signed), None, false)).await;
+		assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+		assert_eq!(h.session_rows(&signed.session).await, 1);
+		h.concierge.on_refresh(Refresh::Rotate);
+		let (status, body, _) = h.send(request("GET", "/cabinet/api/auth/session", Some(&signed), None, false)).await;
+		assert_eq!((status, body["authenticated"].clone()), (StatusCode::OK, serde_json::json!(true)), "the lease was released");
+	}
+
+	#[tokio::test]
+	async fn a_token_concierge_no_longer_honours_closes_the_session() {
+		let Some(h) = Harness::new(None).await else { return };
+		let signed = h.sign_in(INVESTOR).await;
+		h.concierge.refuse_me();
+		let (status, body, _) = h.send(request("GET", "/cabinet/api/auth/session", Some(&signed), None, false)).await;
+		assert_eq!((status, body["authenticated"].clone()), (StatusCode::OK, serde_json::json!(false)));
+		assert_eq!(h.session_rows(&signed.session).await, 0);
+	}
+
+	#[tokio::test]
+	async fn logout_needs_the_csrf_pair_and_the_cabinets_origin() {
+		let Some(h) = Harness::new(None).await else { return };
+		let signed = h.sign_in(INVESTOR).await;
+		let (status, _, _) = h.send(request("POST", "/cabinet/api/auth/logout", Some(&signed), None, false)).await;
+		assert_eq!(status, StatusCode::FORBIDDEN, "no CSRF header");
+		let mut cross_site = request("POST", "/cabinet/api/auth/logout", Some(&signed), None, true);
+		cross_site.headers_mut().insert(header::ORIGIN, "https://evil.test".parse().unwrap());
+		assert_eq!(h.send(cross_site).await.0, StatusCode::FORBIDDEN, "another origin");
+		let mut no_origin = request("POST", "/cabinet/api/auth/logout", Some(&signed), None, true);
+		no_origin.headers_mut().remove(header::ORIGIN);
+		assert_eq!(h.send(no_origin).await.0, StatusCode::FORBIDDEN, "no origin at all");
+		assert_eq!(h.session_rows(&signed.session).await, 1);
+
+		let (status, _, headers) = h.send(request("POST", "/cabinet/api/auth/logout", Some(&signed), None, true)).await;
+		assert_eq!(status, StatusCode::NO_CONTENT);
+		assert_eq!(h.session_rows(&signed.session).await, 0);
+		let cleared = set_cookies(&headers);
+		assert_eq!((cleared["invest_session"].as_str(), cleared["invest_csrf"].as_str()), ("", ""));
+	}
+
+	/// A mutation from another origin is refused even with a matching CSRF pair, before
+	/// invest-core is asked (it is a black hole here: reaching it would be a 5xx).
+	#[tokio::test]
+	async fn a_mutation_from_another_origin_is_refused() {
+		let Some(h) = Harness::new(None).await else { return };
+		let signed = h.sign_in(INVESTOR).await;
+		let mut req = request("POST", "/cabinet/api/funds/subscribe", Some(&signed), Some(r#"{"service":"quy-nhon","amount":"10"}"#), true);
+		req.headers_mut().insert(header::ORIGIN, "https://evil.test".parse().unwrap());
+		let (status, body, _) = h.send(req).await;
+		assert_eq!((status, body["error"].as_str()), (StatusCode::FORBIDDEN, Some("csrf")));
+	}
+}
