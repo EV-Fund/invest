@@ -12,12 +12,12 @@
 //! a refusal or an outage is injected where banking would give one.
 
 use invest_core::{
-	application::{allocations as allocations_app, funds as funds_app, issuance as issuance_app},
-	infrastructure::{issuance::PgUnitIssuances, nav::PgNav, positions::PgFundPositions},
+	application::{allocations as allocations_app, book::BookFeed, funds as funds_app, issuance as issuance_app},
+	infrastructure::{issuance::PgUnitIssuances, money_events::Pass, nav::PgNav, positions::PgFundPositions},
 	ports::{
 		AllocationRegistry, FundPositionReader, RedemptionRepository, SubscriptionRepository,
 		ledger::{CompletionKind, LedgerError, LedgerTransfer, PendingCompletion},
-		money::{AccountLabel, HoldState, Refusal, ScopeId},
+		money::{AccountLabel, HoldState, MoneyEventKind, Refusal, ScopeId},
 		nav::NavMarks,
 	},
 };
@@ -468,8 +468,8 @@ async fn a_refused_hold_fails_the_subscription_with_banking_s_reason() {
 	assert_eq!(
 		reasons,
 		vec![
-			(SubscriptionState::Failed, Some("hold refused: mandate_required".into())),
-			(SubscriptionState::Failed, Some("hold refused: insufficient_funds".into())),
+			(SubscriptionState::Failed, Some("mandate_required".into())),
+			(SubscriptionState::Failed, Some("insufficient_funds".into())),
 		],
 		"newest first, each with banking's reason"
 	);
@@ -499,7 +499,7 @@ async fn a_refused_capture_voids_the_hold_and_the_pending_units() {
 	h.money.serve("Capture");
 
 	let (state, reason) = subscription_state(&h, record.subscription.id()).await;
-	assert_eq!((state, reason.as_deref()), (SubscriptionState::Failed, Some("capture refused: scope_frozen")));
+	assert_eq!((state, reason.as_deref()), (SubscriptionState::Failed, Some("scope_frozen")));
 	assert_eq!(compartment(&h, user), usdt("100"), "the hold was voided — the cash is back");
 	assert_eq!(alloc_cash(&h, &service), Usdt::ZERO);
 	assert_eq!(units(&h, &user_shares).await, Shares::ZERO, "no units posted");
@@ -641,24 +641,143 @@ async fn a_refused_payout_fails_the_redemption_and_returns_the_units() {
 
 	let record = redemption_record(&h, user, id).await;
 	assert_eq!(record.redemption.state(), RedemptionState::Failed);
-	assert_eq!(record.failure_reason.as_deref(), Some("payout refused: insufficient_funds"));
+	assert_eq!(record.failure_reason.as_deref(), Some("insufficient_funds"));
 	assert_eq!(units(&h, &user_shares).await, shares("100"), "nothing burned");
 	assert_eq!(units_available(&h, &user_shares).await, shares("100"), "and nothing still locked");
 	assert_eq!(alloc_cash(&h, &service), usdt("100"), "the account is untouched");
 	assert_eq!(compartment(&h, user), Usdt::ZERO);
 	assert_eq!(cost_basis(&h, user, &service).await, Some(usdt("100")), "no basis given back for cash never paid");
+}
 
-	// Past banking's automatic ceilings is a refusal too, until invest can ask for approval.
-	h.money.credit(&ScopeId::invest(), &AccountLabel::allocation(&service).unwrap(), usdt("1000"));
+/// A covered redemption past banking's automatic ceilings: 40 of 100 units, the account
+/// holding 100 — settled on request, then `approval_required` on the payout.
+async fn redemption_past_the_ceilings(h: &Harness, user: UserId, service: &ServiceId) -> RedemptionId {
+	subscribe(h, user, service, "100", now_unix()).await.unwrap();
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
 	h.money.refuse("Payout", Refusal::ApprovalRequired);
-	let r = funds_app::request_redemption(&h.fund_ports(), &h.redemptions, &h.users, user, service.clone(), shares("10"), now_unix())
+	let r = funds_app::request_redemption(&h.fund_ports(), &h.redemptions, &h.users, user, service.clone(), shares("40"), now_unix())
 		.await
 		.unwrap();
 	common::drain_to_quiescence(&h.relay, &h.pool).await;
 	h.money.serve("Payout");
-	let record = redemption_record(&h, user, r.id()).await;
-	assert_eq!(record.failure_reason.as_deref(), Some("payout refused: approval_required"));
+	r.id()
+}
+
+/// Past the automatic ceilings the payout goes to the owners: invest asks for it once
+/// (`RequestPayout`), the redemption waits `awaiting_approval` with its units still locked
+/// and nothing paid, and neither the holder nor a repeated settle can move it. Approved and
+/// executed, the money event completes it — the burn posted, the basis reduced — and the
+/// same event again does nothing more.
+#[tokio::test]
+async fn a_payout_past_the_ceilings_awaits_the_owners_and_completes_once_executed() {
+	let Some(h) = harness().await else { return };
+	let consumer = h.money_events(BookFeed::new());
+	let service = registered_service(&h).await;
+	let user = funded_user(&h, &ScopeId::invest(), "100").await;
+	let user_shares = LedgerAccountKey::UserShares(service.clone(), user);
+	let id = redemption_past_the_ceilings(&h, user, &service).await;
+
+	let subject = format!("redemption:{}", id.raw().hyphenated());
+	let operations = h.money.operations_for(&subject);
+	assert_eq!(operations.len(), 1, "asked for once");
+	let record = redemption_record(&h, user, id).await;
+	assert_eq!((record.redemption.state(), record.failure_reason), (RedemptionState::AwaitingApproval, None));
+	assert_eq!(units_available(&h, &user_shares).await, shares("60"), "the 40 stay locked by the pending burn");
+	assert_eq!((alloc_cash(&h, &service), compartment(&h, user)), (usdt("100"), Usdt::ZERO), "nothing paid yet");
+	let again = funds_app::settle_redemption(&h.fund_ports(), &h.redemptions, id, now_unix()).await.unwrap();
+	assert_eq!(again.state(), RedemptionState::AwaitingApproval, "a repeated settle changes nothing");
+	assert!(funds_app::cancel_redemption(&h.redemptions, &h.notify, id, user).await.is_err(), "the holder cannot pull out");
+	assert_eq!(consumer.pass().await.unwrap().applied, 0, "a requested operation is no verdict");
+	assert_eq!(consumer.sweep_awaiting().await.unwrap(), 0, "nor is one still awaiting");
+
+	h.money.approve(&operations[0].id);
+	let pass = consumer.pass().await.unwrap();
+	assert_eq!(pass.applied, 1, "{pass:?}");
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+
+	let record = redemption_record(&h, user, id).await;
+	assert_eq!((record.redemption.state(), record.failure_reason), (RedemptionState::Completed, None));
+	assert_eq!(units(&h, &user_shares).await, shares("60"), "the 40 burned");
+	assert_eq!(units(&h, &LedgerAccountKey::SharesOutstanding(service.clone())).await, shares("60"));
+	assert_eq!((alloc_cash(&h, &service), compartment(&h, user)), (usdt("60"), usdt("40")), "paid once, by the owners' payout");
+	assert_eq!(cost_basis(&h, user, &service).await, Some(usdt("60")));
+
+	let paid_out = h
+		.money
+		.events()
+		.iter()
+		.find(|event| event.kind == MoneyEventKind::PaidOut && event.subject_ref == subject)
+		.unwrap()
+		.position;
+	h.money.redeliver(paid_out);
+	// Nothing awaits the operation any more, so the event asks for nothing.
+	assert_eq!(consumer.pass().await.unwrap(), Pass::default());
+	assert_eq!(consumer.sweep_awaiting().await.unwrap(), 0);
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	assert_eq!(units(&h, &user_shares).await, shares("60"), "nothing burned twice");
+	assert_eq!(cost_basis(&h, user, &service).await, Some(usdt("60")), "nor reduced twice");
+}
+
+/// The owners say no — or let it lapse: the burn is voided, the units are the holder's
+/// again, and the redemption fails with banking's reason. The verdict lands whether its
+/// event is read or only the sweep asks.
+#[tokio::test]
+async fn a_payout_the_owners_reject_fails_the_redemption_and_returns_the_units() {
+	let Some(h) = harness().await else { return };
+	let consumer = h.money_events(BookFeed::new());
+	let service = registered_service(&h).await;
+	let user = funded_user(&h, &ScopeId::invest(), "100").await;
+	let user_shares = LedgerAccountKey::UserShares(service.clone(), user);
+
+	let rejected = redemption_past_the_ceilings(&h, user, &service).await;
+	let operation = h.money.operations_for(&format!("redemption:{}", rejected.raw().hyphenated())).remove(0);
+	h.money.reject(&operation.id, "approval_rejected");
+	assert_eq!(consumer.pass().await.unwrap().applied, 1);
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	let record = redemption_record(&h, user, rejected).await;
+	assert_eq!(
+		(record.redemption.state(), record.failure_reason.as_deref()),
+		(RedemptionState::Failed, Some("approval_rejected"))
+	);
+	assert_eq!(units_available(&h, &user_shares).await, shares("100"), "the units are free again");
+	assert_eq!((alloc_cash(&h, &service), compartment(&h, user)), (usdt("100"), Usdt::ZERO), "nothing paid");
+
+	// The event is missed — the consumer passed it before the verdict existed — and the
+	// sweep re-asks banking.
+	h.money.refuse("Payout", Refusal::ApprovalRequired);
+	let lapsed = funds_app::request_redemption(&h.fund_ports(), &h.redemptions, &h.users, user, service.clone(), shares("40"), now_unix())
+		.await
+		.unwrap();
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	h.money.serve("Payout");
+	consumer.pass().await.unwrap();
+	let operation = h.money.operations_for(&format!("redemption:{}", lapsed.id().raw().hyphenated())).remove(0);
+	h.money.reject(&operation.id, "approval_expired");
+	sqlx::query("UPDATE money_events_cursor SET position = position + 1").execute(&h.pool).await.unwrap();
+	assert_eq!(consumer.pass().await.unwrap().applied, 0, "the event was skipped");
+	assert_eq!(consumer.sweep_awaiting().await.unwrap(), 1);
+	assert_eq!(consumer.sweep_awaiting().await.unwrap(), 0, "landed once");
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	let record = redemption_record(&h, user, lapsed.id()).await;
+	assert_eq!((record.redemption.state(), record.failure_reason.as_deref()), (RedemptionState::Failed, Some("approval_expired")));
 	assert_eq!(units_available(&h, &user_shares).await, shares("100"));
+}
+
+/// banking refuses the request itself — the account fell short between the payout and the
+/// request: no operation, the units back, the reason banking gave.
+#[tokio::test]
+async fn a_refused_payout_request_fails_the_redemption() {
+	let Some(h) = harness().await else { return };
+	let service = registered_service(&h).await;
+	let user = funded_user(&h, &ScopeId::invest(), "100").await;
+	h.money.refuse("RequestPayout", Refusal::UserFrozen);
+	let id = redemption_past_the_ceilings(&h, user, &service).await;
+	h.money.serve("RequestPayout");
+
+	let record = redemption_record(&h, user, id).await;
+	assert_eq!((record.redemption.state(), record.failure_reason.as_deref()), (RedemptionState::Failed, Some("user_frozen")));
+	assert!(h.money.operations_for(&format!("redemption:{}", id.raw().hyphenated())).is_empty());
+	assert_eq!(units_available(&h, &LedgerAccountKey::UserShares(service.clone(), user)).await, shares("100"));
 }
 
 #[tokio::test]

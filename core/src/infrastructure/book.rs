@@ -845,14 +845,14 @@ impl BookStore for PgBook {
 /// Take a resting order off the book as `rejected`, under the book's lock — the matcher
 /// reads the resting side under the same lock, so it never fills an order this is taking
 /// off. A no-op for an order no longer resting. Bumps the book's revision so a watching
-/// client refetches.
-async fn reject_resting(conn: &mut PgConnection, order_id: Uuid, reason: &str) -> Result<(), sqlx::Error> {
+/// client refetches, and answers the book and its new revision when it took one off.
+async fn reject_resting(conn: &mut PgConnection, order_id: Uuid, reason: &str) -> Result<Option<(String, i64)>, sqlx::Error> {
 	let service: Option<String> = sqlx::query_scalar("SELECT service FROM book_orders WHERE id = $1")
 		.bind(order_id)
 		.fetch_optional(&mut *conn)
 		.await?;
 	let Some(service) = service else {
-		return Ok(());
+		return Ok(None);
 	};
 	sqlx::query("SELECT pg_advisory_xact_lock(hashtext($1))").bind(&service).execute(&mut *conn).await?;
 	let resting: Option<Uuid> = sqlx::query_scalar("SELECT id FROM book_orders WHERE id = $1 AND state IN ('open', 'partially_filled') FOR UPDATE")
@@ -860,7 +860,7 @@ async fn reject_resting(conn: &mut PgConnection, order_id: Uuid, reason: &str) -
 		.fetch_optional(&mut *conn)
 		.await?;
 	if resting.is_none() {
-		return Ok(());
+		return Ok(None);
 	}
 	let revision: i64 = sqlx::query_scalar(
 		"INSERT INTO book_revisions (service, revision) VALUES ($1, 1) \
@@ -875,7 +875,25 @@ async fn reject_resting(conn: &mut PgConnection, order_id: Uuid, reason: &str) -
 		.bind(revision)
 		.execute(&mut *conn)
 		.await?;
-	Ok(())
+	Ok(Some((service, revision)))
+}
+
+/// banking released a buy's hold on its own — expired, voided under a revoked mandate, or
+/// refused by its ledger: the buy comes off the book `rejected`, on the caller's
+/// transaction. Nothing is voided again — a rejected order releases nothing (`Order::release`)
+/// and the hold is gone already. `None` when no resting buy stands on that hold (a cancel or
+/// a fill finished it first, or the hold was never an order's).
+pub(crate) async fn reject_buy_on_released_hold(conn: &mut PgConnection, order_id: Uuid, scope: &str, hold_id: &str, reason: &str) -> Result<Option<(String, i64)>, sqlx::Error> {
+	let on_this_hold: Option<Uuid> = sqlx::query_scalar("SELECT id FROM book_orders WHERE id = $1 AND side = 'buy' AND scope = $2 AND hold_id = $3")
+		.bind(order_id)
+		.bind(scope)
+		.bind(hold_id)
+		.fetch_optional(&mut *conn)
+		.await?;
+	if on_this_hold.is_none() {
+		return Ok(None);
+	}
+	reject_resting(conn, order_id, reason).await
 }
 
 /// Mark an order the ledger refused to escrow as `rejected` — the relay's write, after

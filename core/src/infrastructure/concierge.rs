@@ -299,8 +299,9 @@ impl<Src: EventSource> ConciergeProjection<Src> {
 	}
 }
 
-/// Resolve with the error once the lock-holding connection stops answering.
-async fn probe_until_lost(lock: &mut PoolConnection<Postgres>) -> sqlx::Error {
+/// Resolve with the error once the lock-holding connection stops answering. Shared with the
+/// money-event consumer, which holds its singleton lock the same way.
+pub(crate) async fn probe_until_lost(lock: &mut PoolConnection<Postgres>) -> sqlx::Error {
 	loop {
 		tokio::time::sleep(LOCK_PROBE_INTERVAL).await;
 		if let Err(err) = sqlx::query("SELECT 1").execute(lock.as_mut()).await {

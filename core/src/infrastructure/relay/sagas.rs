@@ -12,8 +12,12 @@
 //!   and fails the subscription.
 //! - **Redemption** — the burn was reserved as a pending transfer when it was requested;
 //!   at settle, `Payout` from `(<scope>, alloc:<service>)` into the holder's compartment,
-//!   then post the burn. A refused payout (the account is short, the amount is past the
-//!   automatic ceilings) voids the burn — the units go back — and fails the redemption.
+//!   then post the burn. A refused payout (the account is short, the holder is frozen)
+//!   voids the burn — the units go back — and fails the redemption. Past the automatic
+//!   ceilings (`approval_required`) the payout is asked for instead (`RequestPayout`) and the
+//!   redemption waits `awaiting_approval`, the burn still pending; banking's verdict, read
+//!   off its money events (`infrastructure::money_events`), raises `PayoutExecuted` (post
+//!   the burn) or `Failed` (void it).
 //! - **Fill** — pending `Dr UserShares(buyer) / Cr BookShares(seller)`, capture the
 //!   buyer's hold into the seller's compartment (the notional, less a selling taker's
 //!   fee), post the units; then the taker's fee: captured into the product's account and
@@ -45,7 +49,10 @@ use crate::{
 	infrastructure::{book, fee_accrual, now_unix, outbox::OutboxRow, positions, redemptions},
 	ports::{
 		ledger::{CompletionKind, LedgerError, LedgerTransfer, PendingCompletion},
-		money::{AccountLabel, CaptureRequest, CaptureTo, FeeSweepRequest, HoldId, MoneyKey, MoneyLedgerError, PayoutLine, PayoutReason, PayoutRequest, ScopeId, SubjectRef, VoidRequest},
+		money::{
+			AccountLabel, CaptureRequest, CaptureTo, FeeSweepRequest, HoldId, MoneyKey, MoneyLedgerError, OperationId, PayoutLine, PayoutReason, PayoutRequest, Refusal,
+			RequestPayoutRequest, ScopeId, SubjectRef, VoidRequest, failure_reason,
+		},
 	},
 };
 
@@ -115,12 +122,12 @@ fn money_failure(step: &str, err: MoneyLedgerError, applied_legs: usize) -> Outc
 	}
 }
 
-/// What banking said "no" to, as a saga reads it: a protocol refusal, or a hold / account
-/// banking does not know (an account invest never opened holds nothing to pay from).
+/// What banking said "no" to, as a saga reads it — a protocol refusal, or a hold / account
+/// banking does not know (an account invest never opened holds nothing to pay from) — as
+/// the machine reason the row records ([`failure_reason`]).
 fn refusal_reason(err: &MoneyLedgerError) -> Option<String> {
 	match err {
-		MoneyLedgerError::Refused(refusal) => Some(refusal.reason().to_owned()),
-		MoneyLedgerError::NotFound => Some("not_found".to_owned()),
+		MoneyLedgerError::Refused(_) | MoneyLedgerError::NotFound => Some(failure_reason(err)),
 		MoneyLedgerError::Unavailable(_)
 		| MoneyLedgerError::Unimplemented { .. }
 		| MoneyLedgerError::IdempotencyConflict(_)
@@ -266,7 +273,7 @@ impl Relay {
 					self.complete_leg(row, 1, "subscribe_mint_void", &mint.completion(tid(id, SUBSCRIBE_MINT_VOID), CompletionKind::Void), 1)
 						.await
 				);
-				return match fail_subscription(&self.pool, id, &format!("capture refused: {reason}")).await {
+				return match fail_subscription(&self.pool, id, &reason).await {
 					Ok(()) => Outcome::Done,
 					Err(err) => Outcome::Retry(format!("subscription failed stamp: {err}")),
 				};
@@ -320,7 +327,7 @@ impl Relay {
 				// The redemption fails here, so the settlement queued behind it finds nothing
 				// to pay: a park alone would leave it `settling`, and its payout would go out
 				// for units nobody burned.
-				Err(Outcome::Park { reason, applied_legs }) => match fail_redemption(&self.pool, id, &format!("units not reserved: {reason}")).await {
+				Err(Outcome::Park { reason, applied_legs }) => match fail_redemption(&self.pool, id, UNITS_UNAVAILABLE).await {
 					Ok(()) => Outcome::Park { reason, applied_legs },
 					Err(err) => Outcome::Retry(format!("redemption failed stamp: {err}")),
 				},
@@ -341,14 +348,23 @@ impl Relay {
 				Outcome::Done
 			}
 			RedemptionEvent::Settled { user, service, units, cash, .. } => {
-				let state: Option<String> = match sqlx::query_scalar("SELECT state FROM redemptions WHERE id = $1").bind(id).fetch_optional(&self.pool).await {
-					Ok(state) => state,
+				let row_state: Option<(String, Option<String>)> = match sqlx::query_as("SELECT state, payout_operation_id FROM redemptions WHERE id = $1")
+					.bind(id)
+					.fetch_optional(&self.pool)
+					.await
+				{
+					Ok(row_state) => row_state,
 					Err(err) => return Outcome::Retry(format!("redemption read: {err}")),
 				};
-				match state.as_deref() {
-					Some("settling") => {}
-					Some("completed" | "failed") => return Outcome::Done,
-					Some(other) => return Outcome::park(format!("redemption is {other}, not settling")),
+				match row_state {
+					// Asked for already: the owners' verdict finishes it, and a second Payout
+					// here could pay what they are about to pay.
+					Some((_, Some(_))) => return Outcome::Done,
+					Some((state, None)) => match state.as_str() {
+						"settling" => {}
+						"completed" | "failed" => return Outcome::Done,
+						other => return Outcome::park(format!("redemption is {other}, not settling")),
+					},
 					None => return Outcome::park("redemption row is missing".into()),
 				}
 				let (scope, subject) = match scope_and_subject(&self.pool, &service, user).await {
@@ -375,7 +391,7 @@ impl Relay {
 				match self.ledger.reserve(&burn.pending).await {
 					Ok(()) => {}
 					Err(LedgerError::InsufficientFunds) =>
-						return match fail_redemption(&self.pool, id, "units not reserved: insufficient units to burn").await {
+						return match fail_redemption(&self.pool, id, UNITS_UNAVAILABLE).await {
 							Ok(()) => Outcome::park("redemption settle: the units to burn are not there — failed, nothing paid".into()),
 							Err(err) => Outcome::Retry(format!("redemption failed stamp: {err}")),
 						},
@@ -383,21 +399,12 @@ impl Relay {
 				}
 				match self.money.payout(&payout).await {
 					Ok(_) => {}
+					Err(MoneyLedgerError::Refused(Refusal::ApprovalRequired)) => return self.request_payout_approval(row, id, payout, &burn).await,
 					Err(err) => {
 						let Some(reason) = refusal_reason(&err) else {
 							return money_failure("redemption payout", err, 0);
 						};
-						// TODO(banking RequestPayout): past the automatic ceilings
-						// (`approval_required`) the payout is banking's to request from the
-						// owners; until invest asks, the redemption fails and the units go back.
-						step!(
-							self.complete_leg(row, 0, "redeem_void", &burn.completion(tid(id, BURN_VOID_REFUSED), CompletionKind::Void), 0)
-								.await
-						);
-						return match fail_redemption(&self.pool, id, &format!("payout refused: {reason}")).await {
-							Ok(()) => Outcome::Done,
-							Err(err) => Outcome::Retry(format!("redemption failed stamp: {err}")),
-						};
+						return self.refuse_redemption_payout(row, id, &burn, &reason).await;
 					}
 				}
 				// The cash has left; the burn can no longer be refused — its pending already
@@ -408,6 +415,67 @@ impl Relay {
 					Err(err) => Outcome::Retry(format!("redemption cost-basis reduction: {err}")),
 				}
 			}
+			// The owners approved and banking paid: the cash has left, so the burn its
+			// pending still holds is owed — nothing here can be refused any more.
+			RedemptionEvent::PayoutExecuted { user, service, units, .. } => {
+				let state: Option<String> = match sqlx::query_scalar("SELECT state FROM redemptions WHERE id = $1").bind(id).fetch_optional(&self.pool).await {
+					Ok(state) => state,
+					Err(err) => return Outcome::Retry(format!("redemption read: {err}")),
+				};
+				match state.as_deref() {
+					Some("settling") => {}
+					Some("completed") => return Outcome::Done,
+					Some(other) => return Outcome::park(format!("redemption is {other}, not settling after an executed payout")),
+					None => return Outcome::park("redemption row is missing".into()),
+				}
+				let burn = burn(user, &service, units);
+				step!(self.complete_leg(row, 0, "redeem_burn", &burn.completion(tid(id, BURN_SETTLE), CompletionKind::Post), 0).await);
+				match complete_redemption(&self.pool, row, user, &service, units).await {
+					Ok(()) => Outcome::Done,
+					Err(err) => Outcome::Retry(format!("redemption cost-basis reduction: {err}")),
+				}
+			}
+		}
+	}
+
+	/// banking refused the payout: the burn is voided — the units go back — and the
+	/// redemption fails with banking's reason.
+	async fn refuse_redemption_payout(&self, row: &OutboxRow, id: Uuid, burn: &TwoPhase, reason: &str) -> Outcome {
+		step!(
+			self.complete_leg(row, 0, "redeem_void", &burn.completion(tid(id, BURN_VOID_REFUSED), CompletionKind::Void), 0)
+				.await
+		);
+		match fail_redemption(&self.pool, id, reason).await {
+			Ok(()) => Outcome::Done,
+			Err(err) => Outcome::Retry(format!("redemption failed stamp: {err}")),
+		}
+	}
+
+	/// The payout is past banking's automatic ceilings: ask for it (`RequestPayout`, the
+	/// same lines, a key of its own) and leave the redemption awaiting the owners, its burn
+	/// pending. A refusal of the request itself (the account is short, the holder frozen,
+	/// too many already waiting) fails the redemption as a refused payout would.
+	async fn request_payout_approval(&self, row: &OutboxRow, id: Uuid, payout: PayoutRequest, burn: &TwoPhase) -> Outcome {
+		let request = RequestPayoutRequest {
+			memo: format!("invest redemption from {}", payout.from.as_str().trim_start_matches("alloc:"))
+				.chars()
+				.take(140)
+				.collect(),
+			scope: payout.scope,
+			from: payout.from,
+			lines: payout.lines,
+			key: step!(money_key("redemption", id, "request_payout")),
+			subject_ref: payout.subject_ref,
+		};
+		match self.money.request_payout(&request).await {
+			Ok(operation) => match await_approval(&self.pool, id, &operation.id).await {
+				Ok(()) => Outcome::Done,
+				Err(err) => Outcome::Retry(format!("redemption awaiting-approval stamp: {err}")),
+			},
+			Err(err) => match refusal_reason(&err) {
+				Some(reason) => self.refuse_redemption_payout(row, id, burn, &reason).await,
+				None => money_failure("redemption payout request", err, 0),
+			},
 		}
 	}
 
@@ -574,9 +642,8 @@ impl Relay {
 	/// order's there, and another order's escrow is not this trade's to take), release the
 	/// buyer's hold, and record the trade busted with the buy taken off the book. Then park,
 	/// so an operator sees it. Every step is idempotent; a transient failure retries the event.
-	// TODO(banking MoneyEvents): a buy whose hold banking released on its own (a revoked
-	// mandate, an expired hold) keeps resting until a fill finds out and busts it; take it
-	// off the book when banking announces the release, once banking publishes such events.
+	/// A buy whose hold banking released on its own is normally off the book before a fill
+	/// finds out — the money-event consumer takes it off — so a bust is the race in between.
 	async fn bust_fill(&self, row: &OutboxRow, bust: &Bust<'_>, escrow: Option<(&ScopeId, &str)>, reason: String) -> Outcome {
 		match book::is_escrowed(&self.pool, bust.sell_order).await {
 			Ok(true) => {
@@ -761,6 +828,21 @@ async fn settle_subscription(pool: &PgPool, row: &OutboxRow, user: UserId, servi
 		.execute(&mut *tx)
 		.await?;
 	tx.commit().await
+}
+
+/// Why a redemption failed when its units were not there to burn — moved by a road the
+/// request could not see. The relay's park carries the detail.
+const UNITS_UNAVAILABLE: &str = "units_unavailable";
+
+/// The payout went to the owners: wait on `operation`, the burn still pending. Only from
+/// `settling` — a redelivery after the verdict changes nothing.
+async fn await_approval(pool: &PgPool, id: Uuid, operation: &OperationId) -> Result<(), sqlx::Error> {
+	sqlx::query("UPDATE redemptions SET state = 'awaiting_approval', payout_operation_id = $2, updated_at = now() WHERE id = $1 AND state = 'settling' AND payout_operation_id IS NULL")
+		.bind(id)
+		.bind(&operation.0)
+		.execute(pool)
+		.await?;
+	Ok(())
 }
 
 /// Fail a redemption the relay could not carry — before its payout (`queued` or

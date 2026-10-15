@@ -1,7 +1,7 @@
 //! invest-core's composition root: read the config, dial Postgres, TigerBeetle, banking and
 //! concierge, apply the migrations, and run the gRPC server, the outbox relay, the fee
-//! sweeper, the users projection and the catalog publication as branches of one structured
-//! `join!` until a signal.
+//! sweeper, the users projection, the money-event consumer and the catalog publication as
+//! branches of one structured `join!` until a signal.
 
 use std::{future::Future, sync::Arc};
 
@@ -30,6 +30,7 @@ use invest_core::{
 			Unconfigured,
 			grpc::{ScopeLedgerClient, ScopeLedgerConfig},
 		},
+		money_events::MoneyEventsConsumer,
 		nav::PgNav,
 		positions::PgFundPositions,
 		redemptions::PgRedemptions,
@@ -159,8 +160,9 @@ async fn run(config: config::AppConfig, scope_ledger: Option<ScopeLedgerConfig>,
 	let ledger: Arc<dyn Ledger> = Arc::new(TbLedger::new(tigerbeetle, pool.clone()));
 	ledger::probe(ledger.as_ref()).await.context("TigerBeetle did not answer")?;
 
-	let money: Arc<dyn MoneyLedger> = match &scope_ledger {
-		Some(scope_ledger) => Arc::new(ScopeLedgerClient::connect(scope_ledger)?),
+	let scope_ledger_client = scope_ledger.as_ref().map(ScopeLedgerClient::connect).transpose()?.map(Arc::new);
+	let money: Arc<dyn MoneyLedger> = match &scope_ledger_client {
+		Some(client) => client.clone(),
 		None => Arc::new(Unconfigured),
 	};
 
@@ -179,6 +181,18 @@ async fn run(config: config::AppConfig, scope_ledger: Option<ScopeLedgerConfig>,
 
 	let relay_notify = Arc::new(Notify::new());
 	let relay = Relay::new(relay_pool, ledger.clone(), money.clone(), relay_notify.clone());
+	let book_feed = BookFeed::new();
+	let money_events = match scope_ledger_client {
+		Some(client) => {
+			// Its own small pool, as the projection's: the lock-holding connection plus one
+			// transaction per event, apart from request traffic.
+			let pool = db::connect_sized(&config.database_url, 3)
+				.await
+				.context("failed to connect the money-event consumer's Postgres pool")?;
+			Some(MoneyEventsConsumer::new(pool, client, money.clone(), relay_notify.clone(), book_feed.clone()))
+		}
+		None => None,
+	};
 	let fees = FeePorts {
 		policies: Arc::new(PgFeePolicies::new(pool.clone())),
 		changes: Arc::new(PgFeePolicyChanges::new(pool.clone())),
@@ -208,7 +222,7 @@ async fn run(config: config::AppConfig, scope_ledger: Option<ScopeLedgerConfig>,
 		redemptions: Arc::new(PgRedemptions::new(pool.clone(), ledger.clone())),
 		book: Arc::new(PgBook::new(pool.clone())),
 		book_engine: Arc::new(PriceTimeEngine),
-		book_feed: BookFeed::new(),
+		book_feed,
 		fees,
 		nav,
 		positions: Arc::new(PgFundPositions::new(pool)),
@@ -217,12 +231,12 @@ async fn run(config: config::AppConfig, scope_ledger: Option<ScopeLedgerConfig>,
 
 	tracing::info!(addr = %config.grpc_addr, "invest-core serving");
 	// Graceful shutdown, structured (no detached spawns): the server, the relay, the fee
-	// sweeper, the users projection and the catalog publication run as branches of one
-	// `join!` on this task. A signal cancels a shared token;
+	// sweeper, the users projection, the money-event consumer and the catalog publication
+	// run as branches of one `join!` on this task. A signal cancels a shared token;
 	// the server drains in-flight calls, the workers stop at a batch boundary, and `join!`
 	// waits for all of them.
 	let shutdown = CancellationToken::new();
-	let ((), served, relayed, swept, projected, published) = tokio::join!(
+	let ((), served, relayed, swept, projected, consumed, published) = tokio::join!(
 		await_signal(shutdown.clone()),
 		branch(&shutdown, "gRPC server", services::serve(config.grpc_addr, state, verifier, shutdown.clone().cancelled_owned())),
 		branch(&shutdown, "relay", infallible(relay.run(shutdown.clone()))),
@@ -240,6 +254,18 @@ async fn run(config: config::AppConfig, scope_ledger: Option<ScopeLedgerConfig>,
 		),
 		branch(
 			&shutdown,
+			"money-event consumer",
+			infallible(async {
+				match money_events {
+					Some(consumer) => consumer.run(shutdown.clone()).await,
+					// No scope ledger: no events to pull; idle so the branch ending does not stop
+					// the rest.
+					None => shutdown.cancelled().await,
+				}
+			})
+		),
+		branch(
+			&shutdown,
 			"catalog publisher",
 			infallible(async {
 				if let Some(publisher) = &catalog_publisher {
@@ -251,7 +277,7 @@ async fn run(config: config::AppConfig, scope_ledger: Option<ScopeLedgerConfig>,
 			})
 		),
 	);
-	served.and(relayed).and(swept).and(projected).and(published)
+	served.and(relayed).and(swept).and(projected).and(consumed).and(published)
 }
 
 /// Run one branch of the root `join!`: whatever ends it — an error or a clean return —
