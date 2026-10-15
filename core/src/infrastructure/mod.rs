@@ -8,7 +8,8 @@
 //!   in-memory fake the tests use.
 //! - [`allocations`] / [`issuance`] — repositories for the registry and the in-kind mint
 //!   (atomic state + drained events); [`nav`] — the valuation marks; [`positions`] — the
-//!   cost-basis projection; [`users`] — the projection of the people concierge knows.
+//!   cost-basis projection; [`users`] — the projection of the people concierge knows;
+//!   [`concierge`] — its writer, the pull of concierge's lifecycle and scope streams.
 //! - [`subscriptions`] / [`redemptions`] — the records of the money sagas; [`book`] — the
 //!   order book and its matching transaction.
 //! - [`fees`] — the fee plane's stores; [`fee_accrual`] — settling the management accrual
@@ -22,6 +23,7 @@
 
 pub mod allocations;
 pub mod book;
+pub mod concierge;
 pub mod db;
 pub mod fee_accrual;
 pub mod fee_policy_changes;

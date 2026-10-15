@@ -3,8 +3,10 @@
 //! invest owns no account: concierge does, and invest keeps a projection of what it needs
 //! to decide — whether a person may hold units now, which `invest:*` permissions their
 //! seat carries, and the `auth_subject` banking names their compartment by. The writer of
-//! that projection is concierge's user stream (a follow-up); until it runs, nobody is
-//! known, so a mint to anyone is refused and no caller holds a permission — fail closed.
+//! that projection is the pull of concierge's lifecycle and scope streams
+//! (`infrastructure::concierge`); while it is not configured, or has not heard of a person
+//! yet, nobody is known, so a mint to them is refused and they hold no permission — fail
+//! closed.
 
 use async_trait::async_trait;
 use invest_domain::{authz::Permission, error::DomainError, users::UserId};

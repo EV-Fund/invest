@@ -40,6 +40,10 @@ banking's on purpose.
 - **A user is their concierge user id** (the `sub` of an `invest` access token). There is no
   local account; `users` is a projection (status, `invest:*` permissions, banking's
   `auth_subject`). No projection row ⇒ no permissions and no holding — fail closed.
+- **The projection has one writer**: concierge's lifecycle and scope streams, pulled by
+  `evconcierge_projection` under a session advisory lock (`infrastructure/concierge.rs`).
+  Its bookkeeping (`concierge_projection_*`) is created at boot by the crate, versioned
+  apart from `core/migrations/`; truncate it together with `users` or not at all.
 - **Health stays outside auth.** `grpc.health.v1` is not wrapped in the auth layer.
 
 ## Database

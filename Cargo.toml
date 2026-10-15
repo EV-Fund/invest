@@ -24,6 +24,14 @@ evbanking_contracts = { git = "https://github.com/EV-Main/banking.git", rev = "9
 # The concierge verify flow: invest-core accepts access tokens of the `invest` relying
 # party and verifies them locally against concierge's JWKS. v0.16.0, the deployed one.
 evconcierge_auth = { git = "https://github.com/EV-Main/concierge.git", rev = "151a347d79abf131c58d7da87d61ae6f52ae3239" }
+# A relying party's calls into concierge: invest-core publishes its permission catalog with
+# it (`AuthService.PublishCatalog`, client credential). The same release as the BFF's.
+evconcierge_client = "0.3.0"
+# The pull engine over concierge's lifecycle and scope streams (cursors, dedupe, per-key
+# order, parking) that the `users` projection is written by. concierge's own published crate
+# (`projection/`), so invest keeps no second copy of the stream contract (concierge
+# docs/SCOPES-AND-APPROVALS.md §4). `pg` is its Postgres bookkeeping store.
+evconcierge_projection = { version = "0.3.0", default-features = false, features = ["pg"] }
 getrandom = { version = "0.3", features = ["wasm_js"] }
 invest_contracts = { path = "contracts" }
 invest_domain = { path = "domain" }

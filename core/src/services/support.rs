@@ -44,10 +44,9 @@ pub(super) async fn require_permission<T>(state: &AppState, request: &Request<T>
 /// the final "no" comes back as `Ok(false)` instead of `PERMISSION_DENIED`. For handlers
 /// that serve everyone and merely *widen* for a permission holder.
 ///
-/// The token's `token_version` is not compared here: the projection does not carry
-/// concierge's revoke floor yet, so a revoked token keeps its permissions for the rest of
-/// its TTL (minutes). banking compares it on every money RPC; invest will once the user
-/// stream brings the floor.
+/// The token's `token_version` is not compared here: the projection does not keep
+/// concierge's revoke floor yet (the streams carry it), so a revoked token keeps its
+/// permissions for the rest of its TTL (minutes). banking compares it on every money RPC.
 pub(super) async fn holds_permission<T>(state: &AppState, request: &Request<T>, permission: Permission) -> Result<bool, Status> {
 	let caller = caller_id(request)?;
 	let Some(standing) = state.users.standing(caller).await.map_err(|_| Status::unavailable("internal error"))? else {

@@ -1,12 +1,14 @@
-//! invest-core's composition root: read the config, dial Postgres, TigerBeetle and banking,
-//! apply the migrations, and run the gRPC server, the outbox relay and the fee sweeper as
-//! branches of one structured `join!` until a signal.
+//! invest-core's composition root: read the config, dial Postgres, TigerBeetle, banking and
+//! concierge, apply the migrations, and run the gRPC server, the outbox relay, the fee
+//! sweeper, the users projection and the catalog publication as branches of one structured
+//! `join!` until a signal.
 
 use std::{future::Future, sync::Arc};
 
 use color_eyre::eyre::{Context, ensure, eyre};
 use ev::error_monitoring::{self, Config as SentryConfig};
 use evconcierge_auth::{TokenType, Verifier, VerifierConfig};
+use evconcierge_projection::ProjectionConfig;
 use invest_core::{
 	AppState,
 	application::book::BookFeed,
@@ -14,13 +16,20 @@ use invest_core::{
 	infrastructure::{
 		allocations::PgAllocations,
 		book::PgBook,
+		concierge::{
+			self, ConciergeProjection, ConciergeStreamsConfig,
+			catalog::{ClientCatalogPublisher, publish_at_boot},
+		},
 		db,
 		fee_policy_changes::PgFeePolicyChanges,
 		fee_sweeper::FeeSweeper,
 		fees::{PgFeeAssessments, PgFeePolicies, PgFeeSettlements, PgPositionAccruals},
 		issuance::PgUnitIssuances,
 		ledger::{self, TbLedger},
-		money::{Unconfigured, grpc::ScopeLedgerClient},
+		money::{
+			Unconfigured,
+			grpc::{ScopeLedgerClient, ScopeLedgerConfig},
+		},
 		nav::PgNav,
 		positions::PgFundPositions,
 		redemptions::PgRedemptions,
@@ -29,10 +38,14 @@ use invest_core::{
 		tigerbeetle::TigerBeetle,
 		users::PgUsers,
 	},
-	ports::{Ledger, MoneyLedger, fees::FeePorts},
+	ports::{
+		Ledger, MoneyLedger,
+		catalog::{CATALOG_VERSION, CatalogPublisher},
+		fees::FeePorts,
+	},
 	services,
 };
-use invest_domain::book::PriceTimeEngine;
+use invest_domain::{authz::PermissionCatalog, book::PriceTimeEngine};
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 
@@ -63,6 +76,17 @@ fn main() -> color_eyre::Result<()> {
 	// error, before anything binds — exiting 78 (EX_CONFIG), so "the config is wrong" is
 	// distinguishable from a dependency blip.
 	let config = ev::settings::or_exit(config::AppConfig::from_env());
+	// The rules between variables `settings!` cannot state — an address needs its
+	// credentials, a PEM file must be readable — are the same "the config is wrong", so they
+	// exit 78 as well, before anything is dialled.
+	let wiring = config
+		.scope_ledger()
+		.context("invalid scope ledger configuration")
+		.and_then(|scope_ledger| Ok((scope_ledger, config.concierge_streams().context("invalid concierge stream configuration")?)));
+	let (scope_ledger, concierge_streams) = wiring.unwrap_or_else(|err| {
+		eprintln!("{err:?}");
+		std::process::exit(ev::settings::EX_CONFIG);
+	});
 
 	// Guard must stay alive for the duration of main — dropping it flushes events.
 	let _sentry_guard = error_monitoring::init(&SentryConfig {
@@ -77,18 +101,26 @@ fn main() -> color_eyre::Result<()> {
 	let _otel_guard = init_tracing(&config.app_env);
 
 	let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build().context("failed to build tokio runtime")?;
-	runtime.block_on(run(config))
+	runtime.block_on(run(config, scope_ledger, concierge_streams))
 }
 
-async fn run(config: config::AppConfig) -> color_eyre::Result<()> {
-	// Asked before any infra dial, so a misconfigured release dies at once rather than
-	// after a connect timeout.
-	let scope_ledger = config.scope_ledger().context("invalid scope ledger configuration")?;
+async fn run(config: config::AppConfig, scope_ledger: Option<ScopeLedgerConfig>, concierge_streams: Option<ConciergeStreamsConfig>) -> color_eyre::Result<()> {
 	if scope_ledger.is_none() {
 		// Not refused in production: banking's listener and invest's client certificate
 		// are not provisioned yet, and invest-core serves the registry and issuance without
 		// them. Every cash read answers UNAVAILABLE until they are — loud, not wrong.
 		tracing::warn!("no scope ledger configured (SCOPE_LEDGER_ADDR unset) — the reserved allocations' NAV is unavailable until it is");
+	}
+	match &concierge_streams {
+		// Not refused: invest-core serves the registry without anyone known to it, and every
+		// check that needs a person fails closed — loud, not wrong.
+		None => tracing::warn!(
+			"no concierge streams configured (CONCIERGE_GRPC_ADDR unset) — the users projection does not run and the permission catalog is not published: nobody is known to invest, so every permission check and every mint is refused"
+		),
+		Some(streams) if streams.ca_pem.is_none() && config.app_env == "production" => {
+			tracing::warn!("CONCIERGE_GRPC_ADDR is cleartext in production — the client secret crosses the cluster network unencrypted; point it at concierge's TLS listener");
+		}
+		Some(_) => {}
 	}
 	let verifier_config = VerifierConfig {
 		issuer: config.auth_issuer.clone(),
@@ -132,6 +164,19 @@ async fn run(config: config::AppConfig) -> color_eyre::Result<()> {
 		None => Arc::new(Unconfigured),
 	};
 
+	let projection = match &concierge_streams {
+		Some(streams) => {
+			// Its own small pool, as the relay's: the lock-holding connection plus the engine's
+			// sequential reads and writes, apart from request traffic.
+			let pool = db::connect_sized(&config.database_url, 3)
+				.await
+				.context("failed to connect the users projection's Postgres pool")?;
+			Some(ConciergeProjection::new(pool, concierge::connect(streams)?, ProjectionConfig::default()))
+		}
+		None => None,
+	};
+	let catalog_publisher = concierge_streams.as_ref().map(ClientCatalogPublisher::connect).transpose()?;
+
 	let relay_notify = Arc::new(Notify::new());
 	let relay = Relay::new(relay_pool, ledger.clone(), money.clone(), relay_notify.clone());
 	let fees = FeePorts {
@@ -171,18 +216,42 @@ async fn run(config: config::AppConfig) -> color_eyre::Result<()> {
 	};
 
 	tracing::info!(addr = %config.grpc_addr, "invest-core serving");
-	// Graceful shutdown, structured (no detached spawns): the server, the relay and the fee
-	// sweeper run as branches of one `join!` on this task. A signal cancels a shared token;
+	// Graceful shutdown, structured (no detached spawns): the server, the relay, the fee
+	// sweeper, the users projection and the catalog publication run as branches of one
+	// `join!` on this task. A signal cancels a shared token;
 	// the server drains in-flight calls, the workers stop at a batch boundary, and `join!`
 	// waits for all of them.
 	let shutdown = CancellationToken::new();
-	let ((), served, relayed, swept) = tokio::join!(
+	let ((), served, relayed, swept, projected, published) = tokio::join!(
 		await_signal(shutdown.clone()),
 		branch(&shutdown, "gRPC server", services::serve(config.grpc_addr, state, verifier, shutdown.clone().cancelled_owned())),
 		branch(&shutdown, "relay", infallible(relay.run(shutdown.clone()))),
 		branch(&shutdown, "fee sweeper", infallible(fee_sweeper.run(shutdown.clone()))),
+		branch(
+			&shutdown,
+			"users projection",
+			infallible(async {
+				match projection {
+					Some(projection) => projection.run(shutdown.clone()).await,
+					// Unconfigured: idle until shutdown, so the branch ending does not stop the rest.
+					None => shutdown.cancelled().await,
+				}
+			})
+		),
+		branch(
+			&shutdown,
+			"catalog publisher",
+			infallible(async {
+				if let Some(publisher) = &catalog_publisher {
+					// Done, refused or cancelled — each already logged; nothing else waits on it.
+					let _ = publish_at_boot(publisher as &dyn CatalogPublisher, &PermissionCatalog::invest(), CATALOG_VERSION, &shutdown).await;
+				}
+				// A one-shot: idle afterwards, so its end does not stop the rest.
+				shutdown.cancelled().await;
+			})
+		),
 	);
-	served.and(relayed).and(swept)
+	served.and(relayed).and(swept).and(projected).and(published)
 }
 
 /// Run one branch of the root `join!`: whatever ends it — an error or a clean return —
