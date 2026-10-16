@@ -14,7 +14,10 @@
 
 use std::sync::Arc;
 
-use application::{book::BookFeed, funds::FundPorts};
+use application::{
+	book::{BookFeed, WatchStreams},
+	funds::FundPorts,
+};
 use invest_domain::book::MatchingEngine;
 use ports::{
 	AllocationRegistry, FundPositionReader, Ledger, MoneyLedger, NavMarks, RedemptionRepository, SubscriptionRepository, UnitIssuanceRepository, UserDirectory, book::BookStore,
@@ -59,6 +62,8 @@ pub struct AppState {
 	pub book_engine: Arc<dyn MatchingEngine>,
 	/// The in-process fan-out every `WatchBook` subscriber hangs on.
 	pub book_feed: Arc<BookFeed>,
+	/// The per-caller `WatchBook` cap and the live streams' recheck period.
+	pub watch_streams: Arc<WatchStreams>,
 	/// The fee plane — a product's terms and their history, the accrual clocks, the
 	/// charges and the settlement of fee units into cash.
 	pub fees: FeePorts,
