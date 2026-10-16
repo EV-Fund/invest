@@ -24,7 +24,7 @@ use uuid::Uuid;
 
 use crate::{
 	infrastructure::{fee_accrual, outbox},
-	ports::{QueuedRedemption, RedemptionRecord, RedemptionRepository, ledger::Ledger},
+	ports::{AwaitingOperation, QueuedRedemption, RedemptionRecord, RedemptionRepository, ledger::Ledger},
 };
 
 const SELECT_BY_ID: &str = "SELECT id, user_id, service, units, nav, cash, state, failure_reason FROM redemptions WHERE id = $1";
@@ -195,6 +195,12 @@ pub(crate) async fn apply_payout_verdict(conn: &mut PgConnection, operation: &st
 	let Some(id) = id else {
 		return Ok(false);
 	};
+	apply_locked(conn, id, verdict).await?;
+	Ok(true)
+}
+
+/// Move the locked, awaiting redemption `id` by `verdict` and drain its event.
+async fn apply_locked(conn: &mut PgConnection, id: Uuid, verdict: PayoutVerdict<'_>) -> Result<(), DomainError> {
 	let mut redemption = load_for_update(conn, RedemptionId::from_raw(id)).await?;
 	match verdict {
 		PayoutVerdict::Executed => redemption.payout_executed()?,
@@ -210,7 +216,7 @@ pub(crate) async fn apply_payout_verdict(conn: &mut PgConnection, operation: &st
 	}
 	update_row(conn, &redemption).await?;
 	outbox::drain_to_outbox(conn, &mut redemption, true).await?;
-	Ok(true)
+	Ok(())
 }
 
 /// A redemption waiting on the owners: its id, and the scope and operation to ask banking
@@ -247,6 +253,15 @@ pub(crate) async fn awaiting_payout(pool: &PgPool, id: Uuid) -> Result<Option<Aw
 	.await
 	.map_err(repo_err)?;
 	Ok(row.map(|(id, scope, operation)| AwaitingPayout { id, scope, operation }))
+}
+
+/// Age in seconds of the oldest redemption awaiting approval, 0 when none — the number a
+/// stuck banking verdict shows up in (see the sweep in `money_events`).
+pub(crate) async fn oldest_awaiting_age_secs(pool: &PgPool) -> Result<i64, DomainError> {
+	sqlx::query_scalar("SELECT COALESCE(EXTRACT(EPOCH FROM now() - MIN(updated_at)), 0)::bigint FROM redemptions WHERE state = 'awaiting_approval'")
+		.fetch_one(pool)
+		.await
+		.map_err(repo_err)
 }
 
 #[async_trait]
@@ -308,6 +323,54 @@ impl RedemptionRepository for PgRedemptions {
 		outbox::drain_to_outbox(&mut tx, &mut redemption, true).await?;
 		tx.commit().await.map_err(repo_err)?;
 		Ok(redemption)
+	}
+
+	async fn awaiting_operation(&self, id: RedemptionId) -> Result<Option<AwaitingOperation>, DomainError> {
+		Ok(awaiting_payout(&self.pool, id.raw()).await?.map(|awaiting| AwaitingOperation {
+			scope: awaiting.scope,
+			operation: awaiting.operation,
+		}))
+	}
+
+	async fn refuse_awaiting(&self, id: RedemptionId, operation: &str, reason: &str) -> Result<RedemptionRecord, DomainError> {
+		let mut tx = self.pool.begin().await.map_err(repo_err)?;
+		// The same lock and predicate as the money-event consumer's verdict: whichever
+		// takes the row first decides, the other finds it moved.
+		let locked: Option<Uuid> = sqlx::query_scalar("SELECT id FROM redemptions WHERE id = $1 AND payout_operation_id = $2 AND state = 'awaiting_approval' FOR UPDATE")
+			.bind(id.raw())
+			.bind(operation)
+			.fetch_optional(&mut *tx)
+			.await
+			.map_err(repo_err)?;
+		if locked.is_none() {
+			let state: Option<String> = sqlx::query_scalar("SELECT state FROM redemptions WHERE id = $1")
+				.bind(id.raw())
+				.fetch_optional(&mut *tx)
+				.await
+				.map_err(repo_err)?;
+			return Err(match state {
+				Some(state) => DomainError::Conflict(format!("redemption is {state}, not awaiting approval: banking's verdict landed first")),
+				None => DomainError::NotFound {
+					entity: "redemption",
+					id: id.to_string(),
+				},
+			});
+		}
+		apply_locked(&mut tx, id.raw(), PayoutVerdict::Refused(reason)).await?;
+		tx.commit().await.map_err(repo_err)?;
+		self.find_record(id).await?.ok_or_else(|| DomainError::NotFound {
+			entity: "redemption",
+			id: id.to_string(),
+		})
+	}
+
+	async fn find_record(&self, id: RedemptionId) -> Result<Option<RedemptionRecord>, DomainError> {
+		let row = sqlx::query_as::<_, RedemptionRow>(SELECT_BY_ID)
+			.bind(id.raw())
+			.fetch_optional(&self.pool)
+			.await
+			.map_err(repo_err)?;
+		row.map(RedemptionRow::into_record).transpose()
 	}
 
 	async fn find_by_id(&self, id: RedemptionId) -> Result<Option<Redemption>, DomainError> {

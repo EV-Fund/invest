@@ -117,6 +117,26 @@ impl FundsService for FundsSvc {
 		Ok(Response::new(redemption_to_proto(&redemption, None)))
 	}
 
+	async fn resolve_awaiting_redemption(&self, request: Request<pb::ResolveAwaitingRedemptionRequest>) -> Result<Response<pb::Redemption>, Status> {
+		require_permission(&self.state, &request, Permission::AllocationManage).await?;
+		let req = request.get_ref();
+		let id = parse_redemption_id(&req.redemption_id)?;
+		// An unknown or unspecified outcome is refused rather than defaulted: this moves money.
+		if pb::AwaitingRedemptionOutcome::try_from(req.outcome) != Ok(pb::AwaitingRedemptionOutcome::Fail) {
+			return Err(Status::invalid_argument("outcome must be AWAITING_REDEMPTION_OUTCOME_FAIL"));
+		}
+		let record = funds_app::resolve_awaiting_redemption(
+			self.state.redemptions.as_ref(),
+			self.state.money.as_ref(),
+			&self.state.relay_notify,
+			id,
+			req.confirm_banking_not_found,
+		)
+		.await
+		.map_err(map_err)?;
+		Ok(Response::new(redemption_record_to_proto(&record)))
+	}
+
 	async fn list_redemption_queue(&self, request: Request<pb::ListRedemptionQueueRequest>) -> Result<Response<pb::RedemptionQueue>, Status> {
 		require_permission(&self.state, &request, Permission::AllocationManage).await?;
 		let queued = self.state.redemptions.list_queued().await.map_err(map_err)?;

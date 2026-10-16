@@ -230,7 +230,14 @@ impl MoneyEventsConsumer {
 	/// scope, so the list is short. Answers how many verdicts landed.
 	pub async fn sweep_awaiting(&self) -> Result<u64, ConsumerError> {
 		let mut landed = 0;
-		for awaiting in redemptions::awaiting_payouts(&self.pool).await? {
+		let awaiting_payouts = redemptions::awaiting_payouts(&self.pool).await?;
+		if !awaiting_payouts.is_empty() {
+			// The age is read before the verdicts land, so a stuck one shows even on the sweep
+			// that would clear it. Grep key `oldest_awaiting_age_secs` for the alert.
+			let oldest_awaiting_age_secs = redemptions::oldest_awaiting_age_secs(&self.pool).await?;
+			info!(awaiting = awaiting_payouts.len(), oldest_awaiting_age_secs, "money events: redemptions awaiting approval");
+		}
+		for awaiting in awaiting_payouts {
 			// One record banking cannot answer for, or one that does not apply, is skipped and
 			// read again on the next sweep; the others still land.
 			let verdict = match self.verdict(&awaiting).await {
@@ -439,9 +446,8 @@ impl MoneyEventsConsumer {
 	/// banking does not know, answers malformed, or answers for another operation or
 	/// redemption is left awaiting and logged, for an operator: failing the redemption on it
 	/// would give the units back while the payout may still execute.
-	// TODO(F4): a redemption can wait here for ever when banking never answers. It needs an
-	// operator RPC `ResolveAwaitingRedemption(id, outcome)` under `invest:allocation:manage`
-	// that re-polls banking, and a metric for the oldest awaiting one.
+	///
+	/// The operator's way out of that state is `ResolveAwaitingRedemption`.
 	async fn verdict(&self, awaiting: &AwaitingPayout) -> Result<Option<OwnedVerdict>, ConsumerError> {
 		let scope = match ScopeId::parse(&awaiting.scope) {
 			Ok(scope) => scope,

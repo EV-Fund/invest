@@ -21,7 +21,7 @@ use invest_domain::{
 	error::DomainError,
 	issuance::UnitHolder,
 	money::{Nav, Shares, Usdt},
-	redemptions::{Redemption, RedemptionId},
+	redemptions::{Redemption, RedemptionId, RedemptionState},
 	subscriptions::{Subscription, SubscriptionId},
 	users::UserId,
 };
@@ -33,7 +33,7 @@ use crate::{
 		FundPositionReader, RedemptionRecord, RedemptionRepository, SubscriptionRecord, SubscriptionRepository, UnitFlow,
 		allocations::{AllocationRecord, AllocationRegistry},
 		ledger::{HoldingScope, Ledger},
-		money::{AccountLabel, MoneyKey, MoneyLedger, MoneyLedgerError, ReserveRequest, ScopeId, SubjectRef, failure_reason},
+		money::{AccountLabel, MoneyKey, MoneyLedger, MoneyLedgerError, OperationId, PendingOperationState, ReserveRequest, ScopeId, SubjectRef, failure_reason, machine_reason},
 		nav::{NavMarks, Valuation},
 		users::UserDirectory,
 	},
@@ -538,6 +538,58 @@ pub async fn fail_redemption(redemptions: &dyn RedemptionRepository, relay: &Not
 	let redemption = redemptions.fail(id).await?;
 	relay.notify_one();
 	Ok(redemption)
+}
+
+/// Machine reason recorded when an operator fails a redemption banking no longer knows.
+pub const OPERATOR_RESOLVED_NOT_FOUND: &str = "operator_resolved_not_found";
+
+/// Fail a redemption stuck `awaiting_approval` (operator). banking is asked first and its
+/// answer decides: a rejected or failed operation is failed with banking's reason; one it
+/// does not know needs `confirm_not_found`; one still pending or already executed is
+/// refused — a payout banking has made must never be failed, its verdict lands through the
+/// money events. The write itself is conditional on the state ([`RedemptionRepository::
+/// refuse_awaiting`]), so a verdict landing between this poll and the write wins.
+/// Idempotent once the redemption is failed.
+pub async fn resolve_awaiting_redemption(
+	redemptions: &dyn RedemptionRepository,
+	money: &dyn MoneyLedger,
+	relay: &Notify,
+	id: RedemptionId,
+	confirm_not_found: bool,
+) -> Result<RedemptionRecord, DomainError> {
+	let Some(awaiting) = redemptions.awaiting_operation(id).await? else {
+		let record = redemptions.find_record(id).await?.ok_or_else(|| DomainError::NotFound {
+			entity: "redemption",
+			id: id.to_string(),
+		})?;
+		return match record.redemption.state() {
+			RedemptionState::Failed => Ok(record),
+			state => Err(DomainError::Precondition(format!("redemption is {}, not awaiting approval", state.as_str()))),
+		};
+	};
+	let scope = ScopeId::parse(&awaiting.scope)?;
+	let reason = match money.pending_operation(&scope, &OperationId(awaiting.operation.clone())).await {
+		Ok(operation) => {
+			if operation.id.0 != awaiting.operation || operation.subject_ref != format!("redemption:{}", id.raw().hyphenated()) {
+				return Err(DomainError::Precondition("banking answered for another operation or redemption".into()));
+			}
+			match operation.state {
+				PendingOperationState::AwaitingApproval => return Err(DomainError::Precondition("banking is still awaiting the owners' approval".into())),
+				PendingOperationState::Executed => return Err(DomainError::Precondition("banking has executed the payout; the redemption completes on its own".into())),
+				PendingOperationState::Rejected => machine_reason(&operation.failure_reason, "approval_rejected"),
+				PendingOperationState::Failed => machine_reason(&operation.failure_reason, "payout_failed"),
+			}
+		}
+		Err(MoneyLedgerError::NotFound) if confirm_not_found => OPERATOR_RESOLVED_NOT_FOUND.to_owned(),
+		Err(MoneyLedgerError::NotFound) =>
+			return Err(DomainError::Precondition(
+				"banking does not know the payout's operation; set confirm_banking_not_found to fail it".into(),
+			)),
+		Err(err) => return Err(err.into()),
+	};
+	let record = redemptions.refuse_awaiting(id, &awaiting.operation, &reason).await?;
+	relay.notify_one();
+	Ok(record)
 }
 
 /// A user's redemptions (projection), newest first.
