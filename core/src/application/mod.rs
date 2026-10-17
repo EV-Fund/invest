@@ -25,5 +25,6 @@ pub mod allocations;
 pub mod book;
 pub mod fees;
 pub mod funds;
+pub mod import;
 pub mod issuance;
 pub mod ownership;
