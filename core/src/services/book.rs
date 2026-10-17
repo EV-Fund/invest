@@ -226,7 +226,10 @@ impl BookService for BookSvc {
 		let slot = open_slot(&self.state.watch_streams, caller)?;
 		// Read from the claims the layer already verified; the stream ends when it passes
 		// because the token is the only thing that vouched for the caller.
-		let expires_in = claims_of(&request).map(|claims| Duration::from_secs(claims.exp.saturating_sub(unix_now().max(0) as u64)));
+		let claims = claims_of(&request);
+		let expires_in = claims.as_ref().map(|claims| Duration::from_secs(claims.exp.saturating_sub(unix_now().max(0) as u64)));
+		// The auth layer compared it once; the stream compares it again on every recheck.
+		let token_version = claims.as_ref().map_or(0, |claims| claims.token_version);
 		let depth = bounded(request.get_ref().depth, DEFAULT_DEPTH, MAX_DEPTH);
 		let receiver = self.state.book_feed.subscribe(&service);
 		let mut ticker = tokio::time::interval_at(Instant::now() + self.state.watch_streams.recheck_every(), self.state.watch_streams.recheck_every());
@@ -238,6 +241,7 @@ impl BookService for BookSvc {
 				service,
 				caller,
 				depth,
+				token_version,
 			},
 			receiver,
 			ticker,
@@ -297,6 +301,8 @@ struct LiveWatch {
 	service: ServiceId,
 	caller: UserId,
 	depth: u32,
+	/// The `token_version` claim of the token that opened the stream.
+	token_version: u64,
 }
 
 #[async_trait]
@@ -318,14 +324,25 @@ impl WatchBackend for LiveWatch {
 		.map_err(map_err)
 	}
 
-	/// The handshake gate again: the projection's standing, then the book's visibility as
-	/// that standing now allows it.
+	/// The handshake gate again: the token's revocation floor, the projection's standing,
+	/// then the book's visibility as that standing now allows it.
 	async fn recheck(&self) -> Result<(), Status> {
+		let threshold = self.state.users.token_version(self.caller).await.map_err(|_| Status::unavailable("internal error"))?;
+		not_revoked(self.token_version, threshold)?;
 		let standing = self.state.users.standing(self.caller).await.map_err(|_| Status::unavailable("internal error"))?;
 		let unrestricted = still_entitled(standing.as_ref())?;
 		book_app::require_visible(self.state.allocations.as_ref(), &self.service, self.caller, unrestricted)
 			.await
 			.map_err(map_err)
+	}
+}
+
+/// The auth layer's revocation rule, for a token that outlives its request: below the
+/// threshold is revoked; no threshold seen means nothing to compare, so it stands.
+fn not_revoked(claim: u64, threshold: Option<u64>) -> Result<(), Status> {
+	match threshold {
+		Some(threshold) if claim < threshold => Err(Status::unauthenticated("token revoked")),
+		_ => Ok(()),
 	}
 }
 
@@ -633,7 +650,11 @@ mod tests {
 	/// Stands in for the ports: the holder's standing is a switch the test flips.
 	struct Fake {
 		standing: Arc<Mutex<UserStanding>>,
+		threshold: Arc<Mutex<Option<u64>>>,
 	}
+
+	/// The token the fake streams were opened with.
+	const CLAIM: u64 = 3;
 
 	#[async_trait]
 	impl WatchBackend for Fake {
@@ -642,6 +663,7 @@ mod tests {
 		}
 
 		async fn recheck(&self) -> Result<(), Status> {
+			not_revoked(CLAIM, *self.threshold.lock().unwrap())?;
 			let standing = self.standing.lock().unwrap().clone();
 			still_entitled(Some(&standing)).map(|_| ())
 		}
@@ -653,21 +675,30 @@ mod tests {
 		Arc::new(Mutex::new(UserStanding { active, permissions: None }))
 	}
 
-	fn stream_of(streams: &Arc<WatchStreams>, caller: UserId, standing: &Arc<Mutex<UserStanding>>, lifetime: Option<Duration>) -> (BookWatch<Fake>, watch::Sender<u64>) {
+	fn stream_of(
+		streams: &Arc<WatchStreams>,
+		caller: UserId,
+		standing: &Arc<Mutex<UserStanding>>,
+		lifetime: Option<Duration>,
+	) -> (BookWatch<Fake>, watch::Sender<u64>, Arc<Mutex<Option<u64>>>) {
 		let (tx, rx) = watch::channel(0);
 		let mut receiver = rx;
 		receiver.mark_changed();
 		let mut ticker = tokio::time::interval_at(Instant::now() + PERIOD, PERIOD);
 		ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
+		let threshold = Arc::new(Mutex::new(None));
 		let state = WatchState {
-			backend: Fake { standing: Arc::clone(standing) },
+			backend: Fake {
+				standing: Arc::clone(standing),
+				threshold: Arc::clone(&threshold),
+			},
 			receiver,
 			ticker,
 			deadline: lifetime.map(|left| Instant::now() + left),
 			slot: Some(open_slot(streams, caller).unwrap()),
 			finished: false,
 		};
-		(BookWatch::new(state), tx)
+		(BookWatch::new(state), tx, threshold)
 	}
 
 	#[tokio::test(start_paused = true)]
@@ -675,7 +706,7 @@ mod tests {
 		let streams = WatchStreams::new(4, PERIOD).unwrap();
 		let caller = UserId::new();
 		let holder = standing(true);
-		let (mut stream, _feed) = stream_of(&streams, caller, &holder, None);
+		let (mut stream, _feed, _threshold) = stream_of(&streams, caller, &holder, None);
 
 		assert!(stream.next().await.unwrap().is_ok(), "the first frame comes at once");
 		holder.lock().unwrap().active = false;
@@ -691,7 +722,7 @@ mod tests {
 	#[tokio::test(start_paused = true)]
 	async fn an_active_holder_keeps_the_stream_across_rechecks() {
 		let streams = WatchStreams::new(4, PERIOD).unwrap();
-		let (mut stream, feed) = stream_of(&streams, UserId::new(), &standing(true), None);
+		let (mut stream, feed, _threshold) = stream_of(&streams, UserId::new(), &standing(true), None);
 		assert!(stream.next().await.unwrap().is_ok());
 		tokio::time::advance(PERIOD * 3).await;
 		feed.send_replace(1);
@@ -702,7 +733,7 @@ mod tests {
 	async fn the_stream_ends_when_the_token_expires() {
 		let streams = WatchStreams::new(4, PERIOD).unwrap();
 		let caller = UserId::new();
-		let (mut stream, _feed) = stream_of(&streams, caller, &standing(true), Some(Duration::from_secs(30)));
+		let (mut stream, _feed, _threshold) = stream_of(&streams, caller, &standing(true), Some(Duration::from_secs(30)));
 		assert!(stream.next().await.unwrap().is_ok());
 		let closing = stream.next().await.unwrap().unwrap_err();
 		assert_eq!(closing.code(), Code::Unauthenticated);
@@ -713,7 +744,7 @@ mod tests {
 	async fn dropping_a_stream_mid_wait_releases_its_slot() {
 		let streams = WatchStreams::new(1, PERIOD).unwrap();
 		let caller = UserId::new();
-		let (mut stream, _feed) = stream_of(&streams, caller, &standing(true), None);
+		let (mut stream, _feed, _threshold) = stream_of(&streams, caller, &standing(true), None);
 		assert!(stream.next().await.unwrap().is_ok());
 		// Parked on the next change, the way a cancelled RPC leaves it.
 		assert!(tokio::time::timeout(Duration::from_secs(1), stream.next()).await.is_err());
@@ -721,5 +752,26 @@ mod tests {
 		drop(stream);
 		assert_eq!(streams.open_for(caller), 0);
 		assert!(open_slot(&streams, caller).is_ok());
+	}
+
+	#[test]
+	fn a_token_below_the_floor_is_revoked_and_no_floor_is_a_pass() {
+		assert_eq!(not_revoked(2, Some(3)).unwrap_err().code(), Code::Unauthenticated);
+		assert!(not_revoked(3, Some(3)).is_ok());
+		assert!(not_revoked(0, None).is_ok());
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn a_token_revoked_mid_stream_closes_it_on_the_next_recheck() {
+		let streams = WatchStreams::new(4, PERIOD).unwrap();
+		let caller = UserId::new();
+		let (mut stream, _feed, threshold) = stream_of(&streams, caller, &standing(true), None);
+		assert!(stream.next().await.unwrap().is_ok());
+		// "Revoke all" raises the floor above the claim the stream was opened with.
+		*threshold.lock().unwrap() = Some(CLAIM + 1);
+		let closing = stream.next().await.unwrap().unwrap_err();
+		assert_eq!(closing.code(), Code::Unauthenticated);
+		assert_eq!(streams.open_for(caller), 0);
+		assert!(stream.next().await.is_none());
 	}
 }
