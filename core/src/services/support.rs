@@ -44,9 +44,8 @@ pub(super) async fn require_permission<T>(state: &AppState, request: &Request<T>
 /// the final "no" comes back as `Ok(false)` instead of `PERMISSION_DENIED`. For handlers
 /// that serve everyone and merely *widen* for a permission holder.
 ///
-/// The token's `token_version` is not compared here: the projection does not keep
-/// concierge's revoke floor yet (the streams carry it), so a revoked token keeps its
-/// permissions for the rest of its TTL (minutes). banking compares it on every money RPC.
+/// The token's `token_version` is not compared here: the auth layer
+/// ([`super::token_version`]) already refused a revoked token before any handler runs.
 pub(super) async fn holds_permission<T>(state: &AppState, request: &Request<T>, permission: Permission) -> Result<bool, Status> {
 	let caller = caller_id(request)?;
 	let Some(standing) = state.users.standing(caller).await.map_err(|_| Status::unavailable("internal error"))? else {

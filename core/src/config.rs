@@ -1,8 +1,11 @@
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use color_eyre::eyre::{Context, Result, ensure};
 
-use crate::infrastructure::{concierge::ConciergeStreamsConfig, money::grpc::ScopeLedgerConfig};
+use crate::{
+	application::book::WatchStreams,
+	infrastructure::{concierge::ConciergeStreamsConfig, money::grpc::ScopeLedgerConfig},
+};
 
 ev::settings! {
 	/// invest-core's configuration, read from the environment only (`dotenvy` loads `.env`
@@ -71,10 +74,22 @@ ev::settings! {
 		/// The name to verify concierge's certificate against, when it is not the host of
 		/// `CONCIERGE_GRPC_ADDR`.
 		concierge_tls_domain: Option<String>,
+		/// How many `WatchBook` streams one caller may hold open; past it the stream is
+		/// refused `RESOURCE_EXHAUSTED`. At least 1 (the BFF's own cap is 4 per session).
+		watchbook_max_streams_per_caller: u32 = "4",
+		/// How often a live `WatchBook` stream re-checks that its holder is still active
+		/// and may still see the book. At least 1.
+		watchbook_recheck_secs: u64 = "60",
 	}
 }
 
 impl AppConfig {
+	/// The `WatchBook` limits. A zero is refused here rather than clamped: a cap of 0 would
+	/// silently disable the stream and a recheck of 0 seconds would spin the timer.
+	pub fn watch_streams(&self) -> Result<Arc<WatchStreams>> {
+		WatchStreams::new(self.watchbook_max_streams_per_caller, Duration::from_secs(self.watchbook_recheck_secs)).map_err(|err| color_eyre::eyre::eyre!("{err}"))
+	}
+
 	/// The concierge stream client's configuration, or `None` when none is configured.
 	/// Half a configuration is refused, as for the scope ledger: an address without its
 	/// secret is refused by concierge on every pull, and a secret without an address is a

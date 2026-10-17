@@ -627,6 +627,61 @@ mod flow_tests {
 		assert_eq!(h.concierge.me_calls(), 1);
 	}
 
+	/// An access token whose payload says `token_version: 1`; `Harness::sign_in`'s opaque
+	/// token carries no claim, so these sessions are opened by hand.
+	const ISSUED_AT_VERSION_1: &str = "h.eyJzdWIiOiJ1IiwidG9rZW5fdmVyc2lvbiI6MX0.s";
+
+	async fn session_with_token(h: &Harness, access_token: &str) -> crate::session::Session {
+		h.concierge.grant(INVESTOR);
+		let tokens = evconcierge_client::ClientTokens {
+			user_id: USER,
+			access_token: access_token.into(),
+			access_expires_at: now_secs() + 300,
+			refresh_token: "refresh".into(),
+			refresh_expires_at: now_secs() + 86_400,
+		};
+		let opened = h.state.sessions.open(&tokens, now_secs()).await.unwrap();
+		h.state.sessions.resolve(&opened.cookie, now_secs()).await.unwrap()
+	}
+
+	/// A token issued before a "revoke all" is refused by the session check even though
+	/// concierge's `GetMe` still answers for it, and the session is closed.
+	#[tokio::test]
+	async fn a_token_issued_before_a_revoke_closes_the_session() {
+		let Some(h) = Harness::new(None).await else { return };
+		let session = session_with_token(&h, ISSUED_AT_VERSION_1).await;
+		h.concierge.revoke_to(2);
+		let err = h.state.sessions.me(&session, true).await.unwrap_err();
+		assert!(matches!(err, crate::session::SessionError::Rejected), "{err:?}");
+		assert!(!h.state.sessions.is_live(&session.key, now_secs()).await.unwrap(), "the session row is gone");
+	}
+
+	#[tokio::test]
+	async fn a_token_at_the_accounts_version_is_accepted() {
+		let Some(h) = Harness::new(None).await else { return };
+		let session = session_with_token(&h, ISSUED_AT_VERSION_1).await;
+		h.concierge.revoke_to(1);
+		assert!(h.state.sessions.me(&session, true).await.is_ok());
+		h.concierge.revoke_to(0);
+		assert!(h.state.sessions.me(&session, true).await.is_ok(), "above the account's version");
+	}
+
+	/// The cached `GetMe` must not carry a revoked token across the revoke: once a fresh
+	/// answer shows it, the cache entry is gone with the session, so a later read cannot be
+	/// served from it.
+	#[tokio::test]
+	async fn the_getme_cache_does_not_outlive_the_revoked_session() {
+		let Some(h) = Harness::new(None).await else { return };
+		let session = session_with_token(&h, ISSUED_AT_VERSION_1).await;
+		h.state.sessions.me(&session, false).await.unwrap();
+		assert_eq!(h.concierge.me_calls(), 1);
+		h.concierge.revoke_to(2);
+		assert!(h.state.sessions.me(&session, true).await.is_err());
+		// The entry would have answered here without a call to concierge.
+		assert!(h.state.sessions.me(&session, false).await.is_err(), "no cached answer survives the revoke");
+		assert_eq!(h.concierge.me_calls(), 3, "the second read went to concierge, not the cache");
+	}
+
 	/// concierge refusing the refresh (signed out on evinvest.ltd, suspended) ends the session
 	/// here too: a guest answer, cookies cleared, the row gone.
 	#[tokio::test]

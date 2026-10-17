@@ -11,7 +11,7 @@ use evconcierge_auth::{TokenType, Verifier, VerifierConfig};
 use evconcierge_projection::ProjectionConfig;
 use invest_core::{
 	AppState,
-	application::book::BookFeed,
+	application::book::{BookFeed, WatchStreams},
 	config,
 	infrastructure::{
 		allocations::PgAllocations,
@@ -90,11 +90,14 @@ fn main() -> color_eyre::Result<ExitCode> {
 	// The rules between variables `settings!` cannot state — an address needs its
 	// credentials, a PEM file must be readable — are the same "the config is wrong", so they
 	// exit 78 as well, before anything is dialled.
-	let wiring = config
-		.scope_ledger()
-		.context("invalid scope ledger configuration")
-		.and_then(|scope_ledger| Ok((scope_ledger, config.concierge_streams().context("invalid concierge stream configuration")?)));
-	let (scope_ledger, concierge_streams) = wiring.unwrap_or_else(|err| {
+	let wiring = config.scope_ledger().context("invalid scope ledger configuration").and_then(|scope_ledger| {
+		Ok((
+			scope_ledger,
+			config.concierge_streams().context("invalid concierge stream configuration")?,
+			config.watch_streams().context("invalid WatchBook limits")?,
+		))
+	});
+	let (scope_ledger, concierge_streams, watch_streams) = wiring.unwrap_or_else(|err| {
 		eprintln!("{err:?}");
 		std::process::exit(ev::settings::EX_CONFIG);
 	});
@@ -115,11 +118,16 @@ fn main() -> color_eyre::Result<ExitCode> {
 	}
 
 	let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build().context("failed to build tokio runtime")?;
-	runtime.block_on(run(config, scope_ledger, concierge_streams))?;
+	runtime.block_on(run(config, scope_ledger, concierge_streams, watch_streams))?;
 	Ok(ExitCode::SUCCESS)
 }
 
-async fn run(config: config::AppConfig, scope_ledger: Option<ScopeLedgerConfig>, concierge_streams: Option<ConciergeStreamsConfig>) -> color_eyre::Result<()> {
+async fn run(
+	config: config::AppConfig,
+	scope_ledger: Option<ScopeLedgerConfig>,
+	concierge_streams: Option<ConciergeStreamsConfig>,
+	watch_streams: Arc<WatchStreams>,
+) -> color_eyre::Result<()> {
 	if scope_ledger.is_none() {
 		// Not refused in production: banking's listener and invest's client certificate
 		// are not provisioned yet, and invest-core serves the registry and issuance without
@@ -239,6 +247,7 @@ async fn run(config: config::AppConfig, scope_ledger: Option<ScopeLedgerConfig>,
 		book: Arc::new(PgBook::new(pool.clone())),
 		book_engine: Arc::new(PriceTimeEngine),
 		book_feed,
+		watch_streams,
 		fees,
 		nav,
 		positions: Arc::new(PgFundPositions::new(pool)),

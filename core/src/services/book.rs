@@ -9,7 +9,10 @@
 //!
 //! `WatchBook` is the one server stream invest-core serves. It is a `watch` receiver turned
 //! into a stream by hand ([`BookWatch`]): every frame is built by re-reading the book,
-//! so a subscriber that lags sees the latest state, never a backlog.
+//! so a subscriber that lags sees the latest state, never a backlog. Authorized at the
+//! handshake, it is then bounded: a caller holds a capped number of streams at once, and a
+//! live stream re-checks its holder on a timer and ends when they are suspended, lose sight
+//! of the book, or their token expires.
 //!
 //! `Result<_, Status>` is tonic's mandated handler signature; `Status` is a large
 //! type we don't control, so the large-err lint does not apply in this module.
@@ -18,9 +21,13 @@
 use std::{
 	future::Future,
 	pin::Pin,
+	sync::Arc,
 	task::{Context, Poll},
+	time::Duration,
 };
 
+use async_trait::async_trait;
+use evconcierge_auth::claims_of;
 use invest_contracts::invest::v1::{self as pb, book_service_server::BookService};
 use invest_domain::{
 	authz::Permission,
@@ -29,14 +36,20 @@ use invest_domain::{
 	money::Shares,
 	users::UserId,
 };
-use tokio::sync::watch;
+use tokio::{
+	sync::watch,
+	time::{Instant, Interval, MissedTickBehavior},
+};
 use tonic::{Request, Response, Status, codegen::tokio_stream::Stream};
 use uuid::Uuid;
 
 use crate::{
 	AppState,
-	application::book::{self as book_app, BookPorts, BookSnapshotView, PlaceOrderRequest, WatchFrame},
-	ports::book::{BookLevel, BookPolicyRecord, Candle, OrderRecord, TradeRecord, UserTrade},
+	application::book::{self as book_app, BookPorts, BookSnapshotView, PlaceOrderRequest, StreamSlot, WatchFrame, WatchStreams},
+	ports::{
+		book::{BookLevel, BookPolicyRecord, Candle, OrderRecord, TradeRecord, UserTrade},
+		users::UserStanding,
+	},
 	services::support::{active_caller, caller_id, holds_permission, map_err, optional, require_permission, unix_now},
 };
 
@@ -207,20 +220,34 @@ impl BookService for BookSvc {
 
 	async fn watch_book(&self, request: Request<pb::WatchBookRequest>) -> Result<Response<Self::WatchBookStream>, Status> {
 		let service = ServiceId::parse(&request.get_ref().service).map_err(map_err)?;
-		// Authorized once, at the handshake — the same rule the BFF applies to its socket.
-		// TODO: bound the WatchBook streams one caller may hold open, and re-check the
-		// caller's standing (and the token's revoke floor, once the users projection carries
-		// `token_version`) while a stream lives — a suspended holder keeps watching until
-		// they disconnect.
 		let caller = self.visible(&request, &service).await?;
+		// Taken after the gate, so a caller who may not watch is told that rather than
+		// "too many", and a refused handshake never holds a slot.
+		let slot = open_slot(&self.state.watch_streams, caller)?;
+		// Read from the claims the layer already verified; the stream ends when it passes
+		// because the token is the only thing that vouched for the caller.
+		let claims = claims_of(&request);
+		let expires_in = claims.as_ref().map(|claims| Duration::from_secs(claims.exp.saturating_sub(unix_now().max(0) as u64)));
+		// The auth layer compared it once; the stream compares it again on every recheck.
+		let token_version = claims.as_ref().map_or(0, |claims| claims.token_version);
 		let depth = bounded(request.get_ref().depth, DEFAULT_DEPTH, MAX_DEPTH);
 		let receiver = self.state.book_feed.subscribe(&service);
+		let mut ticker = tokio::time::interval_at(Instant::now() + self.state.watch_streams.recheck_every(), self.state.watch_streams.recheck_every());
+		// A slow recheck must not be followed by a burst of catch-up ones.
+		ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
 		Ok(Response::new(Box::pin(BookWatch::new(WatchState {
-			state: self.state.clone(),
-			service,
-			caller,
-			depth,
+			backend: LiveWatch {
+				state: self.state.clone(),
+				service,
+				caller,
+				depth,
+				token_version,
+			},
 			receiver,
+			ticker,
+			deadline: expires_in.map(|left| Instant::now() + left),
+			slot: Some(slot),
+			finished: false,
 		}))))
 	}
 
@@ -253,58 +280,160 @@ impl BookService for BookSvc {
 	}
 }
 
-/// What one `WatchBook` subscription carries between frames.
-struct WatchState {
+fn open_slot(streams: &Arc<WatchStreams>, caller: UserId) -> Result<StreamSlot, Status> {
+	streams
+		.acquire(caller)
+		.ok_or_else(|| Status::resource_exhausted("too many open book streams — close one and retry"))
+}
+
+/// What a `WatchBook` stream asks of the world; the stream itself only schedules.
+#[async_trait]
+trait WatchBackend: Send + Sync + Unpin + 'static {
+	/// The next frame, built by re-reading the book.
+	async fn frame(&self) -> Result<pb::BookEvent, Status>;
+	/// Whether the holder may still watch; `Err` closes the stream with that status.
+	async fn recheck(&self) -> Result<(), Status>;
+}
+
+/// The production backend: invest-core's own ports.
+struct LiveWatch {
 	state: AppState,
 	service: ServiceId,
 	caller: UserId,
 	depth: u32,
-	receiver: watch::Receiver<u64>,
+	/// The `token_version` claim of the token that opened the stream.
+	token_version: u64,
 }
 
-type FrameFuture = Pin<Box<dyn Future<Output = Option<(Result<pb::BookEvent, Status>, WatchState)>> + Send>>;
+#[async_trait]
+impl WatchBackend for LiveWatch {
+	async fn frame(&self) -> Result<pb::BookEvent, Status> {
+		book_app::watch_frame(
+			self.state.book.as_ref(),
+			self.state.nav.as_ref(),
+			self.state.ledger.as_ref(),
+			self.state.money.as_ref(),
+			&self.service,
+			self.caller,
+			self.depth,
+			WATCH_TRADES,
+			unix_now(),
+		)
+		.await
+		.map(|frame| frame_to_proto(&frame))
+		.map_err(map_err)
+	}
 
-/// A `watch` receiver as a tonic stream: wait for the book to move, frame it, repeat.
+	/// The handshake gate again: the token's revocation floor, the projection's standing,
+	/// then the book's visibility as that standing now allows it.
+	async fn recheck(&self) -> Result<(), Status> {
+		let threshold = self.state.users.token_version(self.caller).await.map_err(|_| Status::unavailable("internal error"))?;
+		not_revoked(self.token_version, threshold)?;
+		let standing = self.state.users.standing(self.caller).await.map_err(|_| Status::unavailable("internal error"))?;
+		let unrestricted = still_entitled(standing.as_ref())?;
+		book_app::require_visible(self.state.allocations.as_ref(), &self.service, self.caller, unrestricted)
+			.await
+			.map_err(map_err)
+	}
+}
+
+/// The auth layer's revocation rule, for a token that outlives its request: below the
+/// threshold is revoked; no threshold seen means nothing to compare, so it stands.
+fn not_revoked(claim: u64, threshold: Option<u64>) -> Result<(), Status> {
+	match threshold {
+		Some(threshold) if claim < threshold => Err(Status::unauthenticated("token revoked")),
+		_ => Ok(()),
+	}
+}
+
+/// Whether a live stream's holder keeps their place, and whether they see past `hidden`.
+/// An unknown holder is not refused here (the handshake never required one: any invest
+/// access level is enough), but a suspended one is, as `holds_permission` does.
+fn still_entitled(standing: Option<&UserStanding>) -> Result<bool, Status> {
+	match standing {
+		None => Ok(false),
+		Some(standing) if !standing.active => Err(Status::permission_denied("account is suspended")),
+		Some(standing) => Ok(standing.may(Permission::AllocationManage)),
+	}
+}
+
+/// What one `WatchBook` subscription carries between frames.
+struct WatchState<B> {
+	backend: B,
+	receiver: watch::Receiver<u64>,
+	/// Paces the holder recheck.
+	ticker: Interval,
+	/// When the token that vouched for the caller expires, if known.
+	deadline: Option<Instant>,
+	/// Held for the stream's life; `Drop` frees it, including when the client cancels.
+	slot: Option<StreamSlot>,
+	/// Set once a closing status has been emitted: the stream yields nothing after it.
+	finished: bool,
+}
+
+type FrameFuture<B> = Pin<Box<dyn Future<Output = Option<(Result<pb::BookEvent, Status>, WatchState<B>)>> + Send>>;
+
+/// A `watch` receiver as a tonic stream: wait for the book to move, frame it, repeat —
+/// and meanwhile recheck the holder on a timer and watch the token's clock.
 /// Hand-rolled rather than `tokio_stream::wrappers::WatchStream` because the tonic
 /// re-export of `tokio_stream` carries no `sync` feature and the workspace adds no
 /// dependency for one wrapper. The state travels through the in-flight future and back,
 /// so the stream holds it exactly once at any time.
-struct BookWatch {
-	state: Option<WatchState>,
-	pending: Option<FrameFuture>,
+struct BookWatch<B> {
+	state: Option<WatchState<B>>,
+	pending: Option<FrameFuture<B>>,
 }
 
-impl BookWatch {
-	fn new(state: WatchState) -> Self {
+impl<B: WatchBackend> BookWatch<B> {
+	fn new(state: WatchState<B>) -> Self {
 		Self { state: Some(state), pending: None }
 	}
 }
 
-/// Wait for a change, then frame. `None` only if the feed itself is gone (the sender
-/// lives in `AppState`, so in practice the stream ends when the client hangs up).
-async fn next_frame(mut watch: WatchState) -> Option<(Result<pb::BookEvent, Status>, WatchState)> {
-	watch.receiver.changed().await.ok()?;
-	// Only the fact that it moved matters — the frame re-reads the book, so the revision
-	// it carries is at least this one and never behind it.
-	watch.receiver.borrow_and_update();
-	let frame = book_app::watch_frame(
-		watch.state.book.as_ref(),
-		watch.state.nav.as_ref(),
-		watch.state.ledger.as_ref(),
-		watch.state.money.as_ref(),
-		&watch.service,
-		watch.caller,
-		watch.depth,
-		WATCH_TRADES,
-		unix_now(),
-	)
-	.await
-	.map(|frame| frame_to_proto(&frame))
-	.map_err(map_err);
-	Some((frame, watch))
+/// Close the stream with `status`: the slot is given back at once rather than whenever
+/// the transport gets around to dropping the stream.
+fn close<B>(mut watch: WatchState<B>, status: Status) -> Option<(Result<pb::BookEvent, Status>, WatchState<B>)> {
+	watch.finished = true;
+	watch.slot = None;
+	Some((Err(status), watch))
 }
 
-impl Stream for BookWatch {
+/// Wait for a change, then frame — or close, when the recheck or the token says so.
+/// `None` only if the feed itself is gone (the sender lives in `AppState`, so in practice
+/// the stream ends when the client hangs up).
+async fn next_frame<B: WatchBackend>(mut watch: WatchState<B>) -> Option<(Result<pb::BookEvent, Status>, WatchState<B>)> {
+	loop {
+		let deadline = watch.deadline;
+		let expiry = async {
+			match deadline {
+				Some(at) => tokio::time::sleep_until(at).await,
+				None => std::future::pending().await,
+			}
+		};
+		tokio::select! {
+			changed = watch.receiver.changed() => {
+				changed.ok()?;
+				// Only the fact that it moved matters — the frame re-reads the book, so the
+				// revision it carries is at least this one and never behind it.
+				watch.receiver.borrow_and_update();
+				let frame = watch.backend.frame().await;
+				return Some((frame, watch));
+			}
+			_ = watch.ticker.tick() => match watch.backend.recheck().await {
+				Ok(()) => {}
+				// A blip in the projection must not drop every stream at once and send them
+				// all reconnecting; the next tick asks again.
+				Err(status) if status.code() == tonic::Code::Unavailable => {
+					tracing::warn!("WatchBook recheck could not read the holder, keeping the stream: {}", status.message());
+				}
+				Err(status) => return close(watch, status),
+			},
+			() = expiry => return close(watch, Status::unauthenticated("access token expired")),
+		}
+	}
+}
+
+impl<B: WatchBackend> Stream for BookWatch<B> {
 	type Item = Result<pb::BookEvent, Status>;
 
 	fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -327,6 +456,9 @@ impl Stream for BookWatch {
 			let Some(state) = this.state.take() else {
 				return Poll::Ready(None);
 			};
+			if state.finished {
+				return Poll::Ready(None);
+			}
 			this.pending = Some(Box::pin(next_frame(state)));
 		}
 	}
@@ -458,8 +590,11 @@ fn policy_to_proto(record: &BookPolicyRecord) -> pb::BookPolicy {
 /// the domain enums are what the hub stores. Drift between them is a test failure here.
 #[cfg(test)]
 mod tests {
+	use std::sync::Mutex;
+
 	use invest_contracts::book::{cancel_reason as wire_cancel_reason, kind as wire_kind, resolution as wire_resolution, side as wire_side, state as wire_state, tif as wire_tif};
 	use invest_domain::book::OrderState;
+	use tonic::{Code, codegen::tokio_stream::StreamExt};
 
 	use super::*;
 
@@ -485,5 +620,158 @@ mod tests {
 		assert_eq!(bounded(0, DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT), DEFAULT_LIST_LIMIT);
 		assert_eq!(bounded(7, DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT), 7);
 		assert_eq!(bounded(10_000, DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT), MAX_LIST_LIMIT);
+	}
+
+	#[test]
+	fn a_suspended_holder_is_refused_and_an_unknown_one_is_not_widened() {
+		let standing = |active, permissions: Option<&[&str]>| UserStanding {
+			active,
+			permissions: permissions.map(|p| p.iter().map(|s| (*s).to_owned()).collect()),
+		};
+		assert_eq!(still_entitled(Some(&standing(false, None))).unwrap_err().code(), Code::PermissionDenied);
+		assert!(!still_entitled(None).unwrap());
+		assert!(!still_entitled(Some(&standing(true, Some(&[])))).unwrap());
+		assert!(still_entitled(Some(&standing(true, Some(&["invest:allocation:manage"])))).unwrap());
+	}
+
+	#[test]
+	fn a_caller_past_the_cap_is_resource_exhausted_and_a_freed_slot_is_reusable() {
+		let streams = WatchStreams::new(2, Duration::from_secs(60)).unwrap();
+		let (a, b) = (UserId::new(), UserId::new());
+		let first = open_slot(&streams, a).unwrap();
+		let _second = open_slot(&streams, a).unwrap();
+		assert_eq!(open_slot(&streams, a).unwrap_err().code(), Code::ResourceExhausted);
+		// The cap is per caller: another user is not counted against `a`.
+		assert!(open_slot(&streams, b).is_ok());
+		drop(first);
+		assert!(open_slot(&streams, a).is_ok(), "a closed stream gives its slot back");
+	}
+
+	/// Stands in for the ports: the holder's standing is a switch the test flips.
+	struct Fake {
+		standing: Arc<Mutex<UserStanding>>,
+		threshold: Arc<Mutex<Option<u64>>>,
+	}
+
+	/// The token the fake streams were opened with.
+	const CLAIM: u64 = 3;
+
+	#[async_trait]
+	impl WatchBackend for Fake {
+		async fn frame(&self) -> Result<pb::BookEvent, Status> {
+			Ok(pb::BookEvent::default())
+		}
+
+		async fn recheck(&self) -> Result<(), Status> {
+			not_revoked(CLAIM, *self.threshold.lock().unwrap())?;
+			let standing = self.standing.lock().unwrap().clone();
+			still_entitled(Some(&standing)).map(|_| ())
+		}
+	}
+
+	const PERIOD: Duration = Duration::from_secs(60);
+
+	fn standing(active: bool) -> Arc<Mutex<UserStanding>> {
+		Arc::new(Mutex::new(UserStanding { active, permissions: None }))
+	}
+
+	fn stream_of(
+		streams: &Arc<WatchStreams>,
+		caller: UserId,
+		standing: &Arc<Mutex<UserStanding>>,
+		lifetime: Option<Duration>,
+	) -> (BookWatch<Fake>, watch::Sender<u64>, Arc<Mutex<Option<u64>>>) {
+		let (tx, rx) = watch::channel(0);
+		let mut receiver = rx;
+		receiver.mark_changed();
+		let mut ticker = tokio::time::interval_at(Instant::now() + PERIOD, PERIOD);
+		ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
+		let threshold = Arc::new(Mutex::new(None));
+		let state = WatchState {
+			backend: Fake {
+				standing: Arc::clone(standing),
+				threshold: Arc::clone(&threshold),
+			},
+			receiver,
+			ticker,
+			deadline: lifetime.map(|left| Instant::now() + left),
+			slot: Some(open_slot(streams, caller).unwrap()),
+			finished: false,
+		};
+		(BookWatch::new(state), tx, threshold)
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn a_holder_suspended_mid_stream_is_closed_on_the_next_recheck() {
+		let streams = WatchStreams::new(4, PERIOD).unwrap();
+		let caller = UserId::new();
+		let holder = standing(true);
+		let (mut stream, _feed, _threshold) = stream_of(&streams, caller, &holder, None);
+
+		assert!(stream.next().await.unwrap().is_ok(), "the first frame comes at once");
+		holder.lock().unwrap().active = false;
+		// Nothing is sent between rechecks: the book is quiet and the timer has not fired.
+		assert!(tokio::time::timeout(PERIOD / 2, stream.next()).await.is_err());
+
+		let closing = stream.next().await.unwrap().unwrap_err();
+		assert_eq!(closing.code(), Code::PermissionDenied);
+		assert_eq!(streams.open_for(caller), 0, "the slot is free as soon as the stream closes");
+		assert!(stream.next().await.is_none(), "nothing follows the closing status");
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn an_active_holder_keeps_the_stream_across_rechecks() {
+		let streams = WatchStreams::new(4, PERIOD).unwrap();
+		let (mut stream, feed, _threshold) = stream_of(&streams, UserId::new(), &standing(true), None);
+		assert!(stream.next().await.unwrap().is_ok());
+		tokio::time::advance(PERIOD * 3).await;
+		feed.send_replace(1);
+		assert!(stream.next().await.unwrap().is_ok(), "rechecks passed silently and the next publish still frames");
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn the_stream_ends_when_the_token_expires() {
+		let streams = WatchStreams::new(4, PERIOD).unwrap();
+		let caller = UserId::new();
+		let (mut stream, _feed, _threshold) = stream_of(&streams, caller, &standing(true), Some(Duration::from_secs(30)));
+		assert!(stream.next().await.unwrap().is_ok());
+		let closing = stream.next().await.unwrap().unwrap_err();
+		assert_eq!(closing.code(), Code::Unauthenticated);
+		assert_eq!(streams.open_for(caller), 0);
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn dropping_a_stream_mid_wait_releases_its_slot() {
+		let streams = WatchStreams::new(1, PERIOD).unwrap();
+		let caller = UserId::new();
+		let (mut stream, _feed, _threshold) = stream_of(&streams, caller, &standing(true), None);
+		assert!(stream.next().await.unwrap().is_ok());
+		// Parked on the next change, the way a cancelled RPC leaves it.
+		assert!(tokio::time::timeout(Duration::from_secs(1), stream.next()).await.is_err());
+		assert_eq!(streams.open_for(caller), 1);
+		drop(stream);
+		assert_eq!(streams.open_for(caller), 0);
+		assert!(open_slot(&streams, caller).is_ok());
+	}
+
+	#[test]
+	fn a_token_below_the_floor_is_revoked_and_no_floor_is_a_pass() {
+		assert_eq!(not_revoked(2, Some(3)).unwrap_err().code(), Code::Unauthenticated);
+		assert!(not_revoked(3, Some(3)).is_ok());
+		assert!(not_revoked(0, None).is_ok());
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn a_token_revoked_mid_stream_closes_it_on_the_next_recheck() {
+		let streams = WatchStreams::new(4, PERIOD).unwrap();
+		let caller = UserId::new();
+		let (mut stream, _feed, threshold) = stream_of(&streams, caller, &standing(true), None);
+		assert!(stream.next().await.unwrap().is_ok());
+		// "Revoke all" raises the floor above the claim the stream was opened with.
+		*threshold.lock().unwrap() = Some(CLAIM + 1);
+		let closing = stream.next().await.unwrap().unwrap_err();
+		assert_eq!(closing.code(), Code::Unauthenticated);
+		assert_eq!(streams.open_for(caller), 0);
+		assert!(stream.next().await.is_none());
 	}
 }
