@@ -1654,7 +1654,7 @@ dependencies = [
 [[package]]
 name = "evbanking_contracts"
 version = "0.1.0"
-source = "git+https://github.com/EV-Main/banking.git?rev=cf38ba57b7eeaeb8cf907edcb55bae7f46bf1fe3#cf38ba57b7eeaeb8cf907edcb55bae7f46bf1fe3"
+source = "git+https://github.com/EV-Main/banking.git?rev=7635ab1e0dde8235786c8612d2ec0cbb8a158ced#7635ab1e0dde8235786c8612d2ec0cbb8a158ced"
 dependencies = [
  "prost",
  "tonic 0.14.6",

@@ -112,6 +112,10 @@ impl ScopeLedgerService for Banking {
 	async fn get_hold(&self, _: Request<pb::GetHoldRequest>) -> Result<Response<pb::Hold>, Status> {
 		not_yet("GetHold")
 	}
+
+	async fn list_holds(&self, _: Request<pb::ListHoldsRequest>) -> Result<Response<pb::ListHoldsResponse>, Status> {
+		not_yet("ListHolds")
+	}
 }
 
 /// banking on an ephemeral port, and a client to it carrying `token`.
