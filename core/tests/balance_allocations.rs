@@ -1172,11 +1172,11 @@ async fn operator(h: &Harness) -> UserId {
 	user
 }
 
-fn resolve_request(id: RedemptionId, confirm: bool) -> pb::ResolveAwaitingRedemptionRequest {
+fn resolve_request(id: RedemptionId, operation_id: &str) -> pb::ResolveAwaitingRedemptionRequest {
 	pb::ResolveAwaitingRedemptionRequest {
 		redemption_id: id.raw().to_string(),
 		outcome: pb::AwaitingRedemptionOutcome::Fail as i32,
-		confirm_banking_not_found: confirm,
+		operation_id: operation_id.to_owned(),
 	}
 }
 
@@ -1207,35 +1207,63 @@ async fn an_operator_fails_a_redemption_banking_rejected_or_failed() {
 		} else {
 			h.money.reject(&operation.id, reason);
 		}
-		let answer = svc.resolve_awaiting_redemption(as_caller(ops, resolve_request(id, false))).await.unwrap().into_inner();
+		let answer = svc.resolve_awaiting_redemption(as_caller(ops, resolve_request(id, ""))).await.unwrap().into_inner();
 		assert_eq!((answer.state.as_str(), answer.failure_reason.as_str()), ("failed", reason));
 		common::drain_to_quiescence(&h.relay, &h.pool).await;
 		assert_eq!(units_available(&h, &user_shares).await, shares("100"), "the burn is voided: units are free again");
 		assert_eq!(compartment(&h, user), Usdt::ZERO, "nothing paid");
-		let again = svc.resolve_awaiting_redemption(as_caller(ops, resolve_request(id, false))).await.unwrap().into_inner();
+		let again = svc.resolve_awaiting_redemption(as_caller(ops, resolve_request(id, ""))).await.unwrap().into_inner();
 		assert_eq!(again.state, "failed", "a repeat is idempotent");
 	}
 }
 
-/// banking no longer knows the operation: without the operator's confirmation the fail is
-/// refused and nothing moves; with it the redemption fails with a machine reason.
+/// banking no longer knows the operation: the fail is refused unless the operator echoes the
+/// operation id recorded on the redemption (empty or another id changes nothing); with the
+/// echo the redemption fails with a machine reason.
 #[tokio::test]
-async fn a_redemption_banking_has_forgotten_needs_the_operators_confirmation() {
+async fn a_redemption_banking_has_forgotten_needs_the_operators_echo_of_the_operation() {
 	let Some(h) = harness().await else { return };
 	let svc = funds_service(&h);
 	let ops = operator(&h).await;
 	let (_, id, user_shares) = awaiting_redemption(&h).await;
-	h.money.forget_operation(&the_operation(&h, id).id);
+	let operation = the_operation(&h, id).id;
+	h.money.forget_operation(&operation);
 
-	let refused = svc.resolve_awaiting_redemption(as_caller(ops, resolve_request(id, false))).await.unwrap_err();
-	assert_eq!(refused.code(), tonic::Code::FailedPrecondition, "{refused}");
+	for echo in ["", "op-unrelated"] {
+		let refused = svc.resolve_awaiting_redemption(as_caller(ops, resolve_request(id, echo))).await.unwrap_err();
+		assert_eq!(refused.code(), tonic::Code::FailedPrecondition, "echo {echo:?}: {refused}");
+	}
 	common::drain_to_quiescence(&h.relay, &h.pool).await;
 	assert_eq!(h.redemptions.find_by_id(id).await.unwrap().unwrap().state(), RedemptionState::AwaitingApproval);
 	assert_eq!(units_available(&h, &user_shares).await, shares("60"), "still locked");
 
-	let answer = svc.resolve_awaiting_redemption(as_caller(ops, resolve_request(id, true))).await.unwrap().into_inner();
+	let answer = svc.resolve_awaiting_redemption(as_caller(ops, resolve_request(id, &operation.0))).await.unwrap().into_inner();
 	assert_eq!((answer.state.as_str(), answer.failure_reason.as_str()), ("failed", "operator_resolved_not_found"));
 	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	assert_eq!(units_available(&h, &user_shares).await, shares("100"));
+}
+
+/// banking pays an operation the operator failed as "not found": the paid event finds the
+/// redemption failed, flags it (error log) and moves nothing — the failure stands, no burn.
+#[tokio::test]
+async fn a_payout_after_an_operator_not_found_fail_moves_nothing() {
+	let Some(h) = harness().await else { return };
+	let svc = funds_service(&h);
+	let ops = operator(&h).await;
+	let consumer = h.money_events(BookFeed::new());
+	let (user, id, user_shares) = awaiting_redemption(&h).await;
+	let operation = the_operation(&h, id).id;
+	h.money.approve(&operation);
+	h.money.forget_operation(&operation);
+	svc.resolve_awaiting_redemption(as_caller(ops, resolve_request(id, &operation.0))).await.unwrap();
+
+	assert_eq!(consumer.pass().await.unwrap(), Pass::default(), "the paid event acts on nothing");
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	let record = redemption_record(&h, user, id).await;
+	assert_eq!(
+		(record.redemption.state(), record.failure_reason.as_deref()),
+		(RedemptionState::Failed, Some("operator_resolved_not_found"))
+	);
 	assert_eq!(units_available(&h, &user_shares).await, shares("100"));
 }
 
@@ -1248,9 +1276,9 @@ async fn a_redemption_still_pending_at_banking_cannot_be_failed() {
 	let ops = operator(&h).await;
 	let (_, id, user_shares) = awaiting_redemption(&h).await;
 
-	let refused = svc.resolve_awaiting_redemption(as_caller(ops, resolve_request(id, true))).await.unwrap_err();
+	let refused = svc.resolve_awaiting_redemption(as_caller(ops, resolve_request(id, "op-unrelated"))).await.unwrap_err();
 	assert_eq!(refused.code(), tonic::Code::FailedPrecondition, "{refused}");
-	let mut unspecified = resolve_request(id, true);
+	let mut unspecified = resolve_request(id, "op-unrelated");
 	unspecified.outcome = 0;
 	assert_eq!(
 		svc.resolve_awaiting_redemption(as_caller(ops, unspecified)).await.unwrap_err().code(),
@@ -1275,7 +1303,7 @@ async fn a_verdict_that_arrives_while_the_operator_resolves_wins() {
 	let (user, paid, user_shares) = awaiting_redemption(&h).await;
 	let operation = the_operation(&h, paid);
 	h.money.approve(&operation.id);
-	let refused = svc.resolve_awaiting_redemption(as_caller(ops, resolve_request(paid, true))).await.unwrap_err();
+	let refused = svc.resolve_awaiting_redemption(as_caller(ops, resolve_request(paid, "op-unrelated"))).await.unwrap_err();
 	assert_eq!(refused.code(), tonic::Code::FailedPrecondition, "{refused}");
 	consumer.pass().await.unwrap();
 	common::drain_to_quiescence(&h.relay, &h.pool).await;
@@ -1307,7 +1335,7 @@ async fn resolving_an_awaiting_redemption_needs_the_manage_permission() {
 	let stranger = UserId::new();
 
 	for caller in [user, stranger] {
-		let refused = svc.resolve_awaiting_redemption(as_caller(caller, resolve_request(id, true))).await.unwrap_err();
+		let refused = svc.resolve_awaiting_redemption(as_caller(caller, resolve_request(id, "op-unrelated"))).await.unwrap_err();
 		assert_eq!(refused.code(), tonic::Code::PermissionDenied, "{refused}");
 	}
 	assert_eq!(h.redemptions.find_by_id(id).await.unwrap().unwrap().state(), RedemptionState::AwaitingApproval);

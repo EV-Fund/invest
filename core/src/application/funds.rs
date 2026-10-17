@@ -545,7 +545,7 @@ pub const OPERATOR_RESOLVED_NOT_FOUND: &str = "operator_resolved_not_found";
 
 /// Fail a redemption stuck `awaiting_approval` (operator). banking is asked first and its
 /// answer decides: a rejected or failed operation is failed with banking's reason; one it
-/// does not know needs `confirm_not_found`; one still pending or already executed is
+/// does not know needs the operator's echo of the operation id; one still pending or already executed is
 /// refused — a payout banking has made must never be failed, its verdict lands through the
 /// money events. The write itself is conditional on the state ([`RedemptionRepository::
 /// refuse_awaiting`]), so a verdict landing between this poll and the write wins.
@@ -555,7 +555,7 @@ pub async fn resolve_awaiting_redemption(
 	money: &dyn MoneyLedger,
 	relay: &Notify,
 	id: RedemptionId,
-	confirm_not_found: bool,
+	confirm_operation: &str,
 ) -> Result<RedemptionRecord, DomainError> {
 	let Some(awaiting) = redemptions.awaiting_operation(id).await? else {
 		let record = redemptions.find_record(id).await?.ok_or_else(|| DomainError::NotFound {
@@ -580,10 +580,10 @@ pub async fn resolve_awaiting_redemption(
 				PendingOperationState::Failed => machine_reason(&operation.failure_reason, "payout_failed"),
 			}
 		}
-		Err(MoneyLedgerError::NotFound) if confirm_not_found => OPERATOR_RESOLVED_NOT_FOUND.to_owned(),
+		Err(MoneyLedgerError::NotFound) if !confirm_operation.is_empty() && confirm_operation == awaiting.operation => OPERATOR_RESOLVED_NOT_FOUND.to_owned(),
 		Err(MoneyLedgerError::NotFound) =>
 			return Err(DomainError::Precondition(
-				"banking does not know the payout's operation; set confirm_banking_not_found to fail it".into(),
+				"banking does not know the payout's operation; echo its operation_id after checking it in banking to fail it".into(),
 			)),
 		Err(err) => return Err(err.into()),
 	};

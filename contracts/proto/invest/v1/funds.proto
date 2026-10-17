@@ -62,9 +62,11 @@ service FundsService {
   // banking about the payout's operation first and acts on its answer, never on the
   // caller's say-so alone:
   //   - Rejected / Failed: `FAIL` voids the burn and records banking's machine reason.
-  //   - NotFound: banking no longer knows the operation; `FAIL` is refused
-  //     (FAILED_PRECONDITION) unless `confirm_banking_not_found` is set, and then records
-  //     `operator_resolved_not_found`.
+  //   - NotFound: banking does not know the operation; `FAIL` is refused
+  //     (FAILED_PRECONDITION) unless `operation_id` echoes the operation recorded on the
+  //     redemption, and then records `operator_resolved_not_found`. NOT_FOUND can also
+  //     mean a wrong key or address on invest's side rather than a lost operation, so
+  //     before confirming the operator checks the operation in banking itself.
   //   - Still awaiting the owners, or Executed: refused (FAILED_PRECONDITION). A payout
   //     banking has made is never failed; its verdict lands through the money events.
   // A verdict that lands while the call is in flight wins: the transition is conditional on
@@ -132,9 +134,11 @@ enum AwaitingRedemptionOutcome {
 message ResolveAwaitingRedemptionRequest {
   string redemption_id = 1;
   AwaitingRedemptionOutcome outcome = 2;
-  // The operator's explicit statement that banking answering NOT_FOUND for the payout's
-  // operation means no payout was or will be made. Read only on that answer.
-  bool confirm_banking_not_found = 3;
+  reserved 3;
+  reserved "confirm_banking_not_found";
+  // The payout operation id recorded on the redemption, echoed by the operator after
+  // checking it in banking. Read only when banking answers NOT_FOUND.
+  string operation_id = 4;
 }
 
 message ListRedemptionQueueRequest {}
