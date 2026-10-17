@@ -13,6 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 async-trait.workspace = true
+banking_domain.workspace = true
 color-eyre.workspace = true
 dotenvy.workspace = true
 ev = { workspace = true, features = ["error_monitoring", "otel", "settings"] }

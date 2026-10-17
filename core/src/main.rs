@@ -61,6 +61,7 @@ const CONCIERGE_ISSUER: &str = "https://auth.concierge.ev";
 const INVEST_AUDIENCE: &str = "invest";
 
 mod import_cmd;
+mod window_import_cmd;
 
 // Sentry must be initialised before the async runtime starts — no #[tokio::main].
 fn main() -> color_eyre::Result<ExitCode> {
@@ -81,6 +82,7 @@ fn main() -> color_eyre::Result<ExitCode> {
 	}
 	match command {
 		Command::Import(args) => return import_cmd::run(args),
+		Command::WindowImport(args) => return window_import_cmd::run(args),
 		Command::Invalid(message) => {
 			eprintln!("{message}");
 			return Ok(ExitCode::from(2));
@@ -368,7 +370,9 @@ enum Command {
 	PrintRequiredVars(String),
 	/// `import --file <path> [--dry-run] [--anchor …]` — the one-shot data-wave importer.
 	Import(import_cmd::ImportArgs),
-	/// `import` with arguments that do not parse; exits 2 instead of serving by accident.
+	/// `window-import --file <path> [--dry-run | --apply]` — banking's window export into invest.
+	WindowImport(window_import_cmd::WindowImportArgs),
+	/// `import` or `window-import` with arguments that do not parse; exits 2 instead of serving by accident.
 	Invalid(String),
 }
 
@@ -380,6 +384,9 @@ impl Command {
 		};
 		if arg == "import" {
 			return import_cmd::ImportArgs::parse(args).map_or_else(Self::Invalid, Self::Import);
+		}
+		if arg == "window-import" {
+			return window_import_cmd::WindowImportArgs::parse(args).map_or_else(Self::Invalid, Self::WindowImport);
 		}
 		match arg.split_once('=') {
 			Some((FLAG, profile)) => Self::PrintRequiredVars(profile.to_string()),

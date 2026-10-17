@@ -1473,6 +1473,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "domain"
+version = "0.1.0"
+source = "git+https://github.com/EV-Main/banking.git?rev=78161274606112e2dd089d3bc5d6e3ab1d67c0a3#78161274606112e2dd089d3bc5d6e3ab1d67c0a3"
+dependencies = [
+ "ev_lib",
+ "getrandom 0.3.4",
+ "serde",
+ "thiserror 2.0.21",
+ "uuid",
+]
+
+[[package]]
 name = "dotenvy"
 version = "0.15.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2582,6 +2594,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "color-eyre",
+ "domain",
  "dotenvy",
  "ev_lib",
  "evbanking_contracts",

@@ -16,6 +16,11 @@ resolver = "3"
 async-trait = "0.1.89"
 # The cabinet BFF's HTTP server; `ws` for the order book's live feed.
 axum = "0.8"
+# banking's `domain` crate, only for `domain::window_export`: the wire format of the migration
+# window's export, read with the very structs that write it (plan §6.5, step 2/3). By git and
+# rev: the head of banking#552 (fen/window-export). Replace the rev with the commit on banking
+# `main` once #552 is merged; nothing else of the crate is used.
+banking_domain = { git = "https://github.com/EV-Main/banking.git", rev = "78161274606112e2dd089d3bc5d6e3ab1d67c0a3", package = "domain" }
 color-eyre = "0.6"
 dotenvy = "0.15.7"
 ev = { version = "0.24.2", package = "ev_lib", default-features = false, features = ["architecture"] }
