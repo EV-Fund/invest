@@ -47,7 +47,7 @@ use invest_core::{
 use invest_domain::{
 	allocations::{Allocation, AllocationAccess, AllocationIcon, AllocationId},
 	balance::{LedgerAccountKey, ServiceId, TransferCode, ValuationId},
-	book::PriceTimeEngine,
+	book::{PriceTimeEngine, TakerFeeRiseTerms},
 	error::DomainError,
 	issuance::{IdempotencyKey, UnitHolder},
 	money::{Nav, Shares, Usdt},
@@ -1127,6 +1127,7 @@ fn funds_service(h: &Harness) -> invest_core::services::funds::FundsSvc {
 		subscriptions: Arc::new(PgSubscriptions::new(pool.clone())),
 		redemptions: Arc::new(PgRedemptions::new(pool.clone(), h.ledger.clone())),
 		book: Arc::new(PgBook::new(pool.clone())),
+		book_taker_fee_rise: TakerFeeRiseTerms::new(3_600, 25).unwrap(),
 		book_engine: Arc::new(PriceTimeEngine),
 		book_feed: BookFeed::new(),
 		watch_streams: WatchStreams::new(2, Duration::from_secs(60)).unwrap(),
