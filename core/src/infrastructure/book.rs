@@ -40,8 +40,10 @@ use uuid::Uuid;
 
 use crate::{
 	infrastructure::outbox,
-	ports::book::{BookDepth, BookLevel, BookPolicyRecord, BookStore, CancelOutcome, Candle, OrderEscrow, OrderRecord, PlaceOutcome, TradeRecord, UserTrade},
+	ports::book::{BookDepth, BookLevel, BookPolicyRecord, BookStore, CancelOutcome, Candle, OrderEscrow, OrderRecord, PlaceOutcome, TakerFeeChange, TradeRecord, UserTrade},
 };
+
+mod taker_fee;
 
 /// The `event_log.aggregate` names the book's facts are filed under — an order's lock and
 /// release under the order, a fill under the trade.
@@ -486,53 +488,82 @@ fn policy_from_row(row: &sqlx::postgres::PgRow) -> Result<BookPolicyRecord, Doma
 		service: ServiceId::parse(&service)?,
 		policy,
 		updated_at: row.try_get("updated_at").map_err(repo_err)?,
+		// Read beside the row by the caller that has the connection and the lock for it.
+		pending_rise: None,
 	})
+}
+
+/// The upsert behind every write of the terms, on the caller's connection so a change that
+/// also schedules or withdraws a rise commits both or neither.
+async fn upsert_policy(conn: &mut PgConnection, service: &ServiceId, policy: &BookPolicy) -> Result<BookPolicyRecord, DomainError> {
+	let row = sqlx::query(
+		"INSERT INTO book_policies (service, book_open, taker_fee_bps, price_tick, lot_size, market_slippage_bps, allow_unbacked_trading) \
+		 VALUES ($1, $2, $3, $4, $5, $6, $7) \
+		 ON CONFLICT (service) DO UPDATE SET book_open = EXCLUDED.book_open, taker_fee_bps = EXCLUDED.taker_fee_bps, price_tick = EXCLUDED.price_tick, \
+		 lot_size = EXCLUDED.lot_size, market_slippage_bps = EXCLUDED.market_slippage_bps, allow_unbacked_trading = EXCLUDED.allow_unbacked_trading, \
+		 updated_at = now() \
+		 RETURNING service, book_open, taker_fee_bps, price_tick, lot_size, market_slippage_bps, allow_unbacked_trading, \
+		 EXTRACT(EPOCH FROM updated_at)::bigint AS updated_at",
+	)
+	.bind(service.as_str())
+	.bind(policy.book_open())
+	.bind(i32::try_from(policy.taker_fee_bps()).map_err(|_| DomainError::Validation("taker fee out of range".into()))?)
+	.bind(policy.price_tick().base_units().to_string())
+	.bind(policy.lot_size().base_units().to_string())
+	.bind(i32::try_from(policy.market_slippage_bps()).map_err(|_| DomainError::Validation("market slippage out of range".into()))?)
+	.bind(policy.allow_unbacked_trading())
+	.fetch_one(&mut *conn)
+	.await
+	.map_err(|err| match err.as_database_error().and_then(|db| db.constraint()) {
+		// The row references the registry: terms for a product nobody registered are
+		// a `NotFound`, not an internal error.
+		Some("book_policies_service_fkey") => DomainError::NotFound {
+			entity: "allocation",
+			id: service.to_string(),
+		},
+		_ => repo_err(err),
+	})?;
+	policy_from_row(&row)
 }
 
 #[async_trait]
 impl BookStore for PgBook {
 	async fn policy(&self, service: &ServiceId) -> Result<Option<BookPolicyRecord>, DomainError> {
+		let mut conn = self.pool.acquire().await.map_err(repo_err)?;
 		let row = sqlx::query(
 			"SELECT service, book_open, taker_fee_bps, price_tick, lot_size, market_slippage_bps, allow_unbacked_trading, \
 			 EXTRACT(EPOCH FROM updated_at)::bigint AS updated_at \
 			 FROM book_policies WHERE service = $1",
 		)
 		.bind(service.as_str())
-		.fetch_optional(&self.pool)
+		.fetch_optional(&mut *conn)
 		.await
 		.map_err(repo_err)?;
-		row.as_ref().map(policy_from_row).transpose()
+		let Some(row) = row else { return Ok(None) };
+		let mut record = policy_from_row(&row)?;
+		record.pending_rise = taker_fee::pending_on(&mut conn, service).await?;
+		Ok(Some(record))
 	}
 
 	async fn set_policy(&self, service: &ServiceId, policy: &BookPolicy) -> Result<BookPolicyRecord, DomainError> {
-		let row = sqlx::query(
-			"INSERT INTO book_policies (service, book_open, taker_fee_bps, price_tick, lot_size, market_slippage_bps, allow_unbacked_trading) \
-			 VALUES ($1, $2, $3, $4, $5, $6, $7) \
-			 ON CONFLICT (service) DO UPDATE SET book_open = EXCLUDED.book_open, taker_fee_bps = EXCLUDED.taker_fee_bps, price_tick = EXCLUDED.price_tick, \
-			 lot_size = EXCLUDED.lot_size, market_slippage_bps = EXCLUDED.market_slippage_bps, allow_unbacked_trading = EXCLUDED.allow_unbacked_trading, \
-			 updated_at = now() \
-			 RETURNING service, book_open, taker_fee_bps, price_tick, lot_size, market_slippage_bps, allow_unbacked_trading, \
-			 EXTRACT(EPOCH FROM updated_at)::bigint AS updated_at",
-		)
-		.bind(service.as_str())
-		.bind(policy.book_open())
-		.bind(i32::try_from(policy.taker_fee_bps()).map_err(|_| DomainError::Validation("taker fee out of range".into()))?)
-		.bind(policy.price_tick().base_units().to_string())
-		.bind(policy.lot_size().base_units().to_string())
-		.bind(i32::try_from(policy.market_slippage_bps()).map_err(|_| DomainError::Validation("market slippage out of range".into()))?)
-		.bind(policy.allow_unbacked_trading())
-		.fetch_one(&self.pool)
-		.await
-		.map_err(|err| match err.as_database_error().and_then(|db| db.constraint()) {
-			// The row references the registry: terms for a product nobody registered are
-			// a `NotFound`, not an internal error.
-			Some("book_policies_service_fkey") => DomainError::NotFound {
-				entity: "allocation",
-				id: service.to_string(),
-			},
-			_ => repo_err(err),
-		})?;
-		policy_from_row(&row)
+		let mut conn = self.pool.acquire().await.map_err(repo_err)?;
+		upsert_policy(&mut conn, service, policy).await
+	}
+
+	async fn change_policy(&self, service: &ServiceId, policy: &BookPolicy, request: &TakerFeeChange<'_>) -> Result<BookPolicyRecord, DomainError> {
+		taker_fee::change_policy(&self.pool, service, policy, request).await
+	}
+
+	async fn cancel_taker_fee_rise(&self, service: &ServiceId, by: &str) -> Result<bool, DomainError> {
+		taker_fee::cancel(&self.pool, service, by).await
+	}
+
+	async fn due_taker_fee_rises(&self, now_unix: i64) -> Result<Vec<Uuid>, DomainError> {
+		taker_fee::due(&self.pool, now_unix).await
+	}
+
+	async fn promote_taker_fee_rise(&self, id: Uuid, now_unix: i64) -> Result<bool, DomainError> {
+		taker_fee::promote(&self.pool, id, now_unix).await
 	}
 
 	async fn find_by_client_id(&self, user: UserId, client_order_id: &ClientOrderId) -> Result<Option<OrderRecord>, DomainError> {

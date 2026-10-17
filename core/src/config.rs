@@ -1,6 +1,7 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use color_eyre::eyre::{Context, Result, ensure};
+use invest_domain::book::TakerFeeRiseTerms;
 
 use crate::{
 	application::book::WatchStreams,
@@ -74,6 +75,13 @@ ev::settings! {
 		/// The name to verify concierge's certificate against, when it is not the host of
 		/// `CONCIERGE_GRPC_ADDR`.
 		concierge_tls_domain: Option<String>,
+		/// How long a taker-fee RISE on a book waits before it binds (seconds, at least 1);
+		/// holders are notified in that time. A cut binds at once. Defaults to one day, the
+		/// notice a fund's fee-policy change gives.
+		book_taker_fee_rise_delay_secs: i64 = "86400",
+		/// The most a single taker-fee rise may add to the fee in force (bps, 1..=100, the
+		/// hard cap `MAX_TAKER_FEE_BPS`). Larger moves are made in steps, each with its own notice.
+		book_taker_fee_rise_ceiling_bps: u32 = "25",
 		/// How many `WatchBook` streams one caller may hold open; past it the stream is
 		/// refused `RESOURCE_EXHAUSTED`. At least 1 (the BFF's own cap is 4 per session).
 		watchbook_max_streams_per_caller: u32 = "4",
@@ -84,6 +92,13 @@ ev::settings! {
 }
 
 impl AppConfig {
+	/// The pacing of taker-fee rises, or why the two variables do not describe one — the
+	/// same "the config is wrong" as the rest of the wiring, so it exits 78 too.
+	pub fn book_taker_fee_rise(&self) -> Result<TakerFeeRiseTerms> {
+		TakerFeeRiseTerms::new(self.book_taker_fee_rise_delay_secs, self.book_taker_fee_rise_ceiling_bps)
+			.map_err(|err| color_eyre::eyre::eyre!("invalid BOOK_TAKER_FEE_RISE_DELAY_SECS / BOOK_TAKER_FEE_RISE_CEILING_BPS: {err}"))
+	}
+
 	/// The `WatchBook` limits. A zero is refused here rather than clamped: a cap of 0 would
 	/// silently disable the stream and a recheck of 0 seconds would spin the timer.
 	pub fn watch_streams(&self) -> Result<Arc<WatchStreams>> {

@@ -39,7 +39,7 @@ use crate::{
 	application::{allocations as allocations_app, funds as funds_app},
 	ports::{
 		allocations::AllocationRegistry,
-		book::{BookLevel, BookPolicyRecord, BookStore, Candle, OrderEscrow, OrderRecord, PlaceOutcome, TradeRecord, UserTrade},
+		book::{BookLevel, BookPolicyRecord, BookStore, Candle, OrderEscrow, OrderRecord, PlaceOutcome, TakerFeeChange, TradeRecord, UserTrade},
 		ledger::Ledger,
 		money::{Hold, HoldState, MoneyKey, MoneyLedger, ReserveRequest, ScopeId, SubjectRef, VoidRequest},
 		nav::NavMarks,
@@ -245,6 +245,7 @@ pub async fn policy(store: &dyn BookStore, service: &ServiceId) -> Result<BookPo
 		service: service.clone(),
 		policy: BookPolicy::default(),
 		updated_at: 0,
+		pending_rise: None,
 	}))
 }
 
@@ -260,6 +261,63 @@ pub async fn set_policy(allocations: &dyn AllocationRegistry, store: &dyn BookSt
 		policy.ensure_tradable_for(service, allocation.backing())?;
 	}
 	store.set_policy(service, &policy).await
+}
+
+/// The operator's replacement of the terms (`AllocationManage` at the boundary): the gates of
+/// [`set_policy`], then a taker fee judged against the one in force. A cut or no change binds
+/// at once; a RISE is scheduled and bound later by [`promote_due_rises`] — see
+/// [`BookStore::change_policy`] for the notices and the acknowledgement it needs. The caller
+/// supplies the clock so the notice period can be driven in a test.
+pub async fn change_policy(
+	allocations: &dyn AllocationRegistry,
+	store: &dyn BookStore,
+	service: &ServiceId,
+	policy: BookPolicy,
+	change: &TakerFeeChange<'_>,
+) -> Result<BookPolicyRecord, DomainError> {
+	let allocation = allocations_app::get(allocations, service).await?;
+	if policy.book_open() {
+		policy.ensure_tradable_for(service, allocation.backing())?;
+	}
+	store.change_policy(service, &policy, change).await
+}
+
+/// Withdraw the pending taker-fee rise (`AllocationManage` at the boundary) and answer the
+/// terms as they now stand. Idempotent: with nothing pending it only reads.
+pub async fn cancel_taker_fee_rise(allocations: &dyn AllocationRegistry, store: &dyn BookStore, service: &ServiceId, by: &str) -> Result<BookPolicyRecord, DomainError> {
+	allocations_app::get(allocations, service).await?;
+	store.cancel_taker_fee_rise(service, by).await?;
+	policy(store, service).await
+}
+
+/// Consecutive failures of one rise before the sweeper's line goes from warning to error —
+/// the fee-policy promoter's threshold, so one alert rule covers both.
+const PROMOTION_FAILURES_BEFORE_ERROR: u32 = 5;
+
+/// Bind every taker-fee rise whose notice period is over; returns how many were bound. A
+/// rise that cannot bind yet (a holder's notice is neither delivered nor acknowledged) stays
+/// scheduled and is retried on the next tick, the failure streak turning the warning into an
+/// error as it does for a fee-policy change.
+pub async fn promote_due_rises(store: &dyn BookStore, now_unix: i64, failures: &mut std::collections::HashMap<Uuid, u32>) -> Result<usize, DomainError> {
+	let mut promoted = 0usize;
+	for id in store.due_taker_fee_rises(now_unix).await? {
+		match store.promote_taker_fee_rise(id, now_unix).await {
+			Ok(bound) => {
+				promoted += usize::from(bound);
+				failures.remove(&id);
+			}
+			Err(err) => {
+				let streak = failures.entry(id).or_insert(0);
+				*streak = streak.saturating_add(1);
+				if *streak >= PROMOTION_FAILURES_BEFORE_ERROR {
+					tracing::error!(change_id = %id, consecutive_failures = *streak, "book: a scheduled taker-fee rise keeps failing to bind: {err}");
+				} else {
+					tracing::warn!(change_id = %id, consecutive_failures = *streak, "book: could not bind a scheduled taker-fee rise (will retry): {err}");
+				}
+			}
+		}
+	}
+	Ok(promoted)
 }
 
 /// The fund's current price, staleness ignored — the book does not deal at it, it only

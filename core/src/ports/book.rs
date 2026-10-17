@@ -20,11 +20,12 @@
 use async_trait::async_trait;
 use invest_domain::{
 	balance::ServiceId,
-	book::{BookPolicy, CandleResolution, ClientOrderId, MatchingEngine, Order, OrderId, Price, Rejection, Side, Trade},
+	book::{BookPolicy, CandleResolution, ClientOrderId, MatchingEngine, Order, OrderId, Price, Rejection, Side, TakerFeeRiseTerms, Trade},
 	error::DomainError,
 	money::{Nav, Shares, Usdt},
 	users::UserId,
 };
+use uuid::Uuid;
 
 use crate::ports::money::{HoldId, ScopeId};
 
@@ -36,7 +37,29 @@ pub trait BookStore: Send + Sync {
 
 	/// Replace the allocation's terms (upsert). `NotFound` if the allocation is not
 	/// registered — the row references it.
+	///
+	/// Writes the taker fee as given, with no notice: the operator-facing path is
+	/// [`Self::change_policy`], which paces a rise. This one is for seeding terms.
 	async fn set_policy(&self, service: &ServiceId, policy: &BookPolicy) -> Result<BookPolicyRecord, DomainError>;
+
+	/// An operator's replacement of the terms, one transaction under the book's lock. A fee
+	/// at or below the one in force binds at once (a cut also withdraws a pending rise); a
+	/// higher one is scheduled instead, per [`TakerFeeRiseTerms::plan`], and the rest of the
+	/// terms bind at once with the fee still in force. A rise writes one notice per holder in
+	/// the same transaction, and while there are holders it is refused unless the request
+	/// acknowledges that those notices cannot be delivered yet.
+	/// `Conflict` if a rise is already pending, `Validation` above the per-rise ceiling.
+	async fn change_policy(&self, service: &ServiceId, policy: &BookPolicy, request: &TakerFeeChange<'_>) -> Result<BookPolicyRecord, DomainError>;
+
+	/// Withdraw the pending rise and its undelivered notices; `false` if none was pending.
+	async fn cancel_taker_fee_rise(&self, service: &ServiceId, by: &str) -> Result<bool, DomainError>;
+
+	/// Pending rises whose notice period is over at `now_unix` — what the sweeper promotes.
+	async fn due_taker_fee_rises(&self, now_unix: i64) -> Result<Vec<Uuid>, DomainError>;
+
+	/// Bind a due rise onto the live terms. `false` if it is not due or no longer pending;
+	/// `Conflict` while a holder's notice is neither delivered nor acknowledged.
+	async fn promote_taker_fee_rise(&self, id: Uuid, now_unix: i64) -> Result<bool, DomainError>;
 
 	/// The caller's order recorded under `client_order_id`, if any — the idempotency
 	/// read the use case runs before minting a new id.
@@ -108,6 +131,31 @@ pub struct BookPolicyRecord {
 	pub policy: BookPolicy,
 	/// Unix seconds of the last write.
 	pub updated_at: i64,
+	/// The taker-fee rise on its way; `policy` carries the fee still in force.
+	pub pending_rise: Option<PendingTakerFeeRise>,
+}
+
+/// A scheduled, not yet bound, taker-fee rise.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PendingTakerFeeRise {
+	pub id: Uuid,
+	pub taker_fee_bps: u32,
+	pub effective_from_unix: i64,
+	pub requested_by: String,
+	pub requested_at_unix: i64,
+	pub acknowledged_by: Option<String>,
+}
+
+/// What an operator's change of terms needs beyond the terms: who, when (a parameter so a
+/// test can drive the notice period), how rises are paced, and whether they acknowledged
+/// the holder notices that cannot be delivered.
+pub struct TakerFeeChange<'a> {
+	/// Id for the change a rise would create.
+	pub id: Uuid,
+	pub by: &'a str,
+	pub now_unix: i64,
+	pub terms: &'a TakerFeeRiseTerms,
+	pub acknowledged_undelivered_notices: bool,
 }
 
 /// An order as stored — the aggregate plus the DB-stamped timestamps.

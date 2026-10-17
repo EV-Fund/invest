@@ -41,12 +41,16 @@ use invest_core::{
 	},
 	ports::{
 		Ledger, MoneyLedger,
+		book::BookStore,
 		catalog::{CATALOG_VERSION, CatalogPublisher, SCOPE_CATALOG_VERSION, ScopeCatalog, ScopeCatalogPublisher},
 		fees::FeePorts,
 	},
 	services,
 };
-use invest_domain::{authz::PermissionCatalog, book::PriceTimeEngine};
+use invest_domain::{
+	authz::PermissionCatalog,
+	book::{PriceTimeEngine, TakerFeeRiseTerms},
+};
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 
@@ -95,9 +99,10 @@ fn main() -> color_eyre::Result<ExitCode> {
 			scope_ledger,
 			config.concierge_streams().context("invalid concierge stream configuration")?,
 			config.watch_streams().context("invalid WatchBook limits")?,
+			config.book_taker_fee_rise()?,
 		))
 	});
-	let (scope_ledger, concierge_streams, watch_streams) = wiring.unwrap_or_else(|err| {
+	let (scope_ledger, concierge_streams, watch_streams, book_taker_fee_rise) = wiring.unwrap_or_else(|err| {
 		eprintln!("{err:?}");
 		std::process::exit(ev::settings::EX_CONFIG);
 	});
@@ -118,7 +123,7 @@ fn main() -> color_eyre::Result<ExitCode> {
 	}
 
 	let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build().context("failed to build tokio runtime")?;
-	runtime.block_on(run(config, scope_ledger, concierge_streams, watch_streams))?;
+	runtime.block_on(run(config, scope_ledger, concierge_streams, watch_streams, book_taker_fee_rise))?;
 	Ok(ExitCode::SUCCESS)
 }
 
@@ -127,6 +132,7 @@ async fn run(
 	scope_ledger: Option<ScopeLedgerConfig>,
 	concierge_streams: Option<ConciergeStreamsConfig>,
 	watch_streams: Arc<WatchStreams>,
+	book_taker_fee_rise: TakerFeeRiseTerms,
 ) -> color_eyre::Result<()> {
 	if scope_ledger.is_none() {
 		// Not refused in production: banking's listener and invest's client certificate
@@ -225,6 +231,7 @@ async fn run(
 	};
 	let nav = Arc::new(PgNav::new(pool.clone()));
 	let allocations = Arc::new(PgAllocations::new(pool.clone()));
+	let book: Arc<dyn BookStore> = Arc::new(PgBook::new(pool.clone()));
 	let fee_sweeper = FeeSweeper::new(
 		allocations.clone(),
 		fees.policies.clone(),
@@ -235,7 +242,8 @@ async fn run(
 		money.clone(),
 		nav.clone(),
 		relay_notify.clone(),
-	);
+	)
+	.with_book(book.clone());
 	let state = AppState {
 		pool: pool.clone(),
 		ledger: ledger.clone(),
@@ -245,7 +253,8 @@ async fn run(
 		issuances: Arc::new(PgUnitIssuances::new(pool.clone())),
 		subscriptions: Arc::new(PgSubscriptions::new(pool.clone())),
 		redemptions: Arc::new(PgRedemptions::new(pool.clone(), ledger.clone())),
-		book: Arc::new(PgBook::new(pool.clone())),
+		book,
+		book_taker_fee_rise,
 		book_engine: Arc::new(PriceTimeEngine),
 		book_feed,
 		watch_streams,

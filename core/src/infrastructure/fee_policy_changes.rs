@@ -229,7 +229,7 @@ async fn current_terms(conn: &mut PgConnection, service: &ServiceId) -> Result<O
 
 /// The holders a notice is owed to: every position with units, the roster the notice period
 /// is decided on ([`holder_count`]).
-async fn notice_roster(conn: &mut PgConnection, service: &ServiceId) -> Result<Vec<Uuid>, DomainError> {
+pub(crate) async fn notice_roster(conn: &mut PgConnection, service: &ServiceId) -> Result<Vec<Uuid>, DomainError> {
 	sqlx::query_scalar("SELECT user_id FROM fund_positions WHERE service = $1 AND units <> '0' ORDER BY user_id")
 		.bind(service.as_str())
 		.fetch_all(&mut *conn)
