@@ -20,7 +20,7 @@ use async_trait::async_trait;
 use evconcierge_projection::{EventSource, Page, Pulled, ScopeEvent, SourceError, UnknownEvent, UserEvent};
 use invest_domain::authz::PermissionCatalog;
 
-use crate::ports::catalog::{CatalogPublisher, PublishError};
+use crate::ports::catalog::{CatalogPublisher, PublishError, ScopeCatalog, ScopeCatalogPublisher};
 
 #[derive(Clone, Default)]
 pub struct InMemoryConcierge {
@@ -190,6 +190,58 @@ impl InMemoryCatalogPublisher {
 #[async_trait]
 impl CatalogPublisher for InMemoryCatalogPublisher {
 	async fn publish(&self, catalog: &PermissionCatalog, version: u64) -> Result<(), PublishError> {
+		let mut state = self.lock();
+		state.attempts += 1;
+		let outcome = state.script.pop_front().unwrap_or(Ok(()));
+		if outcome.is_ok() {
+			state.published.push((catalog.clone(), version));
+		}
+		outcome
+	}
+}
+
+/// The scope-catalog twin of [`InMemoryCatalogPublisher`].
+#[derive(Clone, Default)]
+pub struct InMemoryScopeCatalogPublisher {
+	state: Arc<Mutex<ScopePublisherState>>,
+}
+
+#[derive(Default)]
+struct ScopePublisherState {
+	script: std::collections::VecDeque<Result<(), PublishError>>,
+	attempts: u32,
+	published: Vec<(ScopeCatalog, u64)>,
+}
+
+impl InMemoryScopeCatalogPublisher {
+	pub fn new() -> Self {
+		Self::default()
+	}
+
+	/// Answer the next calls with `outcomes`, in order.
+	pub fn script(&self, outcomes: impl IntoIterator<Item = Result<(), PublishError>>) {
+		self.lock().script.extend(outcomes);
+	}
+
+	/// Every call made, successful or not.
+	pub fn attempts(&self) -> u32 {
+		self.lock().attempts
+	}
+
+	/// What was accepted, in order.
+	pub fn published(&self) -> Vec<(ScopeCatalog, u64)> {
+		self.lock().published.clone()
+	}
+
+	fn lock(&self) -> std::sync::MutexGuard<'_, ScopePublisherState> {
+		// See `InMemoryConcierge::lock`.
+		self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+	}
+}
+
+#[async_trait]
+impl ScopeCatalogPublisher for InMemoryScopeCatalogPublisher {
+	async fn publish(&self, catalog: &ScopeCatalog, version: u64) -> Result<(), PublishError> {
 		let mut state = self.lock();
 		state.attempts += 1;
 		let outcome = state.script.pop_front().unwrap_or(Ok(()));

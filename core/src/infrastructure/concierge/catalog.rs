@@ -2,22 +2,22 @@
 //! concierge's own `evconcierge_client`, and [`publish_at_boot`], the retry around it.
 //!
 //! The scope catalog (`ScopeCatalogService.PublishScopeCatalog`: approval kinds and
-//! notification topics) is not published yet. concierge needs it only before invest opens
-//! an `invest:*` proposal or emits on an `invest:*` topic, and invest does neither today —
-//! a fee change that needs the owners is refused, holder notices are recorded as given up.
-//! TODO: publish it with the first `Propose` or `EmitScopeNotification` (`invest:fee_policy`,
-//! `invest:valuation_override`, `invest:holder_grant`, `invest:fund:quy-nhon`).
+//! notification topics) goes the same way, through [`ClientScopeCatalogPublisher`] and
+//! [`publish_scope_at_boot`]; both share one retry loop.
 
-use std::time::Duration;
+use std::{future::Future, time::Duration};
 
 use async_trait::async_trait;
-use evconcierge_client::{Catalog, ConciergeClient, ConciergeError, proto::CatalogAlias};
+use evconcierge_client::{
+	Catalog, ConciergeClient, ConciergeError, ScopeCatalog as WireScopeCatalog,
+	proto::{CatalogAlias, NotificationTopicSpec},
+};
 use invest_domain::authz::PermissionCatalog;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
 
 use super::ConciergeStreamsConfig;
-use crate::ports::catalog::{CatalogPublisher, PublishError};
+use crate::ports::catalog::{CatalogPublisher, PublishError, ScopeCatalog, ScopeCatalogPublisher};
 
 pub struct ClientCatalogPublisher {
 	client: ConciergeClient,
@@ -48,13 +48,50 @@ impl CatalogPublisher for ClientCatalogPublisher {
 				})
 				.collect(),
 		};
-		self.client.publish_catalog(catalog).await.map_err(|err: ConciergeError| {
-			if err.is_transient() {
-				PublishError::Unavailable(err.to_string())
-			} else {
-				PublishError::Refused(err.to_string())
-			}
-		})
+		self.client.publish_catalog(catalog).await.map_err(publish_error)
+	}
+}
+
+fn publish_error(err: ConciergeError) -> PublishError {
+	if err.is_transient() {
+		PublishError::Unavailable(err.to_string())
+	} else {
+		PublishError::Refused(err.to_string())
+	}
+}
+
+pub struct ClientScopeCatalogPublisher {
+	client: ConciergeClient,
+}
+
+impl ClientScopeCatalogPublisher {
+	/// Over the same credential as the permission catalog: `ScopeCatalogService` resolves
+	/// the namespace from the client, so nothing new is configured.
+	pub fn connect(config: &ConciergeStreamsConfig) -> color_eyre::Result<Self> {
+		let client = ConciergeClient::from_channel(super::channel(config)?, config.client_id.clone(), config.client_secret.clone())
+			.map_err(|err| color_eyre::eyre::eyre!("concierge scope catalog client: {err}"))?;
+		Ok(Self { client })
+	}
+}
+
+#[async_trait]
+impl ScopeCatalogPublisher for ClientScopeCatalogPublisher {
+	async fn publish(&self, catalog: &ScopeCatalog, version: u64) -> Result<(), PublishError> {
+		let wire = WireScopeCatalog {
+			version,
+			approval_kinds: Vec::new(),
+			notification_topics: catalog
+				.topics
+				.iter()
+				.map(|t| NotificationTopicSpec {
+					topic: t.topic.to_owned(),
+					label: t.label.to_owned(),
+					description: t.description.to_owned(),
+					default_subscribed: t.default_subscribed,
+				})
+				.collect(),
+		};
+		self.client.publish_scope_catalog(wire).await.map_err(publish_error)
 	}
 }
 
@@ -77,27 +114,43 @@ pub enum Published {
 /// refusal is logged and not retried. Publishing the same catalog again is a no-op on
 /// concierge's side, so every boot of every replica does it.
 pub async fn publish_at_boot(publisher: &dyn CatalogPublisher, catalog: &PermissionCatalog, version: u64, shutdown: &CancellationToken) -> Published {
+	retry_publish("permission catalog", "invest:* seats resolve against the last one it stored", version, shutdown, || {
+		publisher.publish(catalog, version)
+	})
+	.await
+}
+
+/// The scope catalog, the same way: until it lands concierge refuses an `invest:*` proposal
+/// and an emit on an `invest:*` topic, and a refusal leaves the last stored catalog in force.
+pub async fn publish_scope_at_boot(publisher: &dyn ScopeCatalogPublisher, catalog: &ScopeCatalog, version: u64, shutdown: &CancellationToken) -> Published {
+	retry_publish("scope catalog", "invest topics and kinds stay as the last one it stored", version, shutdown, || {
+		publisher.publish(catalog, version)
+	})
+	.await
+}
+
+async fn retry_publish<F, Fut>(what: &str, on_refusal: &str, version: u64, shutdown: &CancellationToken, mut attempt: F) -> Published
+where
+	F: FnMut() -> Fut,
+	Fut: Future<Output = Result<(), PublishError>>, {
 	let mut backoff = FIRST_BACKOFF;
 	loop {
-		let attempt = tokio::select! {
+		let outcome = tokio::select! {
 			biased;
 			() = shutdown.cancelled() => return Published::Cancelled,
-			attempt = publisher.publish(catalog, version) => attempt,
+			outcome = attempt() => outcome,
 		};
-		match attempt {
+		match outcome {
 			Ok(()) => {
-				info!(version, "concierge: published the invest permission catalog");
+				info!(version, "concierge: published the invest {what}");
 				return Published::Done;
 			}
 			Err(PublishError::Refused(reason)) => {
-				error!(
-					version,
-					"concierge refused the invest permission catalog — invest:* seats resolve against the last one it stored (needs intervention): {reason}"
-				);
+				error!(version, "concierge refused the invest {what} — {on_refusal} (needs intervention): {reason}");
 				return Published::Refused;
 			}
 			Err(PublishError::Unavailable(reason)) => {
-				warn!(version, retry_in = ?backoff, "concierge: publishing the permission catalog failed, retrying: {reason}");
+				warn!(version, retry_in = ?backoff, "concierge: publishing the {what} failed, retrying: {reason}");
 				tokio::select! {
 					() = shutdown.cancelled() => return Published::Cancelled,
 					() = tokio::time::sleep(backoff) => {},
@@ -113,7 +166,10 @@ mod tests {
 	use invest_domain::authz::CatalogAlias;
 
 	use super::*;
-	use crate::{infrastructure::concierge::fake::InMemoryCatalogPublisher, ports::catalog::CATALOG_VERSION};
+	use crate::{
+		infrastructure::concierge::fake::{InMemoryCatalogPublisher, InMemoryScopeCatalogPublisher},
+		ports::catalog::{CATALOG_VERSION, SCOPE_CATALOG_VERSION, TopicSpec},
+	};
 
 	fn unavailable() -> Result<(), PublishError> {
 		Err(PublishError::Unavailable("connection refused".into()))
@@ -184,5 +240,76 @@ mod tests {
 		assert_eq!(started.elapsed(), Duration::from_secs(3600), "shutdown is not held behind a backoff");
 		// 9 doubling waits (511 s), then (3600 - 511) / 300 = 10 capped ones, + the first call.
 		assert_eq!(publisher.attempts(), 9 + 10 + 1);
+	}
+
+	#[test]
+	fn the_published_scope_catalog_is_pinned_to_its_version() {
+		// Same rule as the permission catalog: other content under the same version is
+		// refused by concierge, so change the catalog, the version and this pin together.
+		let pinned = ScopeCatalog {
+			topics: vec![TopicSpec {
+				topic: "invest:fund:quy-nhon",
+				label: "Quy Nhon fund",
+				description: "News and notices about the Quy Nhon fund.",
+				default_subscribed: false,
+			}],
+		};
+		assert_eq!((SCOPE_CATALOG_VERSION, ScopeCatalog::invest()), (1_792_195_200, pinned));
+	}
+
+	#[test]
+	fn the_scope_catalog_is_one_concierge_accepts() {
+		// concierge's rules on topics (SCOPES-AND-APPROVALS §6, scopes.proto), checked here
+		// so a bad constant fails a test and not the boot-time publication.
+		let catalog = ScopeCatalog::invest();
+		let mut seen = std::collections::BTreeSet::new();
+		for t in &catalog.topics {
+			let rest = t.topic.strip_prefix("invest:").unwrap_or_else(|| panic!("{} is outside the invest namespace", t.topic));
+			let segment_ok = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_' || b == b'-');
+			assert!(rest.split(':').all(segment_ok), "{}", t.topic);
+			assert!(t.topic.len() <= 64 && t.label.len() <= 60 && t.description.len() <= 200, "{}", t.topic);
+			assert!(!rest.starts_with("floor_"), "floor_* is reserved to concierge: {}", t.topic);
+			assert!(seen.insert(t.topic), "duplicate topic {}", t.topic);
+		}
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn the_scope_catalog_is_retried_like_the_permission_catalog() {
+		let publisher = InMemoryScopeCatalogPublisher::new();
+		publisher.script([unavailable(), unavailable(), unavailable()]);
+		let started = tokio::time::Instant::now();
+
+		let outcome = publish_scope_at_boot(&publisher, &ScopeCatalog::invest(), SCOPE_CATALOG_VERSION, &CancellationToken::new()).await;
+
+		assert_eq!(outcome, Published::Done);
+		assert_eq!(publisher.attempts(), 4);
+		assert_eq!(started.elapsed(), Duration::from_secs(1 + 2 + 4));
+		assert_eq!(publisher.published(), vec![(ScopeCatalog::invest(), SCOPE_CATALOG_VERSION)]);
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn a_refused_scope_catalog_is_not_retried() {
+		let publisher = InMemoryScopeCatalogPublisher::new();
+		publisher.script([Err(PublishError::Refused("version older than the stored one".into()))]);
+
+		let outcome = publish_scope_at_boot(&publisher, &ScopeCatalog::invest(), SCOPE_CATALOG_VERSION, &CancellationToken::new()).await;
+
+		assert_eq!(outcome, Published::Refused);
+		assert_eq!(publisher.attempts(), 1);
+		assert!(publisher.published().is_empty());
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn shutdown_ends_the_scope_catalog_wait() {
+		let publisher = InMemoryScopeCatalogPublisher::new();
+		publisher.script(std::iter::repeat_with(unavailable).take(100));
+		let shutdown = CancellationToken::new();
+		let catalog = ScopeCatalog::invest();
+		let (outcome, ()) = tokio::join!(publish_scope_at_boot(&publisher, &catalog, SCOPE_CATALOG_VERSION, &shutdown), async {
+			tokio::time::sleep(Duration::from_secs(3600)).await;
+			shutdown.cancel();
+		});
+		assert_eq!(outcome, Published::Cancelled);
+		assert_eq!(publisher.attempts(), 9 + 10 + 1, "same doubling and cap as the permission catalog");
 	}
 }

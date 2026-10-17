@@ -18,7 +18,7 @@ use invest_core::{
 		book::PgBook,
 		concierge::{
 			self, ConciergeProjection, ConciergeStreamsConfig,
-			catalog::{ClientCatalogPublisher, publish_at_boot},
+			catalog::{ClientCatalogPublisher, ClientScopeCatalogPublisher, publish_at_boot, publish_scope_at_boot},
 		},
 		db,
 		fee_policy_changes::PgFeePolicyChanges,
@@ -41,7 +41,7 @@ use invest_core::{
 	},
 	ports::{
 		Ledger, MoneyLedger,
-		catalog::{CATALOG_VERSION, CatalogPublisher},
+		catalog::{CATALOG_VERSION, CatalogPublisher, SCOPE_CATALOG_VERSION, ScopeCatalog, ScopeCatalogPublisher},
 		fees::FeePorts,
 	},
 	services,
@@ -181,6 +181,7 @@ async fn run(config: config::AppConfig, scope_ledger: Option<ScopeLedgerConfig>,
 		None => None,
 	};
 	let catalog_publisher = concierge_streams.as_ref().map(ClientCatalogPublisher::connect).transpose()?;
+	let scope_catalog_publisher = concierge_streams.as_ref().map(ClientScopeCatalogPublisher::connect).transpose()?;
 
 	let relay_notify = Arc::new(Notify::new());
 	let relay = Relay::new(relay_pool, ledger.clone(), money.clone(), relay_notify.clone());
@@ -273,10 +274,19 @@ async fn run(config: config::AppConfig, scope_ledger: Option<ScopeLedgerConfig>,
 			&shutdown,
 			"catalog publisher",
 			infallible(async {
-				if let Some(publisher) = &catalog_publisher {
-					// Done, refused or cancelled — each already logged; nothing else waits on it.
-					let _ = publish_at_boot(publisher as &dyn CatalogPublisher, &PermissionCatalog::invest(), CATALOG_VERSION, &shutdown).await;
-				}
+				// Side by side, so one catalog stuck on retries does not hold the other back.
+				// Done, refused or cancelled — each already logged; nothing else waits on them.
+				let permissions = async {
+					if let Some(publisher) = &catalog_publisher {
+						let _ = publish_at_boot(publisher as &dyn CatalogPublisher, &PermissionCatalog::invest(), CATALOG_VERSION, &shutdown).await;
+					}
+				};
+				let scopes = async {
+					if let Some(publisher) = &scope_catalog_publisher {
+						let _ = publish_scope_at_boot(publisher as &dyn ScopeCatalogPublisher, &ScopeCatalog::invest(), SCOPE_CATALOG_VERSION, &shutdown).await;
+					}
+				};
+				tokio::join!(permissions, scopes);
 				// A one-shot: idle afterwards, so its end does not stop the rest.
 				shutdown.cancelled().await;
 			})
