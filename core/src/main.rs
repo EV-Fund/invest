@@ -3,7 +3,7 @@
 //! sweeper, the users projection, the money-event consumer and the catalog publication as
 //! branches of one structured `join!` until a signal.
 
-use std::{future::Future, sync::Arc};
+use std::{future::Future, process::ExitCode, sync::Arc};
 
 use color_eyre::eyre::{Context, ensure, eyre};
 use ev::error_monitoring::{self, Config as SentryConfig};
@@ -18,7 +18,7 @@ use invest_core::{
 		book::PgBook,
 		concierge::{
 			self, ConciergeProjection, ConciergeStreamsConfig,
-			catalog::{ClientCatalogPublisher, publish_at_boot},
+			catalog::{ClientCatalogPublisher, ClientScopeCatalogPublisher, publish_at_boot, publish_scope_at_boot},
 		},
 		db,
 		fee_policy_changes::PgFeePolicyChanges,
@@ -42,7 +42,7 @@ use invest_core::{
 	ports::{
 		Ledger, MoneyLedger,
 		book::BookStore,
-		catalog::{CATALOG_VERSION, CatalogPublisher},
+		catalog::{CATALOG_VERSION, CatalogPublisher, SCOPE_CATALOG_VERSION, ScopeCatalog, ScopeCatalogPublisher},
 		fees::FeePorts,
 	},
 	services,
@@ -59,8 +59,10 @@ const CONCIERGE_ISSUER: &str = "https://auth.concierge.ev";
 /// invest's relying-party client in concierge — the only audience accepted.
 const INVEST_AUDIENCE: &str = "invest";
 
+mod import_cmd;
+
 // Sentry must be initialised before the async runtime starts — no #[tokio::main].
-fn main() -> color_eyre::Result<()> {
+fn main() -> color_eyre::Result<ExitCode> {
 	color_eyre::install()?;
 	// Before any TLS client is built — see `crypto.rs`.
 	invest_core::crypto::install_crypto_provider();
@@ -74,7 +76,15 @@ fn main() -> color_eyre::Result<()> {
 		for var in config::AppConfig::required_var_names(profile) {
 			println!("{var}");
 		}
-		return Ok(());
+		return Ok(ExitCode::SUCCESS);
+	}
+	match command {
+		Command::Import(args) => return import_cmd::run(args),
+		Command::Invalid(message) => {
+			eprintln!("{message}");
+			return Ok(ExitCode::from(2));
+		}
+		Command::Serve | Command::PrintRequiredVars(_) => {}
 	}
 
 	// One env read at boot; every missing/invalid variable fails HERE, in one aggregate
@@ -113,7 +123,8 @@ fn main() -> color_eyre::Result<()> {
 	}
 
 	let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build().context("failed to build tokio runtime")?;
-	runtime.block_on(run(config, scope_ledger, concierge_streams, watch_streams, book_taker_fee_rise))
+	runtime.block_on(run(config, scope_ledger, concierge_streams, watch_streams, book_taker_fee_rise))?;
+	Ok(ExitCode::SUCCESS)
 }
 
 async fn run(
@@ -195,6 +206,7 @@ async fn run(
 		None => None,
 	};
 	let catalog_publisher = concierge_streams.as_ref().map(ClientCatalogPublisher::connect).transpose()?;
+	let scope_catalog_publisher = concierge_streams.as_ref().map(ClientScopeCatalogPublisher::connect).transpose()?;
 
 	let relay_notify = Arc::new(Notify::new());
 	let relay = Relay::new(relay_pool, ledger.clone(), money.clone(), relay_notify.clone());
@@ -291,10 +303,19 @@ async fn run(
 			&shutdown,
 			"catalog publisher",
 			infallible(async {
-				if let Some(publisher) = &catalog_publisher {
-					// Done, refused or cancelled — each already logged; nothing else waits on it.
-					let _ = publish_at_boot(publisher as &dyn CatalogPublisher, &PermissionCatalog::invest(), CATALOG_VERSION, &shutdown).await;
-				}
+				// Side by side, so one catalog stuck on retries does not hold the other back.
+				// Done, refused or cancelled — each already logged; nothing else waits on them.
+				let permissions = async {
+					if let Some(publisher) = &catalog_publisher {
+						let _ = publish_at_boot(publisher as &dyn CatalogPublisher, &PermissionCatalog::invest(), CATALOG_VERSION, &shutdown).await;
+					}
+				};
+				let scopes = async {
+					if let Some(publisher) = &scope_catalog_publisher {
+						let _ = publish_scope_at_boot(publisher as &dyn ScopeCatalogPublisher, &ScopeCatalog::invest(), SCOPE_CATALOG_VERSION, &shutdown).await;
+					}
+				};
+				tokio::join!(permissions, scopes);
 				// A one-shot: idle afterwards, so its end does not stop the rest.
 				shutdown.cancelled().await;
 			})
@@ -328,6 +349,10 @@ enum Command {
 	Serve,
 	/// `--print-required-vars[=PROFILE]` (default `production`).
 	PrintRequiredVars(String),
+	/// `import --file <path> [--dry-run] [--anchor …]` — the one-shot data-wave importer.
+	Import(import_cmd::ImportArgs),
+	/// `import` with arguments that do not parse; exits 2 instead of serving by accident.
+	Invalid(String),
 }
 
 impl Command {
@@ -336,6 +361,9 @@ impl Command {
 		let Some(arg) = args.next() else {
 			return Self::Serve;
 		};
+		if arg == "import" {
+			return import_cmd::ImportArgs::parse(args).map_or_else(Self::Invalid, Self::Import);
+		}
 		match arg.split_once('=') {
 			Some((FLAG, profile)) => Self::PrintRequiredVars(profile.to_string()),
 			Some(_) => Self::Serve,
