@@ -30,6 +30,7 @@ pub mod fee_accrual;
 pub mod fee_policy_changes;
 pub mod fee_sweeper;
 pub mod fees;
+pub mod import;
 pub mod issuance;
 pub mod ledger;
 pub mod money;
