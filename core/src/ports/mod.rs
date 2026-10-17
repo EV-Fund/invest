@@ -43,6 +43,6 @@ pub use ledger::{CompletionKind, Ledger, LedgerBalance, LedgerError, LedgerTrans
 pub use money::{MoneyEventSource, MoneyLedger, MoneyLedgerError};
 pub use nav::{NavMarks, Valuation};
 pub use positions::{FundPosition, FundPositionReader, UnitFlow};
-pub use redemptions::{QueuedRedemption, RedemptionRecord, RedemptionRepository};
+pub use redemptions::{AwaitingOperation, QueuedRedemption, RedemptionRecord, RedemptionRepository};
 pub use subscriptions::{SubscriptionRecord, SubscriptionRepository};
 pub use users::{UserDirectory, UserStanding};

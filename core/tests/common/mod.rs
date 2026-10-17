@@ -509,6 +509,13 @@ async fn forget_money_events(pool: &PgPool) {
 	// The in-memory banking numbers its holds from 1 in every test; banking's own ids never repeat.
 	sqlx::query("DELETE FROM money_events_voided_holds").execute(pool).await.expect("clear the noted voided holds");
 	sqlx::query("DELETE FROM money_events_attempts").execute(pool).await.expect("clear the event attempts");
+	// A redemption an earlier test left awaiting approval waits on an operation of THAT test's
+	// banking. The sweep reads every awaiting row, oldest first, so it would spend this
+	// test's injected outages and answers on it.
+	sqlx::query("UPDATE redemptions SET state = 'failed', failure_reason = 'left_by_an_earlier_test' WHERE state = 'awaiting_approval'")
+		.execute(pool)
+		.await
+		.expect("set aside the redemptions an earlier test left awaiting approval");
 }
 
 /// One mint as an operator or an approval asks for it, in decimal strings.

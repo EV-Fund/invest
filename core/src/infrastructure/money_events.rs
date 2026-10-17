@@ -45,7 +45,7 @@ use super::{
 	singleton,
 };
 use crate::{
-	application::book::BookFeed,
+	application::{book::BookFeed, funds::OPERATOR_RESOLVED_NOT_FOUND},
 	ports::money::{MoneyEvent, MoneyEventKind, MoneyEventSource, MoneyLedger, MoneyLedgerError, OperationId, PendingOperationState, ScopeId, machine_reason},
 };
 
@@ -230,7 +230,18 @@ impl MoneyEventsConsumer {
 	/// scope, so the list is short. Answers how many verdicts landed.
 	pub async fn sweep_awaiting(&self) -> Result<u64, ConsumerError> {
 		let mut landed = 0;
-		for awaiting in redemptions::awaiting_payouts(&self.pool).await? {
+		let awaiting_payouts = redemptions::awaiting_payouts(&self.pool).await?;
+		if !awaiting_payouts.is_empty() {
+			// The age is read before the verdicts land, so a stuck one shows even on the sweep
+			// that would clear it. Grep key `oldest_awaiting_age_secs` for the alert.
+			// A failed read of the gauge must not stop the verdicts below from landing.
+			let oldest_awaiting_age_secs = redemptions::oldest_awaiting_age_secs(&self.pool).await.unwrap_or_else(|err| {
+				warn!("money events: could not read the oldest awaiting redemption's age: {err}");
+				-1
+			});
+			info!(awaiting = awaiting_payouts.len(), oldest_awaiting_age_secs, "money events: redemptions awaiting approval");
+		}
+		for awaiting in awaiting_payouts {
 			// One record banking cannot answer for, or one that does not apply, is skipped and
 			// read again on the next sweep; the others still land.
 			let verdict = match self.verdict(&awaiting).await {
@@ -394,7 +405,13 @@ impl MoneyEventsConsumer {
 			// An executed operation shows as PAID_OUT with the request's subject — and so does
 			// every automatic payout, which finds no redemption awaiting and passes.
 			MoneyEventKind::PaidOut => match subject_id(&event.subject_ref, "redemption") {
-				Some(id) => self.verdict_effect(redemptions::awaiting_payout(&self.pool, id).await?).await?,
+				Some(id) => {
+					let awaiting = redemptions::awaiting_payout(&self.pool, id).await?;
+					if awaiting.is_none() {
+						self.flag_paid_after_operator_fail(id).await?;
+					}
+					self.verdict_effect(awaiting).await?
+				}
 				None => Effect::Pass,
 			},
 			MoneyEventKind::Unknown(code) => Effect::Park { code },
@@ -413,6 +430,22 @@ impl MoneyEventsConsumer {
 			| MoneyEventKind::MandateRevoked
 			| MoneyEventKind::OperationRequested => Effect::Pass,
 		})
+	}
+
+	/// banking paid a redemption an operator had failed as "banking does not know the
+	/// operation": the units went back while the cash left. Nothing here can undo it, so it is
+	/// loud for a human (no parking: a park would claim the event kind is unknown).
+	async fn flag_paid_after_operator_fail(&self, id: Uuid) -> Result<(), ConsumerError> {
+		let operation: Option<String> = sqlx::query_scalar("SELECT payout_operation_id FROM redemptions WHERE id = $1 AND state = 'failed' AND failure_reason = $2")
+			.bind(id)
+			.bind(OPERATOR_RESOLVED_NOT_FOUND)
+			.fetch_optional(&self.pool)
+			.await?
+			.flatten();
+		if let Some(operation) = operation {
+			error!(redemption = %id, %operation, "money events: banking PAID a redemption an operator failed as operator_resolved_not_found — units returned and cash paid (needs intervention)");
+		}
+		Ok(())
 	}
 
 	async fn verdict_effect(&self, awaiting: Option<AwaitingPayout>) -> Result<Effect, ConsumerError> {
@@ -439,9 +472,8 @@ impl MoneyEventsConsumer {
 	/// banking does not know, answers malformed, or answers for another operation or
 	/// redemption is left awaiting and logged, for an operator: failing the redemption on it
 	/// would give the units back while the payout may still execute.
-	// TODO(F4): a redemption can wait here for ever when banking never answers. It needs an
-	// operator RPC `ResolveAwaitingRedemption(id, outcome)` under `invest:allocation:manage`
-	// that re-polls banking, and a metric for the oldest awaiting one.
+	///
+	/// The operator's way out of that state is `ResolveAwaitingRedemption`.
 	async fn verdict(&self, awaiting: &AwaitingPayout) -> Result<Option<OwnedVerdict>, ConsumerError> {
 		let scope = match ScopeId::parse(&awaiting.scope) {
 			Ok(scope) => scope,
