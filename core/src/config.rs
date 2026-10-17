@@ -1,9 +1,12 @@
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use color_eyre::eyre::{Context, Result, ensure};
 use invest_domain::book::TakerFeeRiseTerms;
 
-use crate::infrastructure::{concierge::ConciergeStreamsConfig, money::grpc::ScopeLedgerConfig};
+use crate::{
+	application::book::WatchStreams,
+	infrastructure::{concierge::ConciergeStreamsConfig, money::grpc::ScopeLedgerConfig},
+};
 
 ev::settings! {
 	/// invest-core's configuration, read from the environment only (`dotenvy` loads `.env`
@@ -79,6 +82,12 @@ ev::settings! {
 		/// The most a single taker-fee rise may add to the fee in force (bps, 1..=100, the
 		/// hard cap `MAX_TAKER_FEE_BPS`). Larger moves are made in steps, each with its own notice.
 		book_taker_fee_rise_ceiling_bps: u32 = "25",
+		/// How many `WatchBook` streams one caller may hold open; past it the stream is
+		/// refused `RESOURCE_EXHAUSTED`. At least 1 (the BFF's own cap is 4 per session).
+		watchbook_max_streams_per_caller: u32 = "4",
+		/// How often a live `WatchBook` stream re-checks that its holder is still active
+		/// and may still see the book. At least 1.
+		watchbook_recheck_secs: u64 = "60",
 	}
 }
 
@@ -88,6 +97,12 @@ impl AppConfig {
 	pub fn book_taker_fee_rise(&self) -> Result<TakerFeeRiseTerms> {
 		TakerFeeRiseTerms::new(self.book_taker_fee_rise_delay_secs, self.book_taker_fee_rise_ceiling_bps)
 			.map_err(|err| color_eyre::eyre::eyre!("invalid BOOK_TAKER_FEE_RISE_DELAY_SECS / BOOK_TAKER_FEE_RISE_CEILING_BPS: {err}"))
+	}
+
+	/// The `WatchBook` limits. A zero is refused here rather than clamped: a cap of 0 would
+	/// silently disable the stream and a recheck of 0 seconds would spin the timer.
+	pub fn watch_streams(&self) -> Result<Arc<WatchStreams>> {
+		WatchStreams::new(self.watchbook_max_streams_per_caller, Duration::from_secs(self.watchbook_recheck_secs)).map_err(|err| color_eyre::eyre::eyre!("{err}"))
 	}
 
 	/// The concierge stream client's configuration, or `None` when none is configured.

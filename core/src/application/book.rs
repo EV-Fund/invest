@@ -21,6 +21,7 @@
 use std::{
 	collections::HashMap,
 	sync::{Arc, Mutex},
+	time::Duration,
 };
 
 use invest_domain::{
@@ -151,6 +152,83 @@ pub async fn require_tradable(allocations: &dyn AllocationRegistry, service: &Se
 		)));
 	}
 	Ok(record.allocation)
+}
+
+/// How many `WatchBook` streams one caller may hold open, and how often a live stream
+/// re-checks its holder. invest-core is the only place the first can be enforced: the BFF
+/// caps sockets per session, but one user can hold many sessions, and every publish makes
+/// each stream re-read the book.
+pub struct WatchStreams {
+	max_per_caller: u32,
+	recheck: Duration,
+	held: Mutex<HashMap<UserId, u32>>,
+}
+
+impl WatchStreams {
+	/// Both figures must be at least 1: a zero cap would refuse every stream and a zero
+	/// period would make the recheck timer spin (and `tokio::time::interval` panics on it).
+	pub fn new(max_per_caller: u32, recheck: Duration) -> Result<Arc<Self>, DomainError> {
+		if max_per_caller == 0 {
+			return Err(DomainError::Validation("WATCHBOOK_MAX_STREAMS_PER_CALLER must be at least 1".into()));
+		}
+		if recheck.is_zero() {
+			return Err(DomainError::Validation("WATCHBOOK_RECHECK_SECS must be at least 1".into()));
+		}
+		Ok(Arc::new(Self {
+			max_per_caller,
+			recheck,
+			held: Mutex::default(),
+		}))
+	}
+
+	pub fn recheck_every(&self) -> Duration {
+		self.recheck
+	}
+
+	/// A slot for one more stream of `caller`, or `None` at the cap. The slot is an RAII
+	/// guard: whatever ends the stream — close, error, or the client's cancellation
+	/// dropping it mid-poll — gives the slot back, so none can leak.
+	pub fn acquire(self: &Arc<Self>, caller: UserId) -> Option<StreamSlot> {
+		// A poisoned lock means a holder panicked between two counter updates; the map is
+		// still a valid count, so recovering is right.
+		let mut held = self.held.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+		let count = held.entry(caller).or_insert(0);
+		if *count >= self.max_per_caller {
+			return None;
+		}
+		*count += 1;
+		Some(StreamSlot { streams: Arc::clone(self), caller })
+	}
+
+	/// Streams `caller` holds right now.
+	pub fn open_for(&self, caller: UserId) -> u32 {
+		self.held.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).get(&caller).copied().unwrap_or(0)
+	}
+}
+
+/// One held `WatchBook` slot; dropping it frees the slot.
+pub struct StreamSlot {
+	streams: Arc<WatchStreams>,
+	caller: UserId,
+}
+
+impl std::fmt::Debug for StreamSlot {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("StreamSlot").field("caller", &self.caller).finish_non_exhaustive()
+	}
+}
+
+impl Drop for StreamSlot {
+	fn drop(&mut self) {
+		let mut held = self.streams.held.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+		if let Some(count) = held.get_mut(&self.caller) {
+			*count -= 1;
+			// Dropped at zero so the map does not grow by every user who ever watched.
+			if *count == 0 {
+				held.remove(&self.caller);
+			}
+		}
+	}
 }
 
 /// Resolve `service` for a read as `caller` sees it: `NotFound` when hidden from them,
@@ -575,6 +653,13 @@ fn percent_change(reference: Price, last: Price) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+	#[test]
+	fn a_zero_cap_or_recheck_period_is_a_configuration_error() {
+		assert!(WatchStreams::new(0, Duration::from_secs(60)).is_err());
+		assert!(WatchStreams::new(4, Duration::ZERO).is_err());
+		assert!(WatchStreams::new(1, Duration::from_secs(1)).is_ok());
+	}
+
 	use super::*;
 
 	#[test]

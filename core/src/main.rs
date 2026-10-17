@@ -11,7 +11,7 @@ use evconcierge_auth::{TokenType, Verifier, VerifierConfig};
 use evconcierge_projection::ProjectionConfig;
 use invest_core::{
 	AppState,
-	application::book::BookFeed,
+	application::book::{BookFeed, WatchStreams},
 	config,
 	infrastructure::{
 		allocations::PgAllocations,
@@ -84,12 +84,15 @@ fn main() -> color_eyre::Result<()> {
 	// The rules between variables `settings!` cannot state — an address needs its
 	// credentials, a PEM file must be readable — are the same "the config is wrong", so they
 	// exit 78 as well, before anything is dialled.
-	let wiring = config
-		.scope_ledger()
-		.context("invalid scope ledger configuration")
-		.and_then(|scope_ledger| Ok((scope_ledger, config.concierge_streams().context("invalid concierge stream configuration")?)))
-		.and_then(|(scope_ledger, concierge_streams)| Ok((scope_ledger, concierge_streams, config.book_taker_fee_rise()?)));
-	let (scope_ledger, concierge_streams, book_taker_fee_rise) = wiring.unwrap_or_else(|err| {
+	let wiring = config.scope_ledger().context("invalid scope ledger configuration").and_then(|scope_ledger| {
+		Ok((
+			scope_ledger,
+			config.concierge_streams().context("invalid concierge stream configuration")?,
+			config.watch_streams().context("invalid WatchBook limits")?,
+			config.book_taker_fee_rise()?,
+		))
+	});
+	let (scope_ledger, concierge_streams, watch_streams, book_taker_fee_rise) = wiring.unwrap_or_else(|err| {
 		eprintln!("{err:?}");
 		std::process::exit(ev::settings::EX_CONFIG);
 	});
@@ -110,13 +113,14 @@ fn main() -> color_eyre::Result<()> {
 	}
 
 	let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build().context("failed to build tokio runtime")?;
-	runtime.block_on(run(config, scope_ledger, concierge_streams, book_taker_fee_rise))
+	runtime.block_on(run(config, scope_ledger, concierge_streams, watch_streams, book_taker_fee_rise))
 }
 
 async fn run(
 	config: config::AppConfig,
 	scope_ledger: Option<ScopeLedgerConfig>,
 	concierge_streams: Option<ConciergeStreamsConfig>,
+	watch_streams: Arc<WatchStreams>,
 	book_taker_fee_rise: TakerFeeRiseTerms,
 ) -> color_eyre::Result<()> {
 	if scope_ledger.is_none() {
@@ -241,6 +245,7 @@ async fn run(
 		book_taker_fee_rise,
 		book_engine: Arc::new(PriceTimeEngine),
 		book_feed,
+		watch_streams,
 		fees,
 		nav,
 		positions: Arc::new(PgFundPositions::new(pool)),
