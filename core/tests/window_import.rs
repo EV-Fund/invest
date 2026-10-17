@@ -314,6 +314,7 @@ fn trailer_of(records: &[Record]) -> Trailer {
 		total_outstanding: s(allocations.iter().fold(0u128, |acc, a| acc.saturating_add(a.shares_outstanding.parse::<u128>().unwrap()))),
 		allocations,
 		outbox_undispatched: 0,
+		pending_or_locked: "0".into(),
 		clean: true,
 	}
 }
@@ -417,6 +418,14 @@ fn a_trailer_that_says_not_clean_is_refused() {
 	assert!(err.contains("clean = false"), "{err}");
 	let err = refusal_of(&file_of(header(), &body(), |t| t.outbox_undispatched = 3));
 	assert!(err.contains("3 outbox events"), "{err}");
+}
+
+#[test]
+fn pending_or_locked_units_refuse_the_file() {
+	let err = refusal_of(&file_of(header(), &body(), |t| t.pending_or_locked = s(E18)));
+	assert!(err.contains("pending or locked"), "{err}");
+	let err = refusal_of(&file_of(header(), &body(), |t| t.clean = false));
+	assert!(err.contains("clean = false"), "{err}");
 }
 
 #[test]

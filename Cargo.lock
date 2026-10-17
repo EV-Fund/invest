@@ -1475,7 +1475,7 @@ dependencies = [
 [[package]]
 name = "domain"
 version = "0.1.0"
-source = "git+https://github.com/EV-Main/banking.git?rev=78161274606112e2dd089d3bc5d6e3ab1d67c0a3#78161274606112e2dd089d3bc5d6e3ab1d67c0a3"
+source = "git+https://github.com/EV-Main/banking.git?rev=c4ed3daf70a6e0035ed5b4ed8d3e213386ae1747#c4ed3daf70a6e0035ed5b4ed8d3e213386ae1747"
 dependencies = [
  "ev_lib",
  "getrandom 0.3.4",

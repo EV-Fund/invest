@@ -373,6 +373,11 @@ impl Builder {
 		if t.outbox_undispatched != 0 {
 			self.fail(format!("trailer: {} outbox events were undispatched at the snapshot; the window needs 0", t.outbox_undispatched));
 		}
+		match digits("trailer: pending_or_locked", &t.pending_or_locked) {
+			Ok(0) => {}
+			Ok(n) => self.fail(format!("trailer: {} units were pending or locked at the snapshot; their posted balances are not final", human(n))),
+			Err(e) => self.fail(e),
+		}
 		let actual: BTreeMap<String, u64> = self.counts.iter().map(|(k, v)| ((*k).to_owned(), *v)).collect();
 		let claimed: BTreeMap<String, u64> = t.counts.iter().filter(|(_, v)| **v != 0).map(|(k, v)| (k.clone(), *v)).collect();
 		if actual != claimed {
