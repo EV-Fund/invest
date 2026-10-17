@@ -58,6 +58,22 @@ service FundsService {
   // holder's reserved units. Idempotent.
   rpc FailRedemption(FailRedemptionRequest) returns (Redemption);
 
+  // Operator (`invest:allocation:manage`): the way out of `awaiting_approval`. Re-asks
+  // banking about the payout's operation first and acts on its answer, never on the
+  // caller's say-so alone:
+  //   - Rejected / Failed: `FAIL` voids the burn and records banking's machine reason.
+  //   - NotFound: banking does not know the operation; `FAIL` is refused
+  //     (FAILED_PRECONDITION) unless `operation_id` echoes the operation recorded on the
+  //     redemption, and then records `operator_resolved_not_found`. NOT_FOUND can also
+  //     mean a wrong key or address on invest's side rather than a lost operation, so
+  //     before confirming the operator checks the operation in banking itself.
+  //   - Still awaiting the owners, or Executed: refused (FAILED_PRECONDITION). A payout
+  //     banking has made is never failed; its verdict lands through the money events.
+  // A verdict that lands while the call is in flight wins: the transition is conditional on
+  // the redemption still awaiting approval, else ALREADY_EXISTS and nothing changes.
+  // Idempotent once the redemption is failed.
+  rpc ResolveAwaitingRedemption(ResolveAwaitingRedemptionRequest) returns (Redemption);
+
   // Operator (`invest:allocation:manage`): every holder's redemptions awaiting settle,
   // oldest first.
   rpc ListRedemptionQueue(ListRedemptionQueueRequest) returns (RedemptionQueue);
@@ -107,6 +123,22 @@ message SettleRedemptionRequest {
 
 message FailRedemptionRequest {
   string redemption_id = 1;
+}
+
+enum AwaitingRedemptionOutcome {
+  AWAITING_REDEMPTION_OUTCOME_UNSPECIFIED = 0;
+  // Void the burn and return the units.
+  AWAITING_REDEMPTION_OUTCOME_FAIL = 1;
+}
+
+message ResolveAwaitingRedemptionRequest {
+  string redemption_id = 1;
+  AwaitingRedemptionOutcome outcome = 2;
+  reserved 3;
+  reserved "confirm_banking_not_found";
+  // The payout operation id recorded on the redemption, echoed by the operator after
+  // checking it in banking. Read only when banking answers NOT_FOUND.
+  string operation_id = 4;
 }
 
 message ListRedemptionQueueRequest {}

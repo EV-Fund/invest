@@ -37,6 +37,19 @@ pub trait RedemptionRepository: Repository<Aggregate = Redemption> + Reader<Aggr
 	/// persist + drain the `Cancelled` event (the relay voids the burn). Idempotent.
 	async fn cancel(&self, id: RedemptionId) -> Result<Redemption, DomainError>;
 
+	/// The operation banking holds for a redemption awaiting approval — `None` when it is in
+	/// any other state (or unknown). What an operator's re-poll asks banking about.
+	async fn awaiting_operation(&self, id: RedemptionId) -> Result<Option<AwaitingOperation>, DomainError>;
+
+	/// Fail a redemption that is **still** awaiting approval on `operation`, recording
+	/// `reason` and raising `Failed` (the relay voids the burn). Conditional on the state
+	/// under the row lock: a verdict that landed first leaves it untouched and answers
+	/// [`DomainError::Conflict`] — the verdict wins, never both.
+	async fn refuse_awaiting(&self, id: RedemptionId, operation: &str, reason: &str) -> Result<RedemptionRecord, DomainError>;
+
+	/// A redemption with the reason recorded for its failure, by id.
+	async fn find_record(&self, id: RedemptionId) -> Result<Option<RedemptionRecord>, DomainError>;
+
 	/// Load a redemption by id (no lock; for queries).
 	async fn find_by_id(&self, id: RedemptionId) -> Result<Option<Redemption>, DomainError>;
 
@@ -67,4 +80,11 @@ pub struct QueuedRedemption {
 	pub units: Shares,
 	/// Unix seconds the redemption was requested (for the "age" column).
 	pub created_at: i64,
+}
+
+/// Where to ask banking about a redemption awaiting approval.
+#[derive(Clone, Debug)]
+pub struct AwaitingOperation {
+	pub scope: String,
+	pub operation: String,
 }

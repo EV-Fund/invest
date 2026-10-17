@@ -11,19 +11,43 @@
 //! plays banking: the user's cash is a compartment, the product's an `alloc:` account, and
 //! a refusal or an outage is injected where banking would give one.
 
+use std::{sync::Arc, time::Duration};
+
+use evconcierge_auth::{Claims, TokenType};
+use invest_contracts::invest::v1::{self as pb, funds_service_server::FundsService};
 use invest_core::{
-	application::{allocations as allocations_app, book::BookFeed, funds as funds_app, issuance as issuance_app},
-	infrastructure::{issuance::PgUnitIssuances, money_events::Pass, nav::PgNav, positions::PgFundPositions},
+	AppState,
+	application::{
+		allocations as allocations_app,
+		book::{BookFeed, WatchStreams},
+		funds as funds_app, issuance as issuance_app,
+	},
+	infrastructure::{
+		allocations::PgAllocations,
+		book::PgBook,
+		fee_policy_changes::PgFeePolicyChanges,
+		fees::{PgFeeAssessments, PgFeePolicies, PgFeeSettlements, PgPositionAccruals},
+		issuance::PgUnitIssuances,
+		money_events::Pass,
+		nav::PgNav,
+		positions::PgFundPositions,
+		redemptions::PgRedemptions,
+		subscriptions::PgSubscriptions,
+		users::PgUsers,
+	},
 	ports::{
 		AllocationRegistry, FundPositionReader, RedemptionRepository, SubscriptionRepository,
+		fees::FeePorts,
 		ledger::{CompletionKind, LedgerError, LedgerTransfer, PendingCompletion},
 		money::{AccountLabel, HoldState, MoneyEventKind, Refusal, ScopeId},
 		nav::NavMarks,
+		users::UserStanding,
 	},
 };
 use invest_domain::{
 	allocations::{Allocation, AllocationAccess, AllocationIcon, AllocationId},
 	balance::{LedgerAccountKey, ServiceId, TransferCode, ValuationId},
+	book::PriceTimeEngine,
 	error::DomainError,
 	issuance::{IdempotencyKey, UnitHolder},
 	money::{Nav, Shares, Usdt},
@@ -1084,4 +1108,240 @@ async fn a_completion_crossing_the_pendings_outcome_is_a_conflict() {
 	h.ledger.complete(&complete(&posted, CompletionKind::Post)).await.unwrap();
 	assert!(matches!(h.ledger.complete(&complete(&posted, CompletionKind::Void)).await, Err(LedgerError::Conflict(_))));
 	assert_eq!(units(&h, &LedgerAccountKey::UserShares(service.clone(), user)).await, shares("5"), "only the posted one landed");
+}
+
+// ---- ResolveAwaitingRedemption -------------------------------------------------------
+
+const MANAGE: &str = "invest:allocation:manage";
+
+/// The gRPC handler over this harness's database, banking and ledger.
+fn funds_service(h: &Harness) -> invest_core::services::funds::FundsSvc {
+	let pool = h.pool.clone();
+	let state = AppState {
+		pool: pool.clone(),
+		ledger: h.ledger.clone(),
+		money: h.money.clone(),
+		users: Arc::new(PgUsers::new(pool.clone())),
+		allocations: Arc::new(PgAllocations::new(pool.clone())),
+		issuances: Arc::new(PgUnitIssuances::new(pool.clone())),
+		subscriptions: Arc::new(PgSubscriptions::new(pool.clone())),
+		redemptions: Arc::new(PgRedemptions::new(pool.clone(), h.ledger.clone())),
+		book: Arc::new(PgBook::new(pool.clone())),
+		book_engine: Arc::new(PriceTimeEngine),
+		book_feed: BookFeed::new(),
+		watch_streams: WatchStreams::new(2, Duration::from_secs(60)).unwrap(),
+		fees: FeePorts {
+			policies: Arc::new(PgFeePolicies::new(pool.clone())),
+			changes: Arc::new(PgFeePolicyChanges::new(pool.clone())),
+			accruals: Arc::new(PgPositionAccruals::new(pool.clone())),
+			assessments: Arc::new(PgFeeAssessments::new(pool.clone())),
+			settlements: Arc::new(PgFeeSettlements::new(pool.clone(), h.ledger.clone())),
+		},
+		nav: Arc::new(PgNav::new(pool.clone())),
+		positions: Arc::new(PgFundPositions::new(pool)),
+		relay_notify: h.notify.clone(),
+	};
+	invest_core::services::funds::FundsSvc::new(state)
+}
+
+/// A caller the auth layer would have admitted: an access token for `user`.
+fn as_caller<T>(user: UserId, message: T) -> tonic::Request<T> {
+	let mut request = tonic::Request::new(message);
+	request.extensions_mut().insert(Claims {
+		sub: user.raw().to_string(),
+		iss: "test".into(),
+		aud: "invest".into(),
+		exp: u64::MAX,
+		iat: 0,
+		typ: TokenType::Access,
+		jti: None,
+		token_version: 0,
+	});
+	request
+}
+
+/// An operator: an active seat holding `invest:allocation:manage`.
+async fn operator(h: &Harness) -> UserId {
+	let user = UserId::new();
+	h.users
+		.record(
+			user,
+			&UserStanding {
+				active: true,
+				permissions: Some(vec![MANAGE.into()]),
+			},
+			None,
+		)
+		.await
+		.unwrap();
+	user
+}
+
+fn resolve_request(id: RedemptionId, operation_id: &str) -> pb::ResolveAwaitingRedemptionRequest {
+	pb::ResolveAwaitingRedemptionRequest {
+		redemption_id: id.raw().to_string(),
+		outcome: pb::AwaitingRedemptionOutcome::Fail as i32,
+		operation_id: operation_id.to_owned(),
+	}
+}
+
+fn the_operation(h: &Harness, id: RedemptionId) -> invest_core::ports::money::PendingOperation {
+	h.money.operations_for(&format!("redemption:{}", id.raw().hyphenated())).remove(0)
+}
+
+/// A redemption awaiting approval, its holder and the units' account.
+async fn awaiting_redemption(h: &Harness) -> (UserId, RedemptionId, LedgerAccountKey) {
+	let service = registered_service(h).await;
+	let user = funded_user(h, &ScopeId::invest(), "100").await;
+	let id = redemption_past_the_ceilings(h, user, &service).await;
+	(user, id, LedgerAccountKey::UserShares(service, user))
+}
+
+/// Rejected and Failed on banking's side: the operator's fail goes through at once, the burn
+/// is voided and banking's machine reason is the failure reason.
+#[tokio::test]
+async fn an_operator_fails_a_redemption_banking_rejected_or_failed() {
+	let Some(h) = harness().await else { return };
+	let svc = funds_service(&h);
+	let ops = operator(&h).await;
+	for (reason, failed) in [("approval_rejected", false), ("insufficient_funds", true)] {
+		let (user, id, user_shares) = awaiting_redemption(&h).await;
+		let operation = the_operation(&h, id);
+		if failed {
+			h.money.fail_operation(&operation.id, reason);
+		} else {
+			h.money.reject(&operation.id, reason);
+		}
+		let answer = svc.resolve_awaiting_redemption(as_caller(ops, resolve_request(id, ""))).await.unwrap().into_inner();
+		assert_eq!((answer.state.as_str(), answer.failure_reason.as_str()), ("failed", reason));
+		common::drain_to_quiescence(&h.relay, &h.pool).await;
+		assert_eq!(units_available(&h, &user_shares).await, shares("100"), "the burn is voided: units are free again");
+		assert_eq!(compartment(&h, user), Usdt::ZERO, "nothing paid");
+		let again = svc.resolve_awaiting_redemption(as_caller(ops, resolve_request(id, ""))).await.unwrap().into_inner();
+		assert_eq!(again.state, "failed", "a repeat is idempotent");
+	}
+}
+
+/// banking no longer knows the operation: the fail is refused unless the operator echoes the
+/// operation id recorded on the redemption (empty or another id changes nothing); with the
+/// echo the redemption fails with a machine reason.
+#[tokio::test]
+async fn a_redemption_banking_has_forgotten_needs_the_operators_echo_of_the_operation() {
+	let Some(h) = harness().await else { return };
+	let svc = funds_service(&h);
+	let ops = operator(&h).await;
+	let (_, id, user_shares) = awaiting_redemption(&h).await;
+	let operation = the_operation(&h, id).id;
+	h.money.forget_operation(&operation);
+
+	for echo in ["", "op-unrelated"] {
+		let refused = svc.resolve_awaiting_redemption(as_caller(ops, resolve_request(id, echo))).await.unwrap_err();
+		assert_eq!(refused.code(), tonic::Code::FailedPrecondition, "echo {echo:?}: {refused}");
+	}
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	assert_eq!(h.redemptions.find_by_id(id).await.unwrap().unwrap().state(), RedemptionState::AwaitingApproval);
+	assert_eq!(units_available(&h, &user_shares).await, shares("60"), "still locked");
+
+	let answer = svc.resolve_awaiting_redemption(as_caller(ops, resolve_request(id, &operation.0))).await.unwrap().into_inner();
+	assert_eq!((answer.state.as_str(), answer.failure_reason.as_str()), ("failed", "operator_resolved_not_found"));
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	assert_eq!(units_available(&h, &user_shares).await, shares("100"));
+}
+
+/// banking pays an operation the operator failed as "not found": the paid event finds the
+/// redemption failed, flags it (error log) and moves nothing — the failure stands, no burn.
+#[tokio::test]
+async fn a_payout_after_an_operator_not_found_fail_moves_nothing() {
+	let Some(h) = harness().await else { return };
+	let svc = funds_service(&h);
+	let ops = operator(&h).await;
+	let consumer = h.money_events(BookFeed::new());
+	let (user, id, user_shares) = awaiting_redemption(&h).await;
+	let operation = the_operation(&h, id).id;
+	h.money.approve(&operation);
+	h.money.forget_operation(&operation);
+	svc.resolve_awaiting_redemption(as_caller(ops, resolve_request(id, &operation.0))).await.unwrap();
+
+	assert_eq!(consumer.pass().await.unwrap(), Pass::default(), "the paid event acts on nothing");
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	let record = redemption_record(&h, user, id).await;
+	assert_eq!(
+		(record.redemption.state(), record.failure_reason.as_deref()),
+		(RedemptionState::Failed, Some("operator_resolved_not_found"))
+	);
+	assert_eq!(units_available(&h, &user_shares).await, shares("100"));
+}
+
+/// The owners have not decided: refused, the redemption keeps waiting and its units stay locked.
+/// An outcome other than FAIL is refused too.
+#[tokio::test]
+async fn a_redemption_still_pending_at_banking_cannot_be_failed() {
+	let Some(h) = harness().await else { return };
+	let svc = funds_service(&h);
+	let ops = operator(&h).await;
+	let (_, id, user_shares) = awaiting_redemption(&h).await;
+
+	let refused = svc.resolve_awaiting_redemption(as_caller(ops, resolve_request(id, "op-unrelated"))).await.unwrap_err();
+	assert_eq!(refused.code(), tonic::Code::FailedPrecondition, "{refused}");
+	let mut unspecified = resolve_request(id, "op-unrelated");
+	unspecified.outcome = 0;
+	assert_eq!(
+		svc.resolve_awaiting_redemption(as_caller(ops, unspecified)).await.unwrap_err().code(),
+		tonic::Code::InvalidArgument
+	);
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	assert_eq!(h.redemptions.find_by_id(id).await.unwrap().unwrap().state(), RedemptionState::AwaitingApproval);
+	assert_eq!(units_available(&h, &user_shares).await, shares("60"));
+}
+
+/// Paid wins. banking executed the payout: the operator's fail is refused (even with the
+/// not-found confirmation) and the redemption completes. And when the verdict lands between
+/// the operator's poll and the write, the conditional update finds the redemption moved and
+/// changes nothing — the burn is posted, never voided.
+#[tokio::test]
+async fn a_verdict_that_arrives_while_the_operator_resolves_wins() {
+	let Some(h) = harness().await else { return };
+	let svc = funds_service(&h);
+	let ops = operator(&h).await;
+	let consumer = h.money_events(BookFeed::new());
+
+	let (user, paid, user_shares) = awaiting_redemption(&h).await;
+	let operation = the_operation(&h, paid);
+	h.money.approve(&operation.id);
+	let refused = svc.resolve_awaiting_redemption(as_caller(ops, resolve_request(paid, "op-unrelated"))).await.unwrap_err();
+	assert_eq!(refused.code(), tonic::Code::FailedPrecondition, "{refused}");
+	consumer.pass().await.unwrap();
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	assert_eq!(redemption_record(&h, user, paid).await.redemption.state(), RedemptionState::Completed);
+	assert_eq!(units(&h, &user_shares).await, shares("60"), "burned once");
+
+	// The race itself: the operator polled (banking said rejected), then the consumer's
+	// verdict — here the paid one — landed before the operator's write.
+	let (user, raced, user_shares) = awaiting_redemption(&h).await;
+	let operation = the_operation(&h, raced);
+	h.money.approve(&operation.id);
+	consumer.pass().await.unwrap();
+	let lost = h.redemptions.refuse_awaiting(raced, &operation.id.0, "approval_rejected").await.unwrap_err();
+	assert!(matches!(lost, DomainError::Conflict(_)), "{lost:?}");
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	let record = redemption_record(&h, user, raced).await;
+	assert_eq!((record.redemption.state(), record.failure_reason), (RedemptionState::Completed, None));
+	assert_eq!(units(&h, &user_shares).await, shares("60"), "the burn is posted, not voided");
+}
+
+/// A caller without `invest:allocation:manage` — an investor, an unknown seat — is refused
+/// before banking is asked, and the redemption is untouched.
+#[tokio::test]
+async fn resolving_an_awaiting_redemption_needs_the_manage_permission() {
+	let Some(h) = harness().await else { return };
+	let svc = funds_service(&h);
+	let (user, id, _) = awaiting_redemption(&h).await;
+	h.money.reject(&the_operation(&h, id).id, "approval_rejected");
+	let stranger = UserId::new();
+
+	for caller in [user, stranger] {
+		let refused = svc.resolve_awaiting_redemption(as_caller(caller, resolve_request(id, "op-unrelated"))).await.unwrap_err();
+		assert_eq!(refused.code(), tonic::Code::PermissionDenied, "{refused}");
+	}
+	assert_eq!(h.redemptions.find_by_id(id).await.unwrap().unwrap().state(), RedemptionState::AwaitingApproval);
 }

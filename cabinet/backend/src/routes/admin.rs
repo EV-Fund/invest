@@ -919,6 +919,10 @@ mod admin_route_tests {
 			Err(Status::unimplemented(NOT_REACHED))
 		}
 
+		async fn resolve_awaiting_redemption(&self, _: GrpcRequest<iv::ResolveAwaitingRedemptionRequest>) -> Result<GrpcResponse<iv::Redemption>, Status> {
+			Err(Status::unimplemented(NOT_REACHED))
+		}
+
 		async fn list_redemption_queue(&self, _: GrpcRequest<iv::ListRedemptionQueueRequest>) -> Result<GrpcResponse<iv::RedemptionQueue>, Status> {
 			Err(Status::unimplemented(NOT_REACHED))
 		}

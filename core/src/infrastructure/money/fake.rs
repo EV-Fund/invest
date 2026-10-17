@@ -231,6 +231,23 @@ impl InMemoryMoneyLedger {
 		state.operations.insert(operation.clone(), stored);
 	}
 
+	/// The approved payout could not execute: banking marks the operation failed with `reason`.
+	pub fn fail_operation(&self, operation: &OperationId, reason: &str) {
+		let mut state = self.lock();
+		let Some(mut stored) = state.operations.get(operation).cloned().filter(|op| op.view.state == PendingOperationState::AwaitingApproval) else {
+			panic!("operation {} is not awaiting approval", operation.0);
+		};
+		stored.view.state = PendingOperationState::Failed;
+		stored.view.failure_reason = reason.to_owned();
+		state.emit(MoneyEventKind::OperationFailed, &stored.scope, &operation.0, &stored.view.subject_ref, reason);
+		state.operations.insert(operation.clone(), stored);
+	}
+
+	/// banking loses the operation altogether: `GetPendingOperation` answers NOT_FOUND.
+	pub fn forget_operation(&self, operation: &OperationId) {
+		self.lock().operations.remove(operation);
+	}
+
 	/// The approval said no or lapsed: `reason` is banking's (`approval_rejected`,
 	/// `approval_expired`, `proposal_refused`, …).
 	pub fn reject(&self, operation: &OperationId, reason: &str) {
