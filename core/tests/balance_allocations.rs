@@ -11,13 +11,17 @@
 //! plays banking: the user's cash is a compartment, the product's an `alloc:` account, and
 //! a refusal or an outage is injected where banking would give one.
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use evconcierge_auth::{Claims, TokenType};
 use invest_contracts::invest::v1::{self as pb, funds_service_server::FundsService};
 use invest_core::{
 	AppState,
-	application::{allocations as allocations_app, book::BookFeed, funds as funds_app, issuance as issuance_app},
+	application::{
+		allocations as allocations_app,
+		book::{BookFeed, WatchStreams},
+		funds as funds_app, issuance as issuance_app,
+	},
 	infrastructure::{
 		allocations::PgAllocations,
 		book::PgBook,
@@ -1125,6 +1129,7 @@ fn funds_service(h: &Harness) -> invest_core::services::funds::FundsSvc {
 		book: Arc::new(PgBook::new(pool.clone())),
 		book_engine: Arc::new(PriceTimeEngine),
 		book_feed: BookFeed::new(),
+		watch_streams: WatchStreams::new(2, Duration::from_secs(60)).unwrap(),
 		fees: FeePorts {
 			policies: Arc::new(PgFeePolicies::new(pool.clone())),
 			changes: Arc::new(PgFeePolicyChanges::new(pool.clone())),
