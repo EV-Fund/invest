@@ -10,6 +10,7 @@ use invest_domain::{
 	balance::{LedgerAccountKey, ServiceId},
 	users::UserId,
 };
+use sha2::{Digest as _, Sha256};
 use uuid::Uuid;
 
 use super::report::human;
@@ -19,9 +20,62 @@ use super::report::human;
 /// registry has none — so the rule is stated here, once.
 pub const SA_SERVICE: &str = "service_arb";
 
-/// Namespace of the file digest. Fixed forever: changing it makes a completed import look
-/// like a different file.
-const DIGEST_NAMESPACE: Uuid = Uuid::from_u128(0x3b8d_6f10_92c4_5a17_b0e3_7d51_c4a9_2e68);
+/// SHA-256 of the file's bytes, lower-case hex (64 chars). The same digest banking's
+/// `close-share-accounts` checks, so the operator carries one value across both sides.
+pub fn digest_of(bytes: &[u8]) -> String {
+	use std::fmt::Write as _;
+	Sha256::digest(bytes).iter().fold(String::with_capacity(64), |mut hex, b| {
+		// Writing to a String cannot fail.
+		let _ = write!(hex, "{b:02x}");
+		hex
+	})
+}
+
+/// Whether `raw` is a digest as [`digest_of`] writes it.
+pub fn is_digest(raw: &str) -> bool {
+	raw.len() == 64 && raw.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+
+/// One holder the operator expects to see in `service_arb`, in whole units as typed.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct AnchorHolder {
+	pub holder: Uuid,
+	pub units: u128,
+}
+
+impl std::str::FromStr for AnchorHolder {
+	type Err = String;
+
+	/// `<concierge-uuid>:<units>`, units a decimal with up to 18 places (`13000`, `3250.5`).
+	fn from_str(raw: &str) -> Result<Self, String> {
+		let usage = || format!("--anchor-holder \"{raw}\": expected <concierge_uuid>:<units>");
+		let (holder, units) = raw.split_once(':').ok_or_else(usage)?;
+		let holder = Uuid::parse_str(holder).map_err(|_| usage())?;
+		let (whole, frac) = units.split_once('.').unwrap_or((units, ""));
+		if whole.is_empty() || frac.len() > 18 || !whole.bytes().chain(frac.bytes()).all(|b| b.is_ascii_digit()) {
+			return Err(usage());
+		}
+		let base = format!("{whole}{frac:0<18}")
+			.parse::<u128>()
+			.map_err(|_| format!("--anchor-holder \"{raw}\": units do not fit 128 bits"))?;
+		Ok(Self { holder, units: base })
+	}
+}
+
+/// The verdict on the `service_arb` test anchor.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Anchor {
+	/// `service_arb` is not in the file: nothing to anchor.
+	NotApplicable,
+	Ok,
+	Broken(String),
+}
+
+impl Anchor {
+	pub fn is_broken(&self) -> bool {
+		matches!(self, Self::Broken(_))
+	}
+}
 
 pub fn scope_of(service: &str) -> &'static str {
 	if service == SA_SERVICE { "sa" } else { "invest" }
@@ -60,8 +114,17 @@ pub struct Totals {
 }
 
 impl Totals {
-	pub fn held(&self) -> u128 {
-		self.user_shares + self.book_shares + self.fee_shares
+	/// `None` on overflow; planning refuses such a file, so a plan's totals are always `Some`.
+	pub fn held(&self) -> Option<u128> {
+		self.user_shares.checked_add(self.book_shares)?.checked_add(self.fee_shares)
+	}
+}
+
+/// `*slot += units`, or a defect on overflow.
+fn add(problems: &mut Vec<String>, what: impl FnOnce() -> String, slot: &mut u128, units: u128) {
+	match slot.checked_add(units) {
+		Some(sum) => *slot = sum,
+		None => problems.push(format!("{} overflows 128 bits", what())),
 	}
 }
 
@@ -91,6 +154,38 @@ pub struct Plan {
 impl Plan {
 	/// The concierge id of a banking user. Every id the file mentions was resolved while
 	/// planning, so a miss here is a bug in the caller, reported rather than guessed.
+	/// Does `service_arb` hold exactly what the operator expects? Exactly the given holders,
+	/// each with exactly their units in `UserShares`, nothing else (no book, no fee class),
+	/// and the supply equal to their sum. No flags given is BROKEN: an unchecked anchor is
+	/// not an anchor.
+	pub fn anchor(&self, expected: &[AnchorHolder]) -> Anchor {
+		let Some(sa) = self.totals.iter().find(|t| t.service == SA_SERVICE) else {
+			return Anchor::NotApplicable;
+		};
+		if expected.is_empty() {
+			return Anchor::Broken(format!("{SA_SERVICE} is in the file but no --anchor-holder was given"));
+		}
+		let wanted: BTreeMap<Uuid, u128> = expected.iter().map(|a| (a.holder, a.units)).collect();
+		if wanted.len() != expected.len() {
+			return Anchor::Broken("--anchor-holder names the same holder twice".into());
+		}
+		let mut problems = Vec::new();
+		for (holder, units) in &wanted {
+			let got = sa.holders.get(holder).copied().unwrap_or(0);
+			if got != *units {
+				problems.push(format!("{holder}: expected {}, the file has {}", human(*units), human(got)));
+			}
+		}
+		for (holder, units) in sa.holders.iter().filter(|(h, u)| **u != 0 && !wanted.contains_key(*h)) {
+			problems.push(format!("{holder}: {} units, not an expected holder", human(*units)));
+		}
+		let sum = wanted.values().try_fold(0u128, |a, b| a.checked_add(*b));
+		if sum != Some(sa.outstanding) || sa.book_shares != 0 || sa.fee_shares != 0 {
+			problems.push(format!("supply is {}, expected holders sum to {}", human(sa.outstanding), sum.map_or("overflow".into(), human)));
+		}
+		if problems.is_empty() { Anchor::Ok } else { Anchor::Broken(problems.join("; ")) }
+	}
+
 	pub fn concierge(&self, banking_user: &str) -> Result<Uuid, String> {
 		self.users
 			.get(banking_user)
@@ -123,7 +218,7 @@ pub fn plan(bytes: &[u8]) -> Result<Plan, Refusals> {
 
 	let mut b = Builder::default();
 	b.read(records);
-	b.finish(Uuid::new_v5(&DIGEST_NAMESPACE, bytes).simple().to_string())
+	b.finish(digest_of(bytes))
 }
 
 /// The version gate runs before any typed parse: a file of another version may well not
@@ -211,8 +306,8 @@ impl Builder {
 		self.check_trailer(&totals);
 		self.check_ownership(&totals, &users);
 
-		let (mut notes, mut warnings) = (Vec::new(), Vec::new());
-		self.check_rows(&services, &users, &totals, &mut notes, &mut warnings);
+		let mut notes = Vec::new();
+		self.check_rows(&services, &users, &totals, &mut notes);
 		for t in &mut totals {
 			t.scope = scope_of(&t.service);
 		}
@@ -239,7 +334,7 @@ impl Builder {
 			holdings,
 			totals,
 			notes,
-			warnings,
+			warnings: Vec::new(),
 		})
 	}
 
@@ -390,7 +485,7 @@ impl Builder {
 						));
 						continue;
 					}
-					t.fee_shares += units;
+					add(&mut problems, || format!("line {n}: fee_shares of \"{}\"", h.service), &mut t.fee_shares, units);
 					LedgerAccountKey::FeeShares(service.clone())
 				}
 				(HoldingKind::FeeShares, Some(_)) => {
@@ -403,9 +498,14 @@ impl Builder {
 						continue;
 					};
 					let user = UserId::from_raw(*concierge);
-					*t.holders.entry(*concierge).or_default() += units;
+					add(
+						&mut problems,
+						|| format!("line {n}: holder {concierge} of \"{}\"", h.service),
+						t.holders.entry(*concierge).or_default(),
+						units,
+					);
 					if kind == HoldingKind::UserShares {
-						t.user_shares += units;
+						add(&mut problems, || format!("line {n}: user_shares of \"{}\"", h.service), &mut t.user_shares, units);
 						LedgerAccountKey::UserShares(service.clone(), user)
 					} else {
 						if units != 0 {
@@ -416,7 +516,7 @@ impl Builder {
 							));
 							continue;
 						}
-						t.book_shares += units;
+						add(&mut problems, || format!("line {n}: book_shares of \"{}\"", h.service), &mut t.book_shares, units);
 						LedgerAccountKey::BookShares(service.clone(), user)
 					}
 				}
@@ -451,14 +551,14 @@ impl Builder {
 			}
 		}
 		for t in totals.values() {
-			if t.held() != t.outstanding {
+			if t.held() != Some(t.outstanding) {
 				problems.push(format!(
 					"allocation \"{}\": user {} + book {} + fee {} = {}, shares_outstanding is {}",
 					t.service,
 					human(t.user_shares),
 					human(t.book_shares),
 					human(t.fee_shares),
-					human(t.held()),
+					t.held().map_or("overflow".into(), human),
 					human(t.outstanding)
 				));
 			}
@@ -485,7 +585,7 @@ impl Builder {
 				("user_shares", &a.user_shares, m.user_shares),
 				("book_shares", &a.book_shares, m.book_shares),
 				("fee_shares", &a.fee_shares, m.fee_shares),
-				("held", &a.held, m.held()),
+				("held", &a.held, m.held().unwrap_or(u128::MAX)),
 				("shares_outstanding", &a.shares_outstanding, m.outstanding),
 			];
 			for (name, raw, recomputed) in claimed {
@@ -499,8 +599,13 @@ impl Builder {
 				problems.push(format!("trailer: allocation \"{}\" is not balanced", a.service));
 			}
 		}
-		let held: u128 = totals.iter().map(Totals::held).sum();
-		let outstanding: u128 = totals.iter().map(|t| t.outstanding).sum();
+		let held = totals.iter().try_fold(0u128, |a, t| a.checked_add(t.held()?));
+		let outstanding = totals.iter().try_fold(0u128, |a, t| a.checked_add(t.outstanding));
+		let (Some(held), Some(outstanding)) = (held, outstanding) else {
+			problems.push("trailer: the totals overflow 128 bits".into());
+			self.errors.extend(problems);
+			return;
+		};
 		for (name, raw, recomputed) in [("total_held", &t.total_held, held), ("total_outstanding", &t.total_outstanding, outstanding)] {
 			match digits(&format!("trailer: {name}"), raw) {
 				Ok(v) if v == recomputed => {}
@@ -531,7 +636,7 @@ impl Builder {
 			for holder in &o.holders {
 				match (users.get(&holder.user_id), digits("ownership holder units", &holder.units)) {
 					(Some(c), Ok(u)) => {
-						*listed.entry(*c).or_default() += u;
+						add(&mut problems, || format!("line {n}: ownership holder {}", holder.user_id), listed.entry(*c).or_default(), u);
 					}
 					(None, _) => problems.push(format!("line {n}: ownership holder {} has no concierge_user_id in the file's user records", holder.user_id)),
 					(_, Err(e)) => problems.push(e),
@@ -549,8 +654,8 @@ impl Builder {
 	}
 
 	/// Records that hang off an allocation or a person; what is left out on purpose goes to
-	/// `notes`, what merely looks off to `warnings`.
-	fn check_rows(&mut self, services: &BTreeSet<String>, users: &BTreeMap<String, Uuid>, totals: &[Totals], notes: &mut Vec<String>, warnings: &mut Vec<String>) {
+	/// `notes`, what merely looks off is added to the report's warnings by the apply.
+	fn check_rows(&mut self, services: &BTreeSet<String>, users: &BTreeMap<String, Uuid>, totals: &[Totals], notes: &mut Vec<String>) {
 		let mut problems = Vec::new();
 		let known = |what: &str, n: usize, service: &str, problems: &mut Vec<String>| {
 			if !services.contains(service) {
@@ -635,8 +740,8 @@ impl Builder {
 			if let (Some(concierge), Ok(projected)) = (users.get(&p.user_id), digits("position units", &p.units)) {
 				let ledger = held.get(&(p.service.as_str(), *concierge)).copied().unwrap_or(0);
 				if projected != ledger {
-					warnings.push(format!(
-						"position of {} in \"{}\" says {} units, the ledger holds {}; the position is imported as stored, the ledger wins",
+					problems.push(format!(
+						"line {n}: position of {} in \"{}\" says {} units, the ledger holds {}; the projection and the ledger disagree, fix banking first",
 						p.user_id,
 						p.service,
 						human(projected),

@@ -27,6 +27,8 @@ invest_domain.workspace = true
 rustls.workspace = true
 serde = { workspace = true }
 serde_json.workspace = true
+# SHA-256 of the window export file (workspace dep, already linked by the cabinet BFF).
+sha2.workspace = true
 sqlx = { workspace = true, features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "migrate"] }
 thiserror.workspace = true
 tigerbeetle.workspace = true

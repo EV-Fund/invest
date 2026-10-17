@@ -10,4 +10,4 @@
 mod plan;
 pub mod report;
 
-pub use plan::{Holding, Plan, Refusals, SA_SERVICE, Totals, plan, scope_of};
+pub use plan::{Anchor, AnchorHolder, Holding, Plan, Refusals, SA_SERVICE, Totals, digest_of, is_digest, plan, scope_of};

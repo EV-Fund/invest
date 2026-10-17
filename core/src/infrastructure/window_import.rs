@@ -22,7 +22,7 @@ use uuid::Uuid;
 
 use crate::{
 	application::window_import::{
-		Plan,
+		AnchorHolder, Plan, is_digest,
 		report::{Check, Mode, Report, human},
 	},
 	ports::ledger::{HoldingScope, Ledger, LedgerError, LedgerTransfer},
@@ -74,7 +74,88 @@ enum Marker {
 	Complete,
 }
 
-pub async fn apply(pool: &PgPool, ledger: &dyn Ledger, plan: &Plan) -> Result<Outcome, ApplyError> {
+/// What `--apply` is bound to before it may write anything.
+pub struct Guards<'a> {
+	/// The digest the operator read off the dry-run (or banking's side).
+	pub expect_digest: &'a str,
+	/// The `service_arb` holders the operator expects.
+	pub anchors: &'a [AnchorHolder],
+	/// `TIGERBEETLE_CLUSTER_ID` of THIS process. An export taken from the very cluster we
+	/// would write to is not an export from banking.
+	pub own_cluster_id: &'a str,
+}
+
+fn same_cluster(a: &str, b: &str) -> bool {
+	match (a.trim().parse::<u128>(), b.trim().parse::<u128>()) {
+		(Ok(a), Ok(b)) => a == b,
+		_ => a.trim() == b.trim(),
+	}
+}
+
+/// Every refusal that needs no write to be known, in one place and before the first one.
+async fn preflight(ledger: &dyn Ledger, plan: &Plan, guards: &Guards<'_>) -> Result<(), ApplyError> {
+	if !is_digest(guards.expect_digest) {
+		return Err(ApplyError::Refused("--expect-digest must be 64 lower-case hex characters".into()));
+	}
+	if guards.expect_digest != plan.digest {
+		return Err(ApplyError::Refused(format!(
+			"the file's SHA-256 is {}, --expect-digest says {}; nothing was written",
+			plan.digest, guards.expect_digest
+		)));
+	}
+	if same_cluster(&plan.header.tigerbeetle_cluster_id, guards.own_cluster_id) {
+		return Err(ApplyError::Refused(format!(
+			"the export was read from TigerBeetle cluster {}, which is the cluster this run would write to; the file is not from banking's ledger",
+			plan.header.tigerbeetle_cluster_id
+		)));
+	}
+	if let crate::application::window_import::Anchor::Broken(why) = plan.anchor(guards.anchors) {
+		return Err(ApplyError::Refused(format!("anchor BROKEN: {why}")));
+	}
+	check_ledger_untouched(ledger, plan).await
+}
+
+/// Before the first write, invest's ledger holds nothing of the window's products, or holds
+/// exactly what the file says (a finished run, re-run). Anything in between is another
+/// source of units we cannot reason about: refuse rather than mix.
+async fn check_ledger_untouched(ledger: &dyn Ledger, plan: &Plan) -> Result<(), ApplyError> {
+	for t in &plan.totals {
+		let service = invest_domain::balance::ServiceId::parse(&t.service).map_err(|e| ApplyError::Refused(e.to_string()))?;
+		let expected: BTreeMap<String, u128> = plan
+			.holdings
+			.iter()
+			.filter(|h| h.service == service && h.units != 0)
+			.map(|h| (h.key.logical_key(), h.units))
+			.collect();
+		let actual: BTreeMap<String, u128> = ledger
+			.share_holdings(&HoldingScope::Product(service.clone()))
+			.await
+			.map_err(ledger_err(format!("read the holdings of \"{}\"", t.service)))?
+			.into_iter()
+			.filter(|(_, units)| *units != 0)
+			.map(|(key, units)| (key.logical_key(), units))
+			.collect();
+		let supply = ledger
+			.balance(&LedgerAccountKey::SharesOutstanding(service))
+			.await
+			.map_err(ledger_err(format!("read the supply of \"{}\"", t.service)))?
+			.posted;
+		let empty = actual.is_empty() && supply == 0;
+		let exact = actual == expected && supply == t.outstanding;
+		if !empty && !exact {
+			return Err(ApplyError::Refused(format!(
+				"invest's ledger already holds units of \"{}\" (supply {}, {} holdings) that are neither nothing nor exactly the file's; nothing was written",
+				t.service,
+				human(supply),
+				actual.len()
+			)));
+		}
+	}
+	Ok(())
+}
+
+pub async fn apply(pool: &PgPool, ledger: &dyn Ledger, plan: &Plan, guards: &Guards<'_>) -> Result<Outcome, ApplyError> {
+	preflight(ledger, plan, guards).await?;
 	let marker = write_rows(pool, plan).await?;
 	let mut transfers_submitted = 0;
 	if marker != Marker::Complete {
@@ -83,7 +164,7 @@ pub async fn apply(pool: &PgPool, ledger: &dyn Ledger, plan: &Plan) -> Result<Ou
 
 	let mode = if marker == Marker::Complete { Mode::AlreadyApplied } else { Mode::Applied };
 	let checks = verify(ledger, plan).await?;
-	let mut report = Report::of_plan(plan, mode).with_checks(checks);
+	let mut report = Report::of_plan(plan, mode, guards.anchors).with_checks(checks);
 	report.warnings.extend(holders_unknown_to_the_projection(pool, plan).await?);
 
 	if report.ok && marker != Marker::Complete {
@@ -405,13 +486,13 @@ async fn verify(ledger: &dyn Ledger, plan: &Plan) -> Result<Vec<Check>, ApplyErr
 				ok: false,
 			});
 		}
-		let held: u128 = actual.values().sum();
+		let held = actual.values().try_fold(0u128, |a, b| a.checked_add(*b));
 		checks.push(Check {
 			check: "held_after",
 			subject: t.service.clone(),
-			expected: human(t.held()),
-			actual: human(held),
-			ok: held == t.held(),
+			expected: t.held().map_or_else(|| "overflow".into(), human),
+			actual: held.map_or_else(|| "overflow".into(), human),
+			ok: held.is_some() && held == t.held(),
 		});
 		let supply = ledger
 			.balance(&LedgerAccountKey::SharesOutstanding(service))

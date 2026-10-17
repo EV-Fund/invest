@@ -11,14 +11,26 @@ This is a different command from `invest-core import` (invest's own file format,
 `MIGRATION-IMPORT.md`); the two do not share a file, a table or an id namespace. Run one.
 
 ```
-invest-core window-import --file export.jsonl [--dry-run]     # default: reads, checks, prints
-invest-core window-import --file export.jsonl --apply         # writes
+invest-core window-import --file export.jsonl \
+  --anchor-holder <concierge_uuid>:13000 --anchor-holder <concierge_uuid>:3250     # dry-run (default)
+invest-core window-import --file export.jsonl --anchor-holder … --anchor-holder … \
+  --apply --expect-digest <sha256-hex>                                             # writes
 ```
+
+The report prints the file's **SHA-256** (lower-case hex of the file's bytes, the value banking's
+`close-share-accounts` checks too) and the `service_arb` **anchor** verdict (`OK`, `BROKEN` or
+`n/a` when `service_arb` is not in the file). `--apply` is refused without `--expect-digest`, and
+refused before any write when the file's digest differs from it.
+
+The anchor: `--anchor-holder <concierge_uuid>:<units>` twice (valeratrades 13 000, inintel44
+3 250). `service_arb` must hold exactly those holders with exactly those units, no book or fee
+units, supply equal to their sum. No flags, a wrong amount or an extra holder is `BROKEN`; a
+broken anchor makes the dry-run exit 1 and `--apply` refuse.
 
 | Exit | Meaning |
 | ---- | ------- |
 | 0 | clean (dry-run: the file is importable; apply: the ledger read back equal to the file) |
-| 1 | apply wrote, and the read-back of the ledger disagrees with the file |
+| 1 | the anchor is BROKEN (dry-run), or apply wrote and the read-back of the ledger disagrees with the file |
 | 2 | the file was refused (every defect listed with its line) or the run failed |
 
 stdout carries a text report (Σ of units per allocation, every holder, notes, warnings, and
@@ -43,14 +55,24 @@ Nothing is written unless the whole file is sound. The file is refused when:
 - fee-class units sit in a product outside scope `invest`, or in `fee` / `fund` themselves
   (D24(3));
 - the reserved `fee` / `fund` allocations carry other ids than migration `0001`'s;
-- the `ownership` view of `fee` / `fund` disagrees with the holdings.
+- the `ownership` view of `fee` / `fund` disagrees with the holdings;
+- a `position.units` differs from the ledger holding (the projection and the ledger disagree:
+  fix banking first);
+- a sum overflows 128 bits.
+
+`--apply` additionally refuses, before the first write, when: the digest differs from
+`--expect-digest`; the header's `tigerbeetle_cluster_id` equals this process's
+`TIGERBEETLE_CLUSTER_ID` (the file would then not come from banking's ledger); the anchor is
+BROKEN; or invest's ledger already holds units of any product in the file that are neither
+nothing nor exactly the file's state (supply and every holding). A run that crashed halfway
+through posting units therefore needs a look by hand, not a blind re-run.
 
 ## What `--apply` writes
 
 One Postgres transaction: `allocations` (not the reserved two, which exist from `0001`),
 `fee_policies`, `fee_policy_changes`, `book_policies`, `fund_valuations`, `fund_positions`,
 `fee_assessments`, `fee_settlements` — plus one row in `window_import` (migration `0008`),
-the digest of the file and its progress. Plain INSERTs: a row that is already there fails
+the SHA-256 of the file and its progress. Plain INSERTs: a row that is already there fails
 the transaction and nothing is written.
 
 Then the units, through the `Ledger` port: `Dr <holder> / Cr SharesOutstanding(service)`
@@ -75,8 +97,6 @@ and reports `already_applied`). A different file is refused — one window, one 
   from the file's `user` records. `consilium_id` is kept as a plain reference (no foreign
   key; the consilium itself stays out, S2-6).
 - **`book_policy.allow_unbacked_trading`** is not in schema 1: it starts `false`.
-- **`position.units`** is a projection. It is imported as stored; a difference from the
-  ledger is a warning, the ledger wins.
 - **The `users` projection** is concierge's to write. A holder not in it yet is a warning:
   until the stream delivers them they see no holding.
 

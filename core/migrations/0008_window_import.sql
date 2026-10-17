@@ -15,7 +15,7 @@ SET statement_timeout = '30s';
 
 CREATE TABLE window_import (
     singleton              BOOLEAN PRIMARY KEY DEFAULT true CHECK (singleton),
-    file_digest            TEXT NOT NULL CHECK (char_length(file_digest) = 32),
+    file_digest            TEXT NOT NULL CHECK (char_length(file_digest) = 64 AND file_digest = lower(file_digest)),
     source                 TEXT NOT NULL,
     exported_at            TEXT NOT NULL,
     tigerbeetle_cluster_id TEXT NOT NULL,
@@ -24,4 +24,4 @@ CREATE TABLE window_import (
     completed_at           TIMESTAMPTZ,
     CONSTRAINT window_import_complete_is_stamped CHECK ((state = 'complete') = (completed_at IS NOT NULL))
 );
-COMMENT ON TABLE window_import IS 'The single export file the window import came from (digest of its bytes) and its progress. At most one row: a second, different export is refused.';
+COMMENT ON TABLE window_import IS 'The single export file the window import came from (SHA-256 of its bytes) and its progress. At most one row: a second, different export is refused.';

@@ -5,7 +5,7 @@ use std::fmt::Write as _;
 
 use serde::Serialize;
 
-use super::plan::{Plan, Totals};
+use super::plan::{Anchor, AnchorHolder, Plan, Totals};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -57,6 +57,12 @@ pub struct Check {
 pub struct Report {
 	pub mode: Mode,
 	pub ok: bool,
+	/// SHA-256 of the file's bytes (lower-case hex): what `--apply --expect-digest` and
+	/// banking's `close-share-accounts` check.
+	pub file_digest: String,
+	/// `OK`, `BROKEN` or `n/a` — the `service_arb` test anchor.
+	pub anchor: String,
+	pub anchor_detail: Option<String>,
 	pub source: String,
 	pub exported_at: String,
 	pub tigerbeetle_cluster_id: String,
@@ -88,13 +94,13 @@ fn line(totals: &Totals) -> AllocationLine {
 		user_shares: totals.user_shares.to_string(),
 		book_shares: totals.book_shares.to_string(),
 		fee_shares: totals.fee_shares.to_string(),
-		held: totals.held().to_string(),
+		held: totals.held().map_or_else(|| "overflow".into(), |h| h.to_string()),
 		shares_outstanding: totals.outstanding.to_string(),
-		balanced: totals.held() == totals.outstanding,
+		balanced: totals.held() == Some(totals.outstanding),
 		human_user_shares: human(totals.user_shares),
 		human_book_shares: human(totals.book_shares),
 		human_fee_shares: human(totals.fee_shares),
-		human_held: human(totals.held()),
+		human_held: totals.held().map_or_else(|| "overflow".into(), human),
 		human_outstanding: human(totals.outstanding),
 		holders: holders
 			.into_iter()
@@ -109,10 +115,22 @@ fn line(totals: &Totals) -> AllocationLine {
 
 impl Report {
 	/// Everything that can be known from the file alone.
-	pub fn of_plan(plan: &Plan, mode: Mode) -> Self {
+	pub fn of_plan(plan: &Plan, mode: Mode, anchors: &[AnchorHolder]) -> Self {
+		let anchor = plan.anchor(anchors);
 		Self {
 			mode,
-			ok: true,
+			ok: !anchor.is_broken(),
+			file_digest: plan.digest.clone(),
+			anchor: match &anchor {
+				Anchor::NotApplicable => "n/a",
+				Anchor::Ok => "OK",
+				Anchor::Broken(_) => "BROKEN",
+			}
+			.into(),
+			anchor_detail: match anchor {
+				Anchor::Broken(why) => Some(why),
+				_ => None,
+			},
 			source: plan.header.source.clone(),
 			exported_at: plan.header.exported_at.clone(),
 			tigerbeetle_cluster_id: plan.header.tigerbeetle_cluster_id.clone(),
@@ -125,7 +143,7 @@ impl Report {
 
 	/// Add the after-write checks; the report is `ok` only if every one is.
 	pub fn with_checks(mut self, checks: Vec<Check>) -> Self {
-		self.ok = checks.iter().all(|c| c.ok);
+		self.ok = self.ok && checks.iter().all(|c| c.ok);
 		self.checks = checks;
 		self
 	}
@@ -155,6 +173,8 @@ impl Report {
 				let _ = writeln!(out, "    {}  {}", h.user, h.human_units);
 			}
 		}
+		let _ = writeln!(out, "file sha256: {}", self.file_digest);
+		let _ = writeln!(out, "anchor {}{}", self.anchor, self.anchor_detail.as_ref().map_or_else(String::new, |d| format!(": {d}")));
 		for note in &self.notes {
 			let _ = writeln!(out, "note: {note}");
 		}

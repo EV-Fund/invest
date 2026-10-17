@@ -17,7 +17,7 @@ use banking_domain::window_export::{
 };
 use invest_core::{
 	application::window_import::{
-		self,
+		self, AnchorHolder, digest_of,
 		report::{Mode, Report},
 	},
 	infrastructure::window_import as apply,
@@ -44,6 +44,9 @@ const C_VAL: &str = "c0000000-0000-4000-8000-000000000001";
 const C_INT: &str = "c0000000-0000-4000-8000-000000000002";
 const C_FEE: &str = "c0000000-0000-4000-8000-000000000003";
 const C_INV: &str = "c0000000-0000-4000-8000-000000000004";
+
+/// invest's own cluster in these tests; the fixture's header says "0".
+const OWN_CLUSTER: &str = "7";
 
 const TS: &str = "2026-10-16T12:00:00Z";
 
@@ -284,7 +287,7 @@ fn trailer_of(records: &[Record]) -> Trailer {
 					HoldingKind::BookShares => 1,
 					HoldingKind::FeeShares => 2,
 				};
-				t[slot] += h.units.parse::<u128>().unwrap();
+				t[slot] = t[slot].saturating_add(h.units.parse::<u128>().unwrap());
 			}
 			Record::Supply(sup) => {
 				totals.entry(sup.service.clone()).or_default()[3] = sup.shares_outstanding.parse().unwrap();
@@ -299,16 +302,16 @@ fn trailer_of(records: &[Record]) -> Trailer {
 			user_shares: s(user),
 			book_shares: s(book),
 			fee_shares: s(fee),
-			held: s(user + book + fee),
+			held: s(user.saturating_add(book).saturating_add(fee)),
 			shares_outstanding: s(outstanding),
-			balanced: user + book + fee == outstanding,
+			balanced: user.saturating_add(book).saturating_add(fee) == outstanding,
 		})
 		.collect();
 	Trailer {
 		schema_version: SCHEMA_VERSION,
 		counts,
-		total_held: s(allocations.iter().map(|a| a.held.parse::<u128>().unwrap()).sum()),
-		total_outstanding: s(allocations.iter().map(|a| a.shares_outstanding.parse::<u128>().unwrap()).sum()),
+		total_held: s(allocations.iter().fold(0u128, |acc, a| acc.saturating_add(a.held.parse::<u128>().unwrap()))),
+		total_outstanding: s(allocations.iter().fold(0u128, |acc, a| acc.saturating_add(a.shares_outstanding.parse::<u128>().unwrap()))),
 		allocations,
 		outbox_undispatched: 0,
 		clean: true,
@@ -322,6 +325,27 @@ fn file_of(header: Header, body: &[Record], tweak: impl FnOnce(&mut Trailer)) ->
 	lines.extend(body.iter().map(|r| serde_json::to_string(r).unwrap()));
 	lines.push(serde_json::to_string(&Record::Trailer(trailer)).unwrap());
 	lines.join("\n") + "\n"
+}
+
+fn anchors() -> Vec<AnchorHolder> {
+	vec![
+		AnchorHolder {
+			holder: C_VAL.parse().unwrap(),
+			units: VALERATRADES,
+		},
+		AnchorHolder {
+			holder: C_INT.parse().unwrap(),
+			units: ININTEL44,
+		},
+	]
+}
+
+fn guards_for<'a>(plan: &'a window_import::Plan, anchors: &'a [AnchorHolder]) -> apply::Guards<'a> {
+	apply::Guards {
+		expect_digest: &plan.digest,
+		anchors,
+		own_cluster_id: OWN_CLUSTER,
+	}
 }
 
 fn good_file() -> String {
@@ -342,8 +366,8 @@ fn the_service_arb_holders_and_their_sum_are_read_as_exported() {
 	assert_eq!(sa.scope, "sa");
 	assert_eq!(sa.holders[&C_VAL.parse().unwrap()], VALERATRADES);
 	assert_eq!(sa.holders[&C_INT.parse().unwrap()], ININTEL44);
-	assert_eq!(sa.held(), 16_250 * E18);
-	assert_eq!(sa.held(), sa.outstanding);
+	assert_eq!(sa.held(), Some(16_250 * E18));
+	assert_eq!(sa.held(), Some(sa.outstanding));
 	assert_eq!(plan.totals.iter().find(|t| t.service == "imp_inv").unwrap().scope, "invest");
 }
 
@@ -351,13 +375,15 @@ fn the_service_arb_holders_and_their_sum_are_read_as_exported() {
 fn a_dry_run_report_shows_the_sums_and_what_it_leaves_out() {
 	let plan = window_import::plan(good_file().as_bytes()).unwrap();
 
-	let report = Report::of_plan(&plan, Mode::DryRun);
+	let report = Report::of_plan(&plan, Mode::DryRun, &anchors());
 
 	assert!(report.ok);
 	let rendered = report.render();
 	assert!(rendered.contains("service_arb"), "{rendered}");
 	assert!(rendered.contains("13000"), "{rendered}");
 	assert!(rendered.contains("3250"), "{rendered}");
+	assert!(rendered.contains("anchor OK"), "{rendered}");
+	assert!(rendered.contains(&format!("file sha256: {}", digest_of(good_file().as_bytes()))), "{rendered}");
 	assert!(rendered.contains("16250 (outstanding 16250) balanced"), "{rendered}");
 	assert!(report.notes.iter().any(|n| n.contains("service_arb") && n.contains("takes no fee terms")), "{:?}", report.notes);
 	assert!(plan.fee_policies.iter().all(|p| p.service != "service_arb"));
@@ -488,7 +514,7 @@ fn a_reserved_allocation_under_another_id_is_refused() {
 }
 
 #[test]
-fn a_position_that_disagrees_with_the_ledger_is_a_warning_not_a_refusal() {
+fn a_position_that_disagrees_with_the_ledger_is_refused() {
 	let mut records = body();
 	for r in &mut records {
 		if let Record::Position(p) = r
@@ -497,8 +523,35 @@ fn a_position_that_disagrees_with_the_ledger_is_a_warning_not_a_refusal() {
 			p.units = s(9 * E18);
 		}
 	}
-	let plan = window_import::plan(file_of(header(), &records, |_| {}).as_bytes()).unwrap();
-	assert!(plan.warnings.iter().any(|w| w.contains("says 9 units, the ledger holds 8")), "{:?}", plan.warnings);
+	let err = refusal_of(&file_of(header(), &records, |_| {}));
+	assert!(err.contains("says 9 units, the ledger holds 8"), "{err}");
+}
+
+#[test]
+fn the_digest_is_the_sha256_of_the_bytes_in_lower_case_hex() {
+	// SHA-256("abc"), the FIPS 180 test vector.
+	assert_eq!(digest_of(b"abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+	assert_eq!(window_import::plan(good_file().as_bytes()).unwrap().digest, digest_of(good_file().as_bytes()));
+}
+
+#[test]
+fn a_changed_holder_breaks_the_anchor() {
+	let plan = window_import::plan(good_file().as_bytes()).unwrap();
+	let mut wrong = anchors();
+	wrong[1].units += 1;
+	assert!(plan.anchor(&anchors()) == window_import::Anchor::Ok);
+	assert!(plan.anchor(&wrong).is_broken());
+	assert!(plan.anchor(&[]).is_broken(), "an unchecked anchor is not an anchor");
+	assert!(Report::of_plan(&plan, Mode::DryRun, &wrong).render().contains("anchor BROKEN"));
+	assert!(!Report::of_plan(&plan, Mode::DryRun, &wrong).ok);
+}
+
+#[test]
+fn a_sum_that_overflows_128_bits_is_refused() {
+	let mut records = body();
+	records.push(holding("imp_inv", HoldingKind::UserShares, Some(B_VAL), u128::MAX));
+	let err = refusal_of(&file_of(header(), &records, |_| {}));
+	assert!(err.contains("overflows 128 bits"), "{err}");
 }
 
 // ── applying: Postgres + an in-memory unit ledger ──────────────────────────
@@ -621,7 +674,7 @@ async fn an_apply_writes_everything_and_the_holders_read_back_unchanged() {
 	let ledger = FakeLedger::default();
 	let plan = plan_of(&good_file());
 
-	let outcome = apply::apply(&pool, &ledger, &plan).await.expect("apply");
+	let outcome = apply::apply(&pool, &ledger, &plan, &guards_for(&plan, &anchors())).await.expect("apply");
 
 	assert!(outcome.rows_written && outcome.report.ok, "{}", outcome.report.render());
 	assert_eq!(outcome.report.mode, Mode::Applied);
@@ -661,11 +714,15 @@ async fn applying_the_same_file_again_changes_nothing() {
 	let Some((pool, _g)) = fresh().await else { return };
 	let ledger = FakeLedger::default();
 	let plan = plan_of(&good_file());
-	apply::apply(&pool, &ledger, &plan).await.expect("first apply");
+	apply::apply(&pool, &ledger, &plan, &guards_for(&plan, &anchors())).await.expect("first apply");
 	let touched = ledger.touched();
 	let valuations = count(&pool, "fund_valuations").await;
 
-	let again = apply::apply(&pool, &ledger, &plan_of(&good_file())).await.expect("second apply");
+	let again = {
+		let p = plan_of(&good_file());
+		apply::apply(&pool, &ledger, &p, &guards_for(&p, &anchors())).await
+	}
+	.expect("second apply");
 
 	assert!(!again.rows_written);
 	assert_eq!(again.transfers_submitted, 0);
@@ -683,13 +740,13 @@ async fn a_run_that_died_between_the_rows_and_the_units_is_finished_by_the_next(
 	*ledger.fail_posts.lock().unwrap() = true;
 	let plan = plan_of(&good_file());
 
-	let err = apply::apply(&pool, &ledger, &plan).await.unwrap_err();
+	let err = apply::apply(&pool, &ledger, &plan, &guards_for(&plan, &anchors())).await.unwrap_err();
 	assert!(matches!(err, apply::ApplyError::Ledger { .. }), "{err}");
 	let state: String = sqlx::query_scalar("SELECT state FROM window_import").fetch_one(&pool).await.unwrap();
 	assert_eq!(state, "rows_written");
 
 	*ledger.fail_posts.lock().unwrap() = false;
-	let outcome = apply::apply(&pool, &ledger, &plan).await.expect("second apply");
+	let outcome = apply::apply(&pool, &ledger, &plan, &guards_for(&plan, &anchors())).await.expect("second apply");
 
 	assert!(!outcome.rows_written, "the rows were already there");
 	assert!(outcome.transfers_submitted > 0);
@@ -703,11 +760,19 @@ async fn a_run_that_died_between_the_rows_and_the_units_is_finished_by_the_next(
 async fn a_different_export_is_refused_once_one_was_imported() {
 	let Some((pool, _g)) = fresh().await else { return };
 	let ledger = FakeLedger::default();
-	apply::apply(&pool, &ledger, &plan_of(&good_file())).await.expect("first apply");
+	{
+		let p = plan_of(&good_file());
+		apply::apply(&pool, &ledger, &p, &guards_for(&p, &anchors())).await
+	}
+	.expect("first apply");
 	let mut other = header();
 	other.exported_at = "2026-10-17T12:00:00Z".into();
 
-	let err = apply::apply(&pool, &ledger, &plan_of(&file_of(other, &body(), |_| {}))).await.unwrap_err();
+	let err = {
+		let p = plan_of(&file_of(other, &body(), |_| {}));
+		apply::apply(&pool, &ledger, &p, &guards_for(&p, &anchors())).await
+	}
+	.unwrap_err();
 
 	assert!(matches!(&err, apply::ApplyError::Refused(m) if m.contains("another export")), "{err}");
 }
@@ -724,7 +789,7 @@ async fn a_damaged_file_never_reaches_the_database() {
 }
 
 #[tokio::test]
-async fn units_already_in_the_ledger_fail_the_read_back_and_the_marker_stays_open() {
+async fn units_already_in_the_ledger_refuse_the_apply_before_any_write() {
 	let Some((pool, _g)) = fresh().await else { return };
 	let ledger = FakeLedger::default();
 	let stray = LedgerTransfer {
@@ -736,13 +801,80 @@ async fn units_already_in_the_ledger_fail_the_read_back_and_the_marker_stays_ope
 		reference: 1,
 	};
 	ledger.post(&stray).await.unwrap();
+	let touched = ledger.touched();
+	let plan = plan_of(&good_file());
 
-	let outcome = apply::apply(&pool, &ledger, &plan_of(&good_file())).await.unwrap();
+	let err = apply::apply(&pool, &ledger, &plan, &guards_for(&plan, &anchors())).await.unwrap_err();
 
-	assert!(!outcome.report.ok, "{}", outcome.report.render());
-	assert!(outcome.report.checks.iter().any(|c| c.check == "holding_after" && !c.ok && c.subject.ends_with(C_VAL)));
-	let state: String = sqlx::query_scalar("SELECT state FROM window_import").fetch_one(&pool).await.unwrap();
-	assert_eq!(state, "rows_written", "a read-back that disagrees must not be marked complete");
+	assert!(matches!(&err, apply::ApplyError::Refused(m) if m.contains("already holds units of \"service_arb\"")), "{err}");
+	assert_eq!(count(&pool, "window_import").await, 0);
+	assert_eq!(count(&pool, "fund_valuations").await, 0);
+	assert_eq!(ledger.touched(), touched);
+}
+
+#[tokio::test]
+async fn a_wrong_digest_a_known_cluster_or_a_broken_anchor_refuse_before_any_write() {
+	let Some((pool, _g)) = fresh().await else { return };
+	let ledger = FakeLedger::default();
+	let plan = plan_of(&good_file());
+	let wrong_digest = "0".repeat(64);
+	let mut off_by_one = anchors();
+	off_by_one[0].units += 1;
+
+	let cases = [
+		(
+			"--expect-digest",
+			apply::Guards {
+				expect_digest: &wrong_digest,
+				anchors: &anchors(),
+				own_cluster_id: OWN_CLUSTER,
+			},
+			"--expect-digest says",
+		),
+		(
+			"a digest in capitals",
+			apply::Guards {
+				expect_digest: &plan.digest.to_uppercase(),
+				anchors: &anchors(),
+				own_cluster_id: OWN_CLUSTER,
+			},
+			"lower-case hex",
+		),
+		(
+			"the same cluster",
+			apply::Guards {
+				expect_digest: &plan.digest,
+				anchors: &anchors(),
+				own_cluster_id: "0",
+			},
+			"cluster this run would write to",
+		),
+		(
+			"a broken anchor",
+			apply::Guards {
+				expect_digest: &plan.digest,
+				anchors: &off_by_one,
+				own_cluster_id: OWN_CLUSTER,
+			},
+			"anchor BROKEN",
+		),
+		(
+			"no anchor flags",
+			apply::Guards {
+				expect_digest: &plan.digest,
+				anchors: &[],
+				own_cluster_id: OWN_CLUSTER,
+			},
+			"anchor BROKEN",
+		),
+	];
+	for (name, guards, needle) in cases {
+		let err = apply::apply(&pool, &ledger, &plan, &guards).await.unwrap_err();
+		assert!(matches!(&err, apply::ApplyError::Refused(m) if m.contains(needle)), "{name}: {err}");
+	}
+	assert_eq!(count(&pool, "window_import").await, 0);
+	assert_eq!(count(&pool, "allocations").await, 2, "only the reserved rows");
+	assert_eq!(ledger.touched(), 0);
 }
 
 #[tokio::test]
@@ -756,7 +888,11 @@ async fn a_row_that_violates_the_schema_rolls_the_whole_import_back() {
 		}
 	}
 
-	let err = apply::apply(&pool, &ledger, &plan_of(&file_of(header(), &records, |_| {}))).await.unwrap_err();
+	let err = {
+		let p = plan_of(&file_of(header(), &records, |_| {}));
+		apply::apply(&pool, &ledger, &p, &guards_for(&p, &anchors())).await
+	}
+	.unwrap_err();
 
 	assert!(matches!(err, apply::ApplyError::Database { .. }), "{err}");
 	assert_eq!(count(&pool, "window_import").await, 0);
@@ -767,8 +903,18 @@ async fn a_row_that_violates_the_schema_rolls_the_whole_import_back() {
 
 // ── the command line ───────────────────────────────────────────────────────
 
+fn anchor_args() -> Vec<String> {
+	vec!["--anchor-holder".into(), format!("{C_VAL}:13000"), "--anchor-holder".into(), format!("{C_INT}:3250")]
+}
+
+static CLI_RUNS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
 fn run_cli(args: &[&str], file_text: &str) -> (Option<i32>, String, String) {
-	let dir = std::env::temp_dir().join(format!("invest-window-import-{}-{:x}", std::process::id(), file_text.len()));
+	let dir = std::env::temp_dir().join(format!(
+		"invest-window-import-{}-{}",
+		std::process::id(),
+		CLI_RUNS.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+	));
 	std::fs::create_dir_all(&dir).unwrap();
 	let path = dir.join("export.jsonl");
 	std::fs::write(&path, file_text).unwrap();
@@ -777,6 +923,7 @@ fn run_cli(args: &[&str], file_text: &str) -> (Option<i32>, String, String) {
 		.arg("window-import")
 		.arg("--file")
 		.arg(&path)
+		.args(anchor_args())
 		.args(args)
 		.env_remove("DATABASE_URL")
 		.output()
@@ -796,6 +943,22 @@ fn the_command_dry_runs_a_good_file_without_any_configuration() {
 	assert_eq!(code, Some(0), "{stderr}");
 	assert!(stdout.contains("16250 (outstanding 16250) balanced"), "{stdout}");
 	assert!(stdout.contains("\"mode\": \"dry_run\""), "{stdout}");
+	assert!(stdout.contains("anchor OK"), "{stdout}");
+	assert!(stdout.contains(&digest_of(good_file().as_bytes())), "{stdout}");
+}
+
+#[test]
+fn the_command_refuses_apply_without_a_digest_and_exits_2() {
+	let (code, _, stderr) = run_cli(&["--apply"], &good_file());
+	assert_eq!(code, Some(2));
+	assert!(stderr.contains("--expect-digest"), "{stderr}");
+}
+
+#[test]
+fn the_command_dry_run_exits_1_when_the_anchor_is_broken() {
+	let (code, stdout, _) = run_cli(&["--anchor-holder", &format!("{}:1", "d0000000-0000-4000-8000-000000000009")], &good_file());
+	assert_eq!(code, Some(1), "{stdout}");
+	assert!(stdout.contains("anchor BROKEN"), "{stdout}");
 }
 
 #[test]
