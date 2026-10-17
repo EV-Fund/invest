@@ -312,8 +312,12 @@ async fn a_holder_the_acknowledgement_does_not_cover_holds_the_rise() {
 		.execute(&h.pool)
 		.await
 		.unwrap();
-	assert!(h.book.promote_taker_fee_rise(pending.id, T0 + DELAY).await.unwrap());
+	// Not asserted on the return value: the tests share one database and another test's
+	// sweep of every due rise can bind this change between the update above and this call,
+	// making this call a no-op (false). The outcome is the same either way.
+	h.book.promote_taker_fee_rise(pending.id, T0 + DELAY).await.unwrap();
 	assert_eq!(live_fee(&h, &service).await, 30);
+	assert_eq!(change_state(&h, pending.id).await, "applied");
 }
 
 #[tokio::test]
