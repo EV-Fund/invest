@@ -16,6 +16,11 @@ pub trait UserDirectory: Send + Sync {
 	/// What invest knows of `user`, or `None` when nothing has been projected for them.
 	async fn standing(&self, user: UserId) -> Result<Option<UserStanding>, DomainError>;
 
+	/// The revocation threshold concierge last stated for `user`: an access token whose
+	/// `token_version` claim is below it has been revoked. `None` — no threshold seen (no
+	/// row, or the column is still NULL): nothing to compare against, so tokens are accepted.
+	async fn token_version(&self, user: UserId) -> Result<Option<u64>, DomainError>;
+
 	/// The subject banking names `user`'s compartments by, or `None` while the projection
 	/// has not learned it — no money of theirs can be moved until it has.
 	async fn auth_subject(&self, user: UserId) -> Result<Option<String>, DomainError>;

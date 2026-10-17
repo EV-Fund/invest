@@ -15,6 +15,7 @@
 //! | ----- | ------- |
 //! | MEMBER_JOINED (any visible scope) | the row: `auth_subject`, `status` (`active`, or `suspended` for concierge's `disabled`) |
 //! | lifecycle SUSPENDED / REINSTATED | `status` |
+//! | any lifecycle event, MEMBER_JOINED | `token_version`, the revocation threshold (only raised) |
 //! | GRANTS_CHANGED in scope `invest` | `permissions` — the whole `invest:*` set, replaced |
 //!
 //! Other scopes' grants (`sa:*` for the allocations invest runs there) and SCOPE_CHANGED are
@@ -110,11 +111,12 @@ impl Handler for UsersHandler {
 		let active = match event.kind {
 			UserEventKind::Suspended => Some(false),
 			UserEventKind::Reinstated => Some(true),
-			// Snapshots of facts invest does not keep (KYC level, role, token floor, the money
-			// plane's seat set). CREATED says nothing a MEMBER_JOINED did not already seed.
+			// Snapshots of facts invest does not keep (KYC level, role, the money plane's seat
+			// set); the token_version every event carries is kept by `apply_lifecycle`.
+			// CREATED says nothing a MEMBER_JOINED did not already seed.
 			UserEventKind::Created | UserEventKind::KycChanged | UserEventKind::SessionsRevoked | UserEventKind::RoleChanged | UserEventKind::PermissionsChanged => None,
 		};
-		if !self.users.apply_lifecycle(user, &event.auth_subject, active, event.sequence).await? {
+		if !self.users.apply_lifecycle(user, &event.auth_subject, active, event.sequence, event.token_version).await? {
 			// The engine hands a lifecycle event over only after the user's MEMBER_JOINED, which
 			// writes the row; its absence means the projection tables were reset without the
 			// engine's bookkeeping (the crate README's "Rebuilding").
@@ -130,7 +132,7 @@ impl Handler for UsersHandler {
 					return Ok(());
 				};
 				let active = member_active(&member.status, &event.event_id);
-				self.users.seed_member(user, auth_subject, active, member.lifecycle_sequence).await
+				self.users.seed_member(user, auth_subject, active, member.lifecycle_sequence, member.token_version).await
 			}
 			ScopeEventBody::GrantsChanged {
 				user_id: raw,
