@@ -54,6 +54,10 @@ impl MoneyLedger for Unconfigured {
 		unconfigured()
 	}
 
+	async fn list_holds(&self, _: &str) -> Result<Vec<Hold>, MoneyLedgerError> {
+		unconfigured()
+	}
+
 	async fn payout(&self, _: &PayoutRequest) -> Result<Payout, MoneyLedgerError> {
 		unconfigured()
 	}

@@ -17,6 +17,7 @@
 //!   before a basis moves; [`fee_policy_changes`] — the history of a product's terms and
 //!   the only writer of the live ones; [`fee_sweeper`] — the worker that charges and
 //!   promotes.
+//! - [`hold_reaper`] — the worker that voids a buy's hold when no order row ever followed it.
 //! - [`outbox`] — the transactional outbox written inside the same transaction as the
 //!   state change, plus its drain side.
 //! - [`relay`] — the single-worker dispatcher that drains the outbox and issues
@@ -30,6 +31,7 @@ pub mod fee_accrual;
 pub mod fee_policy_changes;
 pub mod fee_sweeper;
 pub mod fees;
+pub mod hold_reaper;
 pub mod import;
 pub mod issuance;
 pub mod ledger;

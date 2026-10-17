@@ -28,6 +28,20 @@ use invest_domain::{
 
 use crate::ports::money::{HoldId, ScopeId};
 
+/// Whether an order row exists — the one question the hold reaper asks of the book, so it
+/// can be tested without a whole [`BookStore`].
+#[async_trait]
+pub trait OrderPresence: Send + Sync {
+	async fn order_exists(&self, id: OrderId) -> Result<bool, DomainError>;
+}
+
+#[async_trait]
+impl<T: BookStore> OrderPresence for T {
+	async fn order_exists(&self, id: OrderId) -> Result<bool, DomainError> {
+		Ok(self.find_order(id).await?.is_some())
+	}
+}
+
 #[async_trait]
 pub trait BookStore: Send + Sync {
 	/// The allocation's trading terms, or `None` when no operator has set any — which

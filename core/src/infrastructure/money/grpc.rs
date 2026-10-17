@@ -32,6 +32,11 @@ use crate::ports::money::{
 /// short bound costs nothing but a retry, and a hung banking cannot hold a relay pass.
 const CALL_TIMEOUT: Duration = Duration::from_secs(10);
 
+/// Holds asked per `ListHolds` page (banking's maximum) and the pages one walk may take
+/// before it is called broken.
+const LIST_HOLDS_PAGE: u32 = 500;
+const LIST_HOLDS_MAX_PAGES: u32 = 1_000;
+
 /// Where banking's scope ledger listens and how invest proves itself to it. Every PEM is
 /// the file's contents, read at boot.
 pub struct ScopeLedgerConfig {
@@ -178,6 +183,44 @@ impl MoneyLedger for ScopeLedgerClient {
 			.map_err(|status| from_status("GetHold", status))?
 			.into_inner();
 		hold_from_proto(hold)
+	}
+
+	async fn list_holds(&self, subject_ref_prefix: &str) -> Result<Vec<Hold>, MoneyLedgerError> {
+		let mut holds = Vec::new();
+		let mut page_token = String::new();
+		let mut pages = 0u32;
+		loop {
+			let message = pb::ListHoldsRequest {
+				// Empty: every scope invest holds a grant in — the hold carries its own.
+				scope: String::new(),
+				subject_ref_prefix: subject_ref_prefix.to_owned(),
+				page_size: LIST_HOLDS_PAGE,
+				page_token: page_token.clone(),
+			};
+			let page = self
+				.client
+				.clone()
+				.list_holds(self.request(message))
+				.await
+				.map_err(|status| from_status("ListHolds", status))?
+				.into_inner();
+			for hold in page.holds {
+				holds.push(hold_from_proto(hold)?);
+			}
+			if page.next_page_token.is_empty() {
+				return Ok(holds);
+			}
+			// A token that does not advance, or a walk with no end, would hold the caller's
+			// pass forever; banking's pages are ascending by hold id, so neither happens.
+			pages += 1;
+			if page.next_page_token == page_token || pages >= LIST_HOLDS_MAX_PAGES {
+				return Err(MoneyLedgerError::Protocol(format!(
+					"ListHolds does not end: token {:?} after {pages} pages",
+					page.next_page_token
+				)));
+			}
+			page_token = page.next_page_token;
+		}
 	}
 
 	async fn payout(&self, request: &PayoutRequest) -> Result<Payout, MoneyLedgerError> {
@@ -412,6 +455,7 @@ fn hold_from_proto(hold: pb::Hold) -> Result<Hold, MoneyLedgerError> {
 		remaining: amount(&hold.remaining)?,
 		state,
 		subject_ref: hold.subject_ref,
+		created_at: hold.created_at,
 	})
 }
 

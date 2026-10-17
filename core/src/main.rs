@@ -1,9 +1,9 @@
 //! invest-core's composition root: read the config, dial Postgres, TigerBeetle, banking and
 //! concierge, apply the migrations, and run the gRPC server, the outbox relay, the fee
-//! sweeper, the users projection, the money-event consumer and the catalog publication as
-//! branches of one structured `join!` until a signal.
+//! sweeper, the users projection, the money-event consumer, the hold reaper and the catalog
+//! publication as branches of one structured `join!` until a signal.
 
-use std::{future::Future, process::ExitCode, sync::Arc};
+use std::{future::Future, process::ExitCode, sync::Arc, time::Duration};
 
 use color_eyre::eyre::{Context, ensure, eyre};
 use ev::error_monitoring::{self, Config as SentryConfig};
@@ -24,6 +24,7 @@ use invest_core::{
 		fee_policy_changes::PgFeePolicyChanges,
 		fee_sweeper::FeeSweeper,
 		fees::{PgFeeAssessments, PgFeePolicies, PgFeeSettlements, PgPositionAccruals},
+		hold_reaper::HoldReaper,
 		issuance::PgUnitIssuances,
 		ledger::{self, TbLedger},
 		money::{
@@ -41,6 +42,7 @@ use invest_core::{
 	},
 	ports::{
 		Ledger, MoneyLedger,
+		book::{BookStore, OrderPresence},
 		catalog::{CATALOG_VERSION, CatalogPublisher, SCOPE_CATALOG_VERSION, ScopeCatalog, ScopeCatalogPublisher},
 		fees::FeePorts,
 	},
@@ -95,9 +97,10 @@ fn main() -> color_eyre::Result<ExitCode> {
 			scope_ledger,
 			config.concierge_streams().context("invalid concierge stream configuration")?,
 			config.watch_streams().context("invalid WatchBook limits")?,
+			config.hold_reaper_after().context("invalid hold reaper configuration")?,
 		))
 	});
-	let (scope_ledger, concierge_streams, watch_streams) = wiring.unwrap_or_else(|err| {
+	let (scope_ledger, concierge_streams, watch_streams, hold_reaper_after) = wiring.unwrap_or_else(|err| {
 		eprintln!("{err:?}");
 		std::process::exit(ev::settings::EX_CONFIG);
 	});
@@ -118,7 +121,7 @@ fn main() -> color_eyre::Result<ExitCode> {
 	}
 
 	let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build().context("failed to build tokio runtime")?;
-	runtime.block_on(run(config, scope_ledger, concierge_streams, watch_streams))?;
+	runtime.block_on(run(config, scope_ledger, concierge_streams, watch_streams, hold_reaper_after))?;
 	Ok(ExitCode::SUCCESS)
 }
 
@@ -127,6 +130,7 @@ async fn run(
 	scope_ledger: Option<ScopeLedgerConfig>,
 	concierge_streams: Option<ConciergeStreamsConfig>,
 	watch_streams: Arc<WatchStreams>,
+	hold_reaper_after: Duration,
 ) -> color_eyre::Result<()> {
 	if scope_ledger.is_none() {
 		// Not refused in production: banking's listener and invest's client certificate
@@ -205,6 +209,11 @@ async fn run(
 	let relay_notify = Arc::new(Notify::new());
 	let relay = Relay::new(relay_pool, ledger.clone(), money.clone(), relay_notify.clone());
 	let book_feed = BookFeed::new();
+	let book = Arc::new(PgBook::new(pool.clone()));
+	// Without a scope ledger there is no hold to list: the branch idles, as the consumer's.
+	let hold_reaper = scope_ledger_client
+		.is_some()
+		.then(|| HoldReaper::new(money.clone(), book.clone() as Arc<dyn OrderPresence>, hold_reaper_after));
 	let money_events = match scope_ledger_client {
 		Some(client) => {
 			// Its own small pool, as the projection's: the lock-holding connection plus one
@@ -245,7 +254,7 @@ async fn run(
 		issuances: Arc::new(PgUnitIssuances::new(pool.clone())),
 		subscriptions: Arc::new(PgSubscriptions::new(pool.clone())),
 		redemptions: Arc::new(PgRedemptions::new(pool.clone(), ledger.clone())),
-		book: Arc::new(PgBook::new(pool.clone())),
+		book: book as Arc<dyn BookStore>,
 		book_engine: Arc::new(PriceTimeEngine),
 		book_feed,
 		watch_streams,
@@ -262,7 +271,7 @@ async fn run(
 	// the server drains in-flight calls, the workers stop at a batch boundary, and `join!`
 	// waits for all of them.
 	let shutdown = CancellationToken::new();
-	let ((), served, relayed, swept, projected, consumed, published) = tokio::join!(
+	let ((), served, relayed, swept, projected, consumed, reaped, published) = tokio::join!(
 		await_signal(shutdown.clone()),
 		branch(&shutdown, "gRPC server", services::serve(config.grpc_addr, state, verifier, shutdown.clone().cancelled_owned())),
 		branch(&shutdown, "relay", infallible(relay.run(shutdown.clone()))),
@@ -292,6 +301,16 @@ async fn run(
 		),
 		branch(
 			&shutdown,
+			"hold reaper",
+			infallible(async {
+				match hold_reaper {
+					Some(reaper) => reaper.run(shutdown.clone()).await,
+					None => shutdown.cancelled().await,
+				}
+			})
+		),
+		branch(
+			&shutdown,
 			"catalog publisher",
 			infallible(async {
 				// Side by side, so one catalog stuck on retries does not hold the other back.
@@ -312,7 +331,7 @@ async fn run(
 			})
 		),
 	);
-	served.and(relayed).and(swept).and(projected).and(consumed).and(published)
+	served.and(relayed).and(swept).and(projected).and(consumed).and(reaped).and(published)
 }
 
 /// Run one branch of the root `join!`: whatever ends it — an error or a clean return —

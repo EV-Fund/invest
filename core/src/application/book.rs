@@ -347,10 +347,8 @@ pub async fn place_order(ports: &BookPorts<'_>, user: UserId, request: PlaceOrde
 				key: MoneyKey::parse(&format!("book_order:{}:hold", id.raw().hyphenated()))?,
 				subject_ref: SubjectRef::new("book_order", id.raw())?,
 			};
-			// TODO(banking): a hold whose Reserve answer was lost, for a client that never
-			// retries with the same client order id, stays held — there is no order row to
-			// release it and no TTL behind it. A reaper over `book_order:` holds needs banking
-			// to list a client's active holds by subject.
+			// A hold whose answer is lost here and never retried is voided by the hold reaper
+			// (`infrastructure/hold_reaper.rs`) once no order row has followed it for a while.
 			let reserved = ports.money.reserve(&hold_request).await?;
 			// banking answers a repeated key with the ORIGINAL result, even if the world moved
 			// since (ledger.proto, IDEMPOTENCY) — so only a read tells a live hold from one an
