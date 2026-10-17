@@ -148,20 +148,38 @@ impl EventSource for InMemoryConcierge {
 }
 
 /// An in-memory catalog publisher: records what it was asked to publish, and answers each
-/// call with the next scripted outcome (then `Ok` once the script runs out).
-#[derive(Clone, Default)]
-pub struct InMemoryCatalogPublisher {
-	state: Arc<Mutex<PublisherState>>,
+/// call with the next scripted outcome (then `Ok` once the script runs out). One type for
+/// both catalogs, so their fakes cannot drift apart.
+pub struct ScriptedPublisher<C> {
+	state: Arc<Mutex<PublisherState<C>>>,
 }
 
-#[derive(Default)]
-struct PublisherState {
+struct PublisherState<C> {
 	script: std::collections::VecDeque<Result<(), PublishError>>,
 	attempts: u32,
-	published: Vec<(PermissionCatalog, u64)>,
+	published: Vec<(C, u64)>,
 }
 
-impl InMemoryCatalogPublisher {
+// Manual impls: a derive would demand `C: Clone`/`Default` of the handle, not of the catalog.
+impl<C> Clone for ScriptedPublisher<C> {
+	fn clone(&self) -> Self {
+		Self { state: Arc::clone(&self.state) }
+	}
+}
+
+impl<C> Default for ScriptedPublisher<C> {
+	fn default() -> Self {
+		Self {
+			state: Arc::new(Mutex::new(PublisherState {
+				script: std::collections::VecDeque::new(),
+				attempts: 0,
+				published: Vec::new(),
+			})),
+		}
+	}
+}
+
+impl<C: Clone> ScriptedPublisher<C> {
 	pub fn new() -> Self {
 		Self::default()
 	}
@@ -177,19 +195,11 @@ impl InMemoryCatalogPublisher {
 	}
 
 	/// What was accepted, in order.
-	pub fn published(&self) -> Vec<(PermissionCatalog, u64)> {
+	pub fn published(&self) -> Vec<(C, u64)> {
 		self.lock().published.clone()
 	}
 
-	fn lock(&self) -> std::sync::MutexGuard<'_, PublisherState> {
-		// See `InMemoryConcierge::lock`.
-		self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
-	}
-}
-
-#[async_trait]
-impl CatalogPublisher for InMemoryCatalogPublisher {
-	async fn publish(&self, catalog: &PermissionCatalog, version: u64) -> Result<(), PublishError> {
+	fn record(&self, catalog: &C, version: u64) -> Result<(), PublishError> {
 		let mut state = self.lock();
 		state.attempts += 1;
 		let outcome = state.script.pop_front().unwrap_or(Ok(()));
@@ -198,56 +208,26 @@ impl CatalogPublisher for InMemoryCatalogPublisher {
 		}
 		outcome
 	}
-}
 
-/// The scope-catalog twin of [`InMemoryCatalogPublisher`].
-#[derive(Clone, Default)]
-pub struct InMemoryScopeCatalogPublisher {
-	state: Arc<Mutex<ScopePublisherState>>,
-}
-
-#[derive(Default)]
-struct ScopePublisherState {
-	script: std::collections::VecDeque<Result<(), PublishError>>,
-	attempts: u32,
-	published: Vec<(ScopeCatalog, u64)>,
-}
-
-impl InMemoryScopeCatalogPublisher {
-	pub fn new() -> Self {
-		Self::default()
-	}
-
-	/// Answer the next calls with `outcomes`, in order.
-	pub fn script(&self, outcomes: impl IntoIterator<Item = Result<(), PublishError>>) {
-		self.lock().script.extend(outcomes);
-	}
-
-	/// Every call made, successful or not.
-	pub fn attempts(&self) -> u32 {
-		self.lock().attempts
-	}
-
-	/// What was accepted, in order.
-	pub fn published(&self) -> Vec<(ScopeCatalog, u64)> {
-		self.lock().published.clone()
-	}
-
-	fn lock(&self) -> std::sync::MutexGuard<'_, ScopePublisherState> {
+	fn lock(&self) -> std::sync::MutexGuard<'_, PublisherState<C>> {
 		// See `InMemoryConcierge::lock`.
 		self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+	}
+}
+
+pub type InMemoryCatalogPublisher = ScriptedPublisher<PermissionCatalog>;
+pub type InMemoryScopeCatalogPublisher = ScriptedPublisher<ScopeCatalog>;
+
+#[async_trait]
+impl CatalogPublisher for InMemoryCatalogPublisher {
+	async fn publish(&self, catalog: &PermissionCatalog, version: u64) -> Result<(), PublishError> {
+		self.record(catalog, version)
 	}
 }
 
 #[async_trait]
 impl ScopeCatalogPublisher for InMemoryScopeCatalogPublisher {
 	async fn publish(&self, catalog: &ScopeCatalog, version: u64) -> Result<(), PublishError> {
-		let mut state = self.lock();
-		state.attempts += 1;
-		let outcome = state.script.pop_front().unwrap_or(Ok(()));
-		if outcome.is_ok() {
-			state.published.push((catalog.clone(), version));
-		}
-		outcome
+		self.record(catalog, version)
 	}
 }
