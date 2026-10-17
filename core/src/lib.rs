@@ -18,7 +18,7 @@ use application::{
 	book::{BookFeed, WatchStreams},
 	funds::FundPorts,
 };
-use invest_domain::book::MatchingEngine;
+use invest_domain::book::{MatchingEngine, TakerFeeRiseTerms};
 use ports::{
 	AllocationRegistry, FundPositionReader, Ledger, MoneyLedger, NavMarks, RedemptionRepository, SubscriptionRepository, UnitIssuanceRepository, UserDirectory, book::BookStore,
 	fees::FeePorts,
@@ -60,6 +60,8 @@ pub struct AppState {
 	/// The matching rule the book runs under its write lock. Wired here so the composition
 	/// root, not the store, decides how orders match.
 	pub book_engine: Arc<dyn MatchingEngine>,
+	/// How a taker-fee rise is paced — the notice period and the largest step.
+	pub book_taker_fee_rise: TakerFeeRiseTerms,
 	/// The in-process fan-out every `WatchBook` subscriber hangs on.
 	pub book_feed: Arc<BookFeed>,
 	/// The per-caller `WatchBook` cap and the live streams' recheck period.

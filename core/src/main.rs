@@ -48,7 +48,10 @@ use invest_core::{
 	},
 	services,
 };
-use invest_domain::{authz::PermissionCatalog, book::PriceTimeEngine};
+use invest_domain::{
+	authz::PermissionCatalog,
+	book::{PriceTimeEngine, TakerFeeRiseTerms},
+};
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 
@@ -97,10 +100,11 @@ fn main() -> color_eyre::Result<ExitCode> {
 			scope_ledger,
 			config.concierge_streams().context("invalid concierge stream configuration")?,
 			config.watch_streams().context("invalid WatchBook limits")?,
+			config.book_taker_fee_rise()?,
 			config.hold_reaper_after().context("invalid hold reaper configuration")?,
 		))
 	});
-	let (scope_ledger, concierge_streams, watch_streams, hold_reaper_after) = wiring.unwrap_or_else(|err| {
+	let (scope_ledger, concierge_streams, watch_streams, book_taker_fee_rise, hold_reaper_after) = wiring.unwrap_or_else(|err| {
 		eprintln!("{err:?}");
 		std::process::exit(ev::settings::EX_CONFIG);
 	});
@@ -121,7 +125,7 @@ fn main() -> color_eyre::Result<ExitCode> {
 	}
 
 	let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build().context("failed to build tokio runtime")?;
-	runtime.block_on(run(config, scope_ledger, concierge_streams, watch_streams, hold_reaper_after))?;
+	runtime.block_on(run(config, scope_ledger, concierge_streams, watch_streams, book_taker_fee_rise, hold_reaper_after))?;
 	Ok(ExitCode::SUCCESS)
 }
 
@@ -130,6 +134,7 @@ async fn run(
 	scope_ledger: Option<ScopeLedgerConfig>,
 	concierge_streams: Option<ConciergeStreamsConfig>,
 	watch_streams: Arc<WatchStreams>,
+	book_taker_fee_rise: TakerFeeRiseTerms,
 	hold_reaper_after: Duration,
 ) -> color_eyre::Result<()> {
 	if scope_ledger.is_none() {
@@ -209,11 +214,10 @@ async fn run(
 	let relay_notify = Arc::new(Notify::new());
 	let relay = Relay::new(relay_pool, ledger.clone(), money.clone(), relay_notify.clone());
 	let book_feed = BookFeed::new();
-	let book = Arc::new(PgBook::new(pool.clone()));
 	// Without a scope ledger there is no hold to list: the branch idles, as the consumer's.
 	let hold_reaper = scope_ledger_client
 		.is_some()
-		.then(|| HoldReaper::new(money.clone(), book.clone() as Arc<dyn OrderPresence>, hold_reaper_after));
+		.then(|| HoldReaper::new(money.clone(), Arc::new(PgBook::new(pool.clone())) as Arc<dyn OrderPresence>, hold_reaper_after));
 	let money_events = match scope_ledger_client {
 		Some(client) => {
 			// Its own small pool, as the projection's: the lock-holding connection plus one
@@ -234,6 +238,7 @@ async fn run(
 	};
 	let nav = Arc::new(PgNav::new(pool.clone()));
 	let allocations = Arc::new(PgAllocations::new(pool.clone()));
+	let book: Arc<dyn BookStore> = Arc::new(PgBook::new(pool.clone()));
 	let fee_sweeper = FeeSweeper::new(
 		allocations.clone(),
 		fees.policies.clone(),
@@ -244,7 +249,8 @@ async fn run(
 		money.clone(),
 		nav.clone(),
 		relay_notify.clone(),
-	);
+	)
+	.with_book(book.clone());
 	let state = AppState {
 		pool: pool.clone(),
 		ledger: ledger.clone(),
@@ -254,7 +260,8 @@ async fn run(
 		issuances: Arc::new(PgUnitIssuances::new(pool.clone())),
 		subscriptions: Arc::new(PgSubscriptions::new(pool.clone())),
 		redemptions: Arc::new(PgRedemptions::new(pool.clone(), ledger.clone())),
-		book: book as Arc<dyn BookStore>,
+		book,
+		book_taker_fee_rise,
 		book_engine: Arc::new(PriceTimeEngine),
 		book_feed,
 		watch_streams,

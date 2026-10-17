@@ -95,7 +95,15 @@ service BookService {
 
   // Replace the allocation's trading terms (AllocationManage). Closing the book
   // (`book_open = false`) stops new orders; resting ones stay and may still be cancelled.
+  //
+  // A taker-fee RISE is not applied by this call: it is scheduled (BookPolicy.pending_taker_fee_rise)
+  // and binds after the notice period, once the requester has acknowledged the holder notices
+  // that cannot be delivered yet. A fee at or below the one in force binds at once.
   rpc SetBookPolicy(SetBookPolicyRequest) returns (BookPolicy);
+
+  // Withdraw the scheduled taker-fee rise, if any (AllocationManage). Idempotent: with nothing
+  // pending it answers the terms as they stand.
+  rpc CancelTakerFeeRise(CancelTakerFeeRiseRequest) returns (BookPolicy);
 }
 
 message PlaceOrderRequest {
@@ -165,6 +173,15 @@ message SetBookPolicyRequest {
   // checked again on every order — the backing can flip after the book opened (the first
   // in-kind mint). Harmless on a cash product. The terminal shows buyers a notice when set.
   bool allow_unbacked_trading = 7;
+  // The requester's acknowledgement that the holders' notices of a taker-fee rise could not
+  // be delivered (invest has no channel to deliver them yet), so the rise binds over them on
+  // the requester's word. Required to schedule a rise while the product has holders;
+  // ignored otherwise.
+  bool acknowledge_undelivered_notices = 8;
+}
+
+message CancelTakerFeeRiseRequest {
+  string service = 1;
 }
 
 // One order. `price` is the limit — for a market order, the limit invest derived from
@@ -287,4 +304,16 @@ message BookPolicy {
   // See SetBookPolicyRequest.allow_unbacked_trading. When true the terminal tells buyers the
   // units are not backed by fund cash and cannot be redeemed — the book is their only exit.
   bool allow_unbacked_trading = 8;
+  // The taker-fee rise on its way, if any. `taker_fee_bps` above is the fee in force.
+  PendingTakerFeeRise pending_taker_fee_rise = 9;
+}
+
+// A taker-fee rise scheduled but not yet bound.
+message PendingTakerFeeRise {
+  string id = 1;
+  uint32 taker_fee_bps = 2;       // the fee it will bind
+  int64 effective_from = 3;       // unix seconds; not applied before this
+  string requested_by = 4;        // the operator's user id
+  int64 requested_at = 5;         // unix seconds
+  string acknowledged_by = 6;     // who took responsibility for the undelivered notices; empty = nobody (no holders were owed one)
 }

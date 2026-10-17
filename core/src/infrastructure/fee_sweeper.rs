@@ -36,6 +36,10 @@
 //! this task on a tighter cadence ([`PROMOTION_INTERVAL`]) than the hourly charge: a minute
 //! late is invisible against a 24h notice, an hour late is a holder charged the old rate
 //! for an hour longer than they were told.
+//!
+//! A scheduled taker-fee rise on a product's book is bound by the same tick
+//! ([`book_app::promote_due_rises`]): it is the same promise, a notice period and then the
+//! dearer terms, for the one term a book has.
 
 use std::{
 	collections::HashMap,
@@ -49,10 +53,11 @@ use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
 
 use crate::{
-	application::fees as fee_app,
+	application::{book as book_app, fees as fee_app},
 	infrastructure::now_unix,
 	ports::{
 		allocations::AllocationRegistry,
+		book::BookStore,
 		fees::{FeeAssessments, FeePolicies, FeePolicyChanges, PositionAccruals},
 		ledger::Ledger,
 		money::MoneyLedger,
@@ -78,6 +83,8 @@ const BATCH: i64 = 500;
 
 pub struct FeeSweeper {
 	allocations: Arc<dyn AllocationRegistry>,
+	/// `None` ⇒ no book to promote rises on (a sweeper built for fees alone).
+	book: Option<Arc<dyn BookStore>>,
 	policies: Arc<dyn FeePolicies>,
 	changes: Arc<dyn FeePolicyChanges>,
 	accruals: Arc<dyn PositionAccruals>,
@@ -104,6 +111,7 @@ impl FeeSweeper {
 	) -> Self {
 		Self {
 			allocations,
+			book: None,
 			policies,
 			changes,
 			accruals,
@@ -115,11 +123,20 @@ impl FeeSweeper {
 		}
 	}
 
+	/// Also bind the scheduled taker-fee rises of `book` on the promotion tick. A builder, not
+	/// a constructor argument: the fee plane's tests build a sweeper without a book.
+	#[must_use]
+	pub fn with_book(mut self, book: Arc<dyn BookStore>) -> Self {
+		self.book = Some(book);
+		self
+	}
+
 	pub async fn run(self, shutdown: CancellationToken) {
 		info!("fee sweeper: assessing due positions every {SWEEP_INTERVAL:?}, promoting due policy changes every {PROMOTION_INTERVAL:?}");
 		// One loop on the tighter cadence; the hourly sweep runs on the ticks where it is due.
 		let mut last_sweep: Option<Instant> = None;
 		let mut promotion_failures = HashMap::new();
+		let mut rise_failures = HashMap::new();
 		loop {
 			let now = now_unix();
 			if last_sweep.is_none_or(|at| at.elapsed() >= SWEEP_INTERVAL) {
@@ -134,6 +151,13 @@ impl FeeSweeper {
 				Ok(promoted) if promoted > 0 => info!(promoted, "fee sweeper: promoted scheduled fee-policy changes"),
 				Ok(_) => {}
 				Err(err) => warn!("fee sweeper: could not list due fee-policy changes (will retry): {err}"),
+			}
+			if let Some(book) = &self.book {
+				match book_app::promote_due_rises(book.as_ref(), now, &mut rise_failures).await {
+					Ok(bound) if bound > 0 => info!(bound, "fee sweeper: bound scheduled taker-fee rises"),
+					Ok(_) => {}
+					Err(err) => warn!("fee sweeper: could not list due taker-fee rises (will retry): {err}"),
+				}
 			}
 			tokio::select! {
 				() = shutdown.cancelled() => return,

@@ -508,6 +508,10 @@ pub async fn retire_units(State(st): State<AppState>, jar: Cookies, headers: Hea
 /// `allow_unbacked_trading` may be left out and is then `false` — the operator's
 /// acknowledgement that the book trades units the fund holds no cash for is given, never
 /// presumed; invest-core refuses to open an `in_kind` product's book without it.
+/// A `taker_fee_bps` above the one in force is a RISE: invest-core schedules it (the policy
+/// answers `pending_taker_fee_rise`) rather than applying it, and while the product has
+/// holders it refuses unless `acknowledge_undelivered_notices` is `true` — likewise given,
+/// never presumed.
 pub async fn set_book_policy(State(st): State<AppState>, jar: Cookies, headers: HeaderMap, body: Bytes) -> Result<Json<dto::BookPolicy>, ApiError> {
 	if !verify_csrf(&st, &jar, &headers) {
 		return Err(ApiError::Csrf);
@@ -535,6 +539,7 @@ pub async fn set_book_policy(State(st): State<AppState>, jar: Cookies, headers: 
 		lot_size: editable(&v, "lot_size"),
 		market_slippage_bps,
 		allow_unbacked_trading: bool_field(&v, "allow_unbacked_trading"),
+		acknowledge_undelivered_notices: bool_field(&v, "acknowledge_undelivered_notices"),
 	};
 	Ok(Json(st.grpc.set_book_policy(&token, req).await?.into()))
 }
