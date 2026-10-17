@@ -6,6 +6,9 @@
 //! [`PgUsers::apply_lifecycle`] and [`PgUsers::replace_permissions`]. [`PgUsers::record`]
 //! sets a row outright, for tests that need a person without a stream.
 //!
+//! `token_version` is the revocation threshold: it only ever rises ([`PgUsers::token_version`]
+//! reads it for the auth layer), so a stale snapshot cannot lift a revocation.
+//!
 //! `status` moves only forward in concierge's per-user lifecycle sequence
 //! (`lifecycle_sequence`): the two streams are read one after the other, so a MEMBER_JOINED
 //! snapshot can arrive after a later SUSPENDED and must not undo it.
@@ -49,21 +52,25 @@ impl PgUsers {
 impl PgUsers {
 	/// Seed or refresh `user` from a MEMBER_JOINED snapshot as of `lifecycle_sequence`. The
 	/// status is taken only when the snapshot is at least as new as the row's; the
-	/// permissions are never touched (they arrive on GRANTS_CHANGED, per scope).
-	pub async fn seed_member(&self, user: UserId, auth_subject: &str, active: bool, lifecycle_sequence: u64) -> Result<(), DomainError> {
-		let sequence = sequence_column(user, lifecycle_sequence)?;
+	/// permissions are never touched (they arrive on GRANTS_CHANGED, per scope). The
+	/// `token_version` threshold takes the snapshot's value only if it is higher.
+	pub async fn seed_member(&self, user: UserId, auth_subject: &str, active: bool, lifecycle_sequence: u64, token_version: u64) -> Result<(), DomainError> {
+		let sequence = bigint(user, "lifecycle sequence", lifecycle_sequence)?;
+		let token_version = bigint(user, "token version", token_version)?;
 		sqlx::query(
-			"INSERT INTO users (id, status, auth_subject, lifecycle_sequence) VALUES ($1, $2, $3, $4) \
+			"INSERT INTO users (id, status, auth_subject, lifecycle_sequence, token_version) VALUES ($1, $2, $3, $4, $5) \
 			 ON CONFLICT (id) DO UPDATE SET \
 			   status = CASE WHEN users.lifecycle_sequence IS NULL OR users.lifecycle_sequence <= EXCLUDED.lifecycle_sequence \
 			                 THEN EXCLUDED.status ELSE users.status END, \
 			   lifecycle_sequence = GREATEST(users.lifecycle_sequence, EXCLUDED.lifecycle_sequence), \
+			   token_version = GREATEST(users.token_version, EXCLUDED.token_version), \
 			   auth_subject = COALESCE(users.auth_subject, EXCLUDED.auth_subject), updated_at = now()",
 		)
 		.bind(user.raw())
 		.bind(status_word(active))
 		.bind(auth_subject)
 		.bind(sequence)
+		.bind(token_version)
 		.execute(&self.pool)
 		.await
 		.map_err(|err| repo_err_for(user, "seed", err))?;
@@ -73,14 +80,17 @@ impl PgUsers {
 	/// Apply a lifecycle event at `sequence`: `active` is what the event says of the status
 	/// (`None` — it says nothing, the status stays). Returns `false` when `user` has no row:
 	/// their MEMBER_JOINED has not been applied, and a lifecycle fact alone does not make a
-	/// person invest knows.
-	pub async fn apply_lifecycle(&self, user: UserId, auth_subject: &str, active: Option<bool>, sequence: u64) -> Result<bool, DomainError> {
-		let sequence = sequence_column(user, sequence)?;
+	/// person invest knows. Every lifecycle kind is a snapshot of the user, so each one may
+	/// raise the `token_version` threshold (SESSIONS_REVOKED is the one that does).
+	pub async fn apply_lifecycle(&self, user: UserId, auth_subject: &str, active: Option<bool>, sequence: u64, token_version: u64) -> Result<bool, DomainError> {
+		let sequence = bigint(user, "lifecycle sequence", sequence)?;
+		let token_version = bigint(user, "token version", token_version)?;
 		let updated = sqlx::query(
 			"UPDATE users SET \
 			   status = CASE WHEN $2::text IS NOT NULL AND (lifecycle_sequence IS NULL OR lifecycle_sequence < $4) \
 			                 THEN $2 ELSE status END, \
 			   lifecycle_sequence = GREATEST(lifecycle_sequence, $4), \
+			   token_version = GREATEST(token_version, $5), \
 			   auth_subject = COALESCE(auth_subject, $3), updated_at = now() \
 			 WHERE id = $1",
 		)
@@ -88,6 +98,7 @@ impl PgUsers {
 		.bind(active.map(status_word))
 		.bind(auth_subject)
 		.bind(sequence)
+		.bind(token_version)
 		.execute(&self.pool)
 		.await
 		.map_err(|err| repo_err_for(user, "apply lifecycle to", err))?;
@@ -118,10 +129,11 @@ fn status_word(active: bool) -> &'static str {
 	if active { "active" } else { "suspended" }
 }
 
-/// concierge's sequences are `u64`; the column is `BIGINT`. One past `i64::MAX` is not a
-/// sequence any real history reaches, so it is a corrupt event, not a value to clamp.
-fn sequence_column(user: UserId, sequence: u64) -> Result<i64, DomainError> {
-	i64::try_from(sequence).map_err(|_| DomainError::Repository(format!("lifecycle sequence {sequence} for {user} does not fit BIGINT")))
+/// concierge's sequences and token versions are `u64`; the columns are `BIGINT`. One past
+/// `i64::MAX` is not a value any real history reaches, so it is a corrupt event, not
+/// something to clamp.
+fn bigint(user: UserId, what: &str, value: u64) -> Result<i64, DomainError> {
+	i64::try_from(value).map_err(|_| DomainError::Repository(format!("{what} {value} for {user} does not fit BIGINT")))
 }
 
 fn repo_err_for(user: UserId, action: &str, err: sqlx::Error) -> DomainError {
@@ -145,6 +157,20 @@ impl UserDirectory for PgUsers {
 			Ok(UserStanding { active, permissions })
 		})
 		.transpose()
+	}
+
+	async fn token_version(&self, user: UserId) -> Result<Option<u64>, DomainError> {
+		let floor: Option<Option<i64>> = sqlx::query_scalar("SELECT token_version FROM users WHERE id = $1")
+			.bind(user.raw())
+			.fetch_optional(&self.pool)
+			.await
+			.map_err(repo_err)?;
+		// The CHECK keeps the column non-negative, so the conversion cannot fail; if it ever
+		// did, a threshold that cannot be read must refuse, not accept.
+		floor
+			.flatten()
+			.map(|v| u64::try_from(v).map_err(|_| DomainError::Repository(format!("users.token_version {v} for {user} is negative"))))
+			.transpose()
 	}
 
 	async fn auth_subject(&self, user: UserId) -> Result<Option<String>, DomainError> {

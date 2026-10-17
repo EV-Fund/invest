@@ -17,7 +17,7 @@ use tower_http::trace::{DefaultOnFailure, TraceLayer};
 
 use crate::{
 	AppState,
-	services::{allocations::AllocationsSvc, book::BookSvc, fees::FeesSvc, funds::FundsSvc},
+	services::{allocations::AllocationsSvc, book::BookSvc, fees::FeesSvc, funds::FundsSvc, token_version::TokenVersionGuard},
 };
 
 pub mod allocations;
@@ -25,6 +25,7 @@ pub mod book;
 pub mod fees;
 pub mod funds;
 pub(crate) mod support;
+pub mod token_version;
 
 /// Build the tonic server and serve it on `addr` until `shutdown` fires.
 ///
@@ -32,12 +33,13 @@ pub(crate) mod support;
 /// aborting them, so a deploy returns them cleanly instead of erroring the caller.
 ///
 /// Authorization: each data service is wrapped in concierge's auth layer, which verifies
-/// the bearer token locally against concierge's JWKS (`verifier`) and injects the verified
-/// claims; the handlers then gate on the caller's `invest:*` permissions. The standard
-/// `grpc.health.v1.Health` is left **unwrapped** so kubelet's gRPC probes stay public —
-/// an infrastructure probe, not a data service.
+/// the bearer token locally against concierge's JWKS (`verifier`), refuses one revoked since
+/// it was issued ([`token_version`]), and injects the verified claims; the handlers then
+/// gate on the caller's `invest:*` permissions. The standard `grpc.health.v1.Health` is left
+/// **unwrapped** so kubelet's gRPC probes stay public — an infrastructure probe, not a data
+/// service.
 pub async fn serve(addr: SocketAddr, state: AppState, verifier: Verifier, shutdown: impl Future<Output = ()>) -> Result<(), tonic::transport::Error> {
-	let auth = grpc_auth_layer(verifier);
+	let auth = grpc_auth_layer(TokenVersionGuard::new(verifier, state.users.clone()));
 	let (health_reporter, std_health) = tonic_health::server::health_reporter();
 	health_reporter.set_service_status("", tonic_health::ServingStatus::Serving).await;
 	Server::builder()

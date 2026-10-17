@@ -104,6 +104,8 @@ struct Fake {
 	permissions: Vec<String>,
 	refresh: Refresh,
 	me_refused: bool,
+	/// The `token_version` `GetMe` reports: the account's revoke generation now.
+	token_version: u64,
 	/// The challenge the authorize URL carried; an exchange whose verifier does not answer
 	/// it is refused, as concierge does.
 	challenge: Option<String>,
@@ -128,6 +130,11 @@ impl FakeConcierge {
 
 	pub fn on_refresh(&self, refresh: Refresh) {
 		self.with(|f| f.refresh = refresh);
+	}
+
+	/// A "revoke all" at concierge: `GetMe` now reports `version`.
+	pub fn revoke_to(&self, version: u64) {
+		self.with(|f| f.token_version = version);
 	}
 
 	pub fn refuse_me(&self) {
@@ -205,7 +212,7 @@ impl IdentityPlane for FakeConcierge {
 				username: String::new(),
 				preferred_name: String::new(),
 				status: "active".into(),
-				token_version: 0,
+				token_version: f.token_version,
 				permissions: f.permissions.clone(),
 			})
 		})
