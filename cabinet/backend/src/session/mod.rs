@@ -17,6 +17,7 @@
 //! cookie ([`seal`]) — a database dump alone opens no session. The access token lives
 //! fifteen minutes (concierge's access TTL, 900 s).
 
+pub mod claim;
 pub mod seal;
 pub mod store;
 
@@ -358,6 +359,8 @@ impl Sessions {
 					return Err(SessionError::Internal(eyre!("concierge rotated a session into another user")));
 				}
 				let (access, refresh) = seal_pair(tokens, &key, &rotated)?;
+				// The cached answer describes the token being replaced.
+				self.forget_me(&key);
 				if !store::set_tokens(&self.pool, key.as_bytes(), seen, &new_tokens(&access, &refresh, &rotated)).await? {
 					// The lease was taken over while concierge answered: that holder's pair,
 					// from the same refresh token, is the one concierge keeps.
@@ -393,6 +396,13 @@ impl Sessions {
 	/// concierge saying the token is dead (signed out on evinvest.ltd, held, disabled): the
 	/// session closes here too. Asked once more on a timeout: one slow answer should not be
 	/// a 503 for the user.
+	///
+	/// A fresh answer is also set against the revoke generation the session's access token was
+	/// issued with: an account now at a higher `token_version` than the token has been revoked
+	/// since, and the session closes whatever `GetMe` was willing to say. The cache holds only
+	/// answers that passed that check, is dropped with the session and with every rotation
+	/// (a rotated pair is a new token to judge), and bounds a screen, not an action:
+	/// invest-core refuses a revoked token itself on every call.
 	pub async fn me(&self, session: &Session, fresh: bool) -> Result<Me, SessionError> {
 		if !fresh && let Some(me) = self.cached_me(&session.key) {
 			return Ok(me);
@@ -403,6 +413,12 @@ impl Sessions {
 		};
 		match answer {
 			Ok(me) if me.user_id == session.user_id => {
+				let issued = claim::token_version(&session.access_token);
+				if issued.is_some_and(|issued| issued < me.token_version) {
+					tracing::info!(user_id = %session.user_id, ?issued, now = me.token_version, "access token predates a revoke; session closed");
+					self.close(&session.key).await?;
+					return Err(SessionError::Rejected);
+				}
 				self.remember_me(session.key, me.clone());
 				Ok(me)
 			}

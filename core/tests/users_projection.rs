@@ -419,3 +419,47 @@ async fn a_concierge_outage_is_an_error_the_next_cycle_recovers_from() {
 	h.cycle().await;
 	assert_eq!(h.active(&p).await, Some(true));
 }
+
+fn with_version_member(mut event: ScopeEvent, version: u64) -> ScopeEvent {
+	if let ScopeEventBody::MemberJoined { member, .. } = &mut event.body {
+		member.token_version = version;
+	}
+	event
+}
+
+fn with_version(mut event: UserEvent, version: u64) -> UserEvent {
+	event.token_version = version;
+	event
+}
+
+#[tokio::test]
+async fn the_revocation_threshold_follows_concierge_and_only_rises() {
+	let Some(h) = harness().await else { return };
+	let p = person();
+	assert_eq!(h.users.token_version(p.user).await.unwrap(), None, "an unknown person has no threshold");
+
+	h.concierge.push_scope(with_version_member(member_joined("invest", &p, "active", 1, 1), 2));
+	h.cycle().await;
+	assert_eq!(h.users.token_version(p.user).await.unwrap(), Some(2), "seeded from the MEMBER_JOINED snapshot");
+
+	// A "revoke all": concierge bumps the version and says so on the lifecycle stream.
+	h.concierge.push_user(with_version(lifecycle(UserEventKind::SessionsRevoked, &p, 2), 3));
+	h.cycle().await;
+	assert_eq!(h.users.token_version(p.user).await.unwrap(), Some(3));
+
+	// A snapshot written before the revoke, read only now: the threshold must not fall.
+	h.concierge.push_scope(with_version_member(member_joined("sa", &p, "active", 1, 1), 2));
+	h.cycle().await;
+	assert_eq!(h.users.token_version(p.user).await.unwrap(), Some(3), "a stale snapshot cannot lift a revocation");
+}
+
+#[tokio::test]
+async fn a_row_written_without_a_stream_has_no_threshold() {
+	let Some(h) = harness().await else { return };
+	let user = UserId::new();
+	h.users
+		.record(user, &invest_core::ports::users::UserStanding { active: true, permissions: None }, None)
+		.await
+		.unwrap();
+	assert_eq!(h.users.token_version(user).await.unwrap(), None, "NULL: no threshold, tokens are accepted");
+}
