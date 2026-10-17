@@ -36,7 +36,7 @@ use uuid::Uuid;
 use crate::{
 	AppState,
 	application::book::{self as book_app, BookPorts, BookSnapshotView, PlaceOrderRequest, WatchFrame},
-	ports::book::{BookLevel, BookPolicyRecord, Candle, OrderRecord, TradeRecord, UserTrade},
+	ports::book::{BookLevel, BookPolicyRecord, Candle, OrderRecord, PendingTakerFeeRise, TakerFeeChange, TradeRecord, UserTrade},
 	services::support::{active_caller, caller_id, holds_permission, map_err, optional, require_permission, unix_now},
 };
 
@@ -233,6 +233,8 @@ impl BookService for BookSvc {
 
 	async fn set_book_policy(&self, request: Request<pb::SetBookPolicyRequest>) -> Result<Response<pb::BookPolicy>, Status> {
 		require_permission(&self.state, &request, Permission::AllocationManage).await?;
+		// The requester is the trust seam on a scheduled rise, as on a fee-policy change.
+		let requester = caller_id(&request)?.to_string();
 		let req = request.into_inner();
 		let service = ServiceId::parse(&req.service).map_err(map_err)?;
 		let price_tick = optional(&req.price_tick)
@@ -246,7 +248,24 @@ impl BookService for BookSvc {
 			.map_err(map_err)?
 			.unwrap_or(BookPolicy::DEFAULT_LOT_SIZE);
 		let policy = BookPolicy::new(req.book_open, req.taker_fee_bps, price_tick, lot_size, req.market_slippage_bps, req.allow_unbacked_trading).map_err(map_err)?;
-		let record = book_app::set_policy(self.state.allocations.as_ref(), self.state.book.as_ref(), &service, policy)
+		let change = TakerFeeChange {
+			id: Uuid::new_v4(),
+			by: &requester,
+			now_unix: unix_now(),
+			terms: &self.state.book_taker_fee_rise,
+			acknowledged_undelivered_notices: req.acknowledge_undelivered_notices,
+		};
+		let record = book_app::change_policy(self.state.allocations.as_ref(), self.state.book.as_ref(), &service, policy, &change)
+			.await
+			.map_err(map_err)?;
+		Ok(Response::new(policy_to_proto(&record)))
+	}
+
+	async fn cancel_taker_fee_rise(&self, request: Request<pb::CancelTakerFeeRiseRequest>) -> Result<Response<pb::BookPolicy>, Status> {
+		require_permission(&self.state, &request, Permission::AllocationManage).await?;
+		let requester = caller_id(&request)?.to_string();
+		let service = ServiceId::parse(&request.get_ref().service).map_err(map_err)?;
+		let record = book_app::cancel_taker_fee_rise(self.state.allocations.as_ref(), self.state.book.as_ref(), &service, &requester)
 			.await
 			.map_err(map_err)?;
 		Ok(Response::new(policy_to_proto(&record)))
@@ -451,6 +470,18 @@ fn policy_to_proto(record: &BookPolicyRecord) -> pb::BookPolicy {
 		market_slippage_bps: policy.market_slippage_bps(),
 		updated_at: record.updated_at,
 		allow_unbacked_trading: policy.allow_unbacked_trading(),
+		pending_taker_fee_rise: record.pending_rise.as_ref().map(rise_to_proto),
+	}
+}
+
+fn rise_to_proto(rise: &PendingTakerFeeRise) -> pb::PendingTakerFeeRise {
+	pb::PendingTakerFeeRise {
+		id: rise.id.to_string(),
+		taker_fee_bps: rise.taker_fee_bps,
+		effective_from: rise.effective_from_unix,
+		requested_by: rise.requested_by.clone(),
+		requested_at: rise.requested_at_unix,
+		acknowledged_by: rise.acknowledged_by.clone().unwrap_or_default(),
 	}
 }
 

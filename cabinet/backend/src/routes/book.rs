@@ -386,6 +386,7 @@ mod book_route_tests {
 				market_slippage_bps: r.market_slippage_bps,
 				allow_unbacked_trading: r.allow_unbacked_trading,
 				updated_at: 1_750_000_300,
+				pending_taker_fee_rise: None,
 			},
 			None => iv::BookPolicy {
 				service: SERVICE.into(),
@@ -396,6 +397,7 @@ mod book_route_tests {
 				market_slippage_bps: 100,
 				allow_unbacked_trading: true,
 				updated_at: 1_750_000_300,
+				pending_taker_fee_rise: None,
 			},
 		}
 	}
@@ -504,6 +506,11 @@ mod book_route_tests {
 			let req = request.into_inner();
 			self.seen.lock().unwrap().set_policy = Some(req.clone());
 			Ok(GrpcResponse::new(stub_policy(Some(&req))))
+		}
+
+		async fn cancel_taker_fee_rise(&self, request: GrpcRequest<iv::CancelTakerFeeRiseRequest>) -> Result<GrpcResponse<iv::BookPolicy>, Status> {
+			self.guard(&request)?;
+			Ok(GrpcResponse::new(stub_policy(None)))
 		}
 	}
 

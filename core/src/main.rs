@@ -41,12 +41,16 @@ use invest_core::{
 	},
 	ports::{
 		Ledger, MoneyLedger,
+		book::BookStore,
 		catalog::{CATALOG_VERSION, CatalogPublisher},
 		fees::FeePorts,
 	},
 	services,
 };
-use invest_domain::{authz::PermissionCatalog, book::PriceTimeEngine};
+use invest_domain::{
+	authz::PermissionCatalog,
+	book::{PriceTimeEngine, TakerFeeRiseTerms},
+};
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 
@@ -83,8 +87,9 @@ fn main() -> color_eyre::Result<()> {
 	let wiring = config
 		.scope_ledger()
 		.context("invalid scope ledger configuration")
-		.and_then(|scope_ledger| Ok((scope_ledger, config.concierge_streams().context("invalid concierge stream configuration")?)));
-	let (scope_ledger, concierge_streams) = wiring.unwrap_or_else(|err| {
+		.and_then(|scope_ledger| Ok((scope_ledger, config.concierge_streams().context("invalid concierge stream configuration")?)))
+		.and_then(|(scope_ledger, concierge_streams)| Ok((scope_ledger, concierge_streams, config.book_taker_fee_rise()?)));
+	let (scope_ledger, concierge_streams, book_taker_fee_rise) = wiring.unwrap_or_else(|err| {
 		eprintln!("{err:?}");
 		std::process::exit(ev::settings::EX_CONFIG);
 	});
@@ -105,10 +110,15 @@ fn main() -> color_eyre::Result<()> {
 	}
 
 	let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build().context("failed to build tokio runtime")?;
-	runtime.block_on(run(config, scope_ledger, concierge_streams))
+	runtime.block_on(run(config, scope_ledger, concierge_streams, book_taker_fee_rise))
 }
 
-async fn run(config: config::AppConfig, scope_ledger: Option<ScopeLedgerConfig>, concierge_streams: Option<ConciergeStreamsConfig>) -> color_eyre::Result<()> {
+async fn run(
+	config: config::AppConfig,
+	scope_ledger: Option<ScopeLedgerConfig>,
+	concierge_streams: Option<ConciergeStreamsConfig>,
+	book_taker_fee_rise: TakerFeeRiseTerms,
+) -> color_eyre::Result<()> {
 	if scope_ledger.is_none() {
 		// Not refused in production: banking's listener and invest's client certificate
 		// are not provisioned yet, and invest-core serves the registry and issuance without
@@ -205,6 +215,7 @@ async fn run(config: config::AppConfig, scope_ledger: Option<ScopeLedgerConfig>,
 	};
 	let nav = Arc::new(PgNav::new(pool.clone()));
 	let allocations = Arc::new(PgAllocations::new(pool.clone()));
+	let book: Arc<dyn BookStore> = Arc::new(PgBook::new(pool.clone()));
 	let fee_sweeper = FeeSweeper::new(
 		allocations.clone(),
 		fees.policies.clone(),
@@ -215,7 +226,8 @@ async fn run(config: config::AppConfig, scope_ledger: Option<ScopeLedgerConfig>,
 		money.clone(),
 		nav.clone(),
 		relay_notify.clone(),
-	);
+	)
+	.with_book(book.clone());
 	let state = AppState {
 		pool: pool.clone(),
 		ledger: ledger.clone(),
@@ -225,7 +237,8 @@ async fn run(config: config::AppConfig, scope_ledger: Option<ScopeLedgerConfig>,
 		issuances: Arc::new(PgUnitIssuances::new(pool.clone())),
 		subscriptions: Arc::new(PgSubscriptions::new(pool.clone())),
 		redemptions: Arc::new(PgRedemptions::new(pool.clone(), ledger.clone())),
-		book: Arc::new(PgBook::new(pool.clone())),
+		book,
+		book_taker_fee_rise,
 		book_engine: Arc::new(PriceTimeEngine),
 		book_feed,
 		fees,

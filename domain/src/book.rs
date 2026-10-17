@@ -448,8 +448,8 @@ impl BookPolicy {
 	/// Validate a full set of terms. The taker fee is at most [`Self::MAX_TAKER_FEE_BPS`] and
 	/// the slippage at most one hundred percent; tick and lot are positive, because a zero
 	/// grid admits every price and every size and would make "aligned" meaningless.
-	// TODO(fee change notice): a new taker fee binds at once; like a fund's fee terms it
-	// should be scheduled, with notice to the resting orders it would charge.
+	/// A rise is not bound by this constructor: the fee a request names is judged against
+	/// the live one by [`TakerFeeRiseTerms::plan`], and only a cut or no change binds at once.
 	pub fn new(book_open: bool, taker_fee_bps: u32, price_tick: Price, lot_size: Shares, market_slippage_bps: u32, allow_unbacked_trading: bool) -> Result<Self, DomainError> {
 		if taker_fee_bps > Self::MAX_TAKER_FEE_BPS {
 			return Err(DomainError::Validation(format!("taker fee must be at most {} bps", Self::MAX_TAKER_FEE_BPS)));
@@ -504,6 +504,19 @@ impl BookPolicy {
 
 	pub fn taker_fee_bps(&self) -> u32 {
 		self.taker_fee_bps
+	}
+
+	/// The same terms under another taker fee — how a request that raises the fee is
+	/// written down with the fee still in force, while the rise itself waits out its notice.
+	pub fn with_taker_fee_bps(&self, taker_fee_bps: u32) -> Result<Self, DomainError> {
+		Self::new(
+			self.book_open,
+			taker_fee_bps,
+			self.price_tick,
+			self.lot_size,
+			self.market_slippage_bps,
+			self.allow_unbacked_trading,
+		)
 	}
 
 	pub fn price_tick(&self) -> Price {
@@ -572,6 +585,89 @@ impl BookPolicy {
 			return Err(DomainError::Validation("market sell would fill at a zero price".into()));
 		}
 		Ok(limit)
+	}
+}
+
+/// How a taker-fee RISE is paced, so one operator cannot lift the fee to
+/// [`BookPolicy::MAX_TAKER_FEE_BPS`] in a single unannounced step: it waits `delay_secs`
+/// (holders are told in that time) and may add at most `ceiling_bps` to the fee in force.
+/// A cut is not paced — traders only gain by it.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct TakerFeeRiseTerms {
+	delay_secs: i64,
+	ceiling_bps: u32,
+}
+
+/// What a request's taker fee does to the one in force.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TakerFeeMove {
+	/// The same fee: nothing is scheduled and nothing pending is touched.
+	Unchanged,
+	/// A lower fee, bound at once. It also withdraws a pending rise: the operator has since
+	/// decided the other way, and the rise's notices must not outlive that.
+	Cut,
+	/// A higher fee, bound at `effective_from_unix` and not before.
+	Rise { effective_from_unix: i64 },
+}
+
+impl TakerFeeRiseTerms {
+	/// +0.25 % per rise: a quarter of the hard cap, so reaching the cap takes four notices
+	/// of a day each, and no single step is more than a trader can shrug off.
+	pub const DEFAULT_CEILING_BPS: u32 = 25;
+	/// One day — the notice a fund's fee-policy change gives its holders.
+	pub const DEFAULT_DELAY_SECS: i64 = 24 * 60 * 60;
+
+	/// A zero delay is no notice and a zero ceiling forbids every rise; a ceiling above the
+	/// hard cap would be a limit that never binds.
+	pub fn new(delay_secs: i64, ceiling_bps: u32) -> Result<Self, DomainError> {
+		if delay_secs < 1 {
+			return Err(DomainError::Validation("the taker-fee rise delay must be at least one second".into()));
+		}
+		if ceiling_bps == 0 || ceiling_bps > BookPolicy::MAX_TAKER_FEE_BPS {
+			return Err(DomainError::Validation(format!(
+				"the taker-fee rise ceiling must be between 1 and {} bps",
+				BookPolicy::MAX_TAKER_FEE_BPS
+			)));
+		}
+		Ok(Self { delay_secs, ceiling_bps })
+	}
+
+	pub const fn delay_secs(&self) -> i64 {
+		self.delay_secs
+	}
+
+	pub const fn ceiling_bps(&self) -> u32 {
+		self.ceiling_bps
+	}
+
+	/// Judge `requested_bps` against the fee in force. `Validation` for a rise above the
+	/// per-rise ceiling — the caller raises in steps, each with its own notice.
+	pub fn plan(&self, live_bps: u32, requested_bps: u32, now_unix: i64) -> Result<TakerFeeMove, DomainError> {
+		match requested_bps.cmp(&live_bps) {
+			core::cmp::Ordering::Equal => Ok(TakerFeeMove::Unchanged),
+			core::cmp::Ordering::Less => Ok(TakerFeeMove::Cut),
+			core::cmp::Ordering::Greater => {
+				let step = requested_bps - live_bps;
+				if step > self.ceiling_bps {
+					return Err(DomainError::Validation(format!(
+						"a taker-fee rise is at most {} bps at a time (asked for {step}, from {live_bps} to {requested_bps}); raise it in steps",
+						self.ceiling_bps
+					)));
+				}
+				Ok(TakerFeeMove::Rise {
+					effective_from_unix: now_unix.saturating_add(self.delay_secs),
+				})
+			}
+		}
+	}
+}
+
+impl Default for TakerFeeRiseTerms {
+	fn default() -> Self {
+		Self {
+			delay_secs: Self::DEFAULT_DELAY_SECS,
+			ceiling_bps: Self::DEFAULT_CEILING_BPS,
+		}
 	}
 }
 
@@ -1134,6 +1230,19 @@ mod tests {
 		assert!(Tif::parse("fok").is_err());
 		assert!(OrderState::parse("done").is_err());
 		assert!(CandleResolution::parse("2h").is_err());
+	}
+
+	#[test]
+	fn a_taker_fee_rise_waits_a_cut_does_not_and_a_step_has_a_ceiling() {
+		let terms = TakerFeeRiseTerms::new(100, 25).unwrap();
+		assert_eq!(terms.plan(10, 10, 1_000).unwrap(), TakerFeeMove::Unchanged);
+		assert_eq!(terms.plan(10, 0, 1_000).unwrap(), TakerFeeMove::Cut);
+		assert_eq!(terms.plan(10, 35, 1_000).unwrap(), TakerFeeMove::Rise { effective_from_unix: 1_100 });
+		assert!(terms.plan(10, 36, 1_000).is_err(), "26 bps in one step is over the ceiling");
+		assert!(TakerFeeRiseTerms::new(0, 25).is_err(), "no delay is no notice");
+		assert!(TakerFeeRiseTerms::new(1, 0).is_err());
+		assert!(TakerFeeRiseTerms::new(1, BookPolicy::MAX_TAKER_FEE_BPS + 1).is_err());
+		assert_eq!(TakerFeeRiseTerms::default().delay_secs(), 86_400);
 	}
 
 	#[test]

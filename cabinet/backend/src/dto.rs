@@ -846,6 +846,29 @@ pub struct BookPolicy {
 	/// tells buyers the book is their only exit.
 	pub allow_unbacked_trading: bool,
 	pub updated_at: String,
+	/// The taker-fee rise scheduled but not yet bound; `taker_fee_bps` is the fee in force.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub pending_taker_fee_rise: Option<PendingTakerFeeRise>,
+}
+
+/// A taker-fee rise on its way. Instants are unix seconds as strings, like `updated_at`.
+#[derive(Serialize)]
+pub struct PendingTakerFeeRise {
+	pub id: String,
+	pub taker_fee_bps: u32,
+	pub effective_from: String,
+	pub requested_at: String,
+}
+
+impl From<iv::PendingTakerFeeRise> for PendingTakerFeeRise {
+	fn from(r: iv::PendingTakerFeeRise) -> Self {
+		Self {
+			id: r.id,
+			taker_fee_bps: r.taker_fee_bps,
+			effective_from: r.effective_from.to_string(),
+			requested_at: r.requested_at.to_string(),
+		}
+	}
 }
 
 impl From<iv::BookPolicy> for BookPolicy {
@@ -859,6 +882,7 @@ impl From<iv::BookPolicy> for BookPolicy {
 			market_slippage_bps: p.market_slippage_bps,
 			allow_unbacked_trading: p.allow_unbacked_trading,
 			updated_at: p.updated_at.to_string(),
+			pending_taker_fee_rise: p.pending_taker_fee_rise.map(Into::into),
 		}
 	}
 }
