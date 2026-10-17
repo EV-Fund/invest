@@ -88,6 +88,10 @@ ev::settings! {
 		/// How often a live `WatchBook` stream re-checks that its holder is still active
 		/// and may still see the book. At least 1.
 		watchbook_recheck_secs: u64 = "60",
+		/// How old a `book_order:` hold in banking must be, with no order row behind it,
+		/// before the hold reaper voids it. At least 60: a buy's hold and its order row are
+		/// written moments apart, and the floor keeps a placement in flight from being taken.
+		hold_reaper_after_secs: u64 = "900",
 	}
 }
 
@@ -103,6 +107,17 @@ impl AppConfig {
 	/// silently disable the stream and a recheck of 0 seconds would spin the timer.
 	pub fn watch_streams(&self) -> Result<Arc<WatchStreams>> {
 		WatchStreams::new(self.watchbook_max_streams_per_caller, Duration::from_secs(self.watchbook_recheck_secs)).map_err(|err| color_eyre::eyre::eyre!("{err}"))
+	}
+
+	/// The hold reaper's age floor. Refused under a minute rather than clamped: a smaller
+	/// value would race a placement still writing its order row.
+	pub fn hold_reaper_after(&self) -> Result<Duration> {
+		ensure!(
+			self.hold_reaper_after_secs >= 60,
+			"HOLD_REAPER_AFTER_SECS must be at least 60, got {}",
+			self.hold_reaper_after_secs
+		);
+		Ok(Duration::from_secs(self.hold_reaper_after_secs))
 	}
 
 	/// The concierge stream client's configuration, or `None` when none is configured.

@@ -44,6 +44,13 @@ pub trait MoneyLedger: Gateway {
 	/// One hold invest placed, as it stands — a saga's recovery read after a timeout.
 	async fn hold(&self, scope: &ScopeId, hold_id: &HoldId) -> Result<Hold, MoneyLedgerError>;
 
+	/// The holds invest placed that are still active, in every scope it holds a grant in,
+	/// whose `subject_ref` starts with `subject_ref_prefix` — the recovery read for a
+	/// `Reserve` whose answer (and so whose hold id) was lost. Banking pages by hold id, not
+	/// by time, so one call is a sweep of what stood when it began: a hold placed meanwhile
+	/// may be missed and is found by the next call.
+	async fn list_holds(&self, subject_ref_prefix: &str) -> Result<Vec<Hold>, MoneyLedgerError>;
+
 	/// Pay out of an account invest owns into users' compartments, for an automatic reason
 	/// and within banking's automatic ceilings. A batch is atomic.
 	async fn payout(&self, request: &PayoutRequest) -> Result<Payout, MoneyLedgerError>;
@@ -258,6 +265,8 @@ pub struct Hold {
 	pub remaining: Usdt,
 	pub state: HoldState,
 	pub subject_ref: String,
+	/// Unix seconds banking placed the hold at; 0 when banking did not say.
+	pub created_at: i64,
 }
 
 /// Why money leaves an allocation for users without an approval.

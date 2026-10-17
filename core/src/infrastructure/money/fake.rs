@@ -33,9 +33,13 @@ use std::{
 use async_trait::async_trait;
 use invest_domain::{architecture::Gateway, balance::ServiceId, money::Usdt};
 
-use crate::ports::money::{
-	AccountLabel, CaptureRequest, CaptureTo, FeeSweepRequest, Hold, HoldId, HoldState, MoneyEvent, MoneyEventKind, MoneyEventPage, MoneyEventSource, MoneyKey, MoneyLedger, MoneyLedgerError,
-	OperationId, Payout, PayoutLine, PayoutRequest, PendingOperation, PendingOperationState, Refusal, RequestPayoutRequest, ReserveRequest, ScopeAccount, ScopeId, Transfer, VoidRequest,
+use crate::{
+	infrastructure::now_unix,
+	ports::money::{
+		AccountLabel, CaptureRequest, CaptureTo, FeeSweepRequest, Hold, HoldId, HoldState, MoneyEvent, MoneyEventKind, MoneyEventPage, MoneyEventSource, MoneyKey, MoneyLedger,
+		MoneyLedgerError, OperationId, Payout, PayoutLine, PayoutRequest, PendingOperation, PendingOperationState, Refusal, RequestPayoutRequest, ReserveRequest, ScopeAccount, ScopeId,
+		Transfer, VoidRequest,
+	},
 };
 
 #[derive(Default)]
@@ -277,6 +281,13 @@ impl InMemoryMoneyLedger {
 		self.lock().emit(MoneyEventKind::Unknown(code), scope, "", "", "");
 	}
 
+	/// Make a hold look `secs` older than it is, as if banking had placed it earlier.
+	pub fn age_hold(&self, hold_id: &HoldId, secs: i64) {
+		if let Some(hold) = self.lock().holds.get_mut(hold_id) {
+			hold.created_at -= secs;
+		}
+	}
+
 	fn lock(&self) -> std::sync::MutexGuard<'_, State> {
 		// A test that panicked while holding the lock already failed; the state it left is
 		// still the best answer for the assertions that follow.
@@ -427,6 +438,7 @@ impl MoneyLedger for InMemoryMoneyLedger {
 			remaining: request.amount,
 			state: HoldState::Active,
 			subject_ref: request.subject_ref.as_str().to_owned(),
+			created_at: now_unix(),
 		};
 		state.holds.insert(hold.id.clone(), hold.clone());
 		state.emit(MoneyEventKind::HoldPlaced, &request.scope, &hold.id.0, &hold.subject_ref, "");
@@ -511,6 +523,19 @@ impl MoneyLedger for InMemoryMoneyLedger {
 	async fn hold(&self, scope: &ScopeId, hold_id: &HoldId) -> Result<Hold, MoneyLedgerError> {
 		self.served("GetHold")?;
 		self.lock().holds.get(hold_id).filter(|hold| hold.scope == *scope).cloned().ok_or(MoneyLedgerError::NotFound)
+	}
+
+	async fn list_holds(&self, subject_ref_prefix: &str) -> Result<Vec<Hold>, MoneyLedgerError> {
+		self.served("ListHolds")?;
+		let state = self.lock();
+		let mut holds: Vec<Hold> = state
+			.holds
+			.values()
+			.filter(|hold| hold.state == HoldState::Active && hold.subject_ref.starts_with(subject_ref_prefix))
+			.cloned()
+			.collect();
+		holds.sort_by(|a, b| a.id.0.cmp(&b.id.0));
+		Ok(holds)
 	}
 
 	async fn payout(&self, request: &PayoutRequest) -> Result<Payout, MoneyLedgerError> {

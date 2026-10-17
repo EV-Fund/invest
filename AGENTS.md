@@ -54,6 +54,7 @@ banking's on purpose.
   advisory lock (`infrastructure/money_events.rs`); an event's effect, its dedupe row and the
   cursor commit in one transaction. A redemption's approval verdict is always read back with
   `GetPendingOperation` — the event is only the nudge.
+- **A buy's hold may outlive its order only for a minute.** The hold reaper (`infrastructure/hold_reaper.rs`) voids `book_order:` holds with no order row once banking's `created_at` is older than `HOLD_REAPER_AFTER_SECS` (default 900, at least 60). Never age a hold by this process's clock.
 - **Health stays outside auth.** `grpc.health.v1` is not wrapped in the auth layer.
 - **The browser holds no token.** The cabinet BFF keeps concierge's tokens sealed (key
   derived from the cookie) in `cabinet.sessions`, keyed by the hash of the session cookie. Every mutating route calls

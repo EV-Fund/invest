@@ -112,6 +112,42 @@ impl ScopeLedgerService for Banking {
 	async fn get_hold(&self, _: Request<pb::GetHoldRequest>) -> Result<Response<pb::Hold>, Status> {
 		not_yet("GetHold")
 	}
+
+	// Two pages of `book_order:` holds, as banking pages them: by hold id, the second page's
+	// token being the first's reply. The prefix is checked, not applied: a request that
+	// loses it fails here.
+	async fn list_holds(&self, request: Request<pb::ListHoldsRequest>) -> Result<Response<pb::ListHoldsResponse>, Status> {
+		authorized(&request)?;
+		let req = request.into_inner();
+		if req.subject_ref_prefix != "book_order:" || !req.scope.is_empty() {
+			return Err(Status::invalid_argument("unexpected filter"));
+		}
+		let hold = |id: &str| pb::Hold {
+			hold_id: id.into(),
+			scope: "invest".into(),
+			auth_subject: "subject-1".into(),
+			amount: "10".into(),
+			captured: "0".into(),
+			remaining: "10".into(),
+			state: pb::HoldState::Active as i32,
+			expires_at: 0,
+			created_at: 1_760_000_000,
+			subject_ref: format!("book_order:{id}"),
+			mandate_id: String::new(),
+			placed_by_client: "invest".into(),
+		};
+		Ok(Response::new(match req.page_token.as_str() {
+			"" => pb::ListHoldsResponse {
+				holds: vec![hold("h-1")],
+				next_page_token: "after-h-1".into(),
+			},
+			"after-h-1" => pb::ListHoldsResponse {
+				holds: vec![hold("h-2")],
+				next_page_token: String::new(),
+			},
+			_ => return Err(Status::invalid_argument("unknown token")),
+		}))
+	}
 }
 
 /// banking on an ephemeral port, and a client to it carrying `token`.
@@ -181,4 +217,14 @@ async fn an_rpc_banking_does_not_serve_yet_is_unimplemented_and_a_refusal_is_its
 	assert_eq!((opened.label, opened.balance), (label("alloc:service_arb"), Usdt::ZERO));
 	let taken = client.open_account(&ScopeId::invest(), &label("alloc:other"), &MoneyKey::parse("open-2").unwrap()).await;
 	assert!(matches!(taken, Err(MoneyLedgerError::IdempotencyConflict(_))));
+}
+
+#[tokio::test]
+async fn list_holds_walks_every_page_and_carries_the_placement_time() {
+	let client = banking(TOKEN).await;
+	let holds = client.list_holds("book_order:").await.unwrap();
+	let ids: Vec<&str> = holds.iter().map(|hold| hold.id.0.as_str()).collect();
+	assert_eq!(ids, ["h-1", "h-2"]);
+	assert!(holds.iter().all(|hold| hold.created_at == 1_760_000_000 && hold.scope == ScopeId::invest()));
+	assert_eq!(holds[1].subject_ref, "book_order:h-2");
 }

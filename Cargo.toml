@@ -23,7 +23,7 @@ ev = { version = "0.24.2", package = "ev_lib", default-features = false, feature
 # git and by rev — the pin is the whole statement of which banking invest speaks to.
 # cf38ba57: holds, MoneyEvents, Payout/RequestPayout and mandates are served; the wire is the
 # one 9ffafce3 (the snapshot the allocation code was moved from) already carried.
-evbanking_contracts = { git = "https://github.com/EV-Main/banking.git", rev = "cf38ba57b7eeaeb8cf907edcb55bae7f46bf1fe3" }
+evbanking_contracts = { git = "https://github.com/EV-Main/banking.git", rev = "7635ab1e0dde8235786c8612d2ec0cbb8a158ced" }
 # The concierge verify flow: invest-core accepts access tokens of the `invest` relying
 # party and verifies them locally against concierge's JWKS. v0.16.0, the deployed one.
 evconcierge_auth = { git = "https://github.com/EV-Main/concierge.git", rev = "151a347d79abf131c58d7da87d61ae6f52ae3239" }
