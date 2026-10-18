@@ -71,6 +71,12 @@ ev::settings! {
 		/// The name to verify concierge's certificate against, when it is not the host of
 		/// `CONCIERGE_GRPC_ADDR`.
 		concierge_tls_domain: Option<String>,
+		/// Where `AuthService.PublishCatalog` is reached, when that is not
+		/// `CONCIERGE_GRPC_ADDR`. concierge serves it on its open listener only
+		/// (`http://…:55670`); its TLS listener mounts the service seams alone, so a client
+		/// on `https://…:55672` is answered `Unimplemented`. Unset ⇒ the catalog goes over
+		/// `CONCIERGE_GRPC_ADDR`. Streams and the scope catalog never use it.
+		concierge_catalog_grpc_addr: Option<String>,
 		/// How long a taker-fee RISE on a book waits before it binds (seconds, at least 1);
 		/// holders are notified in that time. A cut binds at once. Defaults to one day, the
 		/// notice a fund's fee-policy change gives.
@@ -123,8 +129,8 @@ impl AppConfig {
 	pub fn concierge_streams(&self) -> Result<Option<ConciergeStreamsConfig>> {
 		let Some(addr) = &self.concierge_grpc_addr else {
 			ensure!(
-				self.concierge_client_secret.is_none() && self.concierge_tls_ca_pem_file.is_none() && self.concierge_tls_domain.is_none(),
-				"CONCIERGE_GRPC_ADDR is unset but its credentials are set — set the address or drop them"
+				self.concierge_client_secret.is_none() && self.concierge_tls_ca_pem_file.is_none() && self.concierge_tls_domain.is_none() && self.concierge_catalog_grpc_addr.is_none(),
+				"CONCIERGE_GRPC_ADDR is unset but its credentials or CONCIERGE_CATALOG_GRPC_ADDR are set — set the address or drop them"
 			);
 			return Ok(None);
 		};
@@ -140,8 +146,10 @@ impl AppConfig {
 			(Some(_), false) => color_eyre::eyre::bail!("CONCIERGE_TLS_CA_PEM_FILE is set but CONCIERGE_GRPC_ADDR {addr} is not https://"),
 			(None, false) => None,
 		};
+		let catalog_addr = catalog_addr_from(self.concierge_catalog_grpc_addr.as_deref(), ca_pem.is_some())?;
 		Ok(Some(ConciergeStreamsConfig {
 			addr: addr.clone(),
+			catalog_addr,
 			client_id: self.concierge_client_id.clone(),
 			client_secret,
 			ca_pem,
@@ -163,6 +171,17 @@ impl AppConfig {
 			self.scope_ledger_tls_domain.as_deref(),
 		)
 	}
+}
+
+/// The rules of `CONCIERGE_CATALOG_GRPC_ADDR` on plain values: `http://` or `https://`, and
+/// an `https://` one is verified against the same CA as the main address, so that CA must
+/// be configured.
+fn catalog_addr_from(addr: Option<&str>, has_ca: bool) -> Result<Option<String>> {
+	let Some(addr) = addr else { return Ok(None) };
+	let secure = addr.starts_with("https://");
+	ensure!(secure || addr.starts_with("http://"), "CONCIERGE_CATALOG_GRPC_ADDR {addr} must be http:// or https://");
+	ensure!(!secure || has_ca, "CONCIERGE_CATALOG_GRPC_ADDR {addr} is https://, so CONCIERGE_TLS_CA_PEM_FILE is required");
+	Ok(Some(addr.to_owned()))
 }
 
 /// The rules of [`AppConfig::scope_ledger`] on plain values, so they are testable without
@@ -244,5 +263,35 @@ mod scope_ledger_tests {
 			.unwrap();
 		assert_eq!((config.ca_pem.as_str(), config.client_key_pem.as_str()), ("pem of ca", "pem of key"));
 		assert_eq!(config.tls_domain.as_deref(), Some("banking.internal"));
+	}
+}
+
+#[cfg(test)]
+mod catalog_addr_tests {
+	use super::*;
+
+	#[test]
+	fn unset_keeps_the_main_address() {
+		assert_eq!(catalog_addr_from(None, false).unwrap(), None);
+		assert_eq!(catalog_addr_from(None, true).unwrap(), None);
+	}
+
+	#[test]
+	fn a_plaintext_address_needs_no_ca() {
+		let addr = "http://concierge:55670";
+		assert_eq!(catalog_addr_from(Some(addr), false).unwrap().as_deref(), Some(addr));
+	}
+
+	#[test]
+	fn a_tls_address_needs_the_ca() {
+		let err = catalog_addr_from(Some("https://concierge:55672"), false).err().unwrap().to_string();
+		assert!(err.contains("CONCIERGE_TLS_CA_PEM_FILE is required"), "{err}");
+		assert!(catalog_addr_from(Some("https://concierge:55672"), true).unwrap().is_some());
+	}
+
+	#[test]
+	fn another_scheme_is_refused() {
+		let err = catalog_addr_from(Some("concierge:55670"), true).err().unwrap().to_string();
+		assert!(err.contains("must be http:// or https://"), "{err}");
 	}
 }

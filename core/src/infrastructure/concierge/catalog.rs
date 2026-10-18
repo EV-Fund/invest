@@ -24,10 +24,17 @@ pub struct ClientCatalogPublisher {
 }
 
 impl ClientCatalogPublisher {
-	/// Over the same address and credential the streams are pulled with. Lazy, like them.
+	/// Over the credential the streams are pulled with, and over their address unless
+	/// `catalog_addr` names another. Lazy, like them.
+	///
+	/// Why a separate address: `AuthService.PublishCatalog` is mounted on concierge's open
+	/// listener only, while its TLS listener carries just the service seams; over the
+	/// streams' TLS channel the call is `Unimplemented`. On the open port the client secret
+	/// crosses the cluster unencrypted, as the cabinet BFF's code exchange already does.
 	pub fn connect(config: &ConciergeStreamsConfig) -> color_eyre::Result<Self> {
-		let client = ConciergeClient::from_channel(super::channel(config)?, config.client_id.clone(), config.client_secret.clone())
-			.map_err(|err| color_eyre::eyre::eyre!("concierge catalog client: {err}"))?;
+		let channel = super::channel_to(config.catalog_addr.as_deref().unwrap_or(&config.addr), config)?;
+		let client =
+			ConciergeClient::from_channel(channel, config.client_id.clone(), config.client_secret.clone()).map_err(|err| color_eyre::eyre::eyre!("concierge catalog client: {err}"))?;
 		Ok(Self { client })
 	}
 }
