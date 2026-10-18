@@ -106,6 +106,7 @@ invest-core reads the environment only; `core/.env.example` documents every vari
 | `CONCIERGE_CLIENT_ID` | `invest` | the relying-party client invest reads the streams as |
 | `CONCIERGE_CLIENT_SECRET` | unset | secret; concierge's `RP_CLIENT_SECRET_INVEST`; required with the address |
 | `CONCIERGE_TLS_CA_PEM_FILE`, `CONCIERGE_TLS_DOMAIN` | unset | the CA (required for `https://`) and the name of concierge's TLS listener |
+| `CONCIERGE_CATALOG_GRPC_ADDR` | unset | optional; where the `invest:*` permission catalog is published (`http://…:55670`). concierge mounts `AuthService.PublishCatalog` on its open listener only, so with `CONCIERGE_GRPC_ADDR` on the TLS listener the publish is `Unimplemented`; set this to the open port. Unset ⇒ the catalog goes over `CONCIERGE_GRPC_ADDR`. The client secret crosses the cluster unencrypted on it. Streams and the scope catalog stay on `CONCIERGE_GRPC_ADDR` |
 | `SENTRY_DSN` | unset | secret; optional — unset ⇒ errors are not reported (a startup WARN in production). One Sentry project (`invest`) serves the core, the BFF and the cabinet; each reports under its own `service` name |
 | `APP_ENV` | — | `development` / `production` |
 

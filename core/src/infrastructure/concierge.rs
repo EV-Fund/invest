@@ -56,6 +56,9 @@ const CALL_TIMEOUT: Duration = Duration::from_secs(10);
 /// docs/SCOPES-AND-APPROVALS.md §2: `x-ev-client-id` + `authorization: Bearer <secret>`).
 pub struct ConciergeStreamsConfig {
 	pub addr: String,
+	/// Where `AuthService.PublishCatalog` is reached when it is not `addr`; see
+	/// [`ClientCatalogPublisher`](catalog::ClientCatalogPublisher).
+	pub catalog_addr: Option<String>,
 	pub client_id: String,
 	pub client_secret: String,
 	/// The CA of concierge's TLS listener (PEM), for an `https://` address.
@@ -72,8 +75,14 @@ pub fn connect(config: &ConciergeStreamsConfig) -> color_eyre::Result<GrpcSource
 /// A lazy channel to concierge, over TLS when the address is `https://`. Shared by the
 /// stream source and the catalog publisher.
 fn channel(config: &ConciergeStreamsConfig) -> color_eyre::Result<Channel> {
-	let mut endpoint = Endpoint::from_shared(config.addr.clone())?.connect_timeout(CALL_TIMEOUT).timeout(CALL_TIMEOUT);
-	if let Some(ca_pem) = &config.ca_pem {
+	channel_to(&config.addr, config)
+}
+
+/// [`channel`] to `addr`. TLS is set up only for an `https://` address: the CA and domain
+/// describe the TLS listener, and tonic refuses a TLS config on a plaintext endpoint.
+fn channel_to(addr: &str, config: &ConciergeStreamsConfig) -> color_eyre::Result<Channel> {
+	let mut endpoint = Endpoint::from_shared(addr.to_owned())?.connect_timeout(CALL_TIMEOUT).timeout(CALL_TIMEOUT);
+	if let (Some(ca_pem), true) = (&config.ca_pem, addr.starts_with("https://")) {
 		let mut tls = ClientTlsConfig::new().ca_certificate(Certificate::from_pem(ca_pem));
 		if let Some(domain) = &config.tls_domain {
 			tls = tls.domain_name(domain.clone());
