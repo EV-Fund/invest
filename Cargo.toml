@@ -26,10 +26,9 @@ dotenvy = "0.15.7"
 ev = { version = "0.24.2", package = "ev_lib", default-features = false, features = ["architecture"] }
 # banking's wire contracts: `scope.v1.ScopeLedgerService`, the money port's adapter. By
 # git and by rev — the pin is the whole statement of which banking invest speaks to.
-# 849d47e9: the head of banking#557 (fen/scope-ledger-mint) = cf38ba57's wire (holds,
-# MoneyEvents, Payout/RequestPayout, mandates) plus `scope.v1.ScopeAuthService/MintServiceToken`.
-# TODO: replace the rev with the commit on banking `main` once #557 is merged.
-evbanking_contracts = { git = "https://github.com/EV-Main/banking.git", rev = "849d47e959cc9fc7007ca3092dd4e4ddccf0702c" }
+# 8c52e789: banking `main` with #557 merged = cf38ba57's wire (holds, MoneyEvents,
+# Payout/RequestPayout, mandates) plus `scope.v1.ScopeAuthService/MintServiceToken`.
+evbanking_contracts = { git = "https://github.com/EV-Main/banking.git", rev = "8c52e789f5f6740dc380e539e5474b8dc3c2ba1b" }
 # The concierge verify flow: invest-core accepts access tokens of the `invest` relying
 # party and verifies them locally against concierge's JWKS. v0.16.0, the deployed one.
 evconcierge_auth = { git = "https://github.com/EV-Main/concierge.git", rev = "151a347d79abf131c58d7da87d61ae6f52ae3239" }
