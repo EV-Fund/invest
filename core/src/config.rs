@@ -53,10 +53,6 @@ ev::settings! {
 		/// The name to verify banking's certificate against, when it is not the host of
 		/// `SCOPE_LEDGER_ADDR`.
 		scope_ledger_tls_domain: Option<String>,
-		/// The `typ=service` token for the client `invest` (until banking's
-		/// `MintServiceToken` lands, provisioned out of band).
-		#[secret]
-		scope_ledger_service_token: Option<String>,
 		/// concierge's gRPC (`http://host:55670`, or its TLS listener `https://host:55672`),
 		/// pulled for the lifecycle and scope streams the `users` projection is written
 		/// from. Unset ⇒ the projection does not run and nobody is known to invest: every
@@ -165,7 +161,7 @@ impl AppConfig {
 		let Some(addr) = &self.scope_ledger_addr else {
 			let stray: Vec<&str> = files.iter().filter(|(_, v)| v.is_some()).map(|(name, _)| *name).collect();
 			ensure!(
-				stray.is_empty() && self.scope_ledger_service_token.is_none(),
+				stray.is_empty(),
 				"SCOPE_LEDGER_ADDR is unset but its credentials are set ({stray:?}) — set the address or drop them"
 			);
 			return Ok(None);
@@ -185,10 +181,6 @@ impl AppConfig {
 			client_cert_pem: read(cert)?,
 			client_key_pem: read(key)?,
 			tls_domain: self.scope_ledger_tls_domain.clone(),
-			service_token: self
-				.scope_ledger_service_token
-				.clone()
-				.ok_or_else(|| color_eyre::eyre::eyre!("SCOPE_LEDGER_ADDR is set, so SCOPE_LEDGER_SERVICE_TOKEN is required"))?,
 		}))
 	}
 }

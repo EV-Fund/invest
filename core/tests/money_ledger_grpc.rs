@@ -1,15 +1,24 @@
 //! The money port's gRPC adapter against a stub `scope.v1.ScopeLedgerService` — banking's
 //! own server stubs (`evbanking_contracts`, the pinned rev), served in process. No TLS: the
-//! adapter is built over a plain channel (`ScopeLedgerClient::with_channel`); what is under
+//! adapter is built over a plain channel (`ScopeLedgerClient::with_parts`); what is under
 //! test is the wire shape — the bearer every call carries, the amounts parsed off the
 //! answer, and how banking's statuses reach the port. Needs no database and no ledger.
 
+use std::sync::{
+	Arc,
+	atomic::{AtomicU32, Ordering},
+};
+
 use evbanking_contracts::scope::v1::{
 	self as pb,
+	scope_auth_service_server::{ScopeAuthService, ScopeAuthServiceServer},
 	scope_ledger_service_server::{ScopeLedgerService, ScopeLedgerServiceServer},
 };
 use invest_core::{
-	infrastructure::money::grpc::ScopeLedgerClient,
+	infrastructure::money::{
+		grpc::ScopeLedgerClient,
+		token::{HostClock, MintedToken, TokenMinter, TokenSource},
+	},
 	ports::money::{AccountLabel, MoneyKey, MoneyLedger, MoneyLedgerError, Refusal, ReserveRequest, ScopeId, SubjectRef},
 };
 use invest_domain::{balance::ServiceId, money::Usdt};
@@ -150,6 +159,19 @@ impl ScopeLedgerService for Banking {
 	}
 }
 
+/// Hands out one fixed token, valid for ten minutes by the host clock.
+struct FixedMinter(String);
+
+#[tonic::async_trait]
+impl TokenMinter for FixedMinter {
+	async fn mint(&self) -> Result<MintedToken, Status> {
+		Ok(MintedToken {
+			token: self.0.clone(),
+			expires_at: invest_core::infrastructure::now_unix() + 600,
+		})
+	}
+}
+
 /// banking on an ephemeral port, and a client to it carrying `token`.
 async fn banking(token: &str) -> ScopeLedgerClient {
 	let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -160,7 +182,7 @@ async fn banking(token: &str) -> ScopeLedgerClient {
 			.serve_with_incoming(TcpListenerStream::new(listener)),
 	);
 	let channel = tonic::transport::Endpoint::from_shared(format!("http://{addr}")).unwrap().connect_lazy();
-	ScopeLedgerClient::with_channel(channel, token).unwrap()
+	ScopeLedgerClient::with_parts(channel, TokenSource::new(Arc::new(FixedMinter(token.into())), Arc::new(HostClock)))
 }
 
 fn label(raw: &str) -> AccountLabel {
@@ -227,4 +249,84 @@ async fn list_holds_walks_every_page_and_carries_the_placement_time() {
 	assert_eq!(ids, ["h-1", "h-2"]);
 	assert!(holds.iter().all(|hold| hold.created_at == 1_760_000_000 && hold.scope == ScopeId::invest()));
 	assert_eq!(holds[1].subject_ref, "book_order:h-2");
+}
+
+/// banking's `ScopeAuthService`: counts the mints, hands out `TOKEN` valid for `ttl` seconds,
+/// or refuses while `failing`.
+struct Minting {
+	mints: Arc<AtomicU32>,
+	ttl: i64,
+	failing: bool,
+}
+
+#[tonic::async_trait]
+impl ScopeAuthService for Minting {
+	async fn mint_service_token(&self, _: Request<pb::MintServiceTokenRequest>) -> Result<Response<pb::MintServiceTokenResponse>, Status> {
+		self.mints.fetch_add(1, Ordering::SeqCst);
+		if self.failing {
+			return Err(Status::unauthenticated("no client for this certificate"));
+		}
+		Ok(Response::new(pb::MintServiceTokenResponse {
+			token: TOKEN.into(),
+			expires_at: invest_core::infrastructure::now_unix() + self.ttl,
+		}))
+	}
+}
+
+/// banking with the mint RPC on the same listener, and a client that gets its token from it
+/// over the wire. Returns the mint counter.
+async fn banking_that_mints(ttl: i64, failing: bool) -> (ScopeLedgerClient, Arc<AtomicU32>) {
+	let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+	let addr = listener.local_addr().unwrap();
+	let mints = Arc::new(AtomicU32::new(0));
+	tokio::spawn(
+		Server::builder()
+			.add_service(ScopeAuthServiceServer::new(Minting { mints: mints.clone(), ttl, failing }))
+			.add_service(ScopeLedgerServiceServer::new(Banking))
+			.serve_with_incoming(TcpListenerStream::new(listener)),
+	);
+	let channel = tonic::transport::Endpoint::from_shared(format!("http://{addr}")).unwrap().connect_lazy();
+	(ScopeLedgerClient::with_parts(channel.clone(), TokenSource::over_channel(channel)), mints)
+}
+
+#[tokio::test]
+async fn the_client_mints_its_token_over_the_wire_once_and_reuses_it() {
+	let (client, mints) = banking_that_mints(300, false).await;
+	for _ in 0..3 {
+		client.balances(&ScopeId::invest(), &[label("alloc:fee")]).await.unwrap();
+	}
+	assert_eq!(mints.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn a_token_about_to_lapse_is_replaced_before_the_next_call() {
+	// 30 s is inside the refresh margin: every call finds the cache stale and mints again,
+	// and every call still passes banking's token check.
+	let (client, mints) = banking_that_mints(30, false).await;
+	for _ in 0..3 {
+		client.balances(&ScopeId::invest(), &[label("alloc:fee")]).await.unwrap();
+	}
+	assert_eq!(mints.load(Ordering::SeqCst), 3);
+}
+
+#[tokio::test]
+async fn a_refused_mint_makes_the_call_unavailable_and_nothing_is_sent_or_retried() {
+	let (client, mints) = banking_that_mints(300, true).await;
+	let err = client.balances(&ScopeId::invest(), &[label("alloc:fee")]).await.unwrap_err();
+	match &err {
+		MoneyLedgerError::Unavailable(message) => assert!(message.contains("unavailable") && !message.contains(TOKEN), "{message}"),
+		other => panic!("{other:?}"),
+	}
+	// UNAUTHENTICATED is final: one mint, no backoff loop.
+	assert_eq!(mints.load(Ordering::SeqCst), 1);
+
+	// A money call that cannot get a token is not sent either.
+	let sweep = invest_core::ports::money::FeeSweepRequest {
+		scope: ScopeId::invest(),
+		from: label("alloc:service_arb"),
+		amount: Usdt::parse_decimal("5").unwrap(),
+		key: MoneyKey::parse("sweep-1").unwrap(),
+		subject_ref: SubjectRef::new("fee_settlement", uuid::Uuid::new_v4()).unwrap(),
+	};
+	assert!(matches!(client.sweep_fees(&sweep).await, Err(MoneyLedgerError::Unavailable(_))));
 }
