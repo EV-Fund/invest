@@ -1,7 +1,7 @@
 //! Adapters for the [`MoneyLedger`](crate::ports::money::MoneyLedger) port.
 //!
 //! - [`grpc::ScopeLedgerClient`] — banking's `scope.v1.ScopeLedgerService` over mTLS with a
-//!   service token. The production adapter.
+//!   service token minted by banking ([`token::TokenSource`]). The production adapter.
 //! - [`Unconfigured`] — what invest-core runs with when no scope ledger is configured:
 //!   every call is [`MoneyLedgerError::Unavailable`], so nothing priced off cash is ever
 //!   priced off a guess.
@@ -18,6 +18,7 @@ use crate::ports::money::{
 
 pub mod fake;
 pub mod grpc;
+pub mod token;
 
 /// The money port with no ledger behind it.
 pub struct Unconfigured;

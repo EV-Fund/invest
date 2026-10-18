@@ -258,7 +258,7 @@
           '';
         };
 
-        # Secrets (SENTRY_DSN, SCOPE_LEDGER_SERVICE_TOKEN, the mTLS key) arrive via the k8s
+        # Secrets (SENTRY_DSN, the mTLS key) arrive via the k8s
         # Secret gitops owns — never baked here. `--print-required-vars` on the image is the
         # contract the gitops preflight diffs that Secret against.
         containerStd = v_flakes.container.implement {

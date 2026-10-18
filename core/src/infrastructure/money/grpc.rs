@@ -1,27 +1,28 @@
 //! The money port over banking's `scope.v1.ScopeLedgerService` (`evbanking_contracts`, the
 //! rev pinned in the workspace manifest).
 //!
-//! banking proves invest twice, and both are configured here: the client certificate
-//! (mTLS — banking maps its fingerprint to the client id `invest`) and a `typ=service`
-//! token whose `sub` must be that same client, sent as `authorization: Bearer …`. Until
-//! banking's `MintServiceToken` lands the token is provisioned out of band
-//! (`SCOPE_LEDGER_SERVICE_TOKEN`).
+//! banking proves invest twice: the client certificate (mTLS — banking maps its fingerprint
+//! to the client id `invest`) and a `typ=service` token whose `sub` must be that same
+//! client, sent as `authorization: Bearer …`. The token is banking's to give: it is minted
+//! over the same channel and renewed before it lapses ([`TokenSource`]); nothing is
+//! provisioned out of band. A mint that fails is [`MoneyLedgerError::Unavailable`] — the
+//! call is never sent, and never retried here.
 //!
 //! Refusals arrive as (code, message) with the machine reason as the whole message; the
 //! adapter turns the status into a [`MoneyLedgerError`] and nothing else — the caller
 //! decides what a refusal means for its saga.
 
-use std::time::Duration;
+use std::{future::Future, time::Duration};
 
 use async_trait::async_trait;
 use evbanking_contracts::scope::v1::{self as pb, money_event::Kind, money_events_client::MoneyEventsClient, scope_ledger_service_client::ScopeLedgerServiceClient};
 use invest_domain::{architecture::Gateway, money::Usdt};
 use tonic::{
 	Code, Request, Status,
-	metadata::MetadataValue,
 	transport::{Certificate, Channel, ClientTlsConfig, Endpoint, Identity},
 };
 
+use super::token::TokenSource;
 use crate::ports::money::{
 	AccountLabel, CaptureRequest, CaptureTo, FeeSweepRequest, Hold, HoldId, HoldState, MoneyEvent, MoneyEventKind, MoneyEventPage, MoneyEventSource, MoneyKey, MoneyLedger, MoneyLedgerError,
 	OperationId, Payout, PayoutLine, PayoutReason, PayoutRequest, PendingOperation, PendingOperationState, Refusal, RequestPayoutRequest, ReserveRequest, ScopeAccount, ScopeId, Transfer,
@@ -50,8 +51,6 @@ pub struct ScopeLedgerConfig {
 	pub client_key_pem: String,
 	/// The name to verify banking's certificate against, when it differs from `addr`'s host.
 	pub tls_domain: Option<String>,
-	/// The `typ=service` token for the client `invest`.
-	pub service_token: String,
 }
 
 pub struct ScopeLedgerClient {
@@ -59,7 +58,7 @@ pub struct ScopeLedgerClient {
 	/// banking serves `MoneyEvents` on the scope ledger's listener, behind the same mTLS
 	/// identity and token.
 	events: MoneyEventsClient<Channel>,
-	authorization: MetadataValue<tonic::metadata::Ascii>,
+	tokens: TokenSource,
 }
 
 impl ScopeLedgerClient {
@@ -73,24 +72,46 @@ impl ScopeLedgerClient {
 			tls = tls.domain_name(domain.clone());
 		}
 		let channel = Endpoint::from_shared(config.addr.clone())?.timeout(CALL_TIMEOUT).tls_config(tls)?.connect_lazy();
-		Self::with_channel(channel, &config.service_token)
+		let tokens = TokenSource::over_channel(channel.clone());
+		Ok(Self::from_parts(channel, tokens))
 	}
 
-	/// A client over an already built channel — the seam the tests use to reach a stub
-	/// server without TLS.
-	pub fn with_channel(channel: Channel, service_token: &str) -> color_eyre::Result<Self> {
-		let authorization = MetadataValue::try_from(format!("Bearer {service_token}")).map_err(|_| color_eyre::eyre::eyre!("SCOPE_LEDGER_SERVICE_TOKEN is not a valid header value"))?;
-		Ok(Self {
+	/// A client over an already built channel and token source — the seam the tests use to
+	/// reach a stub server without TLS and to script the mint.
+	#[cfg(any(test, feature = "test-support"))]
+	pub fn with_parts(channel: Channel, tokens: TokenSource) -> Self {
+		Self::from_parts(channel, tokens)
+	}
+
+	fn from_parts(channel: Channel, tokens: TokenSource) -> Self {
+		Self {
 			client: ScopeLedgerServiceClient::new(channel.clone()),
 			events: MoneyEventsClient::new(channel),
-			authorization,
-		})
+			tokens,
+		}
 	}
 
-	fn request<T>(&self, message: T) -> Request<T> {
+	/// One call with a bearer that is good now. A token that cannot be had fails the call
+	/// before anything is sent, as UNAVAILABLE — which every caller already reads as "try
+	/// again later under the same key". A call banking refuses with UNAUTHENTICATED marks the
+	/// token it carried as refused, and is NOT repeated here: the saga repeats it, under its
+	/// key, with whatever token the next mint gives.
+	async fn send<C, T, R, Fut>(&self, client: &C, message: T, call: impl FnOnce(C, Request<T>) -> Fut) -> Result<R, Status>
+	where
+		C: Clone,
+		Fut: Future<Output = Result<tonic::Response<R>, Status>>, {
+		let lease = self.tokens.bearer().await.map_err(|err| Status::unavailable(format!("scope ledger unavailable: {err}")))?;
 		let mut request = Request::new(message);
-		request.metadata_mut().insert("authorization", self.authorization.clone());
-		request
+		request.metadata_mut().insert("authorization", lease.header);
+		match call(client.clone(), request).await {
+			Ok(response) => Ok(response.into_inner()),
+			Err(status) => {
+				if status.code() == Code::Unauthenticated {
+					self.tokens.reject(lease.generation);
+				}
+				Err(status)
+			}
+		}
 	}
 }
 
@@ -99,21 +120,27 @@ impl Gateway for ScopeLedgerClient {}
 #[async_trait]
 impl MoneyLedger for ScopeLedgerClient {
 	async fn open_account(&self, scope: &ScopeId, label: &AccountLabel, key: &MoneyKey) -> Result<ScopeAccount, MoneyLedgerError> {
-		let request = self.request(pb::OpenAccountRequest {
+		let message = pb::OpenAccountRequest {
 			scope: scope.as_str().to_owned(),
 			label: label.as_str().to_owned(),
 			idempotency_key: key.as_str().to_owned(),
-		});
-		let account = self.client.clone().open_account(request).await.map_err(|status| from_status("OpenAccount", status))?.into_inner();
+		};
+		let account = self
+			.send(&self.client, message, |mut client, request| async move { client.open_account(request).await })
+			.await
+			.map_err(|status| from_status("OpenAccount", status))?;
 		account_from_proto(account)
 	}
 
 	async fn balances(&self, scope: &ScopeId, labels: &[AccountLabel]) -> Result<Vec<ScopeAccount>, MoneyLedgerError> {
-		let request = self.request(pb::GetBalancesRequest {
+		let message = pb::GetBalancesRequest {
 			scope: scope.as_str().to_owned(),
 			labels: labels.iter().map(|label| label.as_str().to_owned()).collect(),
-		});
-		let response = self.client.clone().get_balances(request).await.map_err(|status| from_status("GetBalances", status))?.into_inner();
+		};
+		let response = self
+			.send(&self.client, message, |mut client, request| async move { client.get_balances(request).await })
+			.await
+			.map_err(|status| from_status("GetBalances", status))?;
 		response.accounts.into_iter().map(account_from_proto).collect()
 	}
 
@@ -127,12 +154,9 @@ impl MoneyLedger for ScopeLedgerClient {
 			subject_ref: request.subject_ref.as_str().to_owned(),
 		};
 		let hold = self
-			.client
-			.clone()
-			.reserve(self.request(message))
+			.send(&self.client, message, |mut client, request| async move { client.reserve(request).await })
 			.await
-			.map_err(|status| from_status("Reserve", status))?
-			.into_inner();
+			.map_err(|status| from_status("Reserve", status))?;
 		hold_from_proto(hold)
 	}
 
@@ -150,12 +174,9 @@ impl MoneyLedger for ScopeLedgerClient {
 			subject_ref: request.subject_ref.as_str().to_owned(),
 		};
 		let hold = self
-			.client
-			.clone()
-			.capture(self.request(message))
+			.send(&self.client, message, |mut client, request| async move { client.capture(request).await })
 			.await
-			.map_err(|status| from_status("Capture", status))?
-			.into_inner();
+			.map_err(|status| from_status("Capture", status))?;
 		hold_from_proto(hold)
 	}
 
@@ -166,7 +187,10 @@ impl MoneyLedger for ScopeLedgerClient {
 			idempotency_key: request.key.as_str().to_owned(),
 			subject_ref: request.subject_ref.as_str().to_owned(),
 		};
-		let hold = self.client.clone().void(self.request(message)).await.map_err(|status| from_status("Void", status))?.into_inner();
+		let hold = self
+			.send(&self.client, message, |mut client, request| async move { client.void(request).await })
+			.await
+			.map_err(|status| from_status("Void", status))?;
 		hold_from_proto(hold)
 	}
 
@@ -176,12 +200,9 @@ impl MoneyLedger for ScopeLedgerClient {
 			hold_id: hold_id.0.clone(),
 		};
 		let hold = self
-			.client
-			.clone()
-			.get_hold(self.request(message))
+			.send(&self.client, message, |mut client, request| async move { client.get_hold(request).await })
 			.await
-			.map_err(|status| from_status("GetHold", status))?
-			.into_inner();
+			.map_err(|status| from_status("GetHold", status))?;
 		hold_from_proto(hold)
 	}
 
@@ -198,12 +219,9 @@ impl MoneyLedger for ScopeLedgerClient {
 				page_token: page_token.clone(),
 			};
 			let page = self
-				.client
-				.clone()
-				.list_holds(self.request(message))
+				.send(&self.client, message, |mut client, request| async move { client.list_holds(request).await })
 				.await
-				.map_err(|status| from_status("ListHolds", status))?
-				.into_inner();
+				.map_err(|status| from_status("ListHolds", status))?;
 			for hold in page.holds {
 				holds.push(hold_from_proto(hold)?);
 			}
@@ -239,12 +257,9 @@ impl MoneyLedger for ScopeLedgerClient {
 			reason: reason as i32,
 		};
 		let payout = self
-			.client
-			.clone()
-			.payout(self.request(message))
+			.send(&self.client, message, |mut client, request| async move { client.payout(request).await })
 			.await
-			.map_err(|status| from_status("Payout", status))?
-			.into_inner();
+			.map_err(|status| from_status("Payout", status))?;
 		Ok(Payout {
 			id: payout.payout_id,
 			total: amount(&payout.total)?,
@@ -263,12 +278,9 @@ impl MoneyLedger for ScopeLedgerClient {
 			reason: pb::TransferReason::FeeSweep as i32,
 		};
 		let transfer = self
-			.client
-			.clone()
-			.transfer(self.request(message))
+			.send(&self.client, message, |mut client, request| async move { client.transfer(request).await })
 			.await
-			.map_err(|status| from_status("Transfer", status))?
-			.into_inner();
+			.map_err(|status| from_status("Transfer", status))?;
 		Ok(Transfer {
 			id: transfer.transfer_id,
 			amount: amount(&transfer.amount)?,
@@ -286,9 +298,7 @@ impl MoneyLedger for ScopeLedgerClient {
 			memo: request.memo.clone(),
 		};
 		let operation = self
-			.client
-			.clone()
-			.request_payout(self.request(message))
+			.send(&self.client, message, |mut client, request| async move { client.request_payout(request).await })
 			.await
 			.map_err(|status| match status.code() {
 				// banking's cap on a client's operations awaiting approval in one scope: not
@@ -296,8 +306,7 @@ impl MoneyLedger for ScopeLedgerClient {
 				// saga reads it as a refusal rather than retrying ahead of every later event.
 				Code::ResourceExhausted => MoneyLedgerError::Refused(Refusal::Other(APPROVAL_QUEUE_FULL.to_owned())),
 				_ => from_status("RequestPayout", status),
-			})?
-			.into_inner();
+			})?;
 		operation_from_proto(operation)
 	}
 
@@ -307,12 +316,9 @@ impl MoneyLedger for ScopeLedgerClient {
 			operation_id: operation_id.0.clone(),
 		};
 		let operation = self
-			.client
-			.clone()
-			.get_pending_operation(self.request(message))
+			.send(&self.client, message, |mut client, request| async move { client.get_pending_operation(request).await })
 			.await
-			.map_err(|status| from_status("GetPendingOperation", status))?
-			.into_inner();
+			.map_err(|status| from_status("GetPendingOperation", status))?;
 		operation_from_proto(operation)
 	}
 }
@@ -326,7 +332,10 @@ impl MoneyEventSource for ScopeLedgerClient {
 			after_position,
 			limit,
 		};
-		let page = self.events.clone().pull(self.request(message)).await.map_err(|status| from_status("Pull", status))?.into_inner();
+		let page = self
+			.send(&self.events, message, |mut client, request| async move { client.pull(request).await })
+			.await
+			.map_err(|status| from_status("Pull", status))?;
 		Ok(MoneyEventPage {
 			events: page.events.into_iter().map(event_from_proto).collect::<Result<_, _>>()?,
 			next_position: page.next_position,
