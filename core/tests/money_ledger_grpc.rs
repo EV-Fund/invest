@@ -165,10 +165,7 @@ struct FixedMinter(String);
 #[tonic::async_trait]
 impl TokenMinter for FixedMinter {
 	async fn mint(&self) -> Result<MintedToken, Status> {
-		Ok(MintedToken {
-			token: self.0.clone(),
-			expires_at: invest_core::infrastructure::now_unix() + 600,
-		})
+		Ok(MintedToken::new(self.0.clone(), invest_core::infrastructure::now_unix() + 600))
 	}
 }
 
@@ -251,37 +248,65 @@ async fn list_holds_walks_every_page_and_carries_the_placement_time() {
 	assert_eq!(holds[1].subject_ref, "book_order:h-2");
 }
 
-/// banking's `ScopeAuthService`: counts the mints, hands out `TOKEN` valid for `ttl` seconds,
-/// or refuses while `failing`.
+/// How the stub `ScopeAuthService` behaves.
+#[derive(Clone, Copy)]
+enum Mint {
+	/// `TOKEN`, valid for the given seconds; a second mint inside 5 s is refused as banking
+	/// refuses it.
+	Token {
+		ttl: i64,
+	},
+	/// A token the ledger stub does not accept — one banking has revoked or let lapse.
+	WrongToken,
+	Unauthenticated,
+	NotGranted,
+}
+
 struct Minting {
 	mints: Arc<AtomicU32>,
-	ttl: i64,
-	failing: bool,
+	mode: Mint,
+	last: std::sync::Mutex<Option<std::time::Instant>>,
 }
 
 #[tonic::async_trait]
 impl ScopeAuthService for Minting {
 	async fn mint_service_token(&self, _: Request<pb::MintServiceTokenRequest>) -> Result<Response<pb::MintServiceTokenResponse>, Status> {
 		self.mints.fetch_add(1, Ordering::SeqCst);
-		if self.failing {
-			return Err(Status::unauthenticated("no client for this certificate"));
+		let issue = |token: &str, ttl: i64| {
+			Response::new(pb::MintServiceTokenResponse {
+				token: token.into(),
+				expires_at: invest_core::infrastructure::now_unix() + ttl,
+			})
+		};
+		match self.mode {
+			Mint::Unauthenticated => Err(Status::unauthenticated("no client for this certificate")),
+			Mint::NotGranted => Err(Status::permission_denied("not_granted")),
+			Mint::WrongToken => Ok(issue("revoked-token", 300)),
+			Mint::Token { ttl } => {
+				let mut last = self.last.lock().unwrap();
+				if last.is_some_and(|at| at.elapsed() < std::time::Duration::from_secs(5)) {
+					return Err(Status::resource_exhausted("minting too often"));
+				}
+				*last = Some(std::time::Instant::now());
+				Ok(issue(TOKEN, ttl))
+			}
 		}
-		Ok(Response::new(pb::MintServiceTokenResponse {
-			token: TOKEN.into(),
-			expires_at: invest_core::infrastructure::now_unix() + self.ttl,
-		}))
 	}
 }
 
 /// banking with the mint RPC on the same listener, and a client that gets its token from it
 /// over the wire. Returns the mint counter.
-async fn banking_that_mints(ttl: i64, failing: bool) -> (ScopeLedgerClient, Arc<AtomicU32>) {
+async fn banking_that_mints(mode: Mint) -> (ScopeLedgerClient, Arc<AtomicU32>) {
 	let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
 	let addr = listener.local_addr().unwrap();
 	let mints = Arc::new(AtomicU32::new(0));
 	tokio::spawn(
 		Server::builder()
-			.add_service(ScopeAuthServiceServer::new(Minting { mints: mints.clone(), ttl, failing }))
+			.add_service(ScopeAuthServiceServer::new(Minting {
+				mints: mints.clone(),
+				mode,
+				last: Default::default(),
+			}))
 			.add_service(ScopeLedgerServiceServer::new(Banking))
 			.serve_with_incoming(TcpListenerStream::new(listener)),
 	);
@@ -289,35 +314,44 @@ async fn banking_that_mints(ttl: i64, failing: bool) -> (ScopeLedgerClient, Arc<
 	(ScopeLedgerClient::with_parts(channel.clone(), TokenSource::over_channel(channel)), mints)
 }
 
+async fn read_fee(client: &ScopeLedgerClient) -> Result<(), MoneyLedgerError> {
+	client.balances(&ScopeId::invest(), &[label("alloc:fee")]).await.map(|_| ())
+}
+
+fn is_unavailable<T: std::fmt::Debug>(result: Result<T, MoneyLedgerError>) -> String {
+	match result {
+		Err(MoneyLedgerError::Unavailable(message)) => message,
+		other => panic!("expected Unavailable, got {other:?}"),
+	}
+}
+
 #[tokio::test]
 async fn the_client_mints_its_token_over_the_wire_once_and_reuses_it() {
-	let (client, mints) = banking_that_mints(300, false).await;
+	let (client, mints) = banking_that_mints(Mint::Token { ttl: 300 }).await;
 	for _ in 0..3 {
-		client.balances(&ScopeId::invest(), &[label("alloc:fee")]).await.unwrap();
+		read_fee(&client).await.unwrap();
 	}
 	assert_eq!(mints.load(Ordering::SeqCst), 1);
 }
 
 #[tokio::test]
-async fn a_token_about_to_lapse_is_replaced_before_the_next_call() {
-	// 30 s is inside the refresh margin: every call finds the cache stale and mints again,
-	// and every call still passes banking's token check.
-	let (client, mints) = banking_that_mints(30, false).await;
-	for _ in 0..3 {
-		client.balances(&ScopeId::invest(), &[label("alloc:fee")]).await.unwrap();
+async fn a_short_lived_token_is_still_one_mint_for_a_burst_of_calls() {
+	// 30 s is banking's shortest TTL; the margin is a fifth of what was granted, so the
+	// burst finds a fresh token, not a renewal per call.
+	let (client, mints) = banking_that_mints(Mint::Token { ttl: 30 }).await;
+	for _ in 0..4 {
+		read_fee(&client).await.unwrap();
 	}
-	assert_eq!(mints.load(Ordering::SeqCst), 3);
+	assert_eq!(mints.load(Ordering::SeqCst), 1);
 }
 
 #[tokio::test]
-async fn a_refused_mint_makes_the_call_unavailable_and_nothing_is_sent_or_retried() {
-	let (client, mints) = banking_that_mints(300, true).await;
-	let err = client.balances(&ScopeId::invest(), &[label("alloc:fee")]).await.unwrap_err();
-	match &err {
-		MoneyLedgerError::Unavailable(message) => assert!(message.contains("unavailable") && !message.contains(TOKEN), "{message}"),
-		other => panic!("{other:?}"),
-	}
-	// UNAUTHENTICATED is final: one mint, no backoff loop.
+async fn a_certificate_without_a_client_makes_calls_unavailable_without_a_retry() {
+	let (client, mints) = banking_that_mints(Mint::Unauthenticated).await;
+	let message = is_unavailable(read_fee(&client).await);
+	assert!(message.contains("unavailable") && !message.contains(TOKEN), "{message}");
+	// One mint, no backoff loop — and the next call inside the cooldown does not ask again.
+	is_unavailable(read_fee(&client).await);
 	assert_eq!(mints.load(Ordering::SeqCst), 1);
 
 	// A money call that cannot get a token is not sent either.
@@ -328,5 +362,26 @@ async fn a_refused_mint_makes_the_call_unavailable_and_nothing_is_sent_or_retrie
 		key: MoneyKey::parse("sweep-1").unwrap(),
 		subject_ref: SubjectRef::new("fee_settlement", uuid::Uuid::new_v4()).unwrap(),
 	};
-	assert!(matches!(client.sweep_fees(&sweep).await, Err(MoneyLedgerError::Unavailable(_))));
+	is_unavailable(client.sweep_fees(&sweep).await);
+	assert_eq!(mints.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn a_client_with_no_grant_is_unavailable_too() {
+	let (client, mints) = banking_that_mints(Mint::NotGranted).await;
+	is_unavailable(read_fee(&client).await);
+	assert_eq!(mints.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn a_token_the_ledger_refuses_is_dropped_and_the_call_is_not_repeated() {
+	let (client, mints) = banking_that_mints(Mint::WrongToken).await;
+	// The mint works, the ledger answers UNAUTHENTICATED: the call is Unavailable (the saga
+	// repeats it under its key), and the token is not kept for the next one.
+	is_unavailable(read_fee(&client).await);
+	assert_eq!(mints.load(Ordering::SeqCst), 1);
+	// Inside banking's 5 s nothing mints again; the caller hears why.
+	let message = is_unavailable(read_fee(&client).await);
+	assert!(message.contains("unauthenticated"), "{message}");
+	assert_eq!(mints.load(Ordering::SeqCst), 1);
 }

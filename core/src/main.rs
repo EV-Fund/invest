@@ -122,6 +122,11 @@ fn main() -> color_eyre::Result<ExitCode> {
 	});
 	// Held for the process lifetime — dropping flushes OTel logs/traces.
 	let _otel_guard = init_tracing(&config.app_env);
+	if std::env::var_os("SCOPE_LEDGER_SERVICE_TOKEN").is_some() {
+		// A deploy that still ships the old secret must hear that it is ignored: invest-core
+		// mints its token from banking now.
+		tracing::warn!("SCOPE_LEDGER_SERVICE_TOKEN is set but ignored — remove it from the deploy, and revoke the token that was issued by hand");
+	}
 	if config.sentry_dsn.is_none() && config.app_env == "production" {
 		tracing::warn!("no SENTRY_DSN: errors are not reported");
 	}

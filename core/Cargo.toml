@@ -11,6 +11,11 @@ default-run = "invest-core"
 name = "invest-core"
 path = "src/main.rs"
 
+[features]
+# Seams the integration tests need (`ScopeLedgerClient::with_parts`) and production must not
+# have. The tests switch it on through the dev-dependency on this crate below.
+test-support = []
+
 [dependencies]
 async-trait.workspace = true
 banking_domain.workspace = true
@@ -43,6 +48,8 @@ tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "json"
 uuid = { workspace = true, features = ["v4", "v5"] }
 
 [dev-dependencies]
+# Self-reference: turns `test-support` on for this crate's own integration tests.
+invest-core = { path = ".", features = ["test-support"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "test-util"] }
 tokio-stream.workspace = true
 

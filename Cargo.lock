@@ -1666,7 +1666,7 @@ dependencies = [
 [[package]]
 name = "evbanking_contracts"
 version = "0.1.0"
-source = "git+https://github.com/EV-Main/banking.git?rev=de0083dd7d001516ce3df2cb3de8ecf68e0d5ea6#de0083dd7d001516ce3df2cb3de8ecf68e0d5ea6"
+source = "git+https://github.com/EV-Main/banking.git?rev=849d47e959cc9fc7007ca3092dd4e4ddccf0702c#849d47e959cc9fc7007ca3092dd4e4ddccf0702c"
 dependencies = [
  "prost",
  "tonic 0.14.6",
@@ -2601,6 +2601,7 @@ dependencies = [
  "evconcierge_auth",
  "evconcierge_client",
  "evconcierge_projection",
+ "invest-core",
  "invest_contracts",
  "invest_domain",
  "rustls",

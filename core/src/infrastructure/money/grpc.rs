@@ -12,7 +12,7 @@
 //! adapter turns the status into a [`MoneyLedgerError`] and nothing else — the caller
 //! decides what a refusal means for its saga.
 
-use std::time::Duration;
+use std::{future::Future, time::Duration};
 
 use async_trait::async_trait;
 use evbanking_contracts::scope::v1::{self as pb, money_event::Kind, money_events_client::MoneyEventsClient, scope_ledger_service_client::ScopeLedgerServiceClient};
@@ -73,12 +73,17 @@ impl ScopeLedgerClient {
 		}
 		let channel = Endpoint::from_shared(config.addr.clone())?.timeout(CALL_TIMEOUT).tls_config(tls)?.connect_lazy();
 		let tokens = TokenSource::over_channel(channel.clone());
-		Ok(Self::with_parts(channel, tokens))
+		Ok(Self::from_parts(channel, tokens))
 	}
 
 	/// A client over an already built channel and token source — the seam the tests use to
 	/// reach a stub server without TLS and to script the mint.
+	#[cfg(any(test, feature = "test-support"))]
 	pub fn with_parts(channel: Channel, tokens: TokenSource) -> Self {
+		Self::from_parts(channel, tokens)
+	}
+
+	fn from_parts(channel: Channel, tokens: TokenSource) -> Self {
 		Self {
 			client: ScopeLedgerServiceClient::new(channel.clone()),
 			events: MoneyEventsClient::new(channel),
@@ -86,18 +91,27 @@ impl ScopeLedgerClient {
 		}
 	}
 
-	/// The request with a bearer that is good now. A token that cannot be had fails the
-	/// call before anything is sent: `Unavailable`, which every caller already treats as
-	/// "try again later under the same key".
-	async fn request<T>(&self, message: T) -> Result<Request<T>, MoneyLedgerError> {
-		let bearer = self
-			.tokens
-			.bearer()
-			.await
-			.map_err(|err| MoneyLedgerError::Unavailable(format!("scope ledger unavailable: {err}")))?;
+	/// One call with a bearer that is good now. A token that cannot be had fails the call
+	/// before anything is sent, as UNAVAILABLE — which every caller already reads as "try
+	/// again later under the same key". A call banking refuses with UNAUTHENTICATED marks the
+	/// token it carried as refused, and is NOT repeated here: the saga repeats it, under its
+	/// key, with whatever token the next mint gives.
+	async fn send<C, T, R, Fut>(&self, client: &C, message: T, call: impl FnOnce(C, Request<T>) -> Fut) -> Result<R, Status>
+	where
+		C: Clone,
+		Fut: Future<Output = Result<tonic::Response<R>, Status>>, {
+		let lease = self.tokens.bearer().await.map_err(|err| Status::unavailable(format!("scope ledger unavailable: {err}")))?;
 		let mut request = Request::new(message);
-		request.metadata_mut().insert("authorization", bearer);
-		Ok(request)
+		request.metadata_mut().insert("authorization", lease.header);
+		match call(client.clone(), request).await {
+			Ok(response) => Ok(response.into_inner()),
+			Err(status) => {
+				if status.code() == Code::Unauthenticated {
+					self.tokens.reject(lease.generation);
+				}
+				Err(status)
+			}
+		}
 	}
 }
 
@@ -106,25 +120,27 @@ impl Gateway for ScopeLedgerClient {}
 #[async_trait]
 impl MoneyLedger for ScopeLedgerClient {
 	async fn open_account(&self, scope: &ScopeId, label: &AccountLabel, key: &MoneyKey) -> Result<ScopeAccount, MoneyLedgerError> {
-		let request = self
-			.request(pb::OpenAccountRequest {
-				scope: scope.as_str().to_owned(),
-				label: label.as_str().to_owned(),
-				idempotency_key: key.as_str().to_owned(),
-			})
-			.await?;
-		let account = self.client.clone().open_account(request).await.map_err(|status| from_status("OpenAccount", status))?.into_inner();
+		let message = pb::OpenAccountRequest {
+			scope: scope.as_str().to_owned(),
+			label: label.as_str().to_owned(),
+			idempotency_key: key.as_str().to_owned(),
+		};
+		let account = self
+			.send(&self.client, message, |mut client, request| async move { client.open_account(request).await })
+			.await
+			.map_err(|status| from_status("OpenAccount", status))?;
 		account_from_proto(account)
 	}
 
 	async fn balances(&self, scope: &ScopeId, labels: &[AccountLabel]) -> Result<Vec<ScopeAccount>, MoneyLedgerError> {
-		let request = self
-			.request(pb::GetBalancesRequest {
-				scope: scope.as_str().to_owned(),
-				labels: labels.iter().map(|label| label.as_str().to_owned()).collect(),
-			})
-			.await?;
-		let response = self.client.clone().get_balances(request).await.map_err(|status| from_status("GetBalances", status))?.into_inner();
+		let message = pb::GetBalancesRequest {
+			scope: scope.as_str().to_owned(),
+			labels: labels.iter().map(|label| label.as_str().to_owned()).collect(),
+		};
+		let response = self
+			.send(&self.client, message, |mut client, request| async move { client.get_balances(request).await })
+			.await
+			.map_err(|status| from_status("GetBalances", status))?;
 		response.accounts.into_iter().map(account_from_proto).collect()
 	}
 
@@ -138,12 +154,9 @@ impl MoneyLedger for ScopeLedgerClient {
 			subject_ref: request.subject_ref.as_str().to_owned(),
 		};
 		let hold = self
-			.client
-			.clone()
-			.reserve(self.request(message).await?)
+			.send(&self.client, message, |mut client, request| async move { client.reserve(request).await })
 			.await
-			.map_err(|status| from_status("Reserve", status))?
-			.into_inner();
+			.map_err(|status| from_status("Reserve", status))?;
 		hold_from_proto(hold)
 	}
 
@@ -161,12 +174,9 @@ impl MoneyLedger for ScopeLedgerClient {
 			subject_ref: request.subject_ref.as_str().to_owned(),
 		};
 		let hold = self
-			.client
-			.clone()
-			.capture(self.request(message).await?)
+			.send(&self.client, message, |mut client, request| async move { client.capture(request).await })
 			.await
-			.map_err(|status| from_status("Capture", status))?
-			.into_inner();
+			.map_err(|status| from_status("Capture", status))?;
 		hold_from_proto(hold)
 	}
 
@@ -178,12 +188,9 @@ impl MoneyLedger for ScopeLedgerClient {
 			subject_ref: request.subject_ref.as_str().to_owned(),
 		};
 		let hold = self
-			.client
-			.clone()
-			.void(self.request(message).await?)
+			.send(&self.client, message, |mut client, request| async move { client.void(request).await })
 			.await
-			.map_err(|status| from_status("Void", status))?
-			.into_inner();
+			.map_err(|status| from_status("Void", status))?;
 		hold_from_proto(hold)
 	}
 
@@ -193,12 +200,9 @@ impl MoneyLedger for ScopeLedgerClient {
 			hold_id: hold_id.0.clone(),
 		};
 		let hold = self
-			.client
-			.clone()
-			.get_hold(self.request(message).await?)
+			.send(&self.client, message, |mut client, request| async move { client.get_hold(request).await })
 			.await
-			.map_err(|status| from_status("GetHold", status))?
-			.into_inner();
+			.map_err(|status| from_status("GetHold", status))?;
 		hold_from_proto(hold)
 	}
 
@@ -215,12 +219,9 @@ impl MoneyLedger for ScopeLedgerClient {
 				page_token: page_token.clone(),
 			};
 			let page = self
-				.client
-				.clone()
-				.list_holds(self.request(message).await?)
+				.send(&self.client, message, |mut client, request| async move { client.list_holds(request).await })
 				.await
-				.map_err(|status| from_status("ListHolds", status))?
-				.into_inner();
+				.map_err(|status| from_status("ListHolds", status))?;
 			for hold in page.holds {
 				holds.push(hold_from_proto(hold)?);
 			}
@@ -256,12 +257,9 @@ impl MoneyLedger for ScopeLedgerClient {
 			reason: reason as i32,
 		};
 		let payout = self
-			.client
-			.clone()
-			.payout(self.request(message).await?)
+			.send(&self.client, message, |mut client, request| async move { client.payout(request).await })
 			.await
-			.map_err(|status| from_status("Payout", status))?
-			.into_inner();
+			.map_err(|status| from_status("Payout", status))?;
 		Ok(Payout {
 			id: payout.payout_id,
 			total: amount(&payout.total)?,
@@ -280,12 +278,9 @@ impl MoneyLedger for ScopeLedgerClient {
 			reason: pb::TransferReason::FeeSweep as i32,
 		};
 		let transfer = self
-			.client
-			.clone()
-			.transfer(self.request(message).await?)
+			.send(&self.client, message, |mut client, request| async move { client.transfer(request).await })
 			.await
-			.map_err(|status| from_status("Transfer", status))?
-			.into_inner();
+			.map_err(|status| from_status("Transfer", status))?;
 		Ok(Transfer {
 			id: transfer.transfer_id,
 			amount: amount(&transfer.amount)?,
@@ -303,9 +298,7 @@ impl MoneyLedger for ScopeLedgerClient {
 			memo: request.memo.clone(),
 		};
 		let operation = self
-			.client
-			.clone()
-			.request_payout(self.request(message).await?)
+			.send(&self.client, message, |mut client, request| async move { client.request_payout(request).await })
 			.await
 			.map_err(|status| match status.code() {
 				// banking's cap on a client's operations awaiting approval in one scope: not
@@ -313,8 +306,7 @@ impl MoneyLedger for ScopeLedgerClient {
 				// saga reads it as a refusal rather than retrying ahead of every later event.
 				Code::ResourceExhausted => MoneyLedgerError::Refused(Refusal::Other(APPROVAL_QUEUE_FULL.to_owned())),
 				_ => from_status("RequestPayout", status),
-			})?
-			.into_inner();
+			})?;
 		operation_from_proto(operation)
 	}
 
@@ -324,12 +316,9 @@ impl MoneyLedger for ScopeLedgerClient {
 			operation_id: operation_id.0.clone(),
 		};
 		let operation = self
-			.client
-			.clone()
-			.get_pending_operation(self.request(message).await?)
+			.send(&self.client, message, |mut client, request| async move { client.get_pending_operation(request).await })
 			.await
-			.map_err(|status| from_status("GetPendingOperation", status))?
-			.into_inner();
+			.map_err(|status| from_status("GetPendingOperation", status))?;
 		operation_from_proto(operation)
 	}
 }
@@ -344,12 +333,9 @@ impl MoneyEventSource for ScopeLedgerClient {
 			limit,
 		};
 		let page = self
-			.events
-			.clone()
-			.pull(self.request(message).await?)
+			.send(&self.events, message, |mut client, request| async move { client.pull(request).await })
 			.await
-			.map_err(|status| from_status("Pull", status))?
-			.into_inner();
+			.map_err(|status| from_status("Pull", status))?;
 		Ok(MoneyEventPage {
 			events: page.events.into_iter().map(event_from_proto).collect::<Result<_, _>>()?,
 			next_position: page.next_position,

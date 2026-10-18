@@ -153,34 +153,96 @@ impl AppConfig {
 	/// configuration is refused: an address without its credentials would fail every call
 	/// at runtime, and credentials without an address are a deploy that forgot one line.
 	pub fn scope_ledger(&self) -> Result<Option<ScopeLedgerConfig>> {
-		let files = [
-			("SCOPE_LEDGER_TLS_CA_PEM_FILE", &self.scope_ledger_tls_ca_pem_file),
-			("SCOPE_LEDGER_TLS_CERT_PEM_FILE", &self.scope_ledger_tls_cert_pem_file),
-			("SCOPE_LEDGER_TLS_KEY_PEM_FILE", &self.scope_ledger_tls_key_pem_file),
-		];
-		let Some(addr) = &self.scope_ledger_addr else {
-			let stray: Vec<&str> = files.iter().filter(|(_, v)| v.is_some()).map(|(name, _)| *name).collect();
-			ensure!(
-				stray.is_empty(),
-				"SCOPE_LEDGER_ADDR is unset but its credentials are set ({stray:?}) — set the address or drop them"
-			);
-			return Ok(None);
-		};
+		scope_ledger_from(
+			self.scope_ledger_addr.as_deref(),
+			[
+				("SCOPE_LEDGER_TLS_CA_PEM_FILE", self.scope_ledger_tls_ca_pem_file.as_deref()),
+				("SCOPE_LEDGER_TLS_CERT_PEM_FILE", self.scope_ledger_tls_cert_pem_file.as_deref()),
+				("SCOPE_LEDGER_TLS_KEY_PEM_FILE", self.scope_ledger_tls_key_pem_file.as_deref()),
+			],
+			self.scope_ledger_tls_domain.as_deref(),
+		)
+	}
+}
+
+/// The rules of [`AppConfig::scope_ledger`] on plain values, so they are testable without
+/// touching the process environment. `files` is the CA, the client certificate and its key.
+fn scope_ledger_from(addr: Option<&str>, files: [(&'static str, Option<&str>); 3], tls_domain: Option<&str>) -> Result<Option<ScopeLedgerConfig>> {
+	let Some(addr) = addr else {
+		let stray: Vec<&str> = files.iter().filter(|(_, v)| v.is_some()).map(|(name, _)| *name).collect();
 		ensure!(
-			addr.starts_with("https://"),
-			"SCOPE_LEDGER_ADDR {addr} must be https:// — banking's scope ledger speaks only mTLS"
+			stray.is_empty(),
+			"SCOPE_LEDGER_ADDR is unset but its TLS files are set ({stray:?}) — set the address or drop them"
 		);
-		let read = |(name, path): (&str, &Option<String>)| -> Result<String> {
-			let path = path.as_deref().ok_or_else(|| color_eyre::eyre::eyre!("SCOPE_LEDGER_ADDR is set, so {name} is required"))?;
-			std::fs::read_to_string(path).with_context(|| format!("failed to read {name} at {path}"))
-		};
-		let [ca, cert, key] = files;
-		Ok(Some(ScopeLedgerConfig {
-			addr: addr.clone(),
-			ca_pem: read(ca)?,
-			client_cert_pem: read(cert)?,
-			client_key_pem: read(key)?,
-			tls_domain: self.scope_ledger_tls_domain.clone(),
-		}))
+		return Ok(None);
+	};
+	ensure!(
+		addr.starts_with("https://"),
+		"SCOPE_LEDGER_ADDR {addr} must be https:// — banking's scope ledger speaks only mTLS"
+	);
+	let read = |(name, path): (&str, Option<&str>)| -> Result<String> {
+		let path = path.ok_or_else(|| color_eyre::eyre::eyre!("SCOPE_LEDGER_ADDR is set, so {name} is required"))?;
+		std::fs::read_to_string(path).with_context(|| format!("failed to read {name} at {path}"))
+	};
+	let [ca, cert, key] = files;
+	Ok(Some(ScopeLedgerConfig {
+		addr: addr.to_owned(),
+		ca_pem: read(ca)?,
+		client_cert_pem: read(cert)?,
+		client_key_pem: read(key)?,
+		tls_domain: tls_domain.map(str::to_owned),
+	}))
+}
+
+#[cfg(test)]
+mod scope_ledger_tests {
+	use super::*;
+
+	const NAMES: [&str; 3] = ["SCOPE_LEDGER_TLS_CA_PEM_FILE", "SCOPE_LEDGER_TLS_CERT_PEM_FILE", "SCOPE_LEDGER_TLS_KEY_PEM_FILE"];
+
+	fn files(paths: [Option<&str>; 3]) -> [(&'static str, Option<&str>); 3] {
+		[(NAMES[0], paths[0]), (NAMES[1], paths[1]), (NAMES[2], paths[2])]
+	}
+
+	fn pem(name: &str) -> String {
+		let path = std::env::temp_dir().join(format!("invest-scope-ledger-config-{}-{name}.pem", std::process::id()));
+		std::fs::write(&path, format!("pem of {name}")).unwrap();
+		path.to_str().unwrap().to_owned()
+	}
+
+	#[test]
+	fn nothing_set_is_no_ledger() {
+		assert!(scope_ledger_from(None, files([None; 3]), None).unwrap().is_none());
+	}
+
+	#[test]
+	fn tls_files_without_an_address_are_refused() {
+		let err = scope_ledger_from(None, files([Some("/ca.pem"), None, None]), None).err().unwrap().to_string();
+		assert!(err.contains("SCOPE_LEDGER_ADDR is unset") && err.contains("SCOPE_LEDGER_TLS_CA_PEM_FILE"), "{err}");
+	}
+
+	#[test]
+	fn an_address_without_its_files_is_refused() {
+		let err = scope_ledger_from(Some("https://banking:50054"), files([None; 3]), None).err().unwrap().to_string();
+		assert!(err.contains("SCOPE_LEDGER_TLS_CA_PEM_FILE is required"), "{err}");
+		let ca = pem("ca-only");
+		let err = scope_ledger_from(Some("https://banking:50054"), files([Some(&ca), None, None]), None).err().unwrap().to_string();
+		assert!(err.contains("SCOPE_LEDGER_TLS_CERT_PEM_FILE is required"), "{err}");
+	}
+
+	#[test]
+	fn a_plaintext_address_is_refused() {
+		let err = scope_ledger_from(Some("http://banking:50054"), files([None; 3]), None).err().unwrap().to_string();
+		assert!(err.contains("must be https://"), "{err}");
+	}
+
+	#[test]
+	fn an_address_with_its_three_files_is_a_config() {
+		let (ca, cert, key) = (pem("ca"), pem("cert"), pem("key"));
+		let config = scope_ledger_from(Some("https://banking:50054"), files([Some(&ca), Some(&cert), Some(&key)]), Some("banking.internal"))
+			.unwrap()
+			.unwrap();
+		assert_eq!((config.ca_pem.as_str(), config.client_key_pem.as_str()), ("pem of ca", "pem of key"));
+		assert_eq!(config.tls_domain.as_deref(), Some("banking.internal"));
 	}
 }
