@@ -15,6 +15,7 @@ import type {
   AllocationIcon,
   AllocationList,
   AllocationTreasury,
+  AllocationTreasuryList,
   CancelFeePolicyChangeRequest,
   FeeAssessmentList,
   FeePolicyChange,
@@ -139,6 +140,10 @@ export const failRedemption = (redemptionId: string): Promise<Redemption> => pos
 // allocation's claim, supply, price and holders. Paying it OUT is banking's and the owners'
 // (the central admin's approvals), or a holder's redemption.
 export const fetchFundRevenue = (): Promise<AllocationTreasury> => getJson("/api/admin/revenue");
+
+// ── held through allocations (#36) ───────────────────────────────────────────────
+// Every allocation's line of the same read, the hidden `fee` and `fund` included.
+export const fetchAllocationTreasury = (): Promise<AllocationTreasuryList> => getJson("/api/admin/allocations/treasury");
 
 // ── fees ────────────────────────────────────────────────────────────────────────
 export const fetchFeePolicies = (): Promise<FeePolicyList> => getJson("/api/admin/fees/policies");
