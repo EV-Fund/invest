@@ -27,7 +27,7 @@ export function approvalStateLabel(change: Pick<FeePolicyChange, "approval_state
 }
 
 const lines = (t: Translate): Readonly<Record<string, string>> => ({
-  open: t("admin.fees.approval.line.open", "The owners are voting. The change passes when more than half of them approve it."),
+  open: t("admin.fees.approval.line.openRoster", "The owners are voting. The change passes when more than half of the owners on its vote approve it. The person who asked for it is not on that vote."),
   executed: t("admin.fees.approval.line.executed", "The owners carried the change, and invest scheduled it."),
   execution_failed: t("admin.fees.approval.line.execution_failed", "The owners carried the change, but invest could not schedule it. The change is closed."),
   rejected: t("admin.fees.approval.line.rejected", "The owners rejected the change. The fund keeps its current terms."),

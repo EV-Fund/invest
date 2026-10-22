@@ -587,9 +587,9 @@
     "en": "The owners did not decide within 72 hours, so the proposal expired.",
     "t": "Các chủ sở hữu không quyết định trong vòng 72 giờ, nên đề xuất đã hết hạn."
   },
-  "admin.fees.approval.line.open": {
-    "en": "The owners are voting. The change passes when more than half of them approve it.",
-    "t": "Các chủ sở hữu đang bỏ phiếu. Thay đổi được thông qua khi hơn một nửa số họ chấp thuận."
+  "admin.fees.approval.line.openRoster": {
+    "en": "The owners are voting. The change passes when more than half of the owners on its vote approve it. The person who asked for it is not on that vote.",
+    "t": "Các chủ sở hữu đang bỏ phiếu. Thay đổi được thông qua khi hơn một nửa số chủ sở hữu trong cuộc bỏ phiếu chấp thuận. Người yêu cầu thay đổi không tham gia bỏ phiếu."
   },
   "admin.fees.approval.line.passed": {
     "en": "The owners carried the change, and invest scheduled it.",
@@ -671,9 +671,9 @@
     "en": "Ask the owners",
     "t": "Hỏi các chủ sở hữu"
   },
-  "admin.fees.awaitingApprovalsBody": {
-    "en": "Version {version} went to the owners' approvals. It is scheduled only once more than half of them approve and no owner vetoes it within 24 hours, and while anyone holds units it binds 24 hours after that. The owners vote in the central admin.",
-    "t": "Phiên bản {version} đã được gửi tới mục phê duyệt của chủ sở hữu. Nó chỉ được lên lịch khi hơn một nửa số chủ sở hữu chấp thuận và không ai phủ quyết trong 24 giờ; khi còn người nắm giữ đơn vị, nó có hiệu lực 24 giờ sau đó. Các chủ sở hữu bỏ phiếu trong trang quản trị trung tâm."
+  "admin.fees.awaitingRosterBody": {
+    "en": "Version {version} went to the owners' approvals. It is scheduled only once more than half of the owners on its vote approve it and no owner vetoes it within 24 hours. You asked for it, so you are not on that vote. The owners vote in the central admin.",
+    "t": "Phiên bản {version} đã được gửi tới mục phê duyệt của chủ sở hữu. Nó chỉ được lên lịch khi hơn một nửa số chủ sở hữu trong cuộc bỏ phiếu chấp thuận và không ai phủ quyết trong 24 giờ. Bạn là người yêu cầu nên bạn không tham gia bỏ phiếu. Các chủ sở hữu bỏ phiếu trong trang quản trị trung tâm."
   },
   "admin.fees.awaitingTitle": {
     "en": "Sent to the owners — nothing has changed yet",
@@ -787,6 +787,10 @@
     "en": "Earlier than the notice allows: this binds no earlier than 24 hours after the owners approve.",
     "t": "Sớm hơn thời hạn thông báo cho phép: thay đổi này có hiệu lực không sớm hơn 24 giờ sau khi các chủ sở hữu chấp thuận."
   },
+  "admin.fees.err.accountUnknown": {
+    "en": "Your account has not reached invest's list of users yet, so the owners cannot be asked in your name. Try again in a few minutes.",
+    "t": "Tài khoản của bạn chưa có trong danh sách người dùng của invest, nên chưa thể hỏi các chủ sở hữu nhân danh bạn. Hãy thử lại sau vài phút."
+  },
   "admin.fees.err.notPercent": {
     "en": "{field} must be a percentage — 2, or 2.5 / 2,5 for a half.",
     "t": "{field} phải là phần trăm — 2, hoặc 2.5 / 2,5 cho nửa phần trăm."
@@ -818,6 +822,10 @@
   "admin.fees.err.tooFarAhead": {
     "en": "The moment can be at most {days} days ahead.",
     "t": "Thời điểm không được cách quá {days} ngày."
+  },
+  "admin.fees.err.tooFewOwners": {
+    "en": "This change cannot be put to the owners. With only two owners, the person who asks cannot be kept off the vote, so the change cannot be proposed.",
+    "t": "Không thể gửi thay đổi này tới các chủ sở hữu. Khi chỉ có hai chủ sở hữu, không thể loại người yêu cầu ra khỏi cuộc bỏ phiếu, nên không thể đề xuất thay đổi."
   },
   "admin.fees.field.hurdle": {
     "en": "Hurdle",
@@ -1023,13 +1031,25 @@
     "en": "Reason (required)",
     "t": "Lý do (bắt buộc)"
   },
+  "admin.fees.reauth.confirm": {
+    "en": "Confirm it's me",
+    "t": "Xác nhận đây là tôi"
+  },
+  "admin.fees.reauth.confirmed": {
+    "en": "Confirmed. Submit within about a minute and a half.",
+    "t": "Đã xác nhận. Hãy gửi trong khoảng một phút rưỡi."
+  },
+  "admin.fees.reauth.why": {
+    "en": "The owners decide this change. Confirm it's you so you are not counted as a voter.",
+    "t": "Các chủ sở hữu quyết định thay đổi này. Hãy xác nhận đó là bạn để bạn không bị tính là người bỏ phiếu."
+  },
   "admin.fees.requirement.admin": {
     "en": "No vote needed: one administrator may make this change. Holders are mailed the notice when it is scheduled.",
     "t": "Không cần bỏ phiếu: một quản trị viên có thể thực hiện thay đổi này. Người nắm giữ sẽ nhận thông báo qua email khi thay đổi được lên lịch."
   },
-  "admin.fees.requirement.owners": {
-    "en": "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. The request goes to the owners' approvals in the central admin.",
-    "t": "Cần chủ sở hữu phê duyệt: các điều khoản này chặt hơn mức 2 và 20 của quỹ, hoặc hạ ngưỡng lợi nhuận. Yêu cầu được gửi tới mục phê duyệt của chủ sở hữu trong trang quản trị trung tâm."
+  "admin.fees.requirement.ownersReauth": {
+    "en": "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. You confirm your sign-in before it is sent, and you are not counted as a voter.",
+    "t": "Cần chủ sở hữu phê duyệt: các điều khoản này chặt hơn mức 2 và 20 của quỹ, hoặc hạ ngưỡng lợi nhuận. Bạn xác nhận đăng nhập trước khi gửi, và bạn không được tính là người bỏ phiếu."
   },
   "admin.fees.scheduleChange": {
     "en": "Schedule the change",

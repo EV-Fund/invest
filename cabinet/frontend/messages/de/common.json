@@ -587,9 +587,9 @@
     "en": "The owners did not decide within 72 hours, so the proposal expired.",
     "t": "Die Eigentümer haben nicht innerhalb von 72 Stunden entschieden, daher ist der Vorschlag abgelaufen."
   },
-  "admin.fees.approval.line.open": {
-    "en": "The owners are voting. The change passes when more than half of them approve it.",
-    "t": "Die Eigentümer stimmen ab. Die Änderung ist angenommen, wenn mehr als die Hälfte von ihnen zustimmt."
+  "admin.fees.approval.line.openRoster": {
+    "en": "The owners are voting. The change passes when more than half of the owners on its vote approve it. The person who asked for it is not on that vote.",
+    "t": "Die Eigentümer stimmen ab. Die Änderung ist angenommen, wenn mehr als die Hälfte der stimmberechtigten Eigentümer zustimmt. Wer sie beantragt hat, stimmt nicht mit ab."
   },
   "admin.fees.approval.line.passed": {
     "en": "The owners carried the change, and invest scheduled it.",
@@ -671,9 +671,9 @@
     "en": "Ask the owners",
     "t": "Die Eigentümer fragen"
   },
-  "admin.fees.awaitingApprovalsBody": {
-    "en": "Version {version} went to the owners' approvals. It is scheduled only once more than half of them approve and no owner vetoes it within 24 hours, and while anyone holds units it binds 24 hours after that. The owners vote in the central admin.",
-    "t": "Version {version} ging an die Freigaben der Eigentümer. Sie wird erst eingeplant, wenn mehr als die Hälfte zustimmt und kein Eigentümer innerhalb von 24 Stunden ein Veto einlegt; solange jemand Anteile hält, gilt sie 24 Stunden danach. Die Eigentümer stimmen in der zentralen Verwaltung ab."
+  "admin.fees.awaitingRosterBody": {
+    "en": "Version {version} went to the owners' approvals. It is scheduled only once more than half of the owners on its vote approve it and no owner vetoes it within 24 hours. You asked for it, so you are not on that vote. The owners vote in the central admin.",
+    "t": "Version {version} ging an die Freigaben der Eigentümer. Sie wird erst eingeplant, wenn mehr als die Hälfte der stimmberechtigten Eigentümer zustimmt und niemand innerhalb von 24 Stunden ein Veto einlegt. Sie haben sie beantragt und stimmen daher nicht mit ab. Die Eigentümer stimmen in der zentralen Verwaltung ab."
   },
   "admin.fees.awaitingTitle": {
     "en": "Sent to the owners — nothing has changed yet",
@@ -787,6 +787,10 @@
     "en": "Earlier than the notice allows: this binds no earlier than 24 hours after the owners approve.",
     "t": "Früher, als die Ankündigungsfrist erlaubt: dies gilt frühestens 24 Stunden nach der Zustimmung der Eigentümer."
   },
+  "admin.fees.err.accountUnknown": {
+    "en": "Your account has not reached invest's list of users yet, so the owners cannot be asked in your name. Try again in a few minutes.",
+    "t": "Ihr Konto ist noch nicht in der Benutzerliste von invest, daher können die Eigentümer nicht in Ihrem Namen gefragt werden. Versuchen Sie es in einigen Minuten erneut."
+  },
   "admin.fees.err.notPercent": {
     "en": "{field} must be a percentage — 2, or 2.5 / 2,5 for a half.",
     "t": "{field} muss ein Prozentsatz sein — 2, oder 2.5 / 2,5 für ein halbes Prozent."
@@ -818,6 +822,10 @@
   "admin.fees.err.tooFarAhead": {
     "en": "The moment can be at most {days} days ahead.",
     "t": "Der Zeitpunkt darf höchstens {days} Tage in der Zukunft liegen."
+  },
+  "admin.fees.err.tooFewOwners": {
+    "en": "This change cannot be put to the owners. With only two owners, the person who asks cannot be kept off the vote, so the change cannot be proposed.",
+    "t": "Diese Änderung kann den Eigentümern nicht vorgelegt werden. Bei nur zwei Eigentümern kann die beantragende Person nicht von der Abstimmung ausgeschlossen werden, daher kann die Änderung nicht vorgeschlagen werden."
   },
   "admin.fees.field.hurdle": {
     "en": "Hurdle",
@@ -1023,13 +1031,25 @@
     "en": "Reason (required)",
     "t": "Grund (erforderlich)"
   },
+  "admin.fees.reauth.confirm": {
+    "en": "Confirm it's me",
+    "t": "Bestätigen, dass ich es bin"
+  },
+  "admin.fees.reauth.confirmed": {
+    "en": "Confirmed. Submit within about a minute and a half.",
+    "t": "Bestätigt. Senden Sie innerhalb von etwa anderthalb Minuten."
+  },
+  "admin.fees.reauth.why": {
+    "en": "The owners decide this change. Confirm it's you so you are not counted as a voter.",
+    "t": "Über diese Änderung entscheiden die Eigentümer. Bestätigen Sie, dass Sie es sind, damit Sie nicht als Abstimmende gezählt werden."
+  },
   "admin.fees.requirement.admin": {
     "en": "No vote needed: one administrator may make this change. Holders are mailed the notice when it is scheduled.",
     "t": "Keine Abstimmung nötig: ein Administrator kann diese Änderung vornehmen. Die Anteilsinhaber erhalten die Mitteilung per E-Mail, sobald sie geplant ist."
   },
-  "admin.fees.requirement.owners": {
-    "en": "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. The request goes to the owners' approvals in the central admin.",
-    "t": "Freigabe der Eigentümer nötig: Diese Konditionen verschärfen die aktuellen über das hauseigene 2 und 20 hinaus oder senken die Hürde. Die Anfrage geht an die Freigaben der Eigentümer in der zentralen Verwaltung."
+  "admin.fees.requirement.ownersReauth": {
+    "en": "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. You confirm your sign-in before it is sent, and you are not counted as a voter.",
+    "t": "Freigabe der Eigentümer nötig: Diese Konditionen verschärfen die aktuellen über das hauseigene 2 und 20 hinaus oder senken die Hürde. Sie bestätigen Ihre Anmeldung vor dem Senden und werden nicht als Abstimmende gezählt."
   },
   "admin.fees.scheduleChange": {
     "en": "Schedule the change",

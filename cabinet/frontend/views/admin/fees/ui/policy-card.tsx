@@ -12,17 +12,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useLocale, useT } from "@evinvest/i18n/react";
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Spinner } from "@evinvest/uikit";
+import { Alert, AlertDescription, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Spinner } from "@evinvest/uikit";
 
 import { scheduleFeePolicy } from "@/entities/admin/api/admin-client";
+import { apiPath } from "@/shared/config/base-path";
 import type { FeePolicy, FeePolicyChange } from "@/shared/contracts/admin";
 import { RequestError, errorMessage } from "@/shared/lib/api-client";
 import { TAG } from "@/shared/lib/cache-tags";
 import { formatMoment } from "@/shared/lib/datetime";
+import { useHydrated } from "@/shared/lib/use-hydrated";
 import { revalidateTag } from "@/shared/lib/resource";
 import { isPendingChange } from "@/views/admin/fees/lib/format";
-import { feeRefusal } from "@/views/admin/fees/lib/refusals";
+import { feeRefusal, isReauthRequired } from "@/views/admin/fees/lib/refusals";
 import { draftBps, draftProblem, draftRequirement, fieldLabel, toRequest, type TermsDraft } from "@/views/admin/fees/lib/schedule";
+import { clearReauthDraft, reauthDraftFor, saveReauthDraft } from "@/views/admin/fees/model/reauth-draft";
 import { useTermsDraft } from "@/views/admin/fees/model/use-terms-draft";
 import { ScheduleFields } from "@/views/admin/fees/ui/schedule-fields";
 import { TermsFields } from "@/views/admin/fees/ui/terms-fields";
@@ -46,7 +49,24 @@ export function PolicyCard({
   const t = useT();
   const locale = useLocale();
   const current = policy?.configured ? policy : null;
-  const { draft, set, reset } = useTermsDraft(current);
+  const { draft, set, reset, replace } = useTermsDraft(current);
+  // The sign-in confirmation of an owner-level change (D24(1)): `needed` holds the page that
+  // starts it, `confirmed` that the draft came back from it. Not auto-submitted: the
+  // operator sends the terms they see.
+  const [reauth, setReauth] = useState<{ kind: "needed"; href: string } | { kind: "confirmed" } | null>(null);
+  // sessionStorage exists only in the browser: the draft is restored once, in the first
+  // render after hydration, so the server's HTML and the hydrating render stay the plain
+  // form. The card is keyed per fund, so "once" is once per fund.
+  const hydrated = useHydrated();
+  const [restoreChecked, setRestoreChecked] = useState(false);
+  if (hydrated && !restoreChecked) {
+    setRestoreChecked(true);
+    const restored = reauthDraftFor(service);
+    if (restored) {
+      replace(restored);
+      setReauth({ kind: "confirmed" });
+    }
+  }
   const [busy, setBusy] = useState(false);
   // `busy` disables the button, but a state update lands a frame later than the second
   // click of a double-click does; the ref is read in the same tick and closes the gap.
@@ -109,9 +129,19 @@ export function PolicyCard({
       // The receipt is the parent's: the re-read remounts this card on the new pending
       // change, and a receipt held here would vanish with the old instance.
       revalidateTag(TAG.adminFees);
+      clearReauthDraft(service);
+      setReauth(null);
       onScheduled(change);
       reset();
     } catch (e) {
+      if (isReauthRequired(e)) {
+        // A full-page trip, not a fetch: concierge's sign-in page has to be shown. The BFF
+        // sends the browser back here (303), under `/cabinet`, as `return_to` requires.
+        saveReauthDraft(service, draft);
+        const back = `${window.location.pathname}${window.location.search}`;
+        setReauth({ kind: "needed", href: `${apiPath("/api/auth/reauth")}?return_to=${encodeURIComponent(back)}` });
+        return;
+      }
       // A known refusal of an owner-level change is said in the reader's language; any
       // other, concierge's refusal of the proposal included, is shown as it came.
       setProblem(feeRefusal(e, t) ?? (e instanceof Error ? errorMessage(e, t) : t("err.feePolicySave", "Could not save these terms.")));
@@ -154,6 +184,18 @@ export function PolicyCard({
         {blocked && <p className="text-xs text-ink-soft">{t("admin.fees.pendingBlocks", "One change at a time: cancel the pending one to schedule another.")}</p>}
         {rateProblem && !blocked && <p className="text-xs text-accent-error">{rateProblem}</p>}
         {problem && <p className="text-xs text-accent-error">{problem}</p>}
+        {reauth?.kind === "confirmed" && <p role="status" className="text-xs text-positive">{t("admin.fees.reauth.confirmed", "Confirmed. Submit within about a minute and a half.")}</p>}
+        {reauth?.kind === "needed" && (
+          <Alert role="status">
+            <AlertDescription className="gap-3">
+              <p className="text-sm leading-relaxed">{t("admin.fees.reauth.why", "The owners decide this change. Confirm it's you so you are not counted as a voter.")}</p>
+              <Button asChild size="sm" variant="outline" className="w-fit">
+                {/* Saved again on the click: the operator may have edited after the 403. */}
+                <a href={reauth.href} onClick={() => saveReauthDraft(service, draft)}>{t("admin.fees.reauth.confirm", "Confirm it's me")}</a>
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Button type="button" onClick={schedule} disabled={busy || blocked || invalid}>
           {busy && <Spinner aria-hidden />}

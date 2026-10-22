@@ -31,5 +31,5 @@ export function useTermsDraft(current: FeeTermsLike | null) {
     setDraft((prev) => ({ ...prev, [field]: value }));
   }, []);
   const reset = useCallback(() => setDraft(draftFrom(current)), [current]);
-  return { draft, set, reset };
+  return { draft, set, reset, replace: setDraft };
 }

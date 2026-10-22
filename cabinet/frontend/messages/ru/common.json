@@ -587,9 +587,9 @@
     "en": "The owners did not decide within 72 hours, so the proposal expired.",
     "t": "Владельцы не приняли решение за 72 часа, поэтому срок предложения истёк."
   },
-  "admin.fees.approval.line.open": {
-    "en": "The owners are voting. The change passes when more than half of them approve it.",
-    "t": "Владельцы голосуют. Изменение принимается, когда его одобряют больше половины из них."
+  "admin.fees.approval.line.openRoster": {
+    "en": "The owners are voting. The change passes when more than half of the owners on its vote approve it. The person who asked for it is not on that vote.",
+    "t": "Владельцы голосуют. Изменение принимается, когда его одобряют больше половины владельцев, участвующих в голосовании. Тот, кто запросил изменение, в голосовании не участвует."
   },
   "admin.fees.approval.line.passed": {
     "en": "The owners carried the change, and invest scheduled it.",
@@ -671,9 +671,9 @@
     "en": "Ask the owners",
     "t": "Запросить владельцев"
   },
-  "admin.fees.awaitingApprovalsBody": {
-    "en": "Version {version} went to the owners' approvals. It is scheduled only once more than half of them approve and no owner vetoes it within 24 hours, and while anyone holds units it binds 24 hours after that. The owners vote in the central admin.",
-    "t": "Версия {version} отправлена на согласование владельцам. Её запланируют, только если больше половины владельцев одобрят её и никто не наложит вето в течение 24 часов; пока кто-то держит паи, она вступит в силу ещё через 24 часа. Владельцы голосуют в центральной админке."
+  "admin.fees.awaitingRosterBody": {
+    "en": "Version {version} went to the owners' approvals. It is scheduled only once more than half of the owners on its vote approve it and no owner vetoes it within 24 hours. You asked for it, so you are not on that vote. The owners vote in the central admin.",
+    "t": "Версия {version} отправлена на согласование владельцам. Её запланируют, только если больше половины владельцев, участвующих в голосовании, одобрят её и никто не наложит вето в течение 24 часов. Вы её запросили, поэтому не голосуете. Владельцы голосуют в центральной админке."
   },
   "admin.fees.awaitingTitle": {
     "en": "Sent to the owners — nothing has changed yet",
@@ -787,6 +787,10 @@
     "en": "Earlier than the notice allows: this binds no earlier than 24 hours after the owners approve.",
     "t": "Раньше, чем позволяет уведомление: изменение вступит в силу не раньше чем через 24 часа после одобрения владельцами."
   },
+  "admin.fees.err.accountUnknown": {
+    "en": "Your account has not reached invest's list of users yet, so the owners cannot be asked in your name. Try again in a few minutes.",
+    "t": "Ваш аккаунт ещё не попал в список пользователей invest, поэтому владельцев нельзя спросить от вашего имени. Попробуйте снова через несколько минут."
+  },
   "admin.fees.err.notPercent": {
     "en": "{field} must be a percentage — 2, or 2.5 / 2,5 for a half.",
     "t": "{field}: нужны проценты — 2 или 2.5 / 2,5 для половины."
@@ -818,6 +822,10 @@
   "admin.fees.err.tooFarAhead": {
     "en": "The moment can be at most {days} days ahead.",
     "t": "Момент может быть не дальше чем через {days} дней."
+  },
+  "admin.fees.err.tooFewOwners": {
+    "en": "This change cannot be put to the owners. With only two owners, the person who asks cannot be kept off the vote, so the change cannot be proposed.",
+    "t": "Это изменение нельзя передать владельцам. Когда владельцев только двое, запросившего нельзя исключить из голосования, поэтому изменение нельзя предложить."
   },
   "admin.fees.field.hurdle": {
     "en": "Hurdle",
@@ -1023,13 +1031,25 @@
     "en": "Reason (required)",
     "t": "Причина (обязательно)"
   },
+  "admin.fees.reauth.confirm": {
+    "en": "Confirm it's me",
+    "t": "Подтвердить, что это я"
+  },
+  "admin.fees.reauth.confirmed": {
+    "en": "Confirmed. Submit within about a minute and a half.",
+    "t": "Подтверждено. Отправьте в течение примерно полутора минут."
+  },
+  "admin.fees.reauth.why": {
+    "en": "The owners decide this change. Confirm it's you so you are not counted as a voter.",
+    "t": "Это изменение решают владельцы. Подтвердите, что это вы, чтобы вас не засчитали как голосующего."
+  },
   "admin.fees.requirement.admin": {
     "en": "No vote needed: one administrator may make this change. Holders are mailed the notice when it is scheduled.",
     "t": "Голосование не нужно: это изменение может внести один администратор. Держателям отправят уведомление, когда оно будет назначено."
   },
-  "admin.fees.requirement.owners": {
-    "en": "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. The request goes to the owners' approvals in the central admin.",
-    "t": "Нужно одобрение владельцев: эти условия ужесточают текущие сверх принятых 2 и 20 или снижают барьерную доходность. Запрос уходит на согласование владельцам в центральной админке."
+  "admin.fees.requirement.ownersReauth": {
+    "en": "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. You confirm your sign-in before it is sent, and you are not counted as a voter.",
+    "t": "Нужно одобрение владельцев: эти условия ужесточают текущие сверх принятых 2 и 20 или снижают барьерную доходность. Перед отправкой вы подтвердите вход, и вас не засчитают как голосующего."
   },
   "admin.fees.scheduleChange": {
     "en": "Schedule the change",
