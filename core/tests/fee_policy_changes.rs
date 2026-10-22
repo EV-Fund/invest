@@ -13,9 +13,10 @@
 //! Moved from banking 9ffafce3 (`piggybank/core/tests/fee_policy_changes.rs`), cut to what
 //! invest does. The owners' approval of a change beyond the house envelope is concierge's
 //! and has its own suite (`tests/fee_policy_approvals.rs`); what is pinned here is only how
-//! such a change is recorded. Delivering the holders' notices is not here yet
-//! (concierge's scope notifications; until then a notice is recorded given up on). A notifier's outcomes are stood in for by writing `fee_policy_notices`
-//! directly — the columns it will stamp are the ones the promotion gate reads. banking's
+//! such a change is recorded. Delivering the holders' notices has its own suite too
+//! (`tests/fee_policy_notices.rs`): a notice is recorded undelivered, and the sender's outcomes
+//! are stood in for here by writing `fee_policy_notices` directly — the columns it stamps are
+//! the ones the promotion gate reads. banking's
 //! legacy-row tests are not here either: invest's ceilings are validated CHECKs (0001), so
 //! an active row above them cannot exist to be lowered.
 
@@ -188,6 +189,15 @@ async fn still_trying(h: &Harness, change: &FeePolicyChange, user: UserId) {
 	sqlx::query("UPDATE fee_policy_notices SET given_up_at = NULL WHERE change_id = $1 AND user_id = $2")
 		.bind(change.id.raw())
 		.bind(user.raw())
+		.execute(&h.pool)
+		.await
+		.unwrap();
+}
+
+/// Stand in for the notice sender giving up on every holder of `change`: nobody could be reached.
+async fn nobody_reached(h: &Harness, change: &FeePolicyChange) {
+	sqlx::query("UPDATE fee_policy_notices SET given_up_at = now() WHERE change_id = $1 AND delivered_at IS NULL")
+		.bind(change.id.raw())
 		.execute(&h.pool)
 		.await
 		.unwrap();
@@ -422,14 +432,13 @@ async fn a_change_over_a_held_fund_waits_out_the_notice_and_records_a_notice_per
 	);
 	assert!(change.effective_from_unix <= now() + MIN_NOTICE_SECS + CLOCK_SLACK);
 
-	// One notice per holder, in the same transaction — given up on as it is recorded: invest
-	// has no channel to deliver one yet, and says so on the row rather than pretending.
+	// One notice per holder, in the same transaction, undelivered: the sender's to deliver.
 	let recorded = notices(&h, &change).await;
 	let mut expected = vec![first.raw(), second.raw()];
 	expected.sort();
 	assert_eq!(recorded.iter().map(|notice| notice.user).collect::<Vec<_>>(), expected);
-	assert!(recorded.iter().all(|notice| notice.given_up && !notice.delivered && !notice.withdrawn), "{recorded:?}");
-	assert_eq!((change.undelivered_notices, change.notices_given_up), (2, 2));
+	assert!(recorded.iter().all(|notice| !notice.given_up && !notice.delivered && !notice.withdrawn), "{recorded:?}");
+	assert_eq!((change.undelivered_notices, change.notices_given_up), (2, 0));
 
 	// Not due yet: the old terms stay live and the sweeper leaves the change alone.
 	assert!(!h.changes.due(now()).await.unwrap().contains(&change.id));
@@ -464,6 +473,7 @@ async fn a_tightening_does_not_bind_over_a_holder_who_was_never_told() {
 	assert_eq!(change.requirement, ChangeRequirement::Admin);
 	assert_eq!(notices(&h, &change).await.len(), 1);
 	let_the_notice_run(&h, &change).await;
+	nobody_reached(&h, &change).await;
 
 	// Nobody could tell the holder: dearer terms do not bind over them.
 	let refused = h.changes.promote(change.id, now()).await.unwrap_err();
@@ -631,7 +641,9 @@ async fn an_acknowledged_notice_lets_a_tightening_bind_and_the_history_says_who_
 	let unreachable = holder(&h, &service, "1000").await;
 	let requester = UserId::new();
 	let change = schedule(&h, requester, &service, FeePolicy::HOUSE, 0, "").await.unwrap();
-	assert_eq!((change.undelivered_notices, change.notices_given_up), (1, 1), "one holder, given up on as recorded");
+	nobody_reached(&h, &change).await;
+	let change = change_of(&h, &change).await;
+	assert_eq!((change.undelivered_notices, change.notices_given_up), (1, 1), "one holder, given up on");
 	assert_eq!(change.notices_waiver, None);
 	let_the_notice_run(&h, &change).await;
 
@@ -672,6 +684,7 @@ async fn an_acknowledgement_covers_the_holders_of_its_moment_and_no_one_else() {
 	let requester = UserId::new();
 	let change = schedule(&h, requester, &service, FeePolicy::HOUSE, 0, "").await.unwrap();
 	assert_eq!(change.undelivered_notices, 2);
+	nobody_reached(&h, &change).await;
 	let_the_notice_run(&h, &change).await;
 
 	// `away` holds nothing at the moment of the acknowledgement, so it names `untold` alone.
@@ -761,6 +774,7 @@ async fn a_later_acknowledgement_adds_the_holders_given_up_on_since_and_stands_a
 	let requester = UserId::new();
 	let change = schedule(&h, requester, &service, FeePolicy::HOUSE, 0, "").await.unwrap();
 	// The second holder's notice is still being tried when the first acknowledgement is given.
+	give_up(&h, &change, first_lost).await;
 	still_trying(&h, &change, second_lost).await;
 	assert_eq!(change_of(&h, &change).await.notices_unacknowledged, 1, "one holder to offer the acknowledgement over");
 	let first = acknowledge(&h, &service, &change, requester).await.unwrap();
@@ -802,6 +816,7 @@ async fn an_acknowledgement_is_the_requesters_and_the_schema_holds_it_whole() {
 	let unreachable = holder(&h, &service, "1000").await;
 	let requester = UserId::new();
 	let change = schedule(&h, requester, &service, FeePolicy::HOUSE, 0, "").await.unwrap();
+	nobody_reached(&h, &change).await;
 
 	// Another administrator — `AllocationManage` alone — may not waive the holders' notice
 	// on a change somebody else asked for.
