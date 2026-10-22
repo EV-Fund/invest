@@ -87,6 +87,9 @@ banking's on purpose.
 - The cabinet BFF's own: `cabinet/backend/migrations/`, schema `cabinet`, history in
   `cabinet._sqlx_migrations` (apart from invest-core's). Same CLI, `--source
   cabinet/backend/migrations`.
+- An image rollback past a migration does not boot: the default migrator refuses a version it
+  does not know (`VersionMissing`). The manual steps are in
+  [`docs/MIGRATION-ROLLBACK.md`](docs/MIGRATION-ROLLBACK.md); write a release's steps there.
 - SQL is runtime `sqlx::query*` with `.bind()`, never the `query!` macros; every query must
   be executed by a test against a real database.
 
