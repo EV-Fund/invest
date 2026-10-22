@@ -82,11 +82,12 @@ its own projection. `SessionInfo.user.isAdmin` is `invest:allocation:manage` or
 | catalog | `allocations`, `allocations/detail` | `AllocationsService` |
 | funds | `funds/nav`, `funds/nav/history`, `funds/positions`, `funds/fee-policy`, `funds/accrued-fees`, `funds/redemptions`, `funds/redemptions/cancel`, `funds/subscribe`, `funds/redeem` | `FundsService`, `FeesService` |
 | book | `book`, `book/trades`, `book/candles`, `book/policy`, `book/orders` (GET, POST), `book/orders/cancel`, `book/orders/history`, `book/fills`, `book/ws` | `BookService` |
-| console | `admin/allocations{,/register,/update,/state,/cap,/access,/backing,/holders,/book,/issue,/retire,/grants,/grants/grant,/grants/revoke}`, `admin/fees/{policies,policy,policy/cancel,policy/acknowledge-notices,changes,shares,settle,assessments}`, `admin/valuation/{queue,post,settle,fail}`, `admin/revenue` | all four |
+| console | `admin/allocations{,/register,/update,/state,/cap,/access,/backing,/holders,/treasury,/book,/issue,/retire,/grants,/grants/grant,/grants/revoke}`, `admin/fees/{policies,policy,policy/cancel,policy/acknowledge-notices,changes,shares,settle,assessments}`, `admin/valuation/{queue,post,settle,fail}`, `admin/revenue` | all four |
 | health | `health/live` (the probe), `health` (deep: invest-core + Postgres) | `grpc.health.v1` |
 
-Changed against banking: `admin/revenue` is assembled from `GetAllocation`, `GetFundNav`
-and `ListUnitHolders` of the `fee` allocation (invest-core has no `GetFundRevenue`);
+Changed against banking: `admin/revenue` is the `fee` line of invest-core's
+`ListAllocationTreasury`, the call behind `admin/allocations/treasury` (invest-core has no
+`GetFundRevenue`), and its `claim` is the cash on `(invest, alloc:fee)` alone;
 e-mails beside user ids (`grants[].email`, `notices_waived_by_email`, the redemption
 queue's `email`) are always empty — an `invest` token opens concierge's `GetMe` and nothing
 else; `funds/subscribe` answers the saga's `state` and `failure_reason`;

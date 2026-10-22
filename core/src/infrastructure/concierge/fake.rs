@@ -167,6 +167,8 @@ struct PublisherState<C> {
 	script: std::collections::VecDeque<Result<(), PublishError>>,
 	attempts: u32,
 	published: Vec<(C, u64)>,
+	/// Store topics as ordinary ones, as a concierge older than v0.21.0 does.
+	drops_required: bool,
 }
 
 // Manual impls: a derive would demand `C: Clone`/`Default` of the handle, not of the catalog.
@@ -183,6 +185,7 @@ impl<C> Default for ScriptedPublisher<C> {
 				script: std::collections::VecDeque::new(),
 				attempts: 0,
 				published: Vec::new(),
+				drops_required: false,
 			})),
 		}
 	}
@@ -234,10 +237,28 @@ impl CatalogPublisher for InMemoryCatalogPublisher {
 	}
 }
 
+impl InMemoryScopeCatalogPublisher {
+	/// Store every topic as an ordinary one from now on, as a concierge older than v0.21.0.
+	pub fn drop_required(&self) {
+		self.lock().drops_required = true;
+	}
+}
+
 #[async_trait]
 impl ScopeCatalogPublisher for InMemoryScopeCatalogPublisher {
 	async fn publish(&self, catalog: &ScopeCatalog, version: u64) -> Result<(), PublishError> {
 		self.record(catalog, version)
+	}
+
+	async fn required_topics(&self) -> Result<Vec<String>, PublishError> {
+		let state = self.lock();
+		if state.drops_required {
+			return Ok(Vec::new());
+		}
+		let Some((catalog, _)) = state.published.last() else {
+			return Err(PublishError::Refused("NotFound: no catalog published".into()));
+		};
+		Ok(catalog.topics.iter().filter(|t| t.required_reason.is_some()).map(|t| t.topic.to_owned()).collect())
 	}
 }
 
@@ -466,8 +487,9 @@ impl Approvals for InMemoryApprovals {
 
 /// concierge's scope inbox, in memory: enough of `EmitScopeNotification` to drive the notice
 /// sender. A notice reaches an active member of invest's scope who has not switched the topic
-/// off; a repeated `dedupe_key` for one user writes nothing and answers `delivered = false`, as
-/// concierge's `ON CONFLICT DO NOTHING` does. A test steers it with
+/// off — or any active member, on a topic invest's catalog requires; a repeated `dedupe_key`
+/// for one user writes nothing and answers `delivered = false`, as concierge's
+/// `ON CONFLICT DO NOTHING` does. A test steers it with
 /// [`InMemoryNotifier::join`], [`InMemoryNotifier::opt_out`] and
 /// [`InMemoryNotifier::fail_next`].
 #[derive(Clone, Default)]
@@ -530,7 +552,8 @@ impl HolderNotifier for InMemoryNotifier {
 		if let Some(err) = state.failures.pop_front() {
 			return Err(err);
 		}
-		let reachable = state.members.contains(&notice.user) && !state.opted_out.contains(&notice.user);
+		let required = ScopeCatalog::invest().topics.iter().any(|t| t.topic == notice.topic && t.required_reason.is_some());
+		let reachable = state.members.contains(&notice.user) && (required || !state.opted_out.contains(&notice.user));
 		let repeated = state.written.iter().any(|w| w.user == notice.user && w.dedupe_key == notice.dedupe_key);
 		if !reachable || repeated {
 			return Ok(NoticeOutcome::NotDelivered("not delivered".to_owned()));

@@ -1231,13 +1231,13 @@
     "en": "Seating a person on the fee allocation is the owners' decision. Propose it there; the units appear here once their vote carries.",
     "t": "Inscrire une personne sur l’allocation des frais relève des propriétaires. Proposez-le là-bas ; les parts apparaissent ici une fois leur vote acquis."
   },
+  "admin.revenue.toHeldThrough": {
+    "en": "The fee allocation beside every other allocation: its cash, units, NAV and holders. The bank's own treasury stays in the central admin.",
+    "t": "L'allocation des frais à côté de toutes les autres : sa trésorerie, ses parts, sa NAV et ses détenteurs. La trésorerie propre de la banque reste dans l'administration centrale."
+  },
   "admin.revenue.toPayments": {
     "en": "Moving the platform's earnings — into a product, or to an investor — is a payment order the owners authorise. Open one there. Cash reaches the chain only through a holder's redemption and their own withdrawal.",
     "t": "Déplacer les gains de la plateforme — vers un produit ou vers un investisseur — est un ordre de paiement que les propriétaires autorisent. Ouvrez-en un là-bas. L'argent n'atteint la chaîne que par le rachat d'un détenteur et son propre retrait."
-  },
-  "admin.revenue.toTreasury": {
-    "en": "The fee allocation beside the platform's other balances: custody per rail, user claims, every allocation and its holders.",
-    "t": "L'allocation des frais à côté des autres soldes de la plateforme : conservation par réseau, créances utilisateurs, chaque allocation et ses détenteurs."
   },
   "admin.revenue.unitsHint": {
     "en": "units of the fee allocation, held by people",
@@ -1339,9 +1339,49 @@
     "en": "Staged",
     "t": "Préparé"
   },
+  "admin.treasury.allocations.col.allocation": {
+    "en": "Allocation",
+    "t": "Allocation"
+  },
+  "admin.treasury.allocations.col.cash": {
+    "en": "Cash, USDT",
+    "t": "Trésorerie, USDT"
+  },
+  "admin.treasury.allocations.empty": {
+    "en": "No allocations yet",
+    "t": "Aucune allocation pour l'instant"
+  },
+  "admin.treasury.allocations.emptyHint": {
+    "en": "Every allocation appears here with its cash, units and holders — the products, and the hidden fee and fund allocations once they exist.",
+    "t": "Chaque allocation apparaît ici avec sa trésorerie, ses parts et ses détenteurs — les produits, et les allocations cachées des frais et du fonds dès qu'elles existent."
+  },
+  "admin.treasury.allocations.moreHolders": {
+    "en": "+{n} more",
+    "t": "+{n} autres"
+  },
+  "admin.treasury.allocations.noHolders": {
+    "en": "no holders",
+    "t": "aucun détenteur"
+  },
+  "admin.treasury.allocations.stale": {
+    "en": "stale · marked {ago}",
+    "t": "périmée · évaluée {ago}"
+  },
+  "admin.treasury.allocations.staleHint": {
+    "en": "The last mark is more than 24 h old: deals and issuances are refused until a new one",
+    "t": "La dernière évaluation date de plus de 24 h : opérations et émissions sont refusées jusqu'à la prochaine"
+  },
   "admin.treasury.allocations.unmarked": {
     "en": "not yet marked",
     "t": "pas encore évalué"
+  },
+  "admin.treasury.allocations.unmarkedHint": {
+    "en": "No mark posted yet: priced at the seed NAV",
+    "t": "Aucune évaluation publiée : valorisée à la NAV initiale"
+  },
+  "admin.treasury.subtitle": {
+    "en": "Every allocation's cash, units, price and largest holders — the hidden fee and fund allocations included",
+    "t": "La trésorerie, les parts, le prix et les principaux détenteurs de chaque allocation — allocations cachées des frais et du fonds comprises"
   },
   "admin.users.kycLevelShort": {
     "en": "L{n}",
@@ -2163,6 +2203,10 @@
     "en": "Your account",
     "t": "Votre compte"
   },
+  "nav.heldThrough": {
+    "en": "Held through allocations",
+    "t": "Détenu via les allocations"
+  },
   "nav.invest": {
     "en": "Invest",
     "t": "Investir"
@@ -2183,10 +2227,6 @@
     "en": "Support",
     "t": "Assistance"
   },
-  "nav.treasury": {
-    "en": "Treasury",
-    "t": "Trésorerie"
-  },
   "nav.users": {
     "en": "Users",
     "t": "Comptes"
@@ -2198,6 +2238,118 @@
   "nav.wallet": {
     "en": "Wallet",
     "t": "Wallet"
+  },
+  "payment.landing.aborted.body": {
+    "en": "Open it again when you are ready.",
+    "t": "Rouvrez-la quand vous serez prêt."
+  },
+  "payment.landing.aborted.title": {
+    "en": "The payment window was closed by this page",
+    "t": "Cette page a fermé la fenêtre de paiement"
+  },
+  "payment.landing.blocked.body": {
+    "en": "Allow pop-ups for this site, then try again.",
+    "t": "Autorisez les fenêtres contextuelles pour ce site, puis réessayez."
+  },
+  "payment.landing.blocked.title": {
+    "en": "Your browser blocked the payment window",
+    "t": "Votre navigateur a bloqué la fenêtre de paiement"
+  },
+  "payment.landing.busy.body": {
+    "en": "We brought it to the front. Finish there first.",
+    "t": "Nous l'avons mise au premier plan. Terminez d'abord là-bas."
+  },
+  "payment.landing.busy.title": {
+    "en": "A payment window is already open",
+    "t": "Une fenêtre de paiement est déjà ouverte"
+  },
+  "payment.landing.cancelled.body": {
+    "en": "The payment page reported that you declined it. {check}",
+    "t": "La page de paiement indique que vous l'avez refusé. {check}"
+  },
+  "payment.landing.cancelled.title": {
+    "en": "You declined the payment",
+    "t": "Vous avez refusé le paiement"
+  },
+  "payment.landing.checkWallet": {
+    "en": "Check the payment in your wallet to be sure.",
+    "t": "Vérifiez le paiement dans votre portefeuille pour en être sûr."
+  },
+  "payment.landing.closed.body": {
+    "en": "We cannot tell whether you answered before you closed it. {check}",
+    "t": "Nous ne savons pas si vous avez répondu avant de fermer la fenêtre. {check}"
+  },
+  "payment.landing.closed.title": {
+    "en": "The payment window was closed",
+    "t": "La fenêtre de paiement a été fermée"
+  },
+  "payment.landing.done.body": {
+    "en": "The payment page reported that you approved it. This is only a hint, because the payment is settled on evinvest.ltd. {check}",
+    "t": "La page de paiement indique que vous l'avez approuvé. Ce n'est qu'un indice, car le paiement est réglé sur evinvest.ltd. {check}"
+  },
+  "payment.landing.done.title": {
+    "en": "Your answer was sent",
+    "t": "Votre réponse a été envoyée"
+  },
+  "payment.landing.failed.body": {
+    "en": "Your answer may not have been recorded. {check} Then you can try again.",
+    "t": "Votre réponse n'a peut-être pas été enregistrée. {check} Vous pourrez ensuite réessayer."
+  },
+  "payment.landing.failed.title": {
+    "en": "The payment page reported an error",
+    "t": "La page de paiement a signalé une erreur"
+  },
+  "payment.landing.invalid.body": {
+    "en": "Open the link from your notice again, or find the payment in your wallet.",
+    "t": "Rouvrez le lien de votre notification, ou retrouvez le paiement dans votre portefeuille."
+  },
+  "payment.landing.invalid.title": {
+    "en": "This payment link is not valid",
+    "t": "Ce lien de paiement n'est pas valide"
+  },
+  "payment.landing.noAnswer.body": {
+    "en": "The payment window closed without a new answer. The payment may already be answered or expired. {check}",
+    "t": "La fenêtre de paiement s'est fermée sans nouvelle réponse. Le paiement a peut-être déjà reçu une réponse ou a expiré. {check}"
+  },
+  "payment.landing.noAnswer.title": {
+    "en": "No new answer was sent",
+    "t": "Aucune nouvelle réponse n'a été envoyée"
+  },
+  "payment.landing.openWallet": {
+    "en": "Open wallet",
+    "t": "Ouvrir le portefeuille"
+  },
+  "payment.landing.review": {
+    "en": "Review the payment",
+    "t": "Examiner le paiement"
+  },
+  "payment.landing.subtitle": {
+    "en": "A payment from your account is waiting for your answer.",
+    "t": "Un paiement depuis votre compte attend votre réponse."
+  },
+  "payment.landing.timeout.body": {
+    "en": "We closed it after a long wait, and we cannot tell whether you answered. {check}",
+    "t": "Nous avons fermé la fenêtre après une longue attente et nous ne savons pas si vous avez répondu. {check}"
+  },
+  "payment.landing.timeout.title": {
+    "en": "The payment window timed out",
+    "t": "La fenêtre de paiement a expiré"
+  },
+  "payment.landing.title": {
+    "en": "Payment to review",
+    "t": "Paiement à examiner"
+  },
+  "payment.landing.unsupported.body": {
+    "en": "Open this link in an up-to-date browser.",
+    "t": "Ouvrez ce lien dans un navigateur à jour."
+  },
+  "payment.landing.unsupported.title": {
+    "en": "This browser cannot open the payment window",
+    "t": "Ce navigateur ne peut pas ouvrir la fenêtre de paiement"
+  },
+  "payment.landing.waiting": {
+    "en": "Waiting for the payment window…",
+    "t": "En attente de la fenêtre de paiement…"
   },
   "profile.kyc.contact": {
     "en": "Contact {contact}",

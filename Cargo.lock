@@ -1699,12 +1699,12 @@ dependencies = [
 
 [[package]]
 name = "evconcierge_client"
-version = "0.3.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "961055667eeee39099eadf81c7921276abbb57277b93a2d4aca16fd7398f67f5"
+checksum = "b7f6d82e3e29861d82c7548c1078d98360e71473d4f9d548b1395fd126b7a39e"
 dependencies = [
  "base64 0.22.1",
- "evconcierge_contracts 0.3.0",
+ "evconcierge_contracts 0.5.0",
  "getrandom 0.4.3",
  "sha2 0.11.1",
  "thiserror 2.0.21",
@@ -1727,9 +1727,9 @@ dependencies = [
 
 [[package]]
 name = "evconcierge_contracts"
-version = "0.3.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c13a2828767fe45829c20e803d244b093bb86b758de5172f0524825c067243d7"
+checksum = "f98420308effffe2ae6b79193bd6a9b090a62cc2e8b317d8e6a530359ab23265"
 dependencies = [
  "prost",
  "prost-build",
@@ -1741,12 +1741,12 @@ dependencies = [
 
 [[package]]
 name = "evconcierge_projection"
-version = "0.3.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16f902ac39690910d9ab633fb9ae9b88ba92e843c8cb0ff4edb04ac486b47838"
+checksum = "20ddd5f6b457d2307c635a1853b84e5f222463f27dc151399814547e2668c985"
 dependencies = [
  "async-trait",
- "evconcierge_contracts 0.3.0",
+ "evconcierge_contracts 0.5.0",
  "sqlx",
  "thiserror 2.0.21",
  "tokio",

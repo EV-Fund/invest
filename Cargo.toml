@@ -34,14 +34,15 @@ evbanking_contracts = { git = "https://github.com/EV-Main/banking.git", rev = "8
 evconcierge_auth = { git = "https://github.com/EV-Main/concierge.git", rev = "151a347d79abf131c58d7da87d61ae6f52ae3239" }
 # A relying party's calls into concierge: invest-core publishes its permission catalog with
 # it (`AuthService.PublishCatalog`, client credential); the cabinet BFF signs people in with
-# its code flow (PKCE, ExchangeCode, RefreshClientToken, GetMe). 0.3.0: it speaks
-# evconcierge_contracts 0.3, the copy evconcierge_projection links.
-evconcierge_client = "0.3.0"
+# its code flow (PKCE, ExchangeCode, RefreshClientToken, GetMe). 0.5.0: it speaks
+# evconcierge_contracts 0.5, the copy evconcierge_projection links, which carries
+# `EmitRequest.link_scope` and a topic's `required` flag.
+evconcierge_client = "0.5.0"
 # The pull engine over concierge's lifecycle and scope streams (cursors, dedupe, per-key
 # order, parking) that the `users` projection is written by. concierge's own published crate
 # (`projection/`), so invest keeps no second copy of the stream contract (concierge
 # docs/SCOPES-AND-APPROVALS.md §4). `pg` is its Postgres bookkeeping store.
-evconcierge_projection = { version = "0.3.0", default-features = false, features = ["pg"] }
+evconcierge_projection = { version = "0.5.0", default-features = false, features = ["pg"] }
 getrandom = { version = "0.3", features = ["wasm_js"] }
 invest_contracts = { path = "contracts" }
 invest_domain = { path = "domain" }

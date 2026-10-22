@@ -280,7 +280,7 @@ async fn a_notice_is_given_up_on_when_the_attempts_are_spent() {
 }
 
 #[tokio::test]
-async fn a_holder_concierge_will_not_deliver_to_is_given_up_on_at_once() {
+async fn a_non_member_is_given_up_on_at_once_and_a_holder_who_switched_it_off_is_still_told() {
 	let Some(h) = harness().await else { return };
 	let service = open_fund(&h, "EV Index").await;
 	let stranger = holder(&h, &service, false).await;
@@ -288,16 +288,17 @@ async fn a_holder_concierge_will_not_deliver_to_is_given_up_on_at_once() {
 	h.notifier.opt_out(quiet);
 	let change = schedule(&h, UserId::new(), &service, dearer(), None).await.unwrap();
 
-	assert_eq!(h.sender.round(now()).await.unwrap().given_up, 2);
+	let round = h.sender.round(now()).await.unwrap();
 
-	for user in [stranger, quiet] {
-		let (delivered, given_up, _, attempts, _, error) = notice_row(&h, &change, user).await;
-		assert!(!delivered && given_up && attempts == 1, "{user}");
-		assert!(error.is_some(), "the row says why");
-	}
-	assert!(h.notifier.written().is_empty());
+	assert_eq!((round.delivered, round.given_up), (1, 1));
+	let (delivered, given_up, _, attempts, _, error) = notice_row(&h, &change, stranger).await;
+	assert!(!delivered && given_up && attempts == 1);
+	assert!(error.is_some(), "the row says why");
+	// The topic is required: a switch-off does not keep the notice from a member.
+	assert!(notice_row(&h, &change, quiet).await.0, "delivered");
+	assert_eq!(h.notifier.written().iter().map(|n| n.user).collect::<Vec<_>>(), vec![quiet]);
 	let change = change_of(&h, &change).await;
-	assert_eq!((change.undelivered_notices, change.notices_given_up), (2, 2));
+	assert_eq!((change.undelivered_notices, change.notices_given_up), (1, 1));
 	// Dearer terms wait: on its requester's acknowledgement, or for good.
 	let_the_notice_run(&h, &change).await;
 	assert!(h.engine.changes.promote(change.id, now()).await.is_err());

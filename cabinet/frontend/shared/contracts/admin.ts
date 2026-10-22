@@ -40,20 +40,39 @@ export interface AllocationClaim {
   reserved: string;
 }
 
-/** The Revenue screen's answer (`GET /api/admin/revenue`, #245): the reserved `fee`
- *  allocation's name, cash, supply, price and who holds it. The BFF assembles it from
- *  invest-core's allocation, NAV and cap table; `claim.reserved` is always `"0"` (invest
- *  holds no approvals over it) and `nav_posted_at` is `"0"` while nothing under it has been
- *  marked. banking's own treasury (D17) is never set here — it is banking's figure. */
+/** One allocation's line of the held-through table (`GET /api/admin/allocations/treasury`,
+ *  #36), and the Revenue screen's answer for the reserved `fee` allocation
+ *  (`GET /api/admin/revenue`, #245). One invest-core read (`ListAllocationTreasury`) answers
+ *  both, so the two screens cannot disagree on a figure.
+ *
+ *  Cash only (owner decision 2026-10-22): `claim` is the balance of `(<scope>, alloc:<service>)`
+ *  in banking, so `posted` = `available` and `reserved` is always `"0"` — invest holds no
+ *  approvals over it. `nav_posted_at` is `"0"` while nothing under it has been marked.
+ *  banking's own treasury (D17) is never part of it — it is banking's figure. */
 export interface AllocationTreasury {
   service: string;
   title: string;
+  state: AllocationState;
   access: AllocationAccessLevel;
+  /** The concierge scope the cash lives in (`invest`, `sa`, …). */
+  scope: string;
   claim: AllocationClaim;
   units_outstanding: string;
   nav: string;
   nav_posted_at: string;
+  /** The mark is older than invest-core deals on (24 h). False for a never-marked one —
+   *  ask `nav_posted_at` for that. */
+  nav_stale: boolean;
+  /** The largest holders, largest first; never null. The table route lists at most five,
+   *  the Revenue route the whole cap table of `fee` (up to 1000). */
   holders: UnitHolding[];
+  /** Every holder with units, including the ones `holders` leaves out. */
+  holder_count: number;
+}
+
+/** Every allocation, the hidden `fee` and `fund` included, ordered by `service`. */
+export interface AllocationTreasuryList {
+  allocations: AllocationTreasury[];
 }
 
 // ── allocations (the registry of investable products) ───────────────────────────

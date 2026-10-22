@@ -33,7 +33,7 @@ pub trait CatalogPublisher: Send + Sync {
 /// kept apart from it because concierge stores the two catalogs separately. Bump it with
 /// every change of [`ScopeCatalog::invest`] (a test pins the two together). concierge also
 /// refuses a version more than a day ahead of its clock, so the bump is never a future date.
-pub const SCOPE_CATALOG_VERSION: u64 = 1_792_674_000;
+pub const SCOPE_CATALOG_VERSION: u64 = 1_792_692_000;
 
 /// The topic of the holders' notice of a fee-policy change (`application::fee_notices`).
 pub const FEE_TERMS_TOPIC: &str = "invest:fee-terms";
@@ -45,6 +45,10 @@ pub struct TopicSpec {
 	pub label: &'static str,
 	pub description: &'static str,
 	pub default_subscribed: bool,
+	/// `Some(why)` for a notice a member cannot switch off: concierge delivers it to every
+	/// active member of the scope whatever they chose, and shows them `why` (plain text, at
+	/// most 120 bytes; at most 3 such topics per catalog).
+	pub required_reason: Option<&'static str>,
 }
 
 /// Who decides a kind (concierge §5.2).
@@ -165,14 +169,18 @@ impl ScopeCatalog {
 					// Following it was an explicit choice before the topic moved here from
 					// `fund:quy-nhon`; concierge carried those subscriptions across.
 					default_subscribed: false,
+					required_reason: None,
 				},
 				TopicSpec {
 					topic: FEE_TERMS_TOPIC,
 					label: "Fee changes in your funds",
 					description: "A notice before the fee terms of a fund you hold change.",
-					// The notice the notice period exists for. concierge lets a member switch any
-					// scope topic off; on by default, nobody misses it for never having chosen.
+					// concierge ignores it on a required topic; kept on, so a concierge that drops
+					// `required` still sends the notice to a member who never chose.
 					default_subscribed: true,
+					// The notice the notice period exists for: a holder who switched it off would
+					// let dearer terms bind untold, or hold a change up for good.
+					required_reason: Some("Fee changes must reach every holder before they bind."),
 				},
 			],
 		}
@@ -182,4 +190,8 @@ impl ScopeCatalog {
 #[async_trait]
 pub trait ScopeCatalogPublisher: Send + Sync {
 	async fn publish(&self, catalog: &ScopeCatalog, version: u64) -> Result<(), PublishError>;
+
+	/// The topics the catalog concierge holds now marks required. A concierge older than
+	/// v0.21.0 drops the flag without a word, so the publication alone does not prove it.
+	async fn required_topics(&self) -> Result<Vec<String>, PublishError>;
 }

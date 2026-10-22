@@ -20,9 +20,11 @@ All under `/cabinet/{locale}`; a request without a locale is redirected into one
 | `/invest`, `/invest/[service]` | Allocations: the catalog, one product, subscribe and redeem |
 | `/invest/[service]/trade` | The order book terminal for one product |
 | `/wallet` | Banking's wallet element, `scope="invest"` (`@evinvest/wallet`) — the only place cash is shown |
+| `/wallet/action/payment/[id]` | Landing of a payment-consent notice: the "Review the payment" button opens the answer page on evinvest.ltd in a popup (`openWalletAction`) and shows how it ended. No sign-in gate; it never answers the payment itself |
 | `/account` | Concierge's account element (`@evinvest/concierge`): profile, security, identity verification |
 | `/admin/allocations` | Allocation registry; "Manage access" leads to `evinvest.ltd/admin/scopes`, where scope and panel grants live (§7) |
 | `/admin/valuation`, `/admin/fees`, `/admin/revenue` | Valuation and redemptions, fee terms, fund revenue |
+| `/admin/treasury` | Held through allocations: every allocation's cash, units, NAV and largest holders, `fee` and `fund` included (#36) |
 
 What is not here, and where it went: the cash balance and every money action (banking's
 wallet element on `/wallet`); identity verification (concierge's account element on

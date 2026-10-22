@@ -10,8 +10,9 @@
 //! a singleton. It sends each due notice through concierge's scope inbox on [`TOPIC`] and:
 //!
 //! - stamps it delivered when concierge says it reached the holder;
-//! - gives it up at once when concierge says it will not deliver it — the holder is not an
-//!   active member of invest's scope, or switched these notices or both channels off;
+//! - gives it up at once when concierge says it will not deliver it. [`TOPIC`] is required,
+//!   so a member cannot switch it off: that answer means the holder is not an active member
+//!   of invest's scope (or concierge dropped the flag, and they switched it off);
 //! - otherwise tries again after [`retry_delay`], and gives it up after [`MAX_ATTEMPTS`].
 //!
 //! Every attempt of one notice carries the same `dedupe_key`, so a retry after a lost answer,
