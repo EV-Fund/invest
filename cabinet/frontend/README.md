@@ -24,6 +24,7 @@ All under `/cabinet/{locale}`; a request without a locale is redirected into one
 | `/account` | Concierge's account element (`@evinvest/concierge`): profile, security, identity verification |
 | `/admin/allocations` | Allocation registry; "Manage access" leads to `evinvest.ltd/admin/scopes`, where scope and panel grants live (§7) |
 | `/admin/valuation`, `/admin/fees`, `/admin/revenue` | Valuation and redemptions, fee terms, fund revenue |
+| `/admin/treasury` | Held through allocations: every allocation's cash, units, NAV and largest holders, `fee` and `fund` included (#36) |
 
 What is not here, and where it went: the cash balance and every money action (banking's
 wallet element on `/wallet`); identity verification (concierge's account element on

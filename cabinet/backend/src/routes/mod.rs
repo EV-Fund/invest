@@ -97,6 +97,7 @@ fn requests(state: AppState) -> Router {
 		.route("/admin/allocations/retire", post(admin::retire_units))
 		.route("/admin/allocations/backing", post(admin::set_allocation_backing))
 		.route("/admin/allocations/holders", get(admin::list_unit_holders))
+		.route("/admin/allocations/treasury", get(admin::allocation_treasury))
 		.route("/admin/allocations/book", post(admin::set_book_policy))
 		.route("/admin/fees/policies", get(admin::list_fee_policies))
 		.route("/admin/fees/policy", post(admin::schedule_fee_policy))

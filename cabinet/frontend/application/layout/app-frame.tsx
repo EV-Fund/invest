@@ -3,7 +3,7 @@
 import type { Translate } from "@evinvest/i18n";
 import { useT } from "@evinvest/i18n/react";
 
-import { Boxes, Home, LifeBuoy, LineChart, Percent, PiggyBank, Receipt, UserRound, Wallet, Shield } from "lucide-react";
+import { Boxes, Home, Layers, LifeBuoy, LineChart, Percent, PiggyBank, Receipt, UserRound, Wallet, Shield } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { AppShell, BottomTabBar, Button, type NavGroup, type NavItem, ShellNav } from "@evinvest/uikit";
@@ -35,6 +35,7 @@ const ADMIN: readonly ((t: Translate) => NavItem)[] = [
   (t) => ({ id: "admin-valuation", href: "/admin/valuation", label: t("nav.valuation", "Valuation & redemptions"), icon: Receipt }),
   (t) => ({ id: "admin-fees", href: "/admin/fees", label: t("nav.fees", "Fees"), icon: Percent }),
   (t) => ({ id: "admin-revenue", href: "/admin/revenue", label: t("nav.revenue", "Revenue stats"), icon: PiggyBank }),
+  (t) => ({ id: "admin-treasury", href: "/admin/treasury", label: t("nav.heldThrough", "Held through allocations"), icon: Layers }),
 ];
 
 /**

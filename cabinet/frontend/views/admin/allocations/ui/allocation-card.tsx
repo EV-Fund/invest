@@ -14,7 +14,7 @@ import { AllocationAccessCell } from "@/views/admin/allocations/ui/allocation-ac
 import { AllocationEditor } from "@/views/admin/allocations/ui/allocation-editor";
 import type { AllocationRowProps } from "@/views/admin/allocations/ui/allocation-row";
 import { AllocationRowActions } from "@/views/admin/allocations/ui/allocation-row-actions";
-import { AllocationStateCell } from "@/views/admin/allocations/ui/allocation-state-cell";
+import { AllocationStateCell } from "@/views/admin/ui/allocation-state-cell";
 import { BackingBadge } from "@/views/admin/allocations/ui/backing-badge";
 
 export function AllocationCard({ row, busy, editing, onEdit, onSave, onToggle, onSetAccess, onOpenPanel }: AllocationRowProps) {

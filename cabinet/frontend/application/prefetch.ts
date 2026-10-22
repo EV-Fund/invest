@@ -17,7 +17,7 @@
 //   · idle — once the shell is up, warm the handful of reads shared by most screens, at
 //     idle priority so they never race the reads the current screen is making for itself.
 
-import { adminAllocationsResource, fundRevenueResource, redemptionQueueResource } from "@/entities/admin/model/admin-resource";
+import { adminAllocationsResource, allocationTreasuryResource, fundRevenueResource, redemptionQueueResource } from "@/entities/admin/model/admin-resource";
 import { bookPolicyResource, bookSnapshotResource, bookTradesResource, openOrdersResource } from "@/entities/book/model/book-resource";
 import { allocationsResource, fundNavResource, positionsResource, redemptionsResource } from "@/entities/fund/model/fund-resource";
 
@@ -25,6 +25,7 @@ import { allocationsResource, fundNavResource, positionsResource, redemptionsRes
 // Ordered longest-prefix-first so `/invest/<service>` isn't answered by `/invest`.
 const ROUTES: ReadonlyArray<{ prefix: string; warm: (path: string) => void }> = [
   { prefix: "/admin/revenue", warm: () => fundRevenueResource.prefetch() },
+  { prefix: "/admin/treasury", warm: () => allocationTreasuryResource.prefetch() },
   { prefix: "/admin/allocations", warm: () => adminAllocationsResource.prefetch() },
   {
     prefix: "/admin/valuation",
