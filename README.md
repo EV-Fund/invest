@@ -155,12 +155,16 @@ change). Only people hold positions: the `fee` allocation holds a product's fee 
 ledger, not in `fund_positions`, so it gets no notice. The notice sender
 (`core/src/infrastructure/fee_notices.rs`, one per deployment under an advisory lock) emits
 each through concierge's `ScopeInboxService.EmitScopeNotification` on the topic
-`invest:fee-terms` (in-app and mail, on by default), deduped by `fee_policy_notice:<change>`:
+`invest:fee-terms`, deduped by `fee_policy_notice:<change>`. The topic is **required**
+(concierge v0.21.0): a member cannot switch it off, and every active member gets it in-app,
+and by mail when their address is verified, whatever they chose. At boot invest reads its
+scope catalog back and warns when concierge does not hold the topic as required.
 
-- concierge delivered it: `delivered_at`;
-- concierge will not (the holder is not an active member of invest's scope, or switched the
-  topic or both channels off): `given_up_at` at once. concierge has no topic a member
-  cannot switch off for a scope;
+- concierge delivered it: `delivered_at`. An in-app notice counts; concierge does not say
+  whether the mail copy went;
+- concierge will not: `given_up_at` at once. On a required topic that means the holder is not
+  an active member of invest's scope (a concierge that dropped the flag also answers so for
+  a member who switched the topic off);
 - concierge failed: retried after 30 s, doubling to at most an hour; given up after 10
   attempts (about three hours). Without `CONCIERGE_GRPC_ADDR` every notice is given up at once.
 

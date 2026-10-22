@@ -1,9 +1,11 @@
 //! [`HolderNotifier`] over concierge's `ScopeInboxService.EmitScopeNotification`, with the
 //! credential the streams are pulled with. concierge files the notice in invest's inbox and
 //! mails it, and answers per user whether it did (concierge `docs/SCOPES-AND-APPROVALS.md`
-//! §6): `delivered` is false for anyone who is not an active member of invest's scope, and
-//! for a member who switched the topic, or both channels, off. A scope cannot publish a
-//! topic its members cannot switch off; that stays concierge's own.
+//! §6). `invest:fee-terms` is a required topic (concierge v0.21.0): every active member of
+//! invest's scope gets it in-app whatever they chose, and by mail when their address is
+//! verified. So `delivered` is false only for someone who is not an active member — or, on
+//! a concierge that dropped the flag, for a member who switched the topic off. Whether the
+//! mail copy went is not in the answer: an in-app notice counts as delivered.
 
 use async_trait::async_trait;
 use evconcierge_client::{ConciergeClient, ConciergeError, proto::EmitRequest};
@@ -25,7 +27,7 @@ impl ConciergeNotifier {
 }
 
 /// What concierge's `delivered = false` means, in the words the notice row keeps.
-const NOT_DELIVERED: &str = "concierge did not deliver it: the holder is not an active member of invest's scope, or has switched fee-term notices (or both channels) off";
+const NOT_DELIVERED: &str = "concierge did not deliver it: the holder is not an active member of invest's scope";
 
 /// The notice as concierge's wire carries it. The link opens in the cabinet `link_scope`
 /// names; with concierge's `NOTICE_LINK_BASES` set for it, the stored link is absolute.

@@ -80,7 +80,7 @@ pub struct HolderNotice {
 pub enum NoticeOutcome {
 	Delivered,
 	/// The channel will not deliver it, and says why: the holder is not reachable there, or
-	/// has switched these notices off.
+	/// switched off a notice that is not required.
 	NotDelivered(String),
 }
 
