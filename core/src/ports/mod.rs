@@ -17,7 +17,8 @@
 //!
 //! [`UserDirectory`] is the projection of the people concierge knows: who may hold, and
 //! which `invest:*` permissions they carry; [`catalog::CatalogPublisher`] tells concierge
-//! which permissions those are.
+//! which permissions those are. [`approvals::Approvals`] is concierge's approvals: invest
+//! proposes its `invest:*` kinds there and carries out what the owners pass.
 //!
 //! The dealing ports follow the same rule: [`SubscriptionRepository`] and
 //! [`RedemptionRepository`] record the money sagas, [`BookStore`] the order book, and the
@@ -25,6 +26,7 @@
 //! cash movement made after the commit.
 
 pub mod allocations;
+pub mod approvals;
 pub mod book;
 pub mod catalog;
 pub mod fees;

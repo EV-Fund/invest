@@ -1,5 +1,6 @@
-//! An in-memory concierge for tests: the two pull streams relying parties read, and the
-//! catalog publication ([`InMemoryCatalogPublisher`]), without concierge.
+//! An in-memory concierge for tests: the two pull streams relying parties read, the
+//! catalog publication ([`InMemoryCatalogPublisher`]) and the approvals
+//! ([`InMemoryApprovals`]), without concierge.
 //!
 //! It keeps what the engine leans on — each stream's own positions, oldest first, rows never
 //! deleted, `next_position` as concierge computes it (the position a full page ends on; the
@@ -20,7 +21,10 @@ use async_trait::async_trait;
 use evconcierge_projection::{EventSource, Page, Pulled, ScopeEvent, SourceError, UnknownEvent, UserEvent};
 use invest_domain::authz::PermissionCatalog;
 
-use crate::ports::catalog::{CatalogPublisher, PublishError, ScopeCatalog, ScopeCatalogPublisher};
+use crate::ports::{
+	approvals::{ApprovalOutcome, ApprovalState, ApprovalView, Approvals, ApprovalsError, Proposal, payload_hash},
+	catalog::{CatalogPublisher, PublishError, ScopeCatalog, ScopeCatalogPublisher},
+};
 
 #[derive(Clone, Default)]
 pub struct InMemoryConcierge {
@@ -229,5 +233,192 @@ impl CatalogPublisher for InMemoryCatalogPublisher {
 impl ScopeCatalogPublisher for InMemoryScopeCatalogPublisher {
 	async fn publish(&self, catalog: &ScopeCatalog, version: u64) -> Result<(), PublishError> {
 		self.record(catalog, version)
+	}
+}
+
+/// concierge's approvals, in memory: enough of §5.4 to drive invest's proposer and executor
+/// — `Propose` deduped per key and hashed as concierge hashes, the state a test sets,
+/// `PullApproved` serving every passed proposal until its outcome is reported, and a
+/// withdrawal while open or passed. A test steers it with [`InMemoryApprovals::set_state`],
+/// [`InMemoryApprovals::tamper_hash`], [`InMemoryApprovals::unreport`],
+/// [`InMemoryApprovals::hold_back`], [`InMemoryApprovals::refuse_proposals`] and
+/// [`InMemoryApprovals::outage`].
+#[derive(Clone, Default)]
+pub struct InMemoryApprovals {
+	state: Arc<Mutex<ApprovalsState>>,
+}
+
+#[derive(Default)]
+struct ApprovalsState {
+	proposals: Vec<StoredProposal>,
+	reports: Vec<(String, ApprovalOutcome, String)>,
+	withdrawals: Vec<String>,
+	refuse: Option<String>,
+	down: bool,
+}
+
+struct StoredProposal {
+	view: ApprovalView,
+	proposal: Proposal,
+	reported: bool,
+	/// Passed but inside its veto delay: not served by a pull yet.
+	held_back: bool,
+}
+
+impl InMemoryApprovals {
+	pub fn new() -> Self {
+		Self::default()
+	}
+
+	fn lock(&self) -> std::sync::MutexGuard<'_, ApprovalsState> {
+		// A test that panicked while holding the lock already failed.
+		self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+	}
+
+	/// Every proposal opened, in order.
+	pub fn proposals(&self) -> Vec<(ApprovalView, Proposal)> {
+		self.lock().proposals.iter().map(|p| (p.view.clone(), p.proposal.clone())).collect()
+	}
+
+	/// Every outcome reported, in order: approval id, outcome, detail.
+	pub fn reports(&self) -> Vec<(String, ApprovalOutcome, String)> {
+		self.lock().reports.clone()
+	}
+
+	/// Every approval id withdrawn, in order.
+	pub fn withdrawals(&self) -> Vec<String> {
+		self.lock().withdrawals.clone()
+	}
+
+	/// The owners (or the clock) move a proposal to `state`, with the veto or void reason.
+	pub fn set_state(&self, approval_id: &str, state: ApprovalState, note: &str) {
+		let mut guard = self.lock();
+		let stored = guard.proposals.iter_mut().find(|p| p.view.id == approval_id).expect("no such proposal");
+		stored.view.state = state;
+		stored.view.note = note.to_owned();
+	}
+
+	/// Make concierge hold another payload hash than the one it computed — a proposal whose
+	/// terms are not the change's.
+	pub fn tamper_hash(&self, approval_id: &str) {
+		let mut guard = self.lock();
+		let stored = guard.proposals.iter_mut().find(|p| p.view.id == approval_id).expect("no such proposal");
+		stored.view.payload_hash = "0".repeat(64);
+	}
+
+	/// Forget that an outcome was reported — a report concierge lost — so a pull serves the
+	/// proposal again.
+	pub fn unreport(&self, approval_id: &str) {
+		let mut guard = self.lock();
+		let stored = guard.proposals.iter_mut().find(|p| p.view.id == approval_id).expect("no such proposal");
+		stored.reported = false;
+	}
+
+	/// Keep a passed proposal out of the pull, as its veto delay does.
+	pub fn hold_back(&self, approval_id: &str, held: bool) {
+		let mut guard = self.lock();
+		let stored = guard.proposals.iter_mut().find(|p| p.view.id == approval_id).expect("no such proposal");
+		stored.held_back = held;
+	}
+
+	/// While set, `Propose` is refused with this reason.
+	pub fn refuse_proposals(&self, why: Option<&str>) {
+		self.lock().refuse = why.map(str::to_owned);
+	}
+
+	/// While set, every call answers UNAVAILABLE.
+	pub fn outage(&self, down: bool) {
+		self.lock().down = down;
+	}
+
+	fn up(&self) -> Result<std::sync::MutexGuard<'_, ApprovalsState>, ApprovalsError> {
+		let guard = self.lock();
+		if guard.down {
+			return Err(ApprovalsError::Unavailable("concierge is down (fake)".into()));
+		}
+		Ok(guard)
+	}
+}
+
+#[async_trait]
+impl Approvals for InMemoryApprovals {
+	async fn propose(&self, proposal: &Proposal) -> Result<ApprovalView, ApprovalsError> {
+		let mut guard = self.up()?;
+		if let Some(why) = &guard.refuse {
+			return Err(ApprovalsError::Refused(why.clone()));
+		}
+		if let Some(existing) = guard.proposals.iter().find(|p| p.proposal.dedupe_key == proposal.dedupe_key) {
+			return Ok(existing.view.clone());
+		}
+		let view = ApprovalView {
+			id: uuid::Uuid::new_v4().to_string(),
+			kind: proposal.kind.to_owned(),
+			scope: proposal.scope.to_owned(),
+			subject_ref: proposal.subject_ref.clone(),
+			state: ApprovalState::Open,
+			payload_hash: payload_hash(proposal.kind, proposal.scope, &proposal.subject_ref, &proposal.fields),
+			note: String::new(),
+		};
+		guard.proposals.push(StoredProposal {
+			view: view.clone(),
+			proposal: proposal.clone(),
+			reported: false,
+			held_back: false,
+		});
+		Ok(view)
+	}
+
+	async fn get(&self, approval_id: &str) -> Result<ApprovalView, ApprovalsError> {
+		let guard = self.up()?;
+		guard
+			.proposals
+			.iter()
+			.find(|p| p.view.id == approval_id)
+			.map(|p| p.view.clone())
+			.ok_or_else(|| ApprovalsError::Refused(format!("NotFound: no approval {approval_id}")))
+	}
+
+	async fn pull_approved(&self, limit: u32) -> Result<Vec<ApprovalView>, ApprovalsError> {
+		let guard = self.up()?;
+		Ok(guard
+			.proposals
+			.iter()
+			.filter(|p| p.view.state == ApprovalState::Passed && !p.reported && !p.held_back)
+			.take(usize::try_from(limit).unwrap_or(usize::MAX))
+			.map(|p| p.view.clone())
+			.collect())
+	}
+
+	async fn report(&self, approval_id: &str, outcome: ApprovalOutcome, detail: &str) -> Result<(), ApprovalsError> {
+		let mut guard = self.up()?;
+		let stored = guard
+			.proposals
+			.iter_mut()
+			.find(|p| p.view.id == approval_id)
+			.ok_or_else(|| ApprovalsError::Refused(format!("NotFound: no approval {approval_id}")))?;
+		stored.reported = true;
+		stored.view.state = match outcome {
+			ApprovalOutcome::Executed => ApprovalState::Executed,
+			ApprovalOutcome::Failed => ApprovalState::ExecutionFailed,
+			ApprovalOutcome::Void => ApprovalState::Void,
+		};
+		guard.reports.push((approval_id.to_owned(), outcome, detail.to_owned()));
+		Ok(())
+	}
+
+	async fn withdraw(&self, approval_id: &str, _reason: &str) -> Result<ApprovalView, ApprovalsError> {
+		let mut guard = self.up()?;
+		let stored = guard
+			.proposals
+			.iter_mut()
+			.find(|p| p.view.id == approval_id)
+			.ok_or_else(|| ApprovalsError::Refused(format!("NotFound: no approval {approval_id}")))?;
+		if !stored.view.state.is_live() {
+			return Err(ApprovalsError::Refused(format!("FailedPrecondition: the approval is {}", stored.view.state.as_str())));
+		}
+		stored.view.state = ApprovalState::Cancelled;
+		let view = stored.view.clone();
+		guard.withdrawals.push(approval_id.to_owned());
+		Ok(view)
 	}
 }

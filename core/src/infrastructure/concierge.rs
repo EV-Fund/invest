@@ -40,6 +40,7 @@ use uuid::Uuid;
 use super::{singleton, users::PgUsers};
 use crate::ports::money::ScopeId;
 
+pub mod approvals;
 pub mod catalog;
 pub mod fake;
 
@@ -73,7 +74,7 @@ pub fn connect(config: &ConciergeStreamsConfig) -> color_eyre::Result<GrpcSource
 }
 
 /// A lazy channel to concierge, over TLS when the address is `https://`. Shared by the
-/// stream source and the catalog publisher.
+/// stream source, the scope catalog publisher and the approvals client.
 fn channel(config: &ConciergeStreamsConfig) -> color_eyre::Result<Channel> {
 	channel_to(&config.addr, config)
 }
