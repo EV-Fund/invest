@@ -10,6 +10,9 @@
 --     operator sees (open, passed and in its veto delay, …). NULL until proposed.
 --   - `approval_holders`: how many holders the proposal told the owners would be notified. It
 --     is one of the approved fields, so the round needs it to recompute the payload hash.
+--   - `approval_executable_at`: when concierge lets invest carry out a passed proposal — the
+--     end of the owners' veto window, so the operator sees until when a veto is possible.
+--     NULL until the round has read it.
 --
 -- Compatible with the running binary: it never writes an owner change (it refuses them), reads
 -- neither new column, and every row it writes (an administrator's: no approval) passes the new
@@ -27,13 +30,15 @@ SET statement_timeout = '30s';
 ALTER TABLE fee_policy_changes
     ADD COLUMN approval_state TEXT CHECK (approval_state IN ('open', 'passed', 'executed', 'execution_failed', 'rejected', 'vetoed', 'expired', 'cancelled', 'void')),
     ADD COLUMN approval_holders INTEGER CHECK (approval_holders >= 0),
+    ADD COLUMN approval_executable_at TIMESTAMPTZ,
     DROP CONSTRAINT fee_policy_change_consilium_matches_requirement,
     ADD CONSTRAINT fee_policy_change_approval_matches_requirement CHECK (
-        (requirement = 'admin' AND consilium_id IS NULL AND approval_state IS NULL AND approval_holders IS NULL)
+        (requirement = 'admin' AND consilium_id IS NULL AND approval_state IS NULL AND approval_holders IS NULL AND approval_executable_at IS NULL)
         OR (requirement = 'owner_consilium' AND (consilium_id IS NOT NULL OR state IN ('awaiting_consilium', 'rejected', 'cancelled')))
     ),
     ADD CONSTRAINT fee_policy_change_approval_state_names_one CHECK (approval_state IS NULL OR consilium_id IS NOT NULL);
 
 COMMENT ON COLUMN fee_policy_changes.consilium_id IS 'The concierge approval (invest:fee_policy) an owner change waits on; NULL until it is proposed. Rows imported from banking keep their consilium id. No foreign key: the approval lives in concierge.';
 COMMENT ON COLUMN fee_policy_changes.approval_state IS 'concierge''s state of that approval as invest last read it; NULL until proposed.';
+COMMENT ON COLUMN fee_policy_changes.approval_executable_at IS 'When concierge lets invest carry out the passed approval (the end of the owners'' veto window); NULL until invest has read it.';
 COMMENT ON COLUMN fee_policy_changes.approval_holders IS 'The holder count the proposal named (holders_notified). Hashed with the other fields, so the executor needs it to re-check the approval.';

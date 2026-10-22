@@ -225,7 +225,7 @@ pub async fn withdraw_cancelled(ports: &FeeApprovalPorts<'_>, change: &FeePolicy
 		return Ok(());
 	}
 	match ports.approvals.withdraw(&approval.to_string(), "the operator withdrew the fee-policy change").await {
-		Ok(view) => ports.changes.note_approval_state(change.id, view.state).await,
+		Ok(view) => ports.changes.note_approval_state(change.id, view.state, view.executable_at_unix).await,
 		Err(err) => {
 			warn!(change_id = %change.id, approval_id = %approval, "fee approvals: could not withdraw the proposal of a cancelled change, the next round retries: {err}");
 			Ok(())
@@ -307,7 +307,7 @@ async fn report(
 					ApprovalOutcome::Failed => ApprovalState::ExecutionFailed,
 					ApprovalOutcome::Void => ApprovalState::Void,
 				};
-				ports.changes.note_approval_state(change, state).await?;
+				ports.changes.note_approval_state(change, state, None).await?;
 			}
 		}
 		Err(ApprovalsError::Refused(why)) => {
@@ -487,8 +487,9 @@ async fn follow(ports: &FeeApprovalPorts<'_>, round: &mut ApprovalRound, change:
 	let closed = |why: String| (Some(view.state), why);
 	let (state, why) = match view.state {
 		ApprovalState::Open | ApprovalState::Passed => {
-			if change.approval_state != Some(view.state) {
-				ports.changes.note_approval_state(change.id, view.state).await?;
+			let moment_is_new = view.executable_at_unix.is_some() && view.executable_at_unix != change.approval_executable_at_unix;
+			if change.approval_state != Some(view.state) || moment_is_new {
+				ports.changes.note_approval_state(change.id, view.state, view.executable_at_unix).await?;
 			}
 			return Ok(Flow::Next);
 		}
@@ -519,7 +520,7 @@ async fn withdraw(ports: &FeeApprovalPorts<'_>, round: &mut ApprovalRound, chang
 	let id = approval.to_string();
 	match ports.approvals.withdraw(&id, "the operator withdrew the fee-policy change").await {
 		Ok(view) => {
-			ports.changes.note_approval_state(change.id, view.state).await?;
+			ports.changes.note_approval_state(change.id, view.state, view.executable_at_unix).await?;
 			round.withdrawn += 1;
 			Ok(Flow::Next)
 		}
@@ -529,7 +530,7 @@ async fn withdraw(ports: &FeeApprovalPorts<'_>, round: &mut ApprovalRound, chang
 		Err(ApprovalsError::Refused(why)) => match ports.approvals.get(&id).await {
 			Ok(view) => {
 				info!(change_id = %change.id, approval_id = %approval, state = view.state.as_str(), "fee approvals: concierge would not withdraw the proposal of a cancelled change: {why}");
-				ports.changes.note_approval_state(change.id, view.state).await?;
+				ports.changes.note_approval_state(change.id, view.state, view.executable_at_unix).await?;
 				Ok(Flow::Next)
 			}
 			Err(err) => {

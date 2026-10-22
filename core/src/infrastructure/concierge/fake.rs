@@ -241,7 +241,8 @@ impl ScopeCatalogPublisher for InMemoryScopeCatalogPublisher {
 /// `PullApproved` serving every passed proposal until its outcome is reported, and a
 /// withdrawal while open or passed. A test steers it with [`InMemoryApprovals::set_state`],
 /// [`InMemoryApprovals::tamper_hash`], [`InMemoryApprovals::unreport`],
-/// [`InMemoryApprovals::hold_back`], [`InMemoryApprovals::refuse_proposals`] and
+/// [`InMemoryApprovals::hold_back`], [`InMemoryApprovals::set_level`],
+/// [`InMemoryApprovals::set_executable_at`], [`InMemoryApprovals::refuse_proposals`] and
 /// [`InMemoryApprovals::outage`].
 #[derive(Clone, Default)]
 pub struct InMemoryApprovals {
@@ -296,6 +297,13 @@ impl InMemoryApprovals {
 		let stored = guard.proposals.iter_mut().find(|p| p.view.id == approval_id).expect("no such proposal");
 		stored.view.state = state;
 		stored.view.note = note.to_owned();
+	}
+
+	/// The end of a passed proposal's veto window, as concierge would name it.
+	pub fn set_executable_at(&self, approval_id: &str, at_unix: Option<i64>) {
+		let mut guard = self.lock();
+		let stored = guard.proposals.iter_mut().find(|p| p.view.id == approval_id).expect("no such proposal");
+		stored.view.executable_at_unix = at_unix;
 	}
 
 	/// Make concierge hold the proposal at another level than the one it resolved.
@@ -365,6 +373,7 @@ impl Approvals for InMemoryApprovals {
 			state: ApprovalState::Open,
 			// What concierge resolves `invest:fee_policy` to; a test moves it with `set_level`.
 			level: Some(KindLevel::Platform),
+			executable_at_unix: None,
 			payload_hash: payload_hash(proposal.kind, proposal.scope, &proposal.subject_ref, &proposal.fields),
 			note: String::new(),
 		};

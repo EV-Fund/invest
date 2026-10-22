@@ -376,6 +376,7 @@ fn change_to_proto(change: &FeePolicyChange, audience: Audience) -> pb::FeePolic
 		consilium_id: change.approval_id.filter(|_| operator).map(|id| id.to_string()).unwrap_or_default(),
 		approval_state: change.approval_state.filter(|_| operator).map(|state| state.as_str().to_owned()).unwrap_or_default(),
 		approval_holders: change.approval_holders.filter(|_| operator),
+		approval_executable_at: change.approval_executable_at_unix.filter(|_| operator).unwrap_or_default(),
 		requested_by: if operator { change.requested_by.clone() } else { String::new() },
 		requested_at: change.requested_at_unix,
 		scheduled_at: change.scheduled_at_unix.unwrap_or_default(),

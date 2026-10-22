@@ -342,6 +342,27 @@ async fn scheduling_an_approved_change_twice_returns_the_scheduled_change() {
 	assert!(matches!(h.changes.schedule_approved(change.id, &other, now()).await, Err(DomainError::Conflict(_))));
 }
 
+/// While the owners' veto window runs, the round notes the passed state and the moment the
+/// window ends, so the operator can be told until when a veto is possible; the change still
+/// awaits. A later read without a moment keeps the noted one.
+#[tokio::test]
+async fn a_passed_proposal_in_its_veto_window_shows_until_when() {
+	let Some(h) = harness().await else { return };
+	let (_, change, approval) = proposed(&h).await;
+	let until = now() + 86_400;
+	h.approvals.set_state(&approval, ApprovalState::Passed, "");
+	h.approvals.set_executable_at(&approval, Some(until));
+	h.approvals.hold_back(&approval, true);
+
+	assert_eq!(round(&h).await.scheduled, 0);
+
+	let waiting = change_of(&h, &change).await;
+	assert_eq!(waiting.state, FeePolicyChangeState::AwaitingConsilium);
+	assert_eq!((waiting.approval_state, waiting.approval_executable_at_unix), (Some(ApprovalState::Passed), Some(until)));
+	h.changes.note_approval_state(change.id, ApprovalState::Passed, None).await.unwrap();
+	assert_eq!(change_of(&h, &change).await.approval_executable_at_unix, Some(until));
+}
+
 /// A round that read the proposal before another reported its outcome writes what it read
 /// late. The noted state never moves back: not from an ended state, not from passed to open.
 #[tokio::test]
@@ -349,13 +370,13 @@ async fn a_stale_approval_state_never_overwrites_a_later_one() {
 	let Some(h) = harness().await else { return };
 	let (_, change, _) = proposed(&h).await;
 
-	h.changes.note_approval_state(change.id, ApprovalState::Passed).await.unwrap();
-	h.changes.note_approval_state(change.id, ApprovalState::Open).await.unwrap();
+	h.changes.note_approval_state(change.id, ApprovalState::Passed, None).await.unwrap();
+	h.changes.note_approval_state(change.id, ApprovalState::Open, None).await.unwrap();
 	assert_eq!(change_of(&h, &change).await.approval_state, Some(ApprovalState::Passed));
 
-	h.changes.note_approval_state(change.id, ApprovalState::Executed).await.unwrap();
+	h.changes.note_approval_state(change.id, ApprovalState::Executed, None).await.unwrap();
 	for stale in [ApprovalState::Passed, ApprovalState::Open, ApprovalState::Void] {
-		h.changes.note_approval_state(change.id, stale).await.unwrap();
+		h.changes.note_approval_state(change.id, stale, None).await.unwrap();
 	}
 	assert_eq!(change_of(&h, &change).await.approval_state, Some(ApprovalState::Executed));
 }

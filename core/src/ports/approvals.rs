@@ -108,6 +108,9 @@ pub struct ApprovalView {
 	/// cannot read it.
 	pub level: Option<KindLevel>,
 	pub payload_hash: String,
+	/// When concierge lets the proposer carry out a passed proposal (unix seconds) — the
+	/// end of the owners' veto window. `None` until the proposal has passed.
+	pub executable_at_unix: Option<i64>,
 	/// The veto reason, the void reason or the reported outcome detail, whichever the state
 	/// has; empty otherwise.
 	pub note: String,

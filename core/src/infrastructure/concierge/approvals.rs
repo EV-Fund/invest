@@ -135,6 +135,8 @@ fn view(approval: Approval) -> Result<ApprovalView, ApprovalsError> {
 		subject_ref: approval.subject_ref,
 		state,
 		level,
+		// concierge sends 0 until the proposal passes.
+		executable_at_unix: (approval.executable_at != 0).then_some(approval.executable_at),
 		payload_hash: approval.payload_hash,
 		note,
 	})

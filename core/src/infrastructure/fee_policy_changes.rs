@@ -59,7 +59,8 @@ macro_rules! change_columns {
 		 EXTRACT(EPOCH FROM requested_at)::bigint AS requested_at_unix, EXTRACT(EPOCH FROM scheduled_at)::bigint AS scheduled_at_unix, \
 		 EXTRACT(EPOCH FROM applied_at)::bigint AS applied_at_unix, \
 		 notices_waived_by, EXTRACT(EPOCH FROM notices_waived_at)::bigint AS notices_waived_at_unix, notices_waived_users, \
-		 consilium_id, approval_state, approval_holders"
+		 consilium_id, approval_state, approval_holders, \
+		 EXTRACT(EPOCH FROM approval_executable_at)::bigint AS approval_executable_at_unix"
 	};
 }
 
@@ -172,6 +173,7 @@ fn change_from_row(row: &PgRow) -> Result<FeePolicyChange, DomainError> {
 			.map_err(repo_err)?
 			.map(|holders| u32::try_from(holders).map_err(|_| DomainError::Repository("negative approval holder count".into())))
 			.transpose()?,
+		approval_executable_at_unix: row.try_get("approval_executable_at_unix").map_err(repo_err)?,
 	})
 }
 
@@ -468,16 +470,18 @@ impl FeePolicyChanges for PgFeePolicyChanges {
 		Ok(stored)
 	}
 
-	async fn note_approval_state(&self, id: FeePolicyChangeId, state: ApprovalState) -> Result<(), DomainError> {
+	async fn note_approval_state(&self, id: FeePolicyChangeId, state: ApprovalState, executable_at_unix: Option<i64>) -> Result<(), DomainError> {
 		// Reads race: a round that read `passed` before another round reported the outcome
 		// must not write it over `executed`. concierge never leaves an ended state, and a
 		// passed proposal never opens again, so neither move is taken from a stale read.
 		sqlx::query(
-			"UPDATE fee_policy_changes SET approval_state = $2 WHERE id = $1 AND consilium_id IS NOT NULL \
+			"UPDATE fee_policy_changes SET approval_state = $2, approval_executable_at = COALESCE(to_timestamp($3), approval_executable_at) \
+			 WHERE id = $1 AND consilium_id IS NOT NULL \
 			 AND (approval_state IS NULL OR approval_state = 'open' OR (approval_state = 'passed' AND $2 <> 'open'))",
 		)
 		.bind(id.raw())
 		.bind(state.as_str())
+		.bind(executable_at_unix)
 		.execute(&self.pool)
 		.await
 		.map_err(repo_err)?;

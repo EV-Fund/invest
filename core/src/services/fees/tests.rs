@@ -40,6 +40,7 @@ fn scheduled_change() -> FeePolicyChange {
 		approval_id: None,
 		approval_state: None,
 		approval_holders: None,
+		approval_executable_at_unix: None,
 	}
 }
 
@@ -52,6 +53,7 @@ fn owner_change() -> FeePolicyChange {
 		approval_id: Some(Uuid::from_u128(0xc0)),
 		approval_state: Some(ApprovalState::Passed),
 		approval_holders: Some(3),
+		approval_executable_at_unix: Some(1_700_086_400),
 		..scheduled_change()
 	}
 }
@@ -108,19 +110,28 @@ fn the_owners_approval_is_shown_to_operators_and_its_existence_to_everyone() {
 	assert_eq!(operator.consilium_id, Uuid::from_u128(0xc0).to_string());
 	assert_eq!(operator.approval_state, "passed");
 	assert_eq!(operator.approval_holders, Some(3));
+	assert_eq!(operator.approval_executable_at, 1_700_086_400, "until when an owner may veto");
 	assert_eq!(operator.state, "awaiting_consilium");
 	assert_eq!(operator.requirement, "owner_consilium");
 
 	let investor = change_to_proto(&change, Audience::Investor);
 	assert_eq!(
-		(investor.consilium_id.as_str(), investor.approval_state.as_str(), investor.approval_holders),
-		("", "", None),
+		(
+			investor.consilium_id.as_str(),
+			investor.approval_state.as_str(),
+			investor.approval_holders,
+			investor.approval_executable_at
+		),
+		("", "", None, 0),
 		"which approval, and its tally, is governance detail"
 	);
 	assert_eq!(investor.state, "awaiting_consilium", "that the owners are deciding is public");
 
 	let admin = change_to_proto(&scheduled_change(), Audience::Operator);
-	assert_eq!((admin.consilium_id.as_str(), admin.approval_state.as_str(), admin.approval_holders), ("", "", None));
+	assert_eq!(
+		(admin.consilium_id.as_str(), admin.approval_state.as_str(), admin.approval_holders, admin.approval_executable_at),
+		("", "", None, 0)
+	);
 }
 
 #[test]

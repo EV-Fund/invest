@@ -566,6 +566,11 @@ pub struct FeePolicyChange {
 	/// How many holders the proposal told the owners would be notified; `null` when invest
 	/// did not propose the change.
 	pub approval_holders: Option<u32>,
+	/// Unix seconds as a string: when the owners' veto window of a passed approval ends and
+	/// invest may schedule the change ("owners can veto until …"). `null` until invest has
+	/// read it, on a change invest did not propose, and for a caller without
+	/// `AllocationManage`.
+	pub approval_executable_at: Option<String>,
 	pub requested_by: String,
 	pub requested_at: String,
 	pub scheduled_at: String,
@@ -607,6 +612,7 @@ impl From<iv::FeePolicyChange> for FeePolicyChange {
 			consilium_id: non_empty(c.consilium_id),
 			approval_state: non_empty(c.approval_state),
 			approval_holders: c.approval_holders,
+			approval_executable_at: (c.approval_executable_at != 0).then(|| c.approval_executable_at.to_string()),
 			requested_by: c.requested_by,
 			requested_at: c.requested_at.to_string(),
 			scheduled_at: c.scheduled_at.to_string(),
@@ -1022,6 +1028,19 @@ fn non_empty(value: String) -> Option<String> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	/// The end of the owners' veto window crosses as a string, and `0` (not read yet, not
+	/// proposed, or hidden from the caller) as `null`, not as the epoch.
+	#[test]
+	fn a_fee_change_carries_the_end_of_the_veto_window_or_null() {
+		let passed = FeePolicyChange::from(iv::FeePolicyChange {
+			approval_executable_at: 1_700_086_400,
+			..iv::FeePolicyChange::default()
+		});
+		assert_eq!(passed.approval_executable_at.as_deref(), Some("1700086400"));
+		let unknown = FeePolicyChange::from(iv::FeePolicyChange::default());
+		assert_eq!(unknown.approval_executable_at, None);
+	}
 
 	/// An issuance crosses with its `source` intact: the console tells a mint (supply
 	/// grew) from a retirement (it shrank) by this field alone.

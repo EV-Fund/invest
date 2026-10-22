@@ -245,6 +245,10 @@ message FeePolicyChange {
   // How many holders the proposal told the owners would be notified — the count when it
   // was proposed. Absent on a change invest did not propose. Operators only.
   optional uint32 approval_holders = 25;
+  // Unix seconds when concierge lets invest carry out the passed approval: until then any
+  // owner may still veto it ("owners can veto until …"). 0 until invest has read it from a
+  // passed proposal, and on a change invest did not propose. Operators only.
+  int64 approval_executable_at = 26;
 }
 
 message FeePolicyChangeList {
