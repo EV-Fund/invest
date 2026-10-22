@@ -95,6 +95,8 @@ impl ScopeCatalogPublisher for ClientScopeCatalogPublisher {
 					label: t.label.to_owned(),
 					description: t.description.to_owned(),
 					default_subscribed: t.default_subscribed,
+					required: false,
+					required_reason: String::new(),
 				})
 				.collect(),
 		};
