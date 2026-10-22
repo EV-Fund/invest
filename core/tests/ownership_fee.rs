@@ -22,8 +22,9 @@
 //! withdrawal-fee test stays in banking: a withdrawal and its retained fee are banking's
 //! own, and land in banking's treasury, never in `fee` (D17).
 
+use invest_contracts::invest::v1::{self as pb, allocations_service_server::AllocationsService};
 use invest_core::{
-	application::{allocations as allocations_app, fees as fee_app, funds as funds_app, issuance as issuance_app},
+	application::{allocations as allocations_app, fees as fee_app, funds as funds_app, issuance as issuance_app, treasury::DEFAULT_TOP_HOLDERS},
 	infrastructure::money::Unconfigured,
 	ports::{
 		RedemptionRepository,
@@ -31,6 +32,7 @@ use invest_core::{
 		money::{AccountLabel, ScopeId},
 		nav::NavMarks,
 	},
+	services::allocations::AllocationsSvc,
 };
 use invest_domain::{
 	allocations::{AllocationAccess, AllocationIcon},
@@ -690,4 +692,136 @@ async fn a_retried_settlement_returns_the_first_and_sweeps_once() {
 	common::drain_to_quiescence(&h.relay, &h.pool).await;
 	assert_eq!(product_cash(&h, &scope, &service), product_before.checked_sub(first.cash()).unwrap(), "swept once");
 	assert_eq!(h.settlements.list_by_service(&service).await.unwrap().len(), 1);
+}
+
+// ---- ListAllocationTreasury (#36) ----------------------------------------------------
+
+fn treasury_service(h: &Harness) -> AllocationsSvc {
+	AllocationsSvc::new(h.app_state())
+}
+
+fn treasury_request(service: &str, holder_limit: u32) -> pb::ListAllocationTreasuryRequest {
+	pb::ListAllocationTreasuryRequest {
+		service: service.to_owned(),
+		holder_limit,
+	}
+}
+
+/// The console's table holds every allocation — the hidden `fee` and `fund` beside the
+/// products, in every scope — and each line's cash is the balance of the allocation's
+/// own account in banking, read through the money port: for `fee` that is its cash alone,
+/// not the value its price counts.
+#[tokio::test]
+async fn the_treasury_lists_every_allocation_with_its_cash_from_banking() {
+	let Some(h) = harness().await else { return };
+	let svc = treasury_service(&h);
+	let ops = common::operator(&h).await;
+	let sa = ScopeId::parse("sa").unwrap();
+	let (product, elsewhere) = (unique_service(), unique_service());
+	open_fund(&h, &ScopeId::invest(), &product).await;
+	open_fund(&h, &sa, &elsewhere).await;
+	h.money.credit(&ScopeId::invest(), &AccountLabel::allocation(&product).unwrap(), usdt("123.45"));
+	h.money.credit(&sa, &AccountLabel::allocation(&elsewhere).unwrap(), usdt("7"));
+	fund_fee_claim(&h, "40").await;
+	let owner = person(&h).await;
+	grant_fee_units(&h, owner, "10").await;
+
+	// Every holder, so the owner seated here is listed whatever this binary's other tests seated.
+	let lines = svc
+		.list_allocation_treasury(common::as_caller(ops, treasury_request("", 1000)))
+		.await
+		.unwrap()
+		.into_inner()
+		.allocations;
+	let slugs: Vec<&str> = lines.iter().map(|line| line.service.as_str()).collect();
+	let mut sorted = slugs.clone();
+	sorted.sort_unstable();
+	assert_eq!(slugs, sorted, "ordered by service");
+	let line = |slug: &str| lines.iter().find(|line| line.service == slug).unwrap_or_else(|| panic!("no line for {slug}"));
+
+	let fee = line("fee");
+	assert_eq!((fee.access.as_str(), fee.scope.as_str()), ("hidden", "invest"), "hidden from the catalog, not from the table");
+	assert_eq!(fee.cash, fee_cash(&h).to_decimal_string(), "the cash on (invest, alloc:fee), nothing else");
+	assert_eq!(fee.nav, fee_nav(&h).await.to_decimal_string(), "the price every position reads");
+	assert_eq!(
+		fee.units_outstanding,
+		units_of(&h, LedgerAccountKey::SharesOutstanding(ServiceId::fee())).await.to_decimal_string()
+	);
+	assert!(fee.top_holders.iter().any(|holding| holding.holder.as_ref().is_some_and(|holder| holder.id == owner.to_string())));
+	let fund = line("fund");
+	assert_eq!(fund.access, "hidden");
+
+	let product_line = line(product.as_str());
+	assert_eq!((product_line.cash.as_str(), product_line.scope.as_str()), ("123.45", "invest"));
+	assert_eq!((product_line.units_outstanding.as_str(), product_line.holder_count), ("0", 0), "nobody holds it yet");
+	assert_eq!(product_line.nav_posted_at, 0, "never marked");
+	assert!(!product_line.nav_stale, "a price never marked has nothing to be stale against");
+	let elsewhere_line = line(elsewhere.as_str());
+	assert_eq!((elsewhere_line.cash.as_str(), elsewhere_line.scope.as_str()), ("7", "sa"), "read in the product's own scope");
+}
+
+/// A line carries at most the largest holders it was asked for and counts the rest, so a
+/// cell can fold them away without a second read.
+#[tokio::test]
+async fn a_treasury_line_carries_the_largest_holders_and_counts_the_rest() {
+	let Some(h) = harness().await else { return };
+	let svc = treasury_service(&h);
+	let ops = common::operator(&h).await;
+	fund_fee_claim(&h, "10").await;
+	let (big, mid, small) = (person(&h).await, person(&h).await, person(&h).await);
+	grant_fee_units(&h, big, "1000000").await;
+	grant_fee_units(&h, mid, "500000").await;
+	grant_fee_units(&h, small, "1").await;
+
+	let lines = svc
+		.list_allocation_treasury(common::as_caller(ops, treasury_request("fee", 2)))
+		.await
+		.unwrap()
+		.into_inner()
+		.allocations;
+	assert_eq!(lines.len(), 1, "the one allocation named");
+	let fee = &lines[0];
+	let cap_table = issuance_app::unit_holders(&h.allocations, h.ledger.as_ref(), &h.issuances, ServiceId::fee()).await.unwrap();
+	assert_eq!(fee.top_holders.len(), 2);
+	assert_eq!(fee.holder_count as usize, cap_table.holders.len(), "every holder is counted, the folded ones too");
+	let shown: Vec<String> = fee.top_holders.iter().map(|holding| holding.holder.as_ref().unwrap().id.clone()).collect();
+	let largest: Vec<String> = cap_table
+		.holders
+		.iter()
+		.take(2)
+		.map(|line| match &line.holder {
+			UnitHolder::User(user) => user.to_string(),
+			UnitHolder::Allocation(service) => service.to_string(),
+		})
+		.collect();
+	assert_eq!(shown, largest, "the cap table's own order, cut");
+	assert!(!shown.contains(&small.to_string()));
+
+	let by_default = svc
+		.list_allocation_treasury(common::as_caller(ops, treasury_request("fee", 0)))
+		.await
+		.unwrap()
+		.into_inner()
+		.allocations;
+	assert_eq!(by_default[0].top_holders.len(), cap_table.holders.len().min(DEFAULT_TOP_HOLDERS), "0 asks for the default");
+}
+
+/// The table is the platform's money: an investor is refused it, and a request it cannot
+/// answer honestly is refused rather than trimmed.
+#[tokio::test]
+async fn the_treasury_is_the_managers_and_refuses_what_it_cannot_answer() {
+	let Some(h) = harness().await else { return };
+	let svc = treasury_service(&h);
+	let investor = person(&h).await;
+	let refused = svc.list_allocation_treasury(common::as_caller(investor, treasury_request("", 0))).await.unwrap_err();
+	assert_eq!(refused.code(), tonic::Code::PermissionDenied);
+
+	let ops = common::operator(&h).await;
+	let too_many = svc.list_allocation_treasury(common::as_caller(ops, treasury_request("", 1001))).await.unwrap_err();
+	assert_eq!(too_many.code(), tonic::Code::InvalidArgument);
+	let unknown = svc
+		.list_allocation_treasury(common::as_caller(ops, treasury_request(unique_service().as_str(), 0)))
+		.await
+		.unwrap_err();
+	assert_eq!(unknown.code(), tonic::Code::NotFound);
 }

@@ -153,6 +153,16 @@ impl Grpc {
 		Ok(self.allocations().list_unit_holders(bearer(token, req)?).await?.into_inner())
 	}
 
+	/// Every allocation's line — or the one `service` names (empty = all) — with at most
+	/// `holder_limit` holders each (0 = invest-core's default).
+	pub async fn allocation_treasury(&self, token: &str, service: &str, holder_limit: u32) -> Result<iv::AllocationTreasuryList, Status> {
+		let req = iv::ListAllocationTreasuryRequest {
+			service: service.to_string(),
+			holder_limit,
+		};
+		Ok(self.allocations().list_allocation_treasury(bearer(token, req)?).await?.into_inner())
+	}
+
 	pub async fn fund_nav(&self, token: &str, service: &str) -> Result<iv::FundNav, Status> {
 		let req = iv::GetFundNavRequest { service: service.to_string() };
 		Ok(self.funds().get_fund_nav(bearer(token, req)?).await?.into_inner())

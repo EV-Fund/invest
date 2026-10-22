@@ -22,6 +22,8 @@
 //! [`fees`] the management and performance fee, charged in units and settled into cash;
 //! [`fee_approvals`] takes a change of those terms to the owners through concierge, and
 //! [`fee_notices`] tells the holders about it.
+//! [`treasury`] lines every allocation's cash, supply, price and largest holders up for
+//! the console, read live from banking and the ledger.
 
 pub mod allocations;
 pub mod book;
@@ -32,4 +34,5 @@ pub mod funds;
 pub mod import;
 pub mod issuance;
 pub mod ownership;
+pub mod treasury;
 pub mod window_import;

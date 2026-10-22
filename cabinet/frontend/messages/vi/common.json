@@ -1083,13 +1083,13 @@
     "en": "Seating a person on the fee allocation is the owners' decision. Propose it there; the units appear here once their vote carries.",
     "t": "Việc đưa một người vào phân bổ phí do các chủ sở hữu quyết định. Hãy đề xuất ở đó; đơn vị sẽ hiện ở đây khi biểu quyết thông qua."
   },
+  "admin.revenue.toHeldThrough": {
+    "en": "The fee allocation beside every other allocation: its cash, units, NAV and holders. The bank's own treasury stays in the central admin.",
+    "t": "Phân bổ phí bên cạnh mọi phân bổ khác: tiền mặt, đơn vị, NAV và người nắm giữ. Kho bạc riêng của ngân hàng vẫn ở trang quản trị trung tâm."
+  },
   "admin.revenue.toPayments": {
     "en": "Moving the platform's earnings — into a product, or to an investor — is a payment order the owners authorise. Open one there. Cash reaches the chain only through a holder's redemption and their own withdrawal.",
     "t": "Chuyển lợi nhuận của nền tảng — vào một sản phẩm hoặc cho một nhà đầu tư — là lệnh thanh toán do các chủ sở hữu duyệt. Hãy mở lệnh ở đó. Tiền chỉ ra chuỗi qua việc người nắm giữ rút vốn và tự rút tiền."
-  },
-  "admin.revenue.toTreasury": {
-    "en": "The fee allocation beside the platform's other balances: custody per rail, user claims, every allocation and its holders.",
-    "t": "Phân bổ phí bên cạnh các số dư khác của nền tảng: lưu ký theo mạng, quyền của người dùng, mọi phân bổ và người nắm giữ."
   },
   "admin.revenue.unitsHint": {
     "en": "units of the fee allocation, held by people",
@@ -1191,9 +1191,49 @@
     "en": "Staged",
     "t": "Thử nghiệm"
   },
+  "admin.treasury.allocations.col.allocation": {
+    "en": "Allocation",
+    "t": "Phân bổ"
+  },
+  "admin.treasury.allocations.col.cash": {
+    "en": "Cash, USDT",
+    "t": "Tiền mặt, USDT"
+  },
+  "admin.treasury.allocations.empty": {
+    "en": "No allocations yet",
+    "t": "Chưa có phân bổ nào"
+  },
+  "admin.treasury.allocations.emptyHint": {
+    "en": "Every allocation appears here with its cash, units and holders — the products, and the hidden fee and fund allocations once they exist.",
+    "t": "Mọi phân bổ sẽ hiện ở đây cùng tiền mặt, đơn vị và người nắm giữ — các sản phẩm, và các phân bổ phí và quỹ ẩn khi chúng tồn tại."
+  },
+  "admin.treasury.allocations.moreHolders": {
+    "en": "+{n} more",
+    "t": "+{n} nữa"
+  },
+  "admin.treasury.allocations.noHolders": {
+    "en": "no holders",
+    "t": "chưa có người nắm giữ"
+  },
+  "admin.treasury.allocations.stale": {
+    "en": "stale · marked {ago}",
+    "t": "đã cũ · định giá {ago}"
+  },
+  "admin.treasury.allocations.staleHint": {
+    "en": "The last mark is more than 24 h old: deals and issuances are refused until a new one",
+    "t": "Lần định giá gần nhất đã quá 24 giờ: giao dịch và phát hành bị từ chối cho đến lần định giá mới"
+  },
   "admin.treasury.allocations.unmarked": {
     "en": "not yet marked",
     "t": "chưa định giá"
+  },
+  "admin.treasury.allocations.unmarkedHint": {
+    "en": "No mark posted yet: priced at the seed NAV",
+    "t": "Chưa có lần định giá nào: tính theo NAV khởi điểm"
+  },
+  "admin.treasury.subtitle": {
+    "en": "Every allocation's cash, units, price and largest holders — the hidden fee and fund allocations included",
+    "t": "Tiền mặt, đơn vị, giá và những người nắm giữ lớn nhất của mọi phân bổ — kể cả các phân bổ phí và quỹ ẩn"
   },
   "admin.users.kycLevelShort": {
     "en": "L{n}",
@@ -2003,6 +2043,10 @@
     "en": "Your account",
     "t": "Tài khoản của bạn"
   },
+  "nav.heldThrough": {
+    "en": "Held through allocations",
+    "t": "Nắm giữ qua các phân bổ"
+  },
   "nav.invest": {
     "en": "Invest",
     "t": "Đầu tư"
@@ -2023,10 +2067,6 @@
     "en": "Support",
     "t": "Hỗ trợ"
   },
-  "nav.treasury": {
-    "en": "Treasury",
-    "t": "Ngân quỹ"
-  },
   "nav.users": {
     "en": "Users",
     "t": "Người dùng"
@@ -2038,6 +2078,118 @@
   "nav.wallet": {
     "en": "Wallet",
     "t": "Ví"
+  },
+  "payment.landing.aborted.body": {
+    "en": "Open it again when you are ready.",
+    "t": "Hãy mở lại khi bạn sẵn sàng."
+  },
+  "payment.landing.aborted.title": {
+    "en": "The payment window was closed by this page",
+    "t": "Trang này đã đóng cửa sổ thanh toán"
+  },
+  "payment.landing.blocked.body": {
+    "en": "Allow pop-ups for this site, then try again.",
+    "t": "Hãy cho phép cửa sổ bật lên của trang này, rồi thử lại."
+  },
+  "payment.landing.blocked.title": {
+    "en": "Your browser blocked the payment window",
+    "t": "Trình duyệt đã chặn cửa sổ thanh toán"
+  },
+  "payment.landing.busy.body": {
+    "en": "We brought it to the front. Finish there first.",
+    "t": "Chúng tôi đã đưa nó lên phía trước. Hãy hoàn tất ở đó trước."
+  },
+  "payment.landing.busy.title": {
+    "en": "A payment window is already open",
+    "t": "Một cửa sổ thanh toán đang mở"
+  },
+  "payment.landing.cancelled.body": {
+    "en": "The payment page reported that you declined it. {check}",
+    "t": "Trang thanh toán báo rằng bạn đã từ chối. {check}"
+  },
+  "payment.landing.cancelled.title": {
+    "en": "You declined the payment",
+    "t": "Bạn đã từ chối khoản thanh toán"
+  },
+  "payment.landing.checkWallet": {
+    "en": "Check the payment in your wallet to be sure.",
+    "t": "Hãy kiểm tra khoản thanh toán trong ví của bạn để chắc chắn."
+  },
+  "payment.landing.closed.body": {
+    "en": "We cannot tell whether you answered before you closed it. {check}",
+    "t": "Chúng tôi không biết bạn đã trả lời trước khi đóng cửa sổ hay chưa. {check}"
+  },
+  "payment.landing.closed.title": {
+    "en": "The payment window was closed",
+    "t": "Cửa sổ thanh toán đã đóng"
+  },
+  "payment.landing.done.body": {
+    "en": "The payment page reported that you approved it. This is only a hint, because the payment is settled on evinvest.ltd. {check}",
+    "t": "Trang thanh toán báo rằng bạn đã chấp thuận. Đây chỉ là gợi ý, vì khoản thanh toán được xử lý trên evinvest.ltd. {check}"
+  },
+  "payment.landing.done.title": {
+    "en": "Your answer was sent",
+    "t": "Câu trả lời của bạn đã được gửi"
+  },
+  "payment.landing.failed.body": {
+    "en": "Your answer may not have been recorded. {check} Then you can try again.",
+    "t": "Câu trả lời của bạn có thể chưa được ghi nhận. {check} Sau đó bạn có thể thử lại."
+  },
+  "payment.landing.failed.title": {
+    "en": "The payment page reported an error",
+    "t": "Trang thanh toán báo có lỗi"
+  },
+  "payment.landing.invalid.body": {
+    "en": "Open the link from your notice again, or find the payment in your wallet.",
+    "t": "Hãy mở lại liên kết trong thông báo, hoặc tìm khoản thanh toán trong ví của bạn."
+  },
+  "payment.landing.invalid.title": {
+    "en": "This payment link is not valid",
+    "t": "Liên kết thanh toán không hợp lệ"
+  },
+  "payment.landing.noAnswer.body": {
+    "en": "The payment window closed without a new answer. The payment may already be answered or expired. {check}",
+    "t": "Cửa sổ thanh toán đã đóng mà không có câu trả lời mới. Khoản thanh toán có thể đã được trả lời hoặc đã hết hạn. {check}"
+  },
+  "payment.landing.noAnswer.title": {
+    "en": "No new answer was sent",
+    "t": "Chưa có câu trả lời mới nào được gửi"
+  },
+  "payment.landing.openWallet": {
+    "en": "Open wallet",
+    "t": "Mở ví"
+  },
+  "payment.landing.review": {
+    "en": "Review the payment",
+    "t": "Xem lại khoản thanh toán"
+  },
+  "payment.landing.subtitle": {
+    "en": "A payment from your account is waiting for your answer.",
+    "t": "Một khoản thanh toán từ tài khoản của bạn đang chờ câu trả lời."
+  },
+  "payment.landing.timeout.body": {
+    "en": "We closed it after a long wait, and we cannot tell whether you answered. {check}",
+    "t": "Chúng tôi đã đóng cửa sổ sau thời gian chờ dài và không biết bạn đã trả lời hay chưa. {check}"
+  },
+  "payment.landing.timeout.title": {
+    "en": "The payment window timed out",
+    "t": "Cửa sổ thanh toán đã hết thời gian chờ"
+  },
+  "payment.landing.title": {
+    "en": "Payment to review",
+    "t": "Khoản thanh toán cần xem lại"
+  },
+  "payment.landing.unsupported.body": {
+    "en": "Open this link in an up-to-date browser.",
+    "t": "Hãy mở liên kết này trong một trình duyệt mới."
+  },
+  "payment.landing.unsupported.title": {
+    "en": "This browser cannot open the payment window",
+    "t": "Trình duyệt này không thể mở cửa sổ thanh toán"
+  },
+  "payment.landing.waiting": {
+    "en": "Waiting for the payment window…",
+    "t": "Đang chờ cửa sổ thanh toán…"
   },
   "profile.kyc.contact": {
     "en": "Contact {contact}",

@@ -1083,13 +1083,13 @@
     "en": "Seating a person on the fee allocation is the owners' decision. Propose it there; the units appear here once their vote carries.",
     "t": "Включить человека в комиссионную аллокацию решают владельцы. Предложите это там; паи появятся здесь, когда голосование пройдёт."
   },
+  "admin.revenue.toHeldThrough": {
+    "en": "The fee allocation beside every other allocation: its cash, units, NAV and holders. The bank's own treasury stays in the central admin.",
+    "t": "Аллокация комиссий рядом со всеми остальными: её деньги, юниты, NAV и держатели. Собственная казна банка остаётся в центральной админке."
+  },
   "admin.revenue.toPayments": {
     "en": "Moving the platform's earnings — into a product, or to an investor — is a payment order the owners authorise. Open one there. Cash reaches the chain only through a holder's redemption and their own withdrawal.",
     "t": "Перемещение заработанного платформой — в продукт или инвестору — это платёжное поручение, которое одобряют владельцы. Открывайте его там. В сеть деньги уходят только через погашение держателем и его собственный вывод."
-  },
-  "admin.revenue.toTreasury": {
-    "en": "The fee allocation beside the platform's other balances: custody per rail, user claims, every allocation and its holders.",
-    "t": "Аллокация комиссий рядом с остальными балансами платформы: кастодия по сетям, требования пользователей, каждая аллокация и её держатели."
   },
   "admin.revenue.unitsHint": {
     "en": "units of the fee allocation, held by people",
@@ -1191,9 +1191,49 @@
     "en": "Staged",
     "t": "Подготовлен"
   },
+  "admin.treasury.allocations.col.allocation": {
+    "en": "Allocation",
+    "t": "Аллокация"
+  },
+  "admin.treasury.allocations.col.cash": {
+    "en": "Cash, USDT",
+    "t": "Деньги, USDT"
+  },
+  "admin.treasury.allocations.empty": {
+    "en": "No allocations yet",
+    "t": "Аллокаций пока нет"
+  },
+  "admin.treasury.allocations.emptyHint": {
+    "en": "Every allocation appears here with its cash, units and holders — the products, and the hidden fee and fund allocations once they exist.",
+    "t": "Здесь появится каждая аллокация с её деньгами, юнитами и держателями — продукты и скрытые аллокации комиссий и фонда, как только они появятся."
+  },
+  "admin.treasury.allocations.moreHolders": {
+    "en": "+{n} more",
+    "t": "ещё {n}"
+  },
+  "admin.treasury.allocations.noHolders": {
+    "en": "no holders",
+    "t": "держателей нет"
+  },
+  "admin.treasury.allocations.stale": {
+    "en": "stale · marked {ago}",
+    "t": "устарела · оценка {ago}"
+  },
+  "admin.treasury.allocations.staleHint": {
+    "en": "The last mark is more than 24 h old: deals and issuances are refused until a new one",
+    "t": "Последней оценке больше 24 ч: сделки и выпуски отклоняются до новой"
+  },
   "admin.treasury.allocations.unmarked": {
     "en": "not yet marked",
     "t": "ещё не оценено"
+  },
+  "admin.treasury.allocations.unmarkedHint": {
+    "en": "No mark posted yet: priced at the seed NAV",
+    "t": "Оценок ещё не было: цена — начальный NAV"
+  },
+  "admin.treasury.subtitle": {
+    "en": "Every allocation's cash, units, price and largest holders — the hidden fee and fund allocations included",
+    "t": "Деньги, юниты, цена и крупнейшие держатели каждой аллокации — включая скрытые аллокации комиссий и фонда"
   },
   "admin.users.kycLevelShort": {
     "en": "L{n}",
@@ -2003,6 +2043,10 @@
     "en": "Your account",
     "t": "Ваш счёт"
   },
+  "nav.heldThrough": {
+    "en": "Held through allocations",
+    "t": "Через аллокации"
+  },
   "nav.invest": {
     "en": "Invest",
     "t": "Инвестиции"
@@ -2023,10 +2067,6 @@
     "en": "Support",
     "t": "Поддержка"
   },
-  "nav.treasury": {
-    "en": "Treasury",
-    "t": "Казна"
-  },
   "nav.users": {
     "en": "Users",
     "t": "Аккаунты"
@@ -2038,6 +2078,118 @@
   "nav.wallet": {
     "en": "Wallet",
     "t": "Кошелёк"
+  },
+  "payment.landing.aborted.body": {
+    "en": "Open it again when you are ready.",
+    "t": "Откройте его снова, когда будете готовы."
+  },
+  "payment.landing.aborted.title": {
+    "en": "The payment window was closed by this page",
+    "t": "Окно платежа закрыла эта страница"
+  },
+  "payment.landing.blocked.body": {
+    "en": "Allow pop-ups for this site, then try again.",
+    "t": "Разрешите всплывающие окна для этого сайта и попробуйте снова."
+  },
+  "payment.landing.blocked.title": {
+    "en": "Your browser blocked the payment window",
+    "t": "Браузер заблокировал окно платежа"
+  },
+  "payment.landing.busy.body": {
+    "en": "We brought it to the front. Finish there first.",
+    "t": "Мы вывели его на передний план. Сначала завершите действие там."
+  },
+  "payment.landing.busy.title": {
+    "en": "A payment window is already open",
+    "t": "Окно платежа уже открыто"
+  },
+  "payment.landing.cancelled.body": {
+    "en": "The payment page reported that you declined it. {check}",
+    "t": "Страница платежа сообщила, что вы его отклонили. {check}"
+  },
+  "payment.landing.cancelled.title": {
+    "en": "You declined the payment",
+    "t": "Вы отклонили платёж"
+  },
+  "payment.landing.checkWallet": {
+    "en": "Check the payment in your wallet to be sure.",
+    "t": "Чтобы убедиться, проверьте платёж в кошельке."
+  },
+  "payment.landing.closed.body": {
+    "en": "We cannot tell whether you answered before you closed it. {check}",
+    "t": "Мы не знаем, успели ли вы ответить до закрытия окна. {check}"
+  },
+  "payment.landing.closed.title": {
+    "en": "The payment window was closed",
+    "t": "Окно платежа закрыто"
+  },
+  "payment.landing.done.body": {
+    "en": "The payment page reported that you approved it. This is only a hint, because the payment is settled on evinvest.ltd. {check}",
+    "t": "Страница платежа сообщила, что вы его одобрили. Это лишь подсказка: платёж проводится на evinvest.ltd. {check}"
+  },
+  "payment.landing.done.title": {
+    "en": "Your answer was sent",
+    "t": "Ваш ответ отправлен"
+  },
+  "payment.landing.failed.body": {
+    "en": "Your answer may not have been recorded. {check} Then you can try again.",
+    "t": "Возможно, ваш ответ не записан. {check} После этого можно попробовать снова."
+  },
+  "payment.landing.failed.title": {
+    "en": "The payment page reported an error",
+    "t": "Страница платежа сообщила об ошибке"
+  },
+  "payment.landing.invalid.body": {
+    "en": "Open the link from your notice again, or find the payment in your wallet.",
+    "t": "Откройте ссылку из уведомления ещё раз или найдите платёж в кошельке."
+  },
+  "payment.landing.invalid.title": {
+    "en": "This payment link is not valid",
+    "t": "Ссылка на платёж недействительна"
+  },
+  "payment.landing.noAnswer.body": {
+    "en": "The payment window closed without a new answer. The payment may already be answered or expired. {check}",
+    "t": "Окно платежа закрылось без нового ответа. Возможно, платёж уже получил ответ или истёк. {check}"
+  },
+  "payment.landing.noAnswer.title": {
+    "en": "No new answer was sent",
+    "t": "Новый ответ не отправлен"
+  },
+  "payment.landing.openWallet": {
+    "en": "Open wallet",
+    "t": "Открыть кошелёк"
+  },
+  "payment.landing.review": {
+    "en": "Review the payment",
+    "t": "Проверить платёж"
+  },
+  "payment.landing.subtitle": {
+    "en": "A payment from your account is waiting for your answer.",
+    "t": "Платёж с вашего счёта ждёт вашего ответа."
+  },
+  "payment.landing.timeout.body": {
+    "en": "We closed it after a long wait, and we cannot tell whether you answered. {check}",
+    "t": "Мы закрыли окно после долгого ожидания и не знаем, успели ли вы ответить. {check}"
+  },
+  "payment.landing.timeout.title": {
+    "en": "The payment window timed out",
+    "t": "Время ожидания окна платежа истекло"
+  },
+  "payment.landing.title": {
+    "en": "Payment to review",
+    "t": "Платёж на проверку"
+  },
+  "payment.landing.unsupported.body": {
+    "en": "Open this link in an up-to-date browser.",
+    "t": "Откройте эту ссылку в современном браузере."
+  },
+  "payment.landing.unsupported.title": {
+    "en": "This browser cannot open the payment window",
+    "t": "Этот браузер не может открыть окно платежа"
+  },
+  "payment.landing.waiting": {
+    "en": "Waiting for the payment window…",
+    "t": "Ждём окно платежа…"
   },
   "profile.kyc.contact": {
     "en": "Contact {contact}",

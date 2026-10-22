@@ -1,8 +1,8 @@
 "use client";
 
-// The registry row's State cell — its own file for the same reason the Access and
-// Actions cells are: one cell per file keeps `AllocationRow` itself under the
-// component-size ceiling as columns grow.
+// An allocation's state as a chip — the registry row's State cell and the held-through
+// table's, so a product reads the same on both. Its own file keeps `AllocationRow` under
+// the component-size ceiling as columns grow.
 
 import type { Translate } from "@evinvest/i18n";
 import { useT } from "@evinvest/i18n/react";

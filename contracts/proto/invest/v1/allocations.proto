@@ -147,6 +147,14 @@ service AllocationsService {
   // class — largest first. Read straight from the ledger — the number an operator
   // checks against the registration before opening a product to the market.
   rpc ListUnitHolders(ListUnitHoldersRequest) returns (UnitHolders);
+
+  // What every allocation holds and who holds it, one line each (AllocationManage) — the
+  // "held through allocations" table of the console (#36). Every registered allocation in
+  // every state and at every access level, the hidden reserved `fee` and `fund` included,
+  // ordered by `service`; or the one `service` names. Read-only, and read live: the cash
+  // from banking, the supply and holders from the ledger, the price as every position
+  // reads it. Banking's own treasury is not invest's figure and is not here (D17).
+  rpc ListAllocationTreasury(ListAllocationTreasuryRequest) returns (AllocationTreasuryList);
 }
 
 // One registered investable product. Carries no money: units, NAV and positions are
@@ -385,4 +393,50 @@ message UnitHolders {
   // the settled figure alone leaves the queued mint to land above it.
   string queued_units = 6;
   repeated UnitHolding holders = 7;
+}
+
+message ListAllocationTreasuryRequest {
+  // One allocation by slug; NOT_FOUND if it is not registered. Empty lists every one.
+  string service = 1;
+  // How many of the largest holders each line carries. 0 means the default (5): enough
+  // for a table cell that shows a few and folds the rest into `holder_count`. A value
+  // above 1000 is refused (INVALID_ARGUMENT) rather than clamped, so a caller asking for
+  // "all" is told that it did not get them.
+  uint32 holder_limit = 2;
+}
+
+// One allocation's line: its cash, its supply, its price and its largest holders.
+// Amounts are exact decimal strings; units are decimal units.
+message AllocationTreasury {
+  string service = 1;
+  string title = 2;
+  string state = 3;   // draft | open | closed
+  string access = 4;  // hidden | view | invest — the default level, not the caller's
+  // The concierge scope the cash lives in (`invest`, `sa`, …).
+  string scope = 5;
+  // Decimal USDT on the allocation's own account in banking, `(<scope>, alloc:<service>)`,
+  // as banking's `GetBalances` reports it through the money port. invest keeps no copy.
+  // "0" for an account not opened yet. For a reserved allocation this is its cash alone:
+  // the fee classes it holds are in its `nav`, not here.
+  string cash = 6;
+  // Decimal units in circulation: the settled supply, `SharesOutstanding` in TigerBeetle.
+  // Never read from Postgres. A mint still queued for the relay is not in it.
+  string units_outstanding = 7;
+  // Decimal USDT per unit, the price `GetFundNav` answers: a product's latest mark (the
+  // seed NAV before the first); a reserved allocation's computed value over its supply.
+  string nav = 8;
+  // Unix seconds of the mark `nav` is as of. 0 = never marked. A reserved allocation is
+  // as old as the oldest mark among the products it holds units of.
+  int64 nav_posted_at = 9;
+  // `nav` is older than the dealing limit (24 h): deals and issuances refuse to price on it.
+  bool nav_stale = 10;
+  // The largest holders, at most `holder_limit`, largest first (ties by the holder's
+  // stored identity, as in `ListUnitHolders`). Holdings of zero are not listed.
+  repeated UnitHolding top_holders = 11;
+  // How many holders hold any units at all — `top_holders` plus the ones folded away.
+  uint32 holder_count = 12;
+}
+
+message AllocationTreasuryList {
+  repeated AllocationTreasury allocations = 1;
 }
