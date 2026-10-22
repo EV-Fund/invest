@@ -526,6 +526,8 @@
   "payment.landing.failed.title": "The payment page reported an error",
   "payment.landing.invalid.body": "Open the link from your notice again, or find the payment in your wallet.",
   "payment.landing.invalid.title": "This payment link is not valid",
+  "payment.landing.noAnswer.body": "The payment window closed without a new answer. The payment may already be answered or expired. {check}",
+  "payment.landing.noAnswer.title": "No new answer was sent",
   "payment.landing.openWallet": "Open wallet",
   "payment.landing.review": "Review the payment",
   "payment.landing.subtitle": "A payment from your account is waiting for your answer.",

@@ -2107,6 +2107,14 @@
     "en": "This payment link is not valid",
     "t": "Ce lien de paiement n'est pas valide"
   },
+  "payment.landing.noAnswer.body": {
+    "en": "The payment window closed without a new answer. The payment may already be answered or expired. {check}",
+    "t": "La fenêtre de paiement s'est fermée sans nouvelle réponse. Le paiement a peut-être déjà reçu une réponse ou a expiré. {check}"
+  },
+  "payment.landing.noAnswer.title": {
+    "en": "No new answer was sent",
+    "t": "Aucune nouvelle réponse n'a été envoyée"
+  },
   "payment.landing.openWallet": {
     "en": "Open wallet",
     "t": "Ouvrir le portefeuille"

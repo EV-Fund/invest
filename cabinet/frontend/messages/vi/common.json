@@ -2107,6 +2107,14 @@
     "en": "This payment link is not valid",
     "t": "Liên kết thanh toán không hợp lệ"
   },
+  "payment.landing.noAnswer.body": {
+    "en": "The payment window closed without a new answer. The payment may already be answered or expired. {check}",
+    "t": "Cửa sổ thanh toán đã đóng mà không có câu trả lời mới. Khoản thanh toán có thể đã được trả lời hoặc đã hết hạn. {check}"
+  },
+  "payment.landing.noAnswer.title": {
+    "en": "No new answer was sent",
+    "t": "Chưa có câu trả lời mới nào được gửi"
+  },
   "payment.landing.openWallet": {
     "en": "Open wallet",
     "t": "Mở ví"

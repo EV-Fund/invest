@@ -56,6 +56,11 @@ function describe(shown: Shown, t: T): { variant: AlertVariant; title: string; b
       if (shown.result.outcome === "done") {
         return { variant: "success", icon: <CheckCircle2 className={ICON} />, title: t("payment.landing.done.title", "Your answer was sent"), body: t("payment.landing.done.body", "The payment page reported that you approved it. This is only a hint, because the payment is settled on evinvest.ltd. {check}", { check }) };
       }
+      // The answer page sets `reference` to the payment id on Decline and leaves it null on
+      // Cancel, which is also what a payment that was already answered or expired shows.
+      if (shown.result.outcome === "cancelled" && shown.result.reference === null) {
+        return { variant: "info", icon: <Info className={ICON} />, title: t("payment.landing.noAnswer.title", "No new answer was sent"), body: t("payment.landing.noAnswer.body", "The payment window closed without a new answer. The payment may already be answered or expired. {check}", { check }) };
+      }
       if (shown.result.outcome === "cancelled") {
         return { variant: "info", icon: <Info className={ICON} />, title: t("payment.landing.cancelled.title", "You declined the payment"), body: t("payment.landing.cancelled.body", "The payment page reported that you declined it. {check}", { check }) };
       }

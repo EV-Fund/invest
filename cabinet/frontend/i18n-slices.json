@@ -904,6 +904,8 @@
       "payment.landing.failed.title",
       "payment.landing.invalid.body",
       "payment.landing.invalid.title",
+      "payment.landing.noAnswer.body",
+      "payment.landing.noAnswer.title",
       "payment.landing.openWallet",
       "payment.landing.review",
       "payment.landing.subtitle",
