@@ -7,13 +7,15 @@
 //! concierge and stamped delivered; a transient failure is retried after a backoff and given
 //! up on when the attempts are spent; a holder concierge will not deliver to (not a member,
 //! the topic switched off) is given up on at once; a second sender, or a sender after a lost
-//! answer, never sends a second message; and a withdrawn notice is never sent.
+//! answer, never sends a second message; a withdrawn notice is never sent; and an owner change
+//! on a held fund is taken, binds only after the notice period and the holders' notices, and
+//! cannot be waived when a notice was given up on.
 
 use std::sync::Arc;
 
 use invest_core::{
 	application::{
-		allocations as allocations_app,
+		allocations as allocations_app, fee_approvals,
 		fee_notices::{self, MAX_ATTEMPTS},
 		fees as fee_app, funds as funds_app,
 	},
@@ -23,7 +25,7 @@ use invest_core::{
 	},
 	ports::{
 		AllocationRegistry,
-		approvals::UserProof,
+		approvals::{ApprovalState, UserProof},
 		fees::{FeePolicies, FeePolicyChange, FeePolicyChanges, PositionAccruals},
 		money::ScopeId,
 		notices::{HolderNotifier, NotifyError, PendingNotice},
@@ -33,7 +35,7 @@ use invest_domain::{
 	allocations::{AllocationAccess, AllocationIcon},
 	balance::ServiceId,
 	error::DomainError,
-	fees::{CrystallizationPeriod, FeePolicy, ManagementBasis},
+	fees::{ChangeRequirement, CrystallizationPeriod, FeePolicy, FeePolicyChangeState, MIN_NOTICE_SECS, ManagementBasis},
 	money::Usdt,
 	users::UserId,
 };
@@ -82,6 +84,11 @@ fn starting() -> FeePolicy {
 /// Dearer, within the envelope: one administrator's call.
 fn dearer() -> FeePolicy {
 	FeePolicy::HOUSE
+}
+
+/// Beyond the house envelope: the owners' to carry.
+fn owners_terms() -> FeePolicy {
+	FeePolicy::new(300, 2_500, 0, ManagementBasis::InvestedCapital, CrystallizationPeriod::Quarterly).unwrap()
 }
 
 fn cheaper() -> FeePolicy {
@@ -160,6 +167,23 @@ async fn let_the_notice_run(h: &Harness, change: &FeePolicyChange) {
 		.execute(&h.engine.pool)
 		.await
 		.unwrap();
+}
+
+/// An owner change on `service`, proposed and passed by the owners, and scheduled by the
+/// approvals round.
+async fn owners_pass(h: &Harness, service: &ServiceId, requester: UserId) -> FeePolicyChange {
+	let e = &h.engine;
+	let change = schedule(h, requester, service, owners_terms(), Some("requester-invest-token")).await.unwrap();
+	assert_eq!((change.requirement, change.state), (ChangeRequirement::OwnerConsilium, FeePolicyChangeState::AwaitingConsilium));
+	let approval = change.approval_id.expect("proposed in its own request").to_string();
+	e.approvals.set_state(&approval, ApprovalState::Passed, "");
+	let ports = fee_approvals::FeeApprovalPorts {
+		approvals: &e.approvals,
+		changes: &e.changes,
+		policies: &e.policies,
+	};
+	assert_eq!(fee_approvals::round(&ports, now()).await.unwrap().scheduled, 1);
+	change_of(h, &change).await
 }
 
 #[tokio::test]
@@ -338,6 +362,63 @@ async fn without_concierge_every_notice_is_given_up_on_at_once() {
 	// As before invest had a channel: the requester may acknowledge the holder.
 	let acknowledged = fee_app::acknowledge_undelivered_notices(&h.engine.changes, &service, change.id, requester, now()).await.unwrap();
 	assert!(acknowledged.notices_waiver.is_some());
+}
+
+/// The owners decide a change on a fund people hold: it is taken, the notice period starts
+/// when they pass it, the holders are told, and the terms bind only once both are true.
+#[tokio::test]
+async fn an_owner_change_on_a_held_fund_is_taken_and_binds_after_the_notice_period() {
+	let Some(h) = harness().await else { return };
+	let service = open_fund(&h, "EV Real Estate").await;
+	let investor = holder(&h, &service, true).await;
+	let requester = common::active_user(&h.engine.users).await;
+
+	let before = now();
+	let change = owners_pass(&h, &service, requester).await;
+	assert_eq!(change.state, FeePolicyChangeState::Scheduled);
+	let scheduled_at = change.scheduled_at_unix.expect("stamped when the owners carried it");
+	assert!(scheduled_at >= before);
+	assert!(change.effective_from_unix >= scheduled_at + MIN_NOTICE_SECS, "the holders get the full notice period");
+	assert_eq!(change.undelivered_notices, 1);
+
+	assert_eq!(h.sender.round(now()).await.unwrap().delivered, 1);
+	let notice = h.notifier.written().pop().expect("the holder was told");
+	assert_eq!(notice.user, investor);
+	assert!(notice.body.contains("The performance fee is settled: once a year → every quarter"), "{}", notice.body);
+
+	// Told, but the notice period has not run: delivery does not shorten it.
+	assert_eq!(change_of(&h, &change).await.effective_from_unix, change.effective_from_unix);
+	assert!(!h.engine.changes.promote(change.id, now()).await.unwrap());
+	assert_eq!(h.engine.policies.find(&service).await.unwrap(), Some(starting()));
+
+	let_the_notice_run(&h, &change).await;
+	assert!(h.engine.changes.promote(change.id, now()).await.unwrap());
+	assert_eq!(h.engine.policies.find(&service).await.unwrap(), Some(owners_terms()));
+}
+
+/// The owners approved terms the holders were to be told about: a notice given up on is not
+/// waived by anyone, the change does not bind, and the requester withdraws it.
+#[tokio::test]
+async fn an_undelivered_notice_of_an_owner_change_cannot_be_waived() {
+	let Some(h) = harness().await else { return };
+	let service = open_fund(&h, "EV Commodity").await;
+	let stranger = holder(&h, &service, false).await;
+	let requester = common::active_user(&h.engine.users).await;
+	let change = owners_pass(&h, &service, requester).await;
+
+	assert_eq!(h.sender.round(now()).await.unwrap().given_up, 1);
+	assert!(notice_row(&h, &change, stranger).await.1, "given up on");
+
+	let err = fee_app::acknowledge_undelivered_notices(&h.engine.changes, &service, change.id, requester, now())
+		.await
+		.unwrap_err();
+	assert!(matches!(err, DomainError::Forbidden(ref why) if why.contains("owners decided")), "got {err:?}");
+	let_the_notice_run(&h, &change).await;
+	assert!(h.engine.changes.promote(change.id, now()).await.is_err(), "dearer terms do not bind over an untold holder");
+	assert_eq!(h.engine.policies.find(&service).await.unwrap(), Some(starting()));
+
+	let cancelled = fee_app::cancel_change(&h.engine.fee_policy_ports(), &service, change.id, requester, now()).await.unwrap();
+	assert_eq!(cancelled.state, FeePolicyChangeState::Cancelled);
 }
 
 /// A loosening binds by itself, even over a holder nobody reached; the holder who can be

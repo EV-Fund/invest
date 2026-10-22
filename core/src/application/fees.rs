@@ -260,9 +260,8 @@ pub struct PolicyChangeRequest {
 /// concierge's `invest:fee_policy` ([`fee_approvals`]) with the requester's proof; the notice
 /// period starts when they pass it. Without a proof it is refused before anything is written
 /// ([`fee_approvals::reauth_required`]). A proposal concierge refuses, or cannot take now,
-/// closes the change `rejected` and answers why ([`DomainError::Precondition`]). Such a change
-/// is refused ([`DomainError::Precondition`]) on a fund anyone holds, until invest can
-/// deliver the holders' notices.
+/// closes the change `rejected` and answers why ([`DomainError::Precondition`]). When the
+/// owners pass it, every holder is owed a notice, and [`super::fee_notices`] delivers it.
 pub async fn schedule_policy(ports: &FeePolicyPorts<'_>, requester: UserId, request: PolicyChangeRequest, now: i64) -> Result<FeePolicyChange, DomainError> {
 	// The registry is the same gate subscribe runs through: terms for an unregistered
 	// product are always a typo.
@@ -286,16 +285,6 @@ pub async fn schedule_policy(ports: &FeePolicyPorts<'_>, requester: UserId, requ
 	let current = ports.policies.find(&request.service).await?;
 	let requirement = fees::requirement_for(current.as_ref(), &request.policy);
 	fees::validate_reason(&request.reason, requirement == ChangeRequirement::OwnerConsilium)?;
-	// Fail closed, as banking did without its governance mail: invest cannot deliver a
-	// holder notice yet (each is recorded given up), so dearer terms the owners approved
-	// would bind on holders nobody told. Until notices are delivered, the owners decide only
-	// for a fund nobody holds. A holder who joins while the owners vote still holds the
-	// change: their notice is given up on, and an owner change takes no acknowledgement.
-	if requirement == ChangeRequirement::OwnerConsilium && ports.changes.holder_count(&request.service).await? > 0 {
-		return Err(DomainError::Precondition(
-			"a change the owners decide is possible only on a fund with no holders until invest can deliver holder notices".into(),
-		));
-	}
 	let requester_proof = match requirement {
 		ChangeRequirement::Admin => None,
 		ChangeRequirement::OwnerConsilium => {
@@ -366,7 +355,8 @@ pub async fn acknowledge_undelivered_notices(changes: &dyn FeePolicyChanges, ser
 		id: id.to_string(),
 	})?;
 	// The owners approved terms the holders were to be told about; one person waiving that
-	// notice would undo the half of their approval that protects the holders.
+	// notice would undo the half of their approval that protects the holders. A holder
+	// nobody could reach keeps the change from binding, and the requester withdraws it.
 	if change.requirement == ChangeRequirement::OwnerConsilium {
 		return Err(DomainError::Forbidden(
 			"the holders' notice of a change the owners decided cannot be waived; withdraw the change instead".into(),
