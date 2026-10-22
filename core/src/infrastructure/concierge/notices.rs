@@ -27,25 +27,26 @@ impl ConciergeNotifier {
 /// What concierge's `delivered = false` means, in the words the notice row keeps.
 const NOT_DELIVERED: &str = "concierge did not deliver it: the holder is not an active member of invest's scope, or has switched fee-term notices (or both channels) off";
 
+/// The notice as concierge's wire carries it. The link opens in the cabinet `link_scope`
+/// names; with concierge's `NOTICE_LINK_BASES` set for it, the stored link is absolute.
+fn emit_request(notice: &HolderNotice) -> EmitRequest {
+	EmitRequest {
+		user_id: notice.user.to_string(),
+		topic: notice.topic.to_owned(),
+		kind: notice.kind.to_owned(),
+		title: notice.title.clone(),
+		body: notice.body.clone(),
+		link: notice.link.clone(),
+		link_scope: notice.link_scope.to_owned(),
+		dedupe_key: notice.dedupe_key.clone(),
+		occurred_at: notice.occurred_at_unix,
+	}
+}
+
 #[async_trait]
 impl HolderNotifier for ConciergeNotifier {
 	async fn notify(&self, notice: &HolderNotice) -> Result<NoticeOutcome, NotifyError> {
-		let request = EmitRequest {
-			user_id: notice.user.to_string(),
-			topic: notice.topic.to_owned(),
-			kind: notice.kind.to_owned(),
-			title: notice.title.clone(),
-			body: notice.body.clone(),
-			// TODO(evconcierge_client 0.4): send `notice.link` with `link_scope`. The published
-			// 0.3 has no `link_scope`, and without it concierge joins the path onto the
-			// platform's cabinet, where `/invest/<fund>` does not exist. No link beats a
-			// broken one; the body names the invest cabinet.
-			link: String::new(),
-			link_scope: String::new(),
-			dedupe_key: notice.dedupe_key.clone(),
-			occurred_at: notice.occurred_at_unix,
-		};
-		match self.client.emit_scope_notification(request).await {
+		match self.client.emit_scope_notification(emit_request(notice)).await {
 			Ok(response) if response.delivered => Ok(NoticeOutcome::Delivered),
 			Ok(_) => Ok(NoticeOutcome::NotDelivered(NOT_DELIVERED.to_owned())),
 			Err(err @ ConciergeError::Unavailable(_)) => Err(NotifyError::Unavailable(err.to_string())),
@@ -70,5 +71,38 @@ pub struct UnconfiguredNotifier;
 impl HolderNotifier for UnconfiguredNotifier {
 	async fn notify(&self, _notice: &HolderNotice) -> Result<NoticeOutcome, NotifyError> {
 		Ok(NoticeOutcome::NotDelivered("no notice channel is configured (CONCIERGE_GRPC_ADDR unset)".to_owned()))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use invest_domain::users::UserId;
+
+	use super::*;
+
+	#[test]
+	fn the_notice_links_into_the_invest_cabinet() {
+		let user = UserId::new();
+		let notice = HolderNotice {
+			user,
+			topic: "invest:fee-terms",
+			kind: "fee_terms_change",
+			title: "New fee terms for EV Trading".to_owned(),
+			body: "The fee terms of EV Trading change.".to_owned(),
+			link: "/invest/ev-trading".to_owned(),
+			link_scope: "invest",
+			dedupe_key: "fee_policy_notice:x".to_owned(),
+			occurred_at_unix: 1_792_677_600,
+		};
+
+		let wire = emit_request(&notice);
+
+		assert_eq!((wire.link.as_str(), wire.link_scope.as_str()), ("/invest/ev-trading", "invest"));
+		assert_eq!(wire.user_id, user.to_string());
+		assert_eq!(
+			(wire.topic.as_str(), wire.kind.as_str(), wire.dedupe_key.as_str()),
+			("invest:fee-terms", "fee_terms_change", "fee_policy_notice:x")
+		);
+		assert_eq!((wire.title, wire.body, wire.occurred_at), (notice.title, notice.body, notice.occurred_at_unix));
 	}
 }

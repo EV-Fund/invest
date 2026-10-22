@@ -164,9 +164,9 @@ each through concierge's `ScopeInboxService.EmitScopeNotification` on the topic
 - concierge failed: retried after 30 s, doubling to at most an hour; given up after 10
   attempts (about three hours). Without `CONCIERGE_GRPC_ADDR` every notice is given up at once.
 
-The notice states the fund, the old and new terms and the date they apply. Its link
-(`/invest/<fund>`, `link_scope = invest`) is left out until invest links an
-`evconcierge_client` with `link_scope` (0.4, not on crates.io yet).
+The notice states the fund, the old and new terms and the date they apply, and links to
+`/invest/<fund>` with `link_scope = invest`: the mail opens the invest cabinet once
+concierge's `NOTICE_LINK_BASES` has a base for `invest`, and the platform's cabinet otherwise.
 
 The 24-hour notice period runs from scheduling (for an owner change, from the owners'
 pass), never from delivery, and delivery does not shorten it. A dearer change binds once its
