@@ -803,6 +803,10 @@ mod admin_route_tests {
 				holders: vec![holding("user", HOLDER, "13000"), holding("allocation", "fee", "250")],
 			}))
 		}
+
+		async fn list_allocation_treasury(&self, _: GrpcRequest<iv::ListAllocationTreasuryRequest>) -> Result<GrpcResponse<iv::AllocationTreasuryList>, Status> {
+			Err(Status::unimplemented(NOT_REACHED))
+		}
 	}
 
 	#[tonic::async_trait]

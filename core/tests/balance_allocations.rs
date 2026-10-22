@@ -11,43 +11,20 @@
 //! plays banking: the user's cash is a compartment, the product's an `alloc:` account, and
 //! a refusal or an outage is injected where banking would give one.
 
-use std::{sync::Arc, time::Duration};
-
-use evconcierge_auth::{Claims, TokenType};
 use invest_contracts::invest::v1::{self as pb, funds_service_server::FundsService};
 use invest_core::{
-	AppState,
-	application::{
-		allocations as allocations_app,
-		book::{BookFeed, WatchStreams},
-		funds as funds_app, issuance as issuance_app,
-	},
-	infrastructure::{
-		allocations::PgAllocations,
-		book::PgBook,
-		fee_policy_changes::PgFeePolicyChanges,
-		fees::{PgFeeAssessments, PgFeePolicies, PgFeeSettlements, PgPositionAccruals},
-		issuance::PgUnitIssuances,
-		money_events::Pass,
-		nav::PgNav,
-		positions::PgFundPositions,
-		redemptions::PgRedemptions,
-		subscriptions::PgSubscriptions,
-		users::PgUsers,
-	},
+	application::{allocations as allocations_app, book::BookFeed, funds as funds_app, issuance as issuance_app},
+	infrastructure::{issuance::PgUnitIssuances, money_events::Pass, nav::PgNav, positions::PgFundPositions},
 	ports::{
 		AllocationRegistry, FundPositionReader, RedemptionRepository, SubscriptionRepository,
-		fees::FeePorts,
 		ledger::{CompletionKind, LedgerError, LedgerTransfer, PendingCompletion},
 		money::{AccountLabel, HoldState, MoneyEventKind, Refusal, ScopeId},
 		nav::NavMarks,
-		users::UserStanding,
 	},
 };
 use invest_domain::{
 	allocations::{Allocation, AllocationAccess, AllocationIcon, AllocationId},
 	balance::{LedgerAccountKey, ServiceId, TransferCode, ValuationId},
-	book::{PriceTimeEngine, TakerFeeRiseTerms},
 	error::DomainError,
 	issuance::{IdempotencyKey, UnitHolder},
 	money::{Nav, Shares, Usdt},
@@ -58,6 +35,8 @@ use invest_domain::{
 use uuid::Uuid;
 
 mod common;
+
+use common::{as_caller, operator};
 
 type Harness = common::Engine;
 
@@ -1112,70 +1091,9 @@ async fn a_completion_crossing_the_pendings_outcome_is_a_conflict() {
 
 // ---- ResolveAwaitingRedemption -------------------------------------------------------
 
-const MANAGE: &str = "invest:allocation:manage";
-
 /// The gRPC handler over this harness's database, banking and ledger.
 fn funds_service(h: &Harness) -> invest_core::services::funds::FundsSvc {
-	let pool = h.pool.clone();
-	let state = AppState {
-		pool: pool.clone(),
-		ledger: h.ledger.clone(),
-		money: h.money.clone(),
-		users: Arc::new(PgUsers::new(pool.clone())),
-		allocations: Arc::new(PgAllocations::new(pool.clone())),
-		issuances: Arc::new(PgUnitIssuances::new(pool.clone())),
-		subscriptions: Arc::new(PgSubscriptions::new(pool.clone())),
-		redemptions: Arc::new(PgRedemptions::new(pool.clone(), h.ledger.clone())),
-		book: Arc::new(PgBook::new(pool.clone())),
-		book_taker_fee_rise: TakerFeeRiseTerms::new(3_600, 25).unwrap(),
-		book_engine: Arc::new(PriceTimeEngine),
-		book_feed: BookFeed::new(),
-		watch_streams: WatchStreams::new(2, Duration::from_secs(60)).unwrap(),
-		fees: FeePorts {
-			policies: Arc::new(PgFeePolicies::new(pool.clone())),
-			changes: Arc::new(PgFeePolicyChanges::new(pool.clone())),
-			accruals: Arc::new(PgPositionAccruals::new(pool.clone())),
-			assessments: Arc::new(PgFeeAssessments::new(pool.clone())),
-			settlements: Arc::new(PgFeeSettlements::new(pool.clone(), h.ledger.clone())),
-		},
-		nav: Arc::new(PgNav::new(pool.clone())),
-		positions: Arc::new(PgFundPositions::new(pool)),
-		relay_notify: h.notify.clone(),
-	};
-	invest_core::services::funds::FundsSvc::new(state)
-}
-
-/// A caller the auth layer would have admitted: an access token for `user`.
-fn as_caller<T>(user: UserId, message: T) -> tonic::Request<T> {
-	let mut request = tonic::Request::new(message);
-	request.extensions_mut().insert(Claims {
-		sub: user.raw().to_string(),
-		iss: "test".into(),
-		aud: "invest".into(),
-		exp: u64::MAX,
-		iat: 0,
-		typ: TokenType::Access,
-		jti: None,
-		token_version: 0,
-	});
-	request
-}
-
-/// An operator: an active seat holding `invest:allocation:manage`.
-async fn operator(h: &Harness) -> UserId {
-	let user = UserId::new();
-	h.users
-		.record(
-			user,
-			&UserStanding {
-				active: true,
-				permissions: Some(vec![MANAGE.into()]),
-			},
-			None,
-		)
-		.await
-		.unwrap();
-	user
+	invest_core::services::funds::FundsSvc::new(h.app_state())
 }
 
 fn resolve_request(id: RedemptionId, operation_id: &str) -> pb::ResolveAwaitingRedemptionRequest {
