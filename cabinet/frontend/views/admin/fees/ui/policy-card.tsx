@@ -21,6 +21,7 @@ import { TAG } from "@/shared/lib/cache-tags";
 import { formatMoment } from "@/shared/lib/datetime";
 import { revalidateTag } from "@/shared/lib/resource";
 import { isPendingChange } from "@/views/admin/fees/lib/format";
+import { feeRefusal } from "@/views/admin/fees/lib/refusals";
 import { draftBps, draftProblem, draftRequirement, fieldLabel, toRequest, type TermsDraft } from "@/views/admin/fees/lib/schedule";
 import { useTermsDraft } from "@/views/admin/fees/model/use-terms-draft";
 import { ScheduleFields } from "@/views/admin/fees/ui/schedule-fields";
@@ -111,9 +112,9 @@ export function PolicyCard({
       onScheduled(change);
       reset();
     } catch (e) {
-      // concierge refusing the owners' proposal comes back as a 412 in its own words; it is
-      // shown as it came, like any other refusal.
-      setProblem(e instanceof Error ? errorMessage(e, t) : t("err.feePolicySave", "Could not save these terms."));
+      // A known refusal of an owner-level change is said in the reader's language; any
+      // other, concierge's refusal of the proposal included, is shown as it came.
+      setProblem(feeRefusal(e, t) ?? (e instanceof Error ? errorMessage(e, t) : t("err.feePolicySave", "Could not save these terms.")));
       // "Already pending" means a colleague got there first, and this screen still shows
       // the fund without their change. The re-read brings their pending card in and
       // blocks this form for the right reason, instead of leaving a red sentence about a

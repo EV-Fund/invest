@@ -1,9 +1,10 @@
 // Words for the owners' decision on a fee change, as concierge's approvals report it.
 // Every helper takes the caller's `t`, like `./format.ts`.
 
-import type { Translate } from "@evinvest/i18n";
+import type { Locale, Translate } from "@evinvest/i18n";
 
 import type { FeePolicyChange } from "@/shared/contracts/admin";
+import { formatMoment, hasStamp } from "@/shared/lib/datetime";
 import { wordFor } from "@/shared/lib/wire-words";
 
 const labels = (t: Translate): Readonly<Record<string, string>> => ({
@@ -38,7 +39,7 @@ const lines = (t: Translate): Readonly<Record<string, string>> => ({
 
 /** One plain sentence about where the owners' decision stands, or `null` for a state this
  *  build has no sentence for (the pill still names it). */
-export function approvalStateLine(change: FeePolicyChange, t: Translate): string | null {
+export function approvalStateLine(change: FeePolicyChange, t: Translate, locale: Locale): string | null {
   const state = change.approval_state;
   // An id without a state is a change imported from banking, whose consilium invest never
   // read: nothing true can be said about it beyond the pill.
@@ -49,11 +50,13 @@ export function approvalStateLine(change: FeePolicyChange, t: Translate): string
     return t("admin.fees.approval.line.unproposed", "concierge could not be reached when you asked. invest proposes the change to the owners again within a minute.");
   }
   if (state === "passed") {
-    // The wire carries no moment the owners carried it, so the end of the veto window
-    // cannot be named as a time, only as the 24 h rule.
-    return change.state === "awaiting_consilium"
-      ? t("admin.fees.approval.line.passedAwaiting", "The owners carried the change. Any owner can still veto it during the 24-hour delay that follows; after that, invest schedules it.")
-      : t("admin.fees.approval.line.passed", "The owners carried the change, and invest scheduled it.");
+    if (change.state !== "awaiting_consilium") return t("admin.fees.approval.line.passed", "The owners carried the change, and invest scheduled it.");
+    // The end of the veto window is known only once invest has read the passed proposal;
+    // until then the 24 h rule is all that can be said.
+    const until = change.approval_executable_at;
+    return until && hasStamp(until)
+      ? t("admin.fees.approval.line.passedUntil", "The owners carried the change. Owners can veto it until {at}; after that, invest schedules it.", { at: formatMoment(until, locale) })
+      : t("admin.fees.approval.line.passedAwaiting", "The owners carried the change. Any owner can still veto it during the 24-hour delay that follows; after that, invest schedules it.");
   }
   return wordFor(lines(t), state) ?? null;
 }

@@ -599,6 +599,10 @@
     "en": "The owners carried the change. Any owner can still veto it during the 24-hour delay that follows; after that, invest schedules it.",
     "t": "Các chủ sở hữu đã thông qua thay đổi. Bất kỳ chủ sở hữu nào vẫn có thể phủ quyết trong 24 giờ chờ tiếp theo; sau đó invest sẽ lên lịch cho nó."
   },
+  "admin.fees.approval.line.passedUntil": {
+    "en": "The owners carried the change. Owners can veto it until {at}; after that, invest schedules it.",
+    "t": "Các chủ sở hữu đã thông qua thay đổi. Chủ sở hữu có thể phủ quyết đến {at}; sau đó invest sẽ lên lịch cho nó."
+  },
   "admin.fees.approval.line.rejected": {
     "en": "The owners rejected the change. The fund keeps its current terms.",
     "t": "Các chủ sở hữu đã từ chối thay đổi. Quỹ giữ nguyên điều khoản hiện tại."
@@ -695,6 +699,10 @@
     "en": "Cancel the change",
     "t": "Hủy thay đổi"
   },
+  "admin.fees.cancelRequesterOnly": {
+    "en": "Only the person who requested this change can cancel it, because the owners decide it.",
+    "t": "Chỉ người đã yêu cầu thay đổi này mới có thể hủy nó, vì các chủ sở hữu quyết định thay đổi."
+  },
   "admin.fees.cancelWarning": {
     "en": "Cancelling withdraws the change. The fund keeps its current terms, and the holders who were notified will not see the new ones.",
     "t": "Hủy sẽ rút lại thay đổi. Quỹ giữ nguyên điều khoản hiện tại, và những người nắm giữ đã được thông báo sẽ không thấy điều khoản mới."
@@ -786,6 +794,18 @@
   "admin.fees.err.overCeiling": {
     "en": "{field} cannot be more than {ceiling}.",
     "t": "{field} không thể vượt quá {ceiling}."
+  },
+  "admin.fees.err.ownersNeedNoHolders": {
+    "en": "These terms need the owners' approval, and someone holds units in this fund. For now, the owners can decide a change only for a fund nobody holds, because invest cannot deliver notices to holders yet.",
+    "t": "Các điều khoản này cần chủ sở hữu phê duyệt, nhưng quỹ này đang có người nắm giữ đơn vị. Hiện tại, chủ sở hữu chỉ có thể quyết định thay đổi cho quỹ không có ai nắm giữ, vì invest chưa thể gửi thông báo đến người nắm giữ."
+  },
+  "admin.fees.err.ownersNoWaiver": {
+    "en": "The owners decided this change, so its holders' notices cannot be waived. Withdraw the change instead.",
+    "t": "Các chủ sở hữu đã quyết định thay đổi này, nên không thể bỏ qua thông báo cho người nắm giữ. Thay vào đó, hãy rút lại thay đổi."
+  },
+  "admin.fees.err.ownersRequesterOnly": {
+    "en": "Only the person who requested this change can withdraw it, because the owners decide it.",
+    "t": "Chỉ người đã yêu cầu thay đổi này mới có thể rút lại nó, vì các chủ sở hữu quyết định thay đổi."
   },
   "admin.fees.err.reasonRequired": {
     "en": "A reason is required when the owners must approve.",

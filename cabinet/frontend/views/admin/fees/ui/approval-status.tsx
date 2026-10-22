@@ -4,7 +4,7 @@
 // here, so this block only reports and links: the operator follows the vote, and the one
 // action they have (cancel) stays on the pending card.
 
-import { useT } from "@evinvest/i18n/react";
+import { useLocale, useT } from "@evinvest/i18n/react";
 import { Badge, Button } from "@evinvest/uikit";
 
 import { PLATFORM_APPROVALS_URL } from "@/shared/config/platform-admin";
@@ -14,7 +14,8 @@ import { approvalStateLabel, approvalStateLine, approvalStateTone } from "@/view
 
 export function ApprovalStatus({ change }: { change: FeePolicyChange }) {
   const t = useT();
-  const line = approvalStateLine(change, t);
+  const locale = useLocale();
+  const line = approvalStateLine(change, t, locale);
   const id = change.consilium_id ?? null;
   return (
     <section aria-label={t("admin.fees.approval.title", "Owners' approval")} className="space-y-2 rounded-lg border border-border p-3">

@@ -599,6 +599,10 @@
     "en": "The owners carried the change. Any owner can still veto it during the 24-hour delay that follows; after that, invest schedules it.",
     "t": "Владельцы одобрили изменение. Любой владелец ещё может наложить вето в течение следующих 24 часов; после этого invest его запланирует."
   },
+  "admin.fees.approval.line.passedUntil": {
+    "en": "The owners carried the change. Owners can veto it until {at}; after that, invest schedules it.",
+    "t": "Владельцы одобрили изменение. Владельцы могут наложить вето до {at}; после этого invest его запланирует."
+  },
   "admin.fees.approval.line.rejected": {
     "en": "The owners rejected the change. The fund keeps its current terms.",
     "t": "Владельцы отклонили изменение. Фонд сохраняет текущие условия."
@@ -695,6 +699,10 @@
     "en": "Cancel the change",
     "t": "Отменить изменение"
   },
+  "admin.fees.cancelRequesterOnly": {
+    "en": "Only the person who requested this change can cancel it, because the owners decide it.",
+    "t": "Отменить это изменение может только тот, кто его запросил, потому что решают владельцы."
+  },
   "admin.fees.cancelWarning": {
     "en": "Cancelling withdraws the change. The fund keeps its current terms, and the holders who were notified will not see the new ones.",
     "t": "Отмена отзывает изменение. Фонд сохраняет текущие условия, и уведомлённые держатели новых не увидят."
@@ -786,6 +794,18 @@
   "admin.fees.err.overCeiling": {
     "en": "{field} cannot be more than {ceiling}.",
     "t": "{field} не может быть больше {ceiling}."
+  },
+  "admin.fees.err.ownersNeedNoHolders": {
+    "en": "These terms need the owners' approval, and someone holds units in this fund. For now, the owners can decide a change only for a fund nobody holds, because invest cannot deliver notices to holders yet.",
+    "t": "Эти условия требуют одобрения владельцев, а в этом фонде кто-то держит паи. Пока владельцы могут решать изменение только для фонда без держателей, потому что invest ещё не умеет доставлять уведомления держателям."
+  },
+  "admin.fees.err.ownersNoWaiver": {
+    "en": "The owners decided this change, so its holders' notices cannot be waived. Withdraw the change instead.",
+    "t": "Это изменение решали владельцы, поэтому от уведомлений держателей нельзя отказаться. Вместо этого отмените изменение."
+  },
+  "admin.fees.err.ownersRequesterOnly": {
+    "en": "Only the person who requested this change can withdraw it, because the owners decide it.",
+    "t": "Отозвать это изменение может только тот, кто его запросил, потому что решают владельцы."
   },
   "admin.fees.err.reasonRequired": {
     "en": "A reason is required when the owners must approve.",

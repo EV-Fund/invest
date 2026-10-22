@@ -159,6 +159,10 @@ export interface FeePolicyChange extends FeeTerms {
   /** How many holders the proposal told the owners would be notified, counted when it was
    *  proposed; `null` when invest did not propose the change. */
   approval_holders: number | null;
+  /** Unix seconds as a string: when the owners' veto window of a passed approval ends and
+   *  invest may schedule the change. `null` until invest has read a passed proposal, on a
+   *  change invest did not propose, and for a caller without `AllocationManage`. */
+  approval_executable_at: string | null;
   requested_by: string;
   requested_at: string;
   scheduled_at: string;

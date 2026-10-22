@@ -599,6 +599,10 @@
     "en": "The owners carried the change. Any owner can still veto it during the 24-hour delay that follows; after that, invest schedules it.",
     "t": "Die Eigentümer haben die Änderung angenommen. Jeder Eigentümer kann in der folgenden 24-Stunden-Frist noch ein Veto einlegen; danach plant invest sie ein."
   },
+  "admin.fees.approval.line.passedUntil": {
+    "en": "The owners carried the change. Owners can veto it until {at}; after that, invest schedules it.",
+    "t": "Die Eigentümer haben die Änderung angenommen. Eigentümer können bis {at} ein Veto einlegen; danach plant invest sie ein."
+  },
   "admin.fees.approval.line.rejected": {
     "en": "The owners rejected the change. The fund keeps its current terms.",
     "t": "Die Eigentümer haben die Änderung abgelehnt. Der Fonds behält seine aktuellen Konditionen."
@@ -695,6 +699,10 @@
     "en": "Cancel the change",
     "t": "Änderung abbrechen"
   },
+  "admin.fees.cancelRequesterOnly": {
+    "en": "Only the person who requested this change can cancel it, because the owners decide it.",
+    "t": "Nur die Person, die diese Änderung beantragt hat, kann sie abbrechen, weil die Eigentümer darüber entscheiden."
+  },
   "admin.fees.cancelWarning": {
     "en": "Cancelling withdraws the change. The fund keeps its current terms, and the holders who were notified will not see the new ones.",
     "t": "Der Abbruch zieht die Änderung zurück. Der Fonds behält seine aktuellen Konditionen, und die benachrichtigten Anteilsinhaber sehen die neuen nicht."
@@ -786,6 +794,18 @@
   "admin.fees.err.overCeiling": {
     "en": "{field} cannot be more than {ceiling}.",
     "t": "{field} darf nicht mehr als {ceiling} betragen."
+  },
+  "admin.fees.err.ownersNeedNoHolders": {
+    "en": "These terms need the owners' approval, and someone holds units in this fund. For now, the owners can decide a change only for a fund nobody holds, because invest cannot deliver notices to holders yet.",
+    "t": "Diese Konditionen brauchen die Freigabe der Eigentümer, und jemand hält Anteile an diesem Fonds. Vorerst können die Eigentümer nur über eine Änderung für einen Fonds ohne Inhaber entscheiden, weil invest den Inhabern noch keine Hinweise zustellen kann."
+  },
+  "admin.fees.err.ownersNoWaiver": {
+    "en": "The owners decided this change, so its holders' notices cannot be waived. Withdraw the change instead.",
+    "t": "Die Eigentümer haben über diese Änderung entschieden, daher kann auf die Hinweise an die Inhaber nicht verzichtet werden. Ziehen Sie die Änderung stattdessen zurück."
+  },
+  "admin.fees.err.ownersRequesterOnly": {
+    "en": "Only the person who requested this change can withdraw it, because the owners decide it.",
+    "t": "Nur die Person, die diese Änderung beantragt hat, kann sie zurückziehen, weil die Eigentümer darüber entscheiden."
   },
   "admin.fees.err.reasonRequired": {
     "en": "A reason is required when the owners must approve.",

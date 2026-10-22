@@ -21,8 +21,10 @@ import { cn } from "@/shared/lib/cn";
 import { formatMoment } from "@/shared/lib/datetime";
 import { stripTransportPrefix } from "@/shared/lib/hub-refusal";
 import { revalidateTag } from "@/shared/lib/resource";
+import { useSession } from "@/shared/lib/use-session";
 import { changeStateLabel, changeStateTone } from "@/views/admin/fees/lib/format";
 import { receiptKind } from "@/views/admin/fees/lib/receipt";
+import { feeRefusal } from "@/views/admin/fees/lib/refusals";
 import { ApprovalStatus } from "@/views/admin/fees/ui/approval-status";
 import { NoticeWaiver } from "@/views/admin/fees/ui/notice-waiver";
 import { ago } from "@/views/admin/lib/format";
@@ -37,6 +39,10 @@ export function PendingCard({ change, current, onCancelled }: { change: FeePolic
   const [problem, setProblem] = useState<string | null>(null);
   const awaiting = change.state === "awaiting_consilium";
   const owners = change.requirement === "owner_consilium";
+  // invest-core lets only the requester withdraw an owner-level change. While the session
+  // is still loading the button stays: the hub's refusal is the fallback, not a blank card.
+  const me = useSession()?.user?.userId;
+  const othersChange = owners && me !== undefined && me.toLowerCase() !== change.requested_by.toLowerCase();
   // A product nobody holds binds at the request itself and the card lives for the minute
   // until the sweeper applies it — "holders have been notified" would name nobody.
   const [kind] = useState(() => receiptKind(change, Math.floor(Date.now() / 1000)));
@@ -64,7 +70,7 @@ export function PendingCard({ change, current, onCancelled }: { change: FeePolic
       // success brings in what it became (banking#326): the card goes, the history row
       // turns. The sentence is shown meanwhile, without the BFF's variant prefix on it.
       if (e instanceof RequestError && e.status === 409) revalidateTag(TAG.adminFees);
-      setProblem(stripTransportPrefix(errorMessage(e, t)));
+      setProblem(feeRefusal(e, t) ?? stripTransportPrefix(errorMessage(e, t)));
     } finally {
       setBusy(false);
     }
@@ -112,6 +118,8 @@ export function PendingCard({ change, current, onCancelled }: { change: FeePolic
               </div>
             </AlertDescription>
           </Alert>
+        ) : othersChange ? (
+          <p className="text-xs text-ink-soft">{t("admin.fees.cancelRequesterOnly", "Only the person who requested this change can cancel it, because the owners decide it.")}</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             <Button variant="ghost" size="sm" onClick={() => setConfirming(true)}>

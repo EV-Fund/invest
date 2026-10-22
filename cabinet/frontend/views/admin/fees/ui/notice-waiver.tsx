@@ -30,6 +30,7 @@ import { formatMoment } from "@/shared/lib/datetime";
 import { stripTransportPrefix } from "@/shared/lib/hub-refusal";
 import { revalidateTag } from "@/shared/lib/resource";
 import { noticeSummary, type Waiver, waiverName, waiverRecord } from "@/views/admin/fees/lib/notices";
+import { feeRefusal } from "@/views/admin/fees/lib/refusals";
 
 // The sentence names the operator by email; the id stays one hover away as the record's
 // own fact. Nothing to hover when the id is what the sentence already says.
@@ -65,6 +66,9 @@ function GivenUpNotices({ change, givenUp, queued, waiver }: { change: FeePolicy
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const waiverBy = waiver ? waiverName(waiver) : null;
+  // invest-core never waives the notices of a change the owners decided, so the act is not
+  // offered for one; withdrawing the change is the way out.
+  const waivable = change.requirement !== "owner_consilium";
   // Focus follows the step both ways: in, onto the safe answer (see `./pending-card.tsx`);
   // out by "Keep waiting", back onto the button that opened it — which is remounted, so
   // the browser would otherwise drop focus to `body`.
@@ -134,6 +138,8 @@ function GivenUpNotices({ change, givenUp, queued, waiver }: { change: FeePolicy
               </Button>
             </div>
           </>
+        ) : !waivable ? (
+          <p className="text-xs">{t("admin.fees.err.ownersNoWaiver", "The owners decided this change, so its holders' notices cannot be waived. Withdraw the change instead.")}</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             <Button ref={openRef} variant="outline" size="sm" onClick={() => setConfirming(true)}>
@@ -150,6 +156,8 @@ function GivenUpNotices({ change, givenUp, queued, waiver }: { change: FeePolicy
 // relays hub prose verbatim, see `api-client.ts`), and only a bare 403 — not the stale
 // page's `csrf`, which carries a key of its own — is the "not yours to acknowledge" one.
 function waiverProblem(e: unknown, t: Translate): string {
+  const known = feeRefusal(e, t);
+  if (known) return known;
   if (e instanceof RequestError && e.status === 403 && !e.code) return t("admin.fees.notices.err.forbidden", "Only the requester of this change or an owner can take responsibility for it.");
   return stripTransportPrefix(errorMessage(e, t));
 }
