@@ -134,8 +134,7 @@ impl AppConfig {
 			);
 			return Ok(None);
 		};
-		let secure = addr.starts_with("https://");
-		ensure!(secure || addr.starts_with("http://"), "CONCIERGE_GRPC_ADDR {addr} must be http:// or https://");
+		let secure = concierge_addr_is_tls(addr, &self.app_env)?;
 		let client_secret = self
 			.concierge_client_secret
 			.clone()
@@ -171,6 +170,19 @@ impl AppConfig {
 			self.scope_ledger_tls_domain.as_deref(),
 		)
 	}
+}
+
+/// Whether `CONCIERGE_GRPC_ADDR` is concierge's TLS listener. `http://` is for development
+/// only: in production the client secret, the users stream and the owners' approvals all
+/// cross this channel, and prod admits invest-core only on concierge's TLS port anyway.
+fn concierge_addr_is_tls(addr: &str, app_env: &str) -> Result<bool> {
+	let secure = addr.starts_with("https://");
+	ensure!(secure || addr.starts_with("http://"), "CONCIERGE_GRPC_ADDR {addr} must be http:// or https://");
+	ensure!(
+		secure || app_env != "production",
+		"CONCIERGE_GRPC_ADDR {addr} is cleartext in production — the client secret and the owners' approvals would cross the cluster unencrypted; point it at concierge's TLS listener (https://…:55672)"
+	);
+	Ok(secure)
 }
 
 /// The rules of `CONCIERGE_CATALOG_GRPC_ADDR` on plain values: `http://` or `https://`, and
@@ -263,6 +275,26 @@ mod scope_ledger_tests {
 			.unwrap();
 		assert_eq!((config.ca_pem.as_str(), config.client_key_pem.as_str()), ("pem of ca", "pem of key"));
 		assert_eq!(config.tls_domain.as_deref(), Some("banking.internal"));
+	}
+}
+
+#[cfg(test)]
+mod concierge_addr_tests {
+	use super::*;
+
+	#[test]
+	fn production_refuses_a_cleartext_address() {
+		let err = concierge_addr_is_tls("http://concierge:55670", "production").err().unwrap().to_string();
+		assert!(err.contains("cleartext in production"), "{err}");
+		assert!(concierge_addr_is_tls("https://concierge:55672", "production").unwrap());
+	}
+
+	#[test]
+	fn development_takes_either_scheme_and_nothing_else() {
+		assert!(!concierge_addr_is_tls("http://127.0.0.1:55670", "development").unwrap());
+		assert!(concierge_addr_is_tls("https://127.0.0.1:55672", "development").unwrap());
+		let err = concierge_addr_is_tls("concierge:55670", "development").err().unwrap().to_string();
+		assert!(err.contains("must be http:// or https://"), "{err}");
 	}
 }
 

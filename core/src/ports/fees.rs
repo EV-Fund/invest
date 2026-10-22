@@ -92,6 +92,9 @@ pub struct FeePolicyChange {
 	/// The holder count the proposal named. One of the approved fields, so it is kept to
 	/// re-check the approval; `None` on any change invest did not propose.
 	pub approval_holders: Option<u32>,
+	/// When concierge lets invest carry out the passed approval — until then any owner may
+	/// still veto it. `None` until the round has read it from a passed proposal.
+	pub approval_executable_at_unix: Option<i64>,
 }
 
 /// What the owners passed, as the executor re-checked it against the stored change. The
@@ -161,9 +164,11 @@ pub trait FeePolicyChanges: Send + Sync {
 	/// longer awaiting is returned as it is.
 	async fn close_unapproved(&self, id: FeePolicyChangeId, approval_state: Option<ApprovalState>, why: &str) -> Result<FeePolicyChange, DomainError>;
 
-	/// Note concierge's state of the change's approval. A change with no approval is left
-	/// alone.
-	async fn note_approval_state(&self, id: FeePolicyChangeId, state: ApprovalState) -> Result<(), DomainError>;
+	/// Note concierge's state of the change's approval, and the moment it becomes executable
+	/// when concierge named one (a `None` keeps the noted moment). A change with no approval
+	/// is left alone, and so is one whose noted state has ended (a stale read never
+	/// overwrites `executed`) or is `passed` and would go back to `open`.
+	async fn note_approval_state(&self, id: FeePolicyChangeId, state: ApprovalState, executable_at_unix: Option<i64>) -> Result<(), DomainError>;
 
 	/// The owner changes still waiting on concierge, oldest first: every `awaiting_consilium`
 	/// one, and every cancelled one invest proposed whose approval may still be live.

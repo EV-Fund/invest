@@ -313,7 +313,7 @@ mod tests {
 				"holders_notified",
 			],
 		)];
-		assert_eq!((SCOPE_CATALOG_VERSION, catalog.topics, kinds), (1_792_627_200, topics, pinned_kinds));
+		assert_eq!((SCOPE_CATALOG_VERSION, catalog.topics, kinds), (1_792_648_800, topics, pinned_kinds));
 	}
 
 	#[test]

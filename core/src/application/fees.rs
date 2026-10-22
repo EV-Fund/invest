@@ -258,7 +258,9 @@ pub struct PolicyChangeRequest {
 /// concierge's `invest:fee_policy` ([`fee_approvals`]); the notice period starts when they
 /// pass it. concierge refusing the proposal closes the change `rejected` and answers
 /// [`DomainError::Precondition`] with concierge's reason. concierge out of reach leaves the
-/// change waiting, and the approvals round proposes it later.
+/// change waiting, and the approvals round proposes it later. Such a change is refused
+/// ([`DomainError::Precondition`]) on a fund anyone holds, until invest can deliver the
+/// holders' notices.
 pub async fn schedule_policy(ports: &FeePolicyPorts<'_>, requester: UserId, request: PolicyChangeRequest, now: i64) -> Result<FeePolicyChange, DomainError> {
 	// The registry is the same gate subscribe runs through: terms for an unregistered
 	// product are always a typo.
@@ -282,6 +284,16 @@ pub async fn schedule_policy(ports: &FeePolicyPorts<'_>, requester: UserId, requ
 	let current = ports.policies.find(&request.service).await?;
 	let requirement = fees::requirement_for(current.as_ref(), &request.policy);
 	fees::validate_reason(&request.reason, requirement == ChangeRequirement::OwnerConsilium)?;
+	// Fail closed, as banking did without its governance mail: invest cannot deliver a
+	// holder notice yet (each is recorded given up), so dearer terms the owners approved
+	// would bind on holders nobody told. Until notices are delivered, the owners decide only
+	// for a fund nobody holds. A holder who joins while the owners vote still holds the
+	// change: their notice is given up on, and an owner change takes no acknowledgement.
+	if requirement == ChangeRequirement::OwnerConsilium && ports.changes.holder_count(&request.service).await? > 0 {
+		return Err(DomainError::Precondition(
+			"a change the owners decide is possible only on a fund with no holders until invest can deliver holder notices".into(),
+		));
+	}
 	let change = NewFeePolicyChange {
 		id: FeePolicyChangeId::new(),
 		service: request.service.clone(),
@@ -304,12 +316,19 @@ pub async fn schedule_policy(ports: &FeePolicyPorts<'_>, requester: UserId, requ
 
 /// Withdraw a pending change (operator). The change is closed here first, so the operator's
 /// word holds at once; the proposal of an owner change is then withdrawn in concierge, or by
-/// the approvals round when concierge does not answer now.
+/// the approvals round when concierge does not answer now. A change the owners decide may be
+/// withdrawn only by the one who requested it ([`DomainError::Forbidden`] otherwise).
 pub async fn cancel_change(ports: &FeePolicyPorts<'_>, service: &ServiceId, id: FeePolicyChangeId, by: UserId, now: i64) -> Result<FeePolicyChange, DomainError> {
-	ports.changes.find(id).await?.filter(|change| &change.service == service).ok_or_else(|| DomainError::NotFound {
+	let change = ports.changes.find(id).await?.filter(|change| &change.service == service).ok_or_else(|| DomainError::NotFound {
 		entity: "fee policy change",
 		id: id.to_string(),
 	})?;
+	// Banking let only the proposer or an owner withdraw a consilium change: any other
+	// `AllocationManage` holder could otherwise kill a change the owners are voting on. invest
+	// does not know the owners; they refuse a change in concierge by vetoing it.
+	if change.requirement == ChangeRequirement::OwnerConsilium && change.requested_by != by.to_string() {
+		return Err(DomainError::Forbidden("a change the owners decide may be withdrawn only by the one who requested it".into()));
+	}
 	let cancelled = ports.changes.cancel(service, id, &by.to_string(), now).await?;
 	fee_approvals::withdraw_cancelled(&ports.approval_ports(), &cancelled).await?;
 	// Re-read: the withdrawal notes concierge's state on the row.
@@ -331,6 +350,13 @@ pub async fn acknowledge_undelivered_notices(changes: &dyn FeePolicyChanges, ser
 		entity: "fee policy change",
 		id: id.to_string(),
 	})?;
+	// The owners approved terms the holders were to be told about; one person waiving that
+	// notice would undo the half of their approval that protects the holders.
+	if change.requirement == ChangeRequirement::OwnerConsilium {
+		return Err(DomainError::Forbidden(
+			"the holders' notice of a change the owners decided cannot be waived; withdraw the change instead".into(),
+		));
+	}
 	if change.requested_by != by.to_string() {
 		return Err(DomainError::Forbidden("the holders' notice may be waived only by the one who requested the change".into()));
 	}

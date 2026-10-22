@@ -33,7 +33,7 @@ pub trait CatalogPublisher: Send + Sync {
 /// kept apart from it because concierge stores the two catalogs separately. Bump it with
 /// every change of [`ScopeCatalog::invest`] (a test pins the two together). concierge also
 /// refuses a version more than a day ahead of its clock, so the bump is never a future date.
-pub const SCOPE_CATALOG_VERSION: u64 = 1_792_627_200;
+pub const SCOPE_CATALOG_VERSION: u64 = 1_792_648_800;
 
 /// One notification topic invest emits on.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -96,8 +96,9 @@ pub mod fee_policy_fields {
 	pub const PROPOSED_BASIS: &str = "proposed_basis";
 	pub const CURRENT_CRYSTALLIZATION: &str = "current_crystallization";
 	pub const PROPOSED_CRYSTALLIZATION: &str = "proposed_crystallization";
-	/// The proposed terms leave the house envelope. The name is concierge's floor field
-	/// (`invest:fee_policy` escalates on it at scope level); at PLATFORM it only informs.
+	/// The proposed terms leave the house envelope. The flag only informs the owners:
+	/// concierge holds `invest:fee_policy` at PLATFORM, so there is no scope level for it to
+	/// escalate from. The key is hashed with the other fields, so it is not renamed.
 	pub const RAISES_CEILING: &str = "raises_ceiling";
 	pub const EFFECTIVE_FROM: &str = "effective_from";
 	pub const HOLDERS_NOTIFIED: &str = "holders_notified";
@@ -116,7 +117,7 @@ fn fee_policy_kind() -> KindSpec {
 	KindSpec {
 		name: "invest:fee_policy",
 		label: "Fee-policy change",
-		description: "Change a fund's fee terms beyond the house envelope (at most 2% management and 20% performance, on invested capital, crystallized yearly), or lower its hurdle. When the owners pass it, the holders are told and the notice period starts.",
+		description: "Change a fund's fee terms beyond the house envelope (at most 2% management and 20% performance, on invested capital, crystallized yearly), or lower its hurdle. When the owners pass it, the 24-hour notice period starts.",
 		level: KindLevel::Platform,
 		fields: vec![
 			field(f::ALLOCATION, "Fund", FieldType::Text),
@@ -132,7 +133,7 @@ fn fee_policy_kind() -> KindSpec {
 			field(f::PROPOSED_CRYSTALLIZATION, "Crystallization proposed", FieldType::Text),
 			field(f::RAISES_CEILING, "Leaves the house envelope", FieldType::Flag),
 			field(f::EFFECTIVE_FROM, "Binds no earlier than", FieldType::Timestamp),
-			field(f::HOLDERS_NOTIFIED, "Holders to be notified", FieldType::Count),
+			field(f::HOLDERS_NOTIFIED, "Holders when proposed", FieldType::Count),
 		],
 	}
 }

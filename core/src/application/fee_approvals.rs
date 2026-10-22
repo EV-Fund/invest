@@ -30,7 +30,7 @@ use uuid::Uuid;
 
 use crate::ports::{
 	approvals::{ApprovalField, ApprovalOutcome, ApprovalState, ApprovalValue, ApprovalView, Approvals, ApprovalsError, Proposal, payload_hash},
-	catalog::fee_policy_fields as field,
+	catalog::{KindLevel, fee_policy_fields as field},
 	fees::{ApprovedTerms, FeePolicies, FeePolicyChange, FeePolicyChanges},
 	users::UserDirectory,
 };
@@ -225,7 +225,7 @@ pub async fn withdraw_cancelled(ports: &FeeApprovalPorts<'_>, change: &FeePolicy
 		return Ok(());
 	}
 	match ports.approvals.withdraw(&approval.to_string(), "the operator withdrew the fee-policy change").await {
-		Ok(view) => ports.changes.note_approval_state(change.id, view.state).await,
+		Ok(view) => ports.changes.note_approval_state(change.id, view.state, view.executable_at_unix).await,
 		Err(err) => {
 			warn!(change_id = %change.id, approval_id = %approval, "fee approvals: could not withdraw the proposal of a cancelled change, the next round retries: {err}");
 			Ok(())
@@ -307,7 +307,7 @@ async fn report(
 					ApprovalOutcome::Failed => ApprovalState::ExecutionFailed,
 					ApprovalOutcome::Void => ApprovalState::Void,
 				};
-				ports.changes.note_approval_state(change, state).await?;
+				ports.changes.note_approval_state(change, state, None).await?;
 			}
 		}
 		Err(ApprovalsError::Refused(why)) => {
@@ -372,9 +372,17 @@ async fn carry_out(ports: &FeeApprovalPorts<'_>, pulled: &ApprovalView, round: &
 		&& approval.scope == APPROVAL_SCOPE
 		&& approval.subject_ref == subject_ref(change.id)
 		&& expected_hash(&change, current.as_ref()).is_ok_and(|ours| ours == approval.payload_hash);
-	if !matches {
-		error!(change_id = %change.id, approval_id = %approval.id, "fee approvals: the passed proposal does not match the stored change; refusing to schedule it");
-		let why = "the approved terms do not match the stored fee-policy change";
+	// The owners decide this kind. concierge's floor and the catalog both say PLATFORM, but
+	// the executor does not take a scope admins' pass for the owners' (banking's check too).
+	let why = if !matches {
+		Some("the approved terms do not match the stored fee-policy change")
+	} else if approval.level != Some(KindLevel::Platform) {
+		Some("the fee-policy change was not decided by the platform owners")
+	} else {
+		None
+	};
+	if let Some(why) = why {
+		error!(change_id = %change.id, approval_id = %approval.id, level = ?approval.level, "fee approvals: the passed proposal is not the owners' approval of the stored change; refusing to schedule it: {why}");
 		ports.changes.close_unapproved(change.id, None, why).await?;
 		round.rejected += 1;
 		return report(ports, round, Some(change.id), &approval.id, ApprovalOutcome::Void, why).await;
@@ -396,6 +404,15 @@ async fn carry_out(ports: &FeeApprovalPorts<'_>, pulled: &ApprovalView, round: &
 		}
 		Err(err @ DomainError::Repository(_)) => Err(err),
 		Err(err) => {
+			// A refusal is not proof the approval did not land (banking's rule): another
+			// runner may have scheduled this change under this approval meanwhile. Re-read and
+			// report what is true.
+			let landed = ports.changes.find(change.id).await?.is_some_and(|now| {
+				now.approval_id == change.approval_id && matches!(now.state, FeePolicyChangeState::Scheduled | FeePolicyChangeState::Active | FeePolicyChangeState::Superseded)
+			});
+			if landed {
+				return report(ports, round, Some(change.id), &approval.id, ApprovalOutcome::Executed, "").await;
+			}
 			// The row moved under the approval (cancelled meanwhile, edited): concierge is
 			// told it failed, and the change does not wait on a decision that cannot run.
 			let why = format!("could not schedule the approved change: {err}");
@@ -470,8 +487,9 @@ async fn follow(ports: &FeeApprovalPorts<'_>, round: &mut ApprovalRound, change:
 	let closed = |why: String| (Some(view.state), why);
 	let (state, why) = match view.state {
 		ApprovalState::Open | ApprovalState::Passed => {
-			if change.approval_state != Some(view.state) {
-				ports.changes.note_approval_state(change.id, view.state).await?;
+			let moment_is_new = view.executable_at_unix.is_some() && view.executable_at_unix != change.approval_executable_at_unix;
+			if change.approval_state != Some(view.state) || moment_is_new {
+				ports.changes.note_approval_state(change.id, view.state, view.executable_at_unix).await?;
 			}
 			return Ok(Flow::Next);
 		}
@@ -502,7 +520,7 @@ async fn withdraw(ports: &FeeApprovalPorts<'_>, round: &mut ApprovalRound, chang
 	let id = approval.to_string();
 	match ports.approvals.withdraw(&id, "the operator withdrew the fee-policy change").await {
 		Ok(view) => {
-			ports.changes.note_approval_state(change.id, view.state).await?;
+			ports.changes.note_approval_state(change.id, view.state, view.executable_at_unix).await?;
 			round.withdrawn += 1;
 			Ok(Flow::Next)
 		}
@@ -512,7 +530,7 @@ async fn withdraw(ports: &FeeApprovalPorts<'_>, round: &mut ApprovalRound, chang
 		Err(ApprovalsError::Refused(why)) => match ports.approvals.get(&id).await {
 			Ok(view) => {
 				info!(change_id = %change.id, approval_id = %approval, state = view.state.as_str(), "fee approvals: concierge would not withdraw the proposal of a cancelled change: {why}");
-				ports.changes.note_approval_state(change.id, view.state).await?;
+				ports.changes.note_approval_state(change.id, view.state, view.executable_at_unix).await?;
 				Ok(Flow::Next)
 			}
 			Err(err) => {

@@ -9,6 +9,8 @@
 use async_trait::async_trait;
 use sha2::{Digest, Sha256};
 
+use crate::ports::catalog::KindLevel;
+
 /// One typed value of a proposal, as concierge renders it to the voters.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ApprovalValue {
@@ -102,7 +104,13 @@ pub struct ApprovalView {
 	pub scope: String,
 	pub subject_ref: String,
 	pub state: ApprovalState,
+	/// The level concierge resolved the proposal to at open, frozen; `None` when this build
+	/// cannot read it.
+	pub level: Option<KindLevel>,
 	pub payload_hash: String,
+	/// When concierge lets the proposer carry out a passed proposal (unix seconds) — the
+	/// end of the owners' veto window. `None` until the proposal has passed.
+	pub executable_at_unix: Option<i64>,
 	/// The veto reason, the void reason or the reported outcome detail, whichever the state
 	/// has; empty otherwise.
 	pub note: String,
