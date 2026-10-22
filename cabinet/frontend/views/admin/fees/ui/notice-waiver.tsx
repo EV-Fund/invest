@@ -110,7 +110,7 @@ function GivenUpNotices({ change, givenUp, queued, waiver }: { change: FeePolicy
       <AlertTitle className="text-ink">{t("admin.fees.notices.givenUpTitle", "{n, plural, one {# holder} other {# holders}} could not be told", { n: givenUp })}</AlertTitle>
       <AlertDescription className="gap-3 text-ink">
         <p className="text-sm leading-relaxed">
-          {t("admin.fees.notices.givenUpBody", "invest could not tell {n, plural, one {this holder} other {these # holders}}: they switched these notices off, are not in invest's scope, or could not be reached after repeated tries. A change that tightens the terms does not bind over a holder who was never told, so it is held up until its requester takes responsibility for them or the change is withdrawn.", { n: givenUp })}
+          {t("admin.fees.notices.givenUpBody", "{n, plural, one {This holder is no longer an active member} other {These # holders are no longer active members}} of invest's scope, so invest could not tell them. A change that tightens the terms does not bind over a holder who was never told, so it is held up until its requester takes responsibility for them or the change is withdrawn.", { n: givenUp })}
           {queued > 0 && <> {t("admin.fees.notices.moreQueued", "{n, plural, one {# more notice is still being delivered and is not covered by this act.} other {# more notices are still being delivered and are not covered by this act.}}", { n: queued })}</>}
         </p>
         {waiver && (

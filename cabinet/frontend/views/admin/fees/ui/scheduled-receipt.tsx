@@ -33,7 +33,7 @@ const titles = (t: Translate): Record<ReceiptKind, string> => ({
 });
 const bodies = (t: Translate, args: ReceiptArgs): Record<ReceiptKind, string> => ({
   awaiting: t("admin.fees.awaitingRosterBody", "Version {version} went to the owners' approvals. It is scheduled only once more than half of the owners on its vote approve it and no owner vetoes it within 24 hours. You asked for it, so you are not on that vote. The owners vote in the central admin.", args),
-  scheduled: t("admin.fees.scheduledBody", "Version {version} takes effect on {at}. Each holder is being sent the notice in their invest inbox and by mail; until then the fund charges its current terms.", args),
+  scheduled: t("admin.fees.scheduledBody", "Version {version} takes effect on {at}. Every holder is being sent an in-app notice, and a mail when their address is verified; until then the fund charges its current terms.", args),
   immediate: t("admin.fees.immediateBody", "Nobody holds units in this product, so no notice was due: version {version} takes effect now and is applied within a minute. Until it is, it can still be cancelled below. The first investor to subscribe reads these terms.", args),
 });
 const ICON = { awaiting: Users, scheduled: CalendarClock, immediate: Zap } as const;

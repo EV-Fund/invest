@@ -944,8 +944,8 @@
     "t": "Seule la personne qui a demandé ce changement peut en prendre la responsabilité."
   },
   "admin.fees.notices.givenUpBody": {
-    "en": "invest could not tell {n, plural, one {this holder} other {these # holders}}: they switched these notices off, are not in invest's scope, or could not be reached after repeated tries. A change that tightens the terms does not bind over a holder who was never told, so it is held up until its requester takes responsibility for them or the change is withdrawn.",
-    "t": "invest n'a pas pu prévenir {n, plural, one {ce détenteur} many {ces # détenteurs} other {ces # détenteurs}} : ces avis sont désactivés, le détenteur n'est pas dans le périmètre d'invest, ou il est resté injoignable après plusieurs tentatives. Un changement qui durcit les conditions ne s'applique pas à un détenteur jamais prévenu : il reste en attente jusqu'à ce que son demandeur en prenne la responsabilité ou que le changement soit retiré."
+    "en": "{n, plural, one {This holder is no longer an active member} other {These # holders are no longer active members}} of invest's scope, so invest could not tell them. A change that tightens the terms does not bind over a holder who was never told, so it is held up until its requester takes responsibility for them or the change is withdrawn.",
+    "t": "{n, plural, one {Ce détenteur n'est plus un membre actif} many {Ces # détenteurs ne sont plus des membres actifs} other {Ces # détenteurs ne sont plus des membres actifs}} du périmètre d'invest : invest n'a donc pas pu les prévenir. Un changement qui durcit les conditions ne s'applique pas à un détenteur jamais prévenu : il reste en attente jusqu'à ce que son demandeur en prenne la responsabilité ou que le changement soit retiré."
   },
   "admin.fees.notices.givenUpTitle": {
     "en": "{n, plural, one {# holder} other {# holders}} could not be told",
@@ -1040,8 +1040,8 @@
     "t": "Ce sont les propriétaires qui décident de ce changement. Confirmez que c'est vous pour ne pas être compté parmi les votants."
   },
   "admin.fees.requirement.admin": {
-    "en": "No vote needed: one administrator may make this change. When it is scheduled, each holder gets the notice in their invest inbox and by mail, unless they switched these notices off.",
-    "t": "Aucun vote nécessaire : un administrateur peut faire ce changement. Une fois programmé, chaque détenteur reçoit l'avis dans sa messagerie invest et par e-mail, sauf s'il a désactivé ces avis."
+    "en": "No vote needed: one administrator may make this change. When it is scheduled, every holder gets an in-app notice, and a mail when their address is verified. Holders cannot switch these notices off.",
+    "t": "Aucun vote nécessaire : un administrateur peut faire ce changement. Une fois programmé, chaque détenteur reçoit un avis dans l'application, et un e-mail si son adresse est vérifiée. Les détenteurs ne peuvent pas désactiver ces avis."
   },
   "admin.fees.requirement.ownersReauth": {
     "en": "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. You confirm your sign-in before it is sent, and you are not counted as a voter.",
@@ -1052,8 +1052,8 @@
     "t": "Planifier le changement"
   },
   "admin.fees.scheduledBody": {
-    "en": "Version {version} takes effect on {at}. Each holder is being sent the notice in their invest inbox and by mail; until then the fund charges its current terms.",
-    "t": "La version {version} s'applique le {at}. Chaque détenteur reçoit l'avis dans sa messagerie invest et par e-mail ; d'ici là, le fonds applique ses conditions actuelles."
+    "en": "Version {version} takes effect on {at}. Every holder is being sent an in-app notice, and a mail when their address is verified; until then the fund charges its current terms.",
+    "t": "La version {version} s'applique le {at}. Chaque détenteur reçoit un avis dans l'application, et un e-mail si son adresse est vérifiée ; d'ici là, le fonds applique ses conditions actuelles."
   },
   "admin.fees.scheduledTitle": {
     "en": "Scheduled — nothing has changed yet",

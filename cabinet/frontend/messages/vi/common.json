@@ -944,8 +944,8 @@
     "t": "Chỉ người đã yêu cầu thay đổi này mới có thể nhận trách nhiệm cho nó."
   },
   "admin.fees.notices.givenUpBody": {
-    "en": "invest could not tell {n, plural, one {this holder} other {these # holders}}: they switched these notices off, are not in invest's scope, or could not be reached after repeated tries. A change that tightens the terms does not bind over a holder who was never told, so it is held up until its requester takes responsibility for them or the change is withdrawn.",
-    "t": "invest không thể thông báo cho {n, plural, other {# người nắm giữ này}}: họ đã tắt các thông báo này, không thuộc phạm vi của invest, hoặc không liên lạc được sau nhiều lần thử. Thay đổi làm điều khoản chặt hơn không ràng buộc người nắm giữ chưa được thông báo, nên nó bị tạm giữ cho đến khi người yêu cầu nhận trách nhiệm cho họ hoặc thay đổi bị rút lại."
+    "en": "{n, plural, one {This holder is no longer an active member} other {These # holders are no longer active members}} of invest's scope, so invest could not tell them. A change that tightens the terms does not bind over a holder who was never told, so it is held up until its requester takes responsibility for them or the change is withdrawn.",
+    "t": "{n, plural, other {# người nắm giữ này không còn là thành viên đang hoạt động}} trong phạm vi của invest, nên invest không thể thông báo cho họ. Thay đổi làm điều khoản chặt hơn không ràng buộc người nắm giữ chưa được thông báo, nên nó bị tạm giữ cho đến khi người yêu cầu nhận trách nhiệm cho họ hoặc thay đổi bị rút lại."
   },
   "admin.fees.notices.givenUpTitle": {
     "en": "{n, plural, one {# holder} other {# holders}} could not be told",
@@ -1040,8 +1040,8 @@
     "t": "Các chủ sở hữu quyết định thay đổi này. Hãy xác nhận đó là bạn để bạn không bị tính là người bỏ phiếu."
   },
   "admin.fees.requirement.admin": {
-    "en": "No vote needed: one administrator may make this change. When it is scheduled, each holder gets the notice in their invest inbox and by mail, unless they switched these notices off.",
-    "t": "Không cần bỏ phiếu: một quản trị viên có thể thực hiện thay đổi này. Khi được lên lịch, mỗi người nắm giữ nhận thông báo trong hộp thư invest và qua email, trừ khi họ đã tắt các thông báo này."
+    "en": "No vote needed: one administrator may make this change. When it is scheduled, every holder gets an in-app notice, and a mail when their address is verified. Holders cannot switch these notices off.",
+    "t": "Không cần bỏ phiếu: một quản trị viên có thể thực hiện thay đổi này. Khi được lên lịch, mỗi người nắm giữ nhận thông báo trong ứng dụng, và email nếu địa chỉ của họ đã được xác minh. Người nắm giữ không thể tắt các thông báo này."
   },
   "admin.fees.requirement.ownersReauth": {
     "en": "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. You confirm your sign-in before it is sent, and you are not counted as a voter.",
@@ -1052,8 +1052,8 @@
     "t": "Lên lịch thay đổi"
   },
   "admin.fees.scheduledBody": {
-    "en": "Version {version} takes effect on {at}. Each holder is being sent the notice in their invest inbox and by mail; until then the fund charges its current terms.",
-    "t": "Phiên bản {version} có hiệu lực vào {at}. Mỗi người nắm giữ đang được gửi thông báo vào hộp thư invest và qua email; cho đến lúc đó quỹ vẫn tính phí theo điều khoản hiện tại."
+    "en": "Version {version} takes effect on {at}. Every holder is being sent an in-app notice, and a mail when their address is verified; until then the fund charges its current terms.",
+    "t": "Phiên bản {version} có hiệu lực vào {at}. Mỗi người nắm giữ đang được gửi thông báo trong ứng dụng, và email nếu địa chỉ đã được xác minh; cho đến lúc đó quỹ vẫn tính phí theo điều khoản hiện tại."
   },
   "admin.fees.scheduledTitle": {
     "en": "Scheduled — nothing has changed yet",
