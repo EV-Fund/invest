@@ -23,7 +23,8 @@
 //! The dealing ports follow the same rule: [`SubscriptionRepository`] and
 //! [`RedemptionRepository`] record the money sagas, [`BookStore`] the order book, and the
 //! [`fees`] seams the fee plane — each write atomic with its outbox row, every unit and
-//! cash movement made after the commit.
+//! cash movement made after the commit. [`notices`] is the holders' notice of a change of
+//! fee terms: the outbox it waits in, and concierge's scope inbox it leaves by.
 
 pub mod allocations;
 pub mod approvals;
@@ -34,6 +35,7 @@ pub mod issuance;
 pub mod ledger;
 pub mod money;
 pub mod nav;
+pub mod notices;
 pub mod positions;
 pub mod redemptions;
 pub mod subscriptions;

@@ -130,8 +130,7 @@ fn is_reauth_required(err: &DomainError) -> bool {
 	matches!(err, DomainError::Precondition(why) if fee_approvals::is_reauth_required(why))
 }
 
-/// A fund nobody holds — the only kind an owner change is taken for until invest can
-/// deliver holder notices — and an owner change proposed on it.
+/// A fund nobody holds, and an owner change proposed on it.
 async fn proposed(h: &Harness) -> (ServiceId, FeePolicyChange, String) {
 	let (service, change, approval, _) = proposed_by(h).await;
 	(service, change, approval)
@@ -345,28 +344,30 @@ async fn a_passed_proposal_is_re_hashed_scheduled_and_reported() {
 	assert_eq!(change_of(&h, &change).await.scheduled_at_unix, Some(scheduled_at));
 }
 
-/// invest cannot deliver a holder notice yet, so dearer terms the owners approved would bind
-/// on holders nobody told: an owner change is refused on a fund anyone holds, before anything
-/// is written or proposed.
+/// An owner change on a fund people hold is proposed like any other; the proposal names how
+/// many holders are to be told. Its notices and the period are `tests/fee_policy_notices.rs`.
 #[tokio::test]
-async fn an_owner_change_on_a_held_fund_is_refused_until_notices_can_be_delivered() {
+async fn an_owner_change_on_a_held_fund_is_proposed_with_its_holders() {
 	let Some(h) = harness().await else { return };
 	let service = open_fund(&h).await;
 	holder(&h, &service).await;
+	let requester = common::active_user(&h.users).await;
 
-	let err = schedule(&h, UserId::new(), &service, dearer()).await.unwrap_err();
+	let change = schedule(&h, requester, &service, dearer()).await.unwrap();
 
-	assert!(matches!(err, DomainError::Precondition(ref why) if why.contains("no holders")), "got {err:?}");
-	assert!(h.changes.pending(&service).await.unwrap().is_none(), "nothing was recorded");
-	assert!(h.approvals.proposals().is_empty(), "nothing was proposed");
-	// An administrator's change on the same fund is untouched by the rule.
-	let cheaper = FeePolicy::new(100, 2_000, 0, ManagementBasis::InvestedCapital, CrystallizationPeriod::Annual).unwrap();
-	assert_eq!(schedule(&h, UserId::new(), &service, cheaper).await.unwrap().state, FeePolicyChangeState::Scheduled);
+	assert_eq!(change.state, FeePolicyChangeState::AwaitingConsilium);
+	assert_eq!(change.approval_holders, Some(1));
+	let proposals = h.approvals.proposals();
+	assert_eq!(proposals.len(), 1, "proposed in its own request");
+	let (_, proposal) = &proposals[0];
+	let holders = proposal.fields.iter().find(|f| f.key == "holders_notified").map(|f| f.value.clone());
+	assert_eq!(holders, Some(ApprovalValue::Count(1)), "the owners see how many holders are to be told");
 }
 
 /// A holder who joins while the owners vote is still owed the notice: the change is
-/// scheduled with their notice given up on, it does not bind over them, and nobody may waive
-/// that notice — the requester included. The operator withdraws the change instead.
+/// scheduled with a notice for them, it does not bind over them until they are told, and
+/// once that notice is given up on nobody may waive it — the requester included. The
+/// operator withdraws the change instead.
 #[tokio::test]
 async fn a_holder_who_joins_while_the_owners_vote_keeps_the_owner_change_from_binding() {
 	let Some(h) = harness().await else { return };
@@ -382,6 +383,11 @@ async fn a_holder_who_joins_while_the_owners_vote_keeps_the_owner_change_from_bi
 		"the holder gets the notice period"
 	);
 	assert_eq!(notice_count(&h, &change).await, 1);
+	sqlx::query("UPDATE fee_policy_notices SET given_up_at = now() WHERE change_id = $1")
+		.bind(change.id.raw())
+		.execute(&h.pool)
+		.await
+		.unwrap();
 
 	let err = fee_app::acknowledge_undelivered_notices(&h.changes, &service, change.id, requester, now()).await.unwrap_err();
 	assert!(matches!(err, DomainError::Forbidden(ref why) if why.contains("owners decided")), "got {err:?}");

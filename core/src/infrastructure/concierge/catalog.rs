@@ -286,12 +286,20 @@ mod tests {
 		// Same rule as the permission catalog: other content under the same version is
 		// refused by concierge, so change the catalog, the version and this pin together.
 		let catalog = ScopeCatalog::invest();
-		let topics = vec![TopicSpec {
-			topic: "invest:fund:quy-nhon",
-			label: "Quy Nhon fund",
-			description: "News and notices about the Quy Nhon fund.",
-			default_subscribed: false,
-		}];
+		let topics = vec![
+			TopicSpec {
+				topic: "invest:fund:quy-nhon",
+				label: "Quy Nhon fund",
+				description: "News and notices about the Quy Nhon fund.",
+				default_subscribed: false,
+			},
+			TopicSpec {
+				topic: "invest:fee-terms",
+				label: "Fee changes in your funds",
+				description: "A notice before the fee terms of a fund you hold change.",
+				default_subscribed: true,
+			},
+		];
 		let kinds: Vec<(&str, KindLevel, Vec<&str>)> = catalog.kinds.iter().map(|k| (k.name, k.level, k.fields.iter().map(|f| f.key).collect())).collect();
 		let pinned_kinds = vec![(
 			"invest:fee_policy",
@@ -313,7 +321,7 @@ mod tests {
 				"holders_notified",
 			],
 		)];
-		assert_eq!((SCOPE_CATALOG_VERSION, catalog.topics, kinds), (1_792_648_800, topics, pinned_kinds));
+		assert_eq!((SCOPE_CATALOG_VERSION, catalog.topics, kinds), (1_792_674_000, topics, pinned_kinds));
 	}
 
 	#[test]

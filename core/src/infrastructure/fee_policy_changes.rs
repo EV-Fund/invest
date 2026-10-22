@@ -5,11 +5,11 @@
 //!
 //! - [`FeePolicyChanges::schedule`] writes an administrator's change already `scheduled`
 //!   and one notice per holder in the same transaction, so a change never exists without the
-//!   record of who was owed word of it. invest has no channel to deliver a notice yet
-//!   (concierge's scope notifications are a follow-up), so each is recorded as GIVEN UP the
-//!   moment it is owed: a dearer change then binds over its holders only once an operator
-//!   acknowledges them, and a cheaper one binds by itself. A change the owners decide is
-//!   written `awaiting_consilium` with no notice.
+//!   record of who was owed word of it. Each notice is recorded undelivered, with the terms
+//!   it replaces on the change; the notice sender (`infrastructure::fee_notices`) delivers it
+//!   through concierge or gives it up. A dearer change binds over a holder only once their
+//!   notice was delivered or an operator acknowledged them, and a cheaper one binds by
+//!   itself. A change the owners decide is written `awaiting_consilium` with no notice.
 //! - [`FeePolicyChanges::schedule_approved`] moves an owner change to `scheduled` and
 //!   records its notices in one transaction, under the product lock, and only while the
 //!   row and the terms in force are still what the owners were shown.
@@ -257,17 +257,26 @@ pub(crate) async fn notice_roster(conn: &mut PgConnection, service: &ServiceId) 
 		.map_err(repo_err)
 }
 
-/// Record one notice per holder, on the caller's transaction; a retried scheduling records
-/// each once. invest has no channel to deliver them yet, so each is given up on as it is
-/// recorded — said on the row, not assumed: the promotion gate and the acknowledgement read
-/// exactly what a notifier will one day write.
-// TODO(concierge scope notifications): record the notice undelivered and have the notifier
-// emit it through concierge's EmitScopeNotification, stamping `delivered_at`/`given_up_at`.
-async fn record_notices(conn: &mut PgConnection, change: FeePolicyChangeId, holders: &[Uuid]) -> Result<(), DomainError> {
+/// Record one notice per holder, undelivered, on the caller's transaction, and the terms the
+/// change replaces — the "from" every notice states, read in the same transaction, since the
+/// live row may be the new terms by the time a notice is sent. A retried scheduling records
+/// each notice once.
+async fn record_notices(conn: &mut PgConnection, change: FeePolicyChangeId, from: Option<&FeePolicy>, holders: &[Uuid]) -> Result<(), DomainError> {
+	let from = from.unwrap_or(&FeePolicy::NONE);
+	sqlx::query("UPDATE fee_policy_changes SET from_management_bps = $2, from_performance_bps = $3, from_hurdle_bps = $4, from_basis = $5, from_crystallization = $6 WHERE id = $1")
+		.bind(change.raw())
+		.bind(bps(from.management_bps()))
+		.bind(bps(from.performance_bps()))
+		.bind(bps(from.hurdle_bps()))
+		.bind(from.basis().as_str())
+		.bind(from.crystallization().as_str())
+		.execute(&mut *conn)
+		.await
+		.map_err(repo_err)?;
 	if holders.is_empty() {
 		return Ok(());
 	}
-	sqlx::query("INSERT INTO fee_policy_notices (change_id, user_id, given_up_at) SELECT $1, holder, now() FROM UNNEST($2::uuid[]) AS holder ON CONFLICT DO NOTHING")
+	sqlx::query("INSERT INTO fee_policy_notices (change_id, user_id) SELECT $1, holder FROM UNNEST($2::uuid[]) AS holder ON CONFLICT DO NOTHING")
 		.bind(change.raw())
 		.bind(holders)
 		.execute(&mut *conn)
@@ -354,7 +363,7 @@ impl FeePolicyChanges for PgFeePolicyChanges {
 
 		if state == FeePolicyChangeState::Scheduled {
 			let roster = notice_roster(&mut tx, &change.service).await?;
-			record_notices(&mut tx, change.id, &roster).await?;
+			record_notices(&mut tx, change.id, from.as_ref(), &roster).await?;
 		}
 		// Read AFTER the notices are recorded: the row handed back states how many holders
 		// are still to be told.
@@ -439,7 +448,7 @@ impl FeePolicyChanges for PgFeePolicyChanges {
 			.await
 			.map_err(repo_err)?;
 		let roster = notice_roster(&mut tx, &change.service).await?;
-		record_notices(&mut tx, id, &roster).await?;
+		record_notices(&mut tx, id, from.as_ref(), &roster).await?;
 		// Read AFTER the notices are recorded, for the reason `schedule` does.
 		let stored = find_on(&mut tx, id)
 			.await?
@@ -697,7 +706,8 @@ impl FeePolicyChanges for PgFeePolicyChanges {
 		// A notice that has not reached its holder — still undelivered, or given up on — is a
 		// holder the notice period exists to warn who was never warned. Terms that get DEARER
 		// for them do not bind over them: the change stays `scheduled`, a notice delivered
-		// later lets the next tick promote, a notice given up on needs the operator, and the
+		// later lets the next tick promote, a notice given up on needs the operator (or, for a
+		// change the owners decided, which nobody may waive, its withdrawal), and the
 		// sweeper's failure streak turns the refusal into an error.
 		// The operator's move is the acknowledgement: it names the holders whose notice had
 		// been given up on when it was given (and, on a later call, since), and the terms

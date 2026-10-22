@@ -1,8 +1,8 @@
 //! invest-core's composition root: read the config, dial Postgres, TigerBeetle, banking and
 //! concierge, apply the migrations, and run the gRPC server, the outbox relay, the fee
 //! sweeper, the users projection, the money-event consumer, the hold reaper, the fee
-//! approvals round and the catalog publication as branches of one structured `join!` until
-//! a signal.
+//! approvals round, the fee notice sender and the catalog publication as branches of one
+//! structured `join!` until a signal.
 
 use std::{future::Future, process::ExitCode, sync::Arc, time::Duration};
 
@@ -21,9 +21,11 @@ use invest_core::{
 			self, ConciergeProjection, ConciergeStreamsConfig,
 			approvals::{ConciergeApprovals, UnconfiguredApprovals},
 			catalog::{ClientCatalogPublisher, ClientScopeCatalogPublisher, publish_at_boot, publish_scope_at_boot},
+			notices::{ConciergeNotifier, UnconfiguredNotifier},
 		},
 		db,
 		fee_approvals::FeeApprovalsExecutor,
+		fee_notices::FeeNoticeSender,
 		fee_policy_changes::PgFeePolicyChanges,
 		fee_sweeper::FeeSweeper,
 		fees::{PgFeeAssessments, PgFeePolicies, PgFeeSettlements, PgPositionAccruals},
@@ -49,6 +51,7 @@ use invest_core::{
 		book::{BookStore, OrderPresence},
 		catalog::{CATALOG_VERSION, CatalogPublisher, SCOPE_CATALOG_VERSION, ScopeCatalog, ScopeCatalogPublisher},
 		fees::FeePorts,
+		notices::HolderNotifier,
 	},
 	services,
 };
@@ -223,6 +226,21 @@ async fn run(
 		None => Arc::new(UnconfiguredApprovals),
 	};
 
+	// Without concierge the sender still runs: every notice is then given up on at once, so an
+	// administrator's change waits for its requester's acknowledgement, as before invest had a
+	// channel.
+	let notifier: Arc<dyn HolderNotifier> = match &concierge_streams {
+		Some(streams) => Arc::new(ConciergeNotifier::connect(streams)?),
+		None => Arc::new(UnconfiguredNotifier),
+	};
+	// Its own small pool: the lock-holding connection plus the claim held through each call.
+	let fee_notices = FeeNoticeSender::new(
+		db::connect_sized(&config.database_url, 2)
+			.await
+			.context("failed to connect the fee notice sender's Postgres pool")?,
+		notifier,
+	);
+
 	let relay_notify = Arc::new(Notify::new());
 	let relay = Relay::new(relay_pool, ledger.clone(), money.clone(), relay_notify.clone());
 	let book_feed = BookFeed::new();
@@ -291,12 +309,12 @@ async fn run(
 
 	tracing::info!(addr = %config.grpc_addr, "invest-core serving");
 	// Graceful shutdown, structured (no detached spawns): the server, the relay, the fee
-	// sweeper, the users projection, the money-event consumer, the fee approvals round and
-	// the catalog publication run as branches of one `join!` on this task. A signal cancels a shared token;
+	// sweeper, the users projection, the money-event consumer, the fee approvals round, the
+	// fee notice sender and the catalog publication run as branches of one `join!` on this task. A signal cancels a shared token;
 	// the server drains in-flight calls, the workers stop at a batch boundary, and `join!`
 	// waits for all of them.
 	let shutdown = CancellationToken::new();
-	let ((), served, relayed, swept, projected, consumed, reaped, approved, published) = tokio::join!(
+	let ((), served, relayed, swept, projected, consumed, reaped, approved, noticed, published) = tokio::join!(
 		await_signal(shutdown.clone()),
 		branch(&shutdown, "gRPC server", services::serve(config.grpc_addr, state, verifier, shutdown.clone().cancelled_owned())),
 		branch(&shutdown, "relay", infallible(relay.run(shutdown.clone()))),
@@ -344,6 +362,7 @@ async fn run(
 				}
 			})
 		),
+		branch(&shutdown, "fee notices", infallible(fee_notices.run(shutdown.clone()))),
 		branch(
 			&shutdown,
 			"catalog publisher",
@@ -366,7 +385,7 @@ async fn run(
 			})
 		),
 	);
-	served.and(relayed).and(swept).and(projected).and(consumed).and(reaped).and(approved).and(published)
+	served.and(relayed).and(swept).and(projected).and(consumed).and(reaped).and(approved).and(noticed).and(published)
 }
 
 /// Run one branch of the root `join!`: whatever ends it — an error or a clean return —

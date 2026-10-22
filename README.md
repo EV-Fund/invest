@@ -148,14 +148,39 @@ The scope catalog (`ScopeCatalogService.PublishScopeCatalog`: approval kinds and
 notification topics) is published the same way at `SCOPE_CATALOG_VERSION`. concierge refuses
 a version older than the one it stores, so an older image cannot publish after a newer one.
 
+## Holder notices of a fee change
+
+A scheduled change owes every holder one notice (`fee_policy_notices`, written with the
+change). Only people hold positions: the `fee` allocation holds a product's fee class on the
+ledger, not in `fund_positions`, so it gets no notice. The notice sender
+(`core/src/infrastructure/fee_notices.rs`, one per deployment under an advisory lock) emits
+each through concierge's `ScopeInboxService.EmitScopeNotification` on the topic
+`invest:fee-terms` (in-app and mail, on by default), deduped by `fee_policy_notice:<change>`:
+
+- concierge delivered it: `delivered_at`;
+- concierge will not (the holder is not an active member of invest's scope, or switched the
+  topic or both channels off): `given_up_at` at once. concierge has no topic a member
+  cannot switch off for a scope;
+- concierge failed: retried after 30 s, doubling to at most an hour; given up after 10
+  attempts (about three hours). Without `CONCIERGE_GRPC_ADDR` every notice is given up at once.
+
+The notice states the fund, the old and new terms and the date they apply. Its link
+(`/invest/<fund>`, `link_scope = invest`) is left out until invest links an
+`evconcierge_client` with `link_scope` (0.4, not on crates.io yet).
+
+The 24-hour notice period runs from scheduling (for an owner change, from the owners'
+pass), never from delivery, and delivery does not shorten it. A dearer change binds once its
+moment has come AND every current holder's notice is delivered; an administrator's change
+also binds over the holders its requester acknowledged after their notice was given up on.
+
 ## Fee changes the owners decide
 
 A change of fee terms that makes them dearer and leaves the house envelope (more than 2 %
 management or 20 % performance, a basis on the market value, a crystallization more often
 than yearly), or one that lowers the hurdle, is the platform owners' to approve
-(`core/src/application/fee_approvals.rs`). Until invest can deliver holder notices, such a
-change is refused on a fund anyone holds (FAILED_PRECONDITION), and the notice of a holder
-who joins while the owners vote cannot be waived: the change does not bind over them.
+(`core/src/application/fee_approvals.rs`). The notice of a holder of such a change cannot
+be waived: a holder who could not be told keeps it from binding, and its requester
+withdraws it.
 
 1. `ScheduleFeePolicy` records it `awaiting_consilium`, with no notice yet, and proposes it as
    concierge's `invest:fee_policy` (PLATFORM level), deduped by `fee_policy_change:<id>`.
@@ -173,7 +198,7 @@ who joins while the owners vote cannot be waived: the change does not bind over 
    concierge's reason. The token is never stored.
 3. Every 30 s the approvals round pulls the passed proposals (`PullApproved`), reads each
    again, checks its `payload_hash` against the STORED change and its level (PLATFORM),
-   schedules the change — the holders' notices and the notice period start now — and
+   schedules the change — the holders' notices are sent and the notice period starts — and
    reports `EXECUTED`. A hash that does not match, or a pass at any other level, rejects
    the change and reports `VOID`.
 4. A proposal that is rejected, vetoed, expired, withdrawn in concierge or voided closes the
@@ -214,8 +239,7 @@ of invest's own (`units_unavailable`, `money_ledger_unavailable`).
 
 Not on banking's side yet (cf38ba57): the automatic sweep of `(<scope>, fee)` that ledger.proto promises — cash sits on the collector until banking runs it, so `(invest, alloc:fee)` receives nothing, and no scope's fee reaches the treasury.
 
-Not here yet: delivering holder notices of a fee change (recorded as given up; a dearer
-change binds once its requester acknowledges), and a reaper
-for a buy's hold whose `Reserve` answer was lost (`application/book.rs`).
+Not here yet: a reaper for a buy's hold whose `Reserve` answer was lost
+(`application/book.rs`).
 banking's `ownership_contract` suite pins banking's own migration 0047 over its production
 history and has no counterpart here.

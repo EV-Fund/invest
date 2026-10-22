@@ -49,18 +49,19 @@ service FeesService {
   // effect no earlier than 24h after it was scheduled while anyone holds units (at once
   // for a fund with no holders); `effective_from` may ask for later, never earlier. A
   // change that TIGHTENS the terms beyond the house envelope (2-and-20 on invested
-  // capital, annual), or lowers the hurdle, needs the owners' approval. Until invest can
-  // deliver holder notices it is refused with FAILED_PRECONDITION on a fund anyone holds;
-  // otherwise it is recorded `awaiting_consilium` and proposed to the platform owners as
-  // concierge's `invest:fee_policy`. When they pass it, invest schedules it — the notice period starts
-  // then — and when the proposal ends otherwise (rejected, vetoed, expired, voided) the
+  // capital, annual), or lowers the hurdle, needs the owners' approval: it is recorded
+  // `awaiting_consilium` and proposed to the platform owners as concierge's
+  // `invest:fee_policy`. When they pass it, invest schedules it — the holders are told and
+  // the notice period starts then — and when the proposal ends otherwise (rejected, vetoed, expired, voided) the
   // change is `rejected`. concierge refusing the proposal outright rejects the change and
   // answers FAILED_PRECONDITION with concierge's reason; concierge out of reach leaves it
   // `awaiting_consilium` with no `consilium_id`, and invest proposes it again shortly.
-  // Every other change is scheduled at once, and a notice is recorded for every holder.
-  // invest has no channel to deliver those notices yet, so each counts as given up: a
-  // change that makes the terms DEARER binds only once its requester acknowledges them
-  // (AcknowledgeUndeliveredNotices); a cheaper one binds by itself. One pending change per
+  // Every other change is scheduled at once. A scheduled change owes every holder a notice,
+  // which invest delivers through concierge's inbox and mail, retrying for about three
+  // hours. Delivery never moves `effective_from`. A change that makes the terms DEARER binds
+  // only once every holder's notice is delivered — or, for a change that is not the owners',
+  // once its requester acknowledges the holders given up on (AcknowledgeUndeliveredNotices);
+  // a cheaper one binds by itself. One pending change per
   // fund, awaiting the owners or scheduled: a second is refused with ALREADY_EXISTS until
   // the first is cancelled.
   rpc ScheduleFeePolicy(ScheduleFeePolicyRequest) returns (FeePolicyChange);
