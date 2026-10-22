@@ -16,7 +16,7 @@
 //! - [`fees`] — the fee plane's stores; [`fee_accrual`] — settling the management accrual
 //!   before a basis moves; [`fee_policy_changes`] — the history of a product's terms and
 //!   the only writer of the live ones; [`fee_sweeper`] — the worker that charges and
-//!   promotes.
+//!   promotes; [`fee_notices`] — the holders' notices of a change and their sender.
 //! - [`hold_reaper`] — the worker that voids a buy's hold when no order row ever followed it.
 //! - [`outbox`] — the transactional outbox written inside the same transaction as the
 //!   state change, plus its drain side.
@@ -29,6 +29,7 @@ pub mod concierge;
 pub mod db;
 pub mod fee_accrual;
 pub mod fee_approvals;
+pub mod fee_notices;
 pub mod fee_policy_changes;
 pub mod fee_sweeper;
 pub mod fees;

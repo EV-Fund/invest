@@ -57,10 +57,12 @@ service FeesService {
   // change is `rejected`. concierge refusing the proposal outright rejects the change and
   // answers FAILED_PRECONDITION with concierge's reason; concierge out of reach leaves it
   // `awaiting_consilium` with no `consilium_id`, and invest proposes it again shortly.
-  // Every other change is scheduled at once, and a notice is recorded for every holder.
-  // invest has no channel to deliver those notices yet, so each counts as given up: a
-  // change that makes the terms DEARER binds only once its requester acknowledges them
-  // (AcknowledgeUndeliveredNotices); a cheaper one binds by itself. One pending change per
+  // Every other change is scheduled at once. A scheduled change owes every holder a notice,
+  // which invest delivers through concierge's inbox and mail, retrying for about three
+  // hours. Delivery never moves `effective_from`. A change that makes the terms DEARER binds
+  // only once every holder's notice is delivered — or, for a change that is not the owners',
+  // once its requester acknowledges the holders given up on (AcknowledgeUndeliveredNotices);
+  // a cheaper one binds by itself. One pending change per
   // fund, awaiting the owners or scheduled: a second is refused with ALREADY_EXISTS until
   // the first is cancelled.
   rpc ScheduleFeePolicy(ScheduleFeePolicyRequest) returns (FeePolicyChange);

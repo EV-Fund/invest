@@ -65,6 +65,12 @@ banking's on purpose.
   requester's freshly confirmed `invest` token (`x-ev-user-token`), and concierge keeps them off
   the roster. The token is used once and never stored, so a change is proposed only in the
   request that wrote it; nothing proposes it later.
+- **A holder is told before dearer terms bind.** `fee_policy_notices` is the outbox of the
+  holders' notices, written with the change; one sender (`infrastructure/fee_notices.rs`,
+  session advisory lock) delivers them through concierge's scope inbox, deduped per change.
+  The 24-hour notice period runs from scheduling, never from delivery. A notice concierge
+  answers "not delivered" for is given up on, never marked delivered; the notice of an owner
+  change is never waived.
 - **Health stays outside auth.** `grpc.health.v1` is not wrapped in the auth layer.
 - **The browser holds no token.** The cabinet BFF keeps concierge's tokens sealed (key
   derived from the cookie) in `cabinet.sessions`, keyed by the hash of the session cookie. Every mutating route calls

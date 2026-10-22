@@ -1,6 +1,7 @@
 //! An in-memory concierge for tests: the two pull streams relying parties read, the
-//! catalog publication ([`InMemoryCatalogPublisher`]) and the approvals
-//! ([`InMemoryApprovals`]), without concierge.
+//! catalog publication ([`InMemoryCatalogPublisher`]), the approvals
+//! ([`InMemoryApprovals`]) and the scope inbox's emit ([`InMemoryNotifier`]), without
+//! concierge.
 //!
 //! It keeps what the engine leans on — each stream's own positions, oldest first, rows never
 //! deleted, `next_position` as concierge computes it (the position a full page ends on; the
@@ -15,15 +16,19 @@
 //!
 //! Never wired into a running server.
 
-use std::sync::{Arc, Mutex};
+use std::{
+	collections::{HashSet, VecDeque},
+	sync::{Arc, Mutex},
+};
 
 use async_trait::async_trait;
 use evconcierge_projection::{EventSource, Page, Pulled, ScopeEvent, SourceError, UnknownEvent, UserEvent};
-use invest_domain::authz::PermissionCatalog;
+use invest_domain::{authz::PermissionCatalog, users::UserId};
 
 use crate::ports::{
 	approvals::{ApprovalOutcome, ApprovalState, ApprovalView, Approvals, ApprovalsError, Proposal, UserProof, payload_hash},
 	catalog::{CatalogPublisher, KindLevel, PublishError, ScopeCatalog, ScopeCatalogPublisher},
+	notices::{HolderNotice, HolderNotifier, NoticeOutcome, NotifyError},
 };
 
 #[derive(Clone, Default)]
@@ -456,5 +461,81 @@ impl Approvals for InMemoryApprovals {
 		let view = stored.view.clone();
 		guard.withdrawals.push(approval_id.to_owned());
 		Ok(view)
+	}
+}
+
+/// concierge's scope inbox, in memory: enough of `EmitScopeNotification` to drive the notice
+/// sender. A notice reaches an active member of invest's scope who has not switched the topic
+/// off; a repeated `dedupe_key` for one user writes nothing and answers `delivered = false`, as
+/// concierge's `ON CONFLICT DO NOTHING` does. A test steers it with
+/// [`InMemoryNotifier::join`], [`InMemoryNotifier::opt_out`] and
+/// [`InMemoryNotifier::fail_next`].
+#[derive(Clone, Default)]
+pub struct InMemoryNotifier {
+	state: Arc<Mutex<NotifierState>>,
+}
+
+#[derive(Default)]
+struct NotifierState {
+	members: HashSet<UserId>,
+	opted_out: HashSet<UserId>,
+	/// Answers the next calls with these errors, in order, before any other answer.
+	failures: VecDeque<NotifyError>,
+	/// Every call, answered or not.
+	calls: Vec<HolderNotice>,
+	/// What was written into someone's inbox, in order.
+	written: Vec<HolderNotice>,
+}
+
+impl InMemoryNotifier {
+	pub fn new() -> Self {
+		Self::default()
+	}
+
+	/// `user` becomes an active member of invest's scope.
+	pub fn join(&self, user: UserId) {
+		self.lock().members.insert(user);
+	}
+
+	/// `user` switches the topic off.
+	pub fn opt_out(&self, user: UserId) {
+		self.lock().opted_out.insert(user);
+	}
+
+	/// The next calls fail with `errors`, in order.
+	pub fn fail_next(&self, errors: impl IntoIterator<Item = NotifyError>) {
+		self.lock().failures.extend(errors);
+	}
+
+	pub fn calls(&self) -> Vec<HolderNotice> {
+		self.lock().calls.clone()
+	}
+
+	/// The notices written into an inbox — each one a message the holder receives.
+	pub fn written(&self) -> Vec<HolderNotice> {
+		self.lock().written.clone()
+	}
+
+	fn lock(&self) -> std::sync::MutexGuard<'_, NotifierState> {
+		// See `InMemoryConcierge::lock`.
+		self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+	}
+}
+
+#[async_trait]
+impl HolderNotifier for InMemoryNotifier {
+	async fn notify(&self, notice: &HolderNotice) -> Result<NoticeOutcome, NotifyError> {
+		let mut state = self.lock();
+		state.calls.push(notice.clone());
+		if let Some(err) = state.failures.pop_front() {
+			return Err(err);
+		}
+		let reachable = state.members.contains(&notice.user) && !state.opted_out.contains(&notice.user);
+		let repeated = state.written.iter().any(|w| w.user == notice.user && w.dedupe_key == notice.dedupe_key);
+		if !reachable || repeated {
+			return Ok(NoticeOutcome::NotDelivered("not delivered".to_owned()));
+		}
+		state.written.push(notice.clone());
+		Ok(NoticeOutcome::Delivered)
 	}
 }

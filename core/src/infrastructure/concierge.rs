@@ -43,6 +43,7 @@ use crate::ports::money::ScopeId;
 pub mod approvals;
 pub mod catalog;
 pub mod fake;
+pub mod notices;
 
 /// Fixed key for the session-level `pg_advisory_lock` the projection holds while it pulls.
 /// The engine's sequence guard is read-then-write per event, so two pullers could each pass
