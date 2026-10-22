@@ -49,9 +49,10 @@ service FeesService {
   // effect no earlier than 24h after it was scheduled while anyone holds units (at once
   // for a fund with no holders); `effective_from` may ask for later, never earlier. A
   // change that TIGHTENS the terms beyond the house envelope (2-and-20 on invested
-  // capital, annual), or lowers the hurdle, needs the owners' approval: it is recorded
-  // `awaiting_consilium` and proposed to the platform owners as concierge's
-  // `invest:fee_policy`. When they pass it, invest schedules it — the notice period starts
+  // capital, annual), or lowers the hurdle, needs the owners' approval. Until invest can
+  // deliver holder notices it is refused with FAILED_PRECONDITION on a fund anyone holds;
+  // otherwise it is recorded `awaiting_consilium` and proposed to the platform owners as
+  // concierge's `invest:fee_policy`. When they pass it, invest schedules it — the notice period starts
   // then — and when the proposal ends otherwise (rejected, vetoed, expired, voided) the
   // change is `rejected`. concierge refusing the proposal outright rejects the change and
   // answers FAILED_PRECONDITION with concierge's reason; concierge out of reach leaves it
@@ -70,7 +71,8 @@ service FeesService {
   rpc CancelFeePolicyChange(CancelFeePolicyChangeRequest) returns (FeePolicyChange);
 
   // Take responsibility for the holders of a scheduled change who could not be told
-  // (AllocationManage, AND the caller must be the one who requested the change). A change
+  // (AllocationManage, AND the caller must be the one who requested the change; never for a
+  // change the owners decided — PERMISSION_DENIED). A change
   // that TIGHTENS the terms does not bind while a holder's notice is undelivered; for a
   // holder nobody can reach that is forever. This
   // records who acknowledged, when, and exactly which holders' notices had been

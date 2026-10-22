@@ -153,7 +153,9 @@ a version older than the one it stores, so an older image cannot publish after a
 A change of fee terms that makes them dearer and leaves the house envelope (more than 2 %
 management or 20 % performance, a basis on the market value, a crystallization more often
 than yearly), or one that lowers the hurdle, is the platform owners' to approve
-(`core/src/application/fee_approvals.rs`):
+(`core/src/application/fee_approvals.rs`). Until invest can deliver holder notices, such a
+change is refused on a fund anyone holds (FAILED_PRECONDITION), and the notice of a holder
+who joins while the owners vote cannot be waived: the change does not bind over them.
 
 1. `ScheduleFeePolicy` records it `awaiting_consilium`, with no notice yet, and proposes it as
    concierge's `invest:fee_policy` (PLATFORM level), deduped by `fee_policy_change:<id>`.
