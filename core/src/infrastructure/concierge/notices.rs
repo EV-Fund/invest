@@ -41,6 +41,7 @@ impl HolderNotifier for ConciergeNotifier {
 			// platform's cabinet, where `/invest/<fund>` does not exist. No link beats a
 			// broken one; the body names the invest cabinet.
 			link: String::new(),
+			link_scope: String::new(),
 			dedupe_key: notice.dedupe_key.clone(),
 			occurred_at: notice.occurred_at_unix,
 		};
