@@ -9,15 +9,20 @@
 //! (`AllocationsService::issue_units`) mints units **in kind**, with no cash leg: it is a
 //! registry decision about who holds what, made by the same manager who sizes the
 //! product, so it lives beside the cap rather than on the investor's dealing surface.
-//! [`RetireUnits`] is the mint's mirror, a holder's units burnt. They and
-//! [`ListUnitHolders`] are the only handlers here that read the ledger or notify the
-//! relay. Both name a PERSON and nothing else: the company is not a holder (#245), and
+//! [`RetireUnits`] is the mint's mirror, a holder's units burnt. They are the only
+//! handlers here that notify the relay; they, [`ListUnitHolders`] and
+//! [`ListAllocationTreasury`] the only ones that read the ledger. The mint and the
+//! retirement name a PERSON and nothing else: the company is not a holder (#245), and
 //! the reserved `fee` allocation comes to hold a product's fee class through the fee
 //! accrual, never through an operator's mint.
+//!
+//! [`ListAllocationTreasury`] is also the one read of cash here: each allocation's
+//! account in banking, beside its supply, price and largest holders (#36).
 //!
 //! [`IssueUnits`]: AllocationsService::issue_units
 //! [`RetireUnits`]: AllocationsService::retire_units
 //! [`ListUnitHolders`]: AllocationsService::list_unit_holders
+//! [`ListAllocationTreasury`]: AllocationsService::list_allocation_treasury
 //!
 //! `Result<_, Status>` is tonic's mandated handler signature; `Status` is a large
 //! type we don't control, so the large-err lint does not apply in this module.
@@ -42,6 +47,7 @@ use crate::{
 	application::{
 		allocations as allocations_app, funds as funds_app,
 		issuance::{self as issuance_app, IssueUnitsRequest, RetireUnitsRequest, UnitHoldersView, UnitHolding},
+		treasury as treasury_app,
 	},
 	ports::{
 		allocations::{AllocationAccessGrant, AllocationRecord},
@@ -296,6 +302,43 @@ impl AllocationsService for AllocationsSvc {
 			.await
 			.map_err(map_err)?;
 		Ok(Response::new(holders_to_proto(&view)))
+	}
+
+	async fn list_allocation_treasury(&self, request: Request<pb::ListAllocationTreasuryRequest>) -> Result<Response<pb::AllocationTreasuryList>, Status> {
+		require_permission(&self.state, &request, Permission::AllocationManage).await?;
+		let req = request.into_inner();
+		let service = optional(&req.service).map(ServiceId::parse).transpose().map_err(map_err)?;
+		let holder_limit = match req.holder_limit {
+			0 => treasury_app::DEFAULT_TOP_HOLDERS,
+			limit => usize::try_from(limit).map_err(|_| Status::invalid_argument("holder_limit does not fit this platform"))?,
+		};
+		let ports = self.state.fund_ports();
+		let lines = treasury_app::allocation_treasury(&ports, service.as_ref(), holder_limit).await.map_err(map_err)?;
+		let now = unix_now();
+		Ok(Response::new(pb::AllocationTreasuryList {
+			allocations: lines.iter().map(|line| treasury_to_proto(line, now)).collect(),
+		}))
+	}
+}
+
+/// One line of the treasury table on the wire. `nav_stale` is judged here, at the clock of
+/// the answer, by the same rule a deal applies.
+fn treasury_to_proto(line: &treasury_app::AllocationTreasuryLine, now_unix: i64) -> pb::AllocationTreasury {
+	let allocation = &line.allocation;
+	pb::AllocationTreasury {
+		service: allocation.service().to_string(),
+		title: allocation.title().to_owned(),
+		state: allocation.state().as_str().to_owned(),
+		access: allocation.access().as_str().to_owned(),
+		scope: line.scope.to_string(),
+		cash: line.cash.to_decimal_string(),
+		units_outstanding: line.units_outstanding.to_decimal_string(),
+		nav: line.price.nav.to_decimal_string(),
+		nav_posted_at: line.price.posted_at_unix,
+		nav_stale: line.price.is_stale(now_unix),
+		top_holders: line.top_holders.iter().map(holding_to_proto).collect(),
+		// A cap table of more than four billion holders is not one this platform has.
+		holder_count: u32::try_from(line.holder_count).unwrap_or(u32::MAX),
 	}
 }
 

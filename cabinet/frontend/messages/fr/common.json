@@ -1083,13 +1083,13 @@
     "en": "Seating a person on the fee allocation is the owners' decision. Propose it there; the units appear here once their vote carries.",
     "t": "Inscrire une personne sur l’allocation des frais relève des propriétaires. Proposez-le là-bas ; les parts apparaissent ici une fois leur vote acquis."
   },
+  "admin.revenue.toHeldThrough": {
+    "en": "The fee allocation beside every other allocation: its cash, units, NAV and holders. The bank's own treasury stays in the central admin.",
+    "t": "L'allocation des frais à côté de toutes les autres : sa trésorerie, ses parts, sa NAV et ses détenteurs. La trésorerie propre de la banque reste dans l'administration centrale."
+  },
   "admin.revenue.toPayments": {
     "en": "Moving the platform's earnings — into a product, or to an investor — is a payment order the owners authorise. Open one there. Cash reaches the chain only through a holder's redemption and their own withdrawal.",
     "t": "Déplacer les gains de la plateforme — vers un produit ou vers un investisseur — est un ordre de paiement que les propriétaires autorisent. Ouvrez-en un là-bas. L'argent n'atteint la chaîne que par le rachat d'un détenteur et son propre retrait."
-  },
-  "admin.revenue.toTreasury": {
-    "en": "The fee allocation beside the platform's other balances: custody per rail, user claims, every allocation and its holders.",
-    "t": "L'allocation des frais à côté des autres soldes de la plateforme : conservation par réseau, créances utilisateurs, chaque allocation et ses détenteurs."
   },
   "admin.revenue.unitsHint": {
     "en": "units of the fee allocation, held by people",
@@ -1191,9 +1191,49 @@
     "en": "Staged",
     "t": "Préparé"
   },
+  "admin.treasury.allocations.col.allocation": {
+    "en": "Allocation",
+    "t": "Allocation"
+  },
+  "admin.treasury.allocations.col.cash": {
+    "en": "Cash, USDT",
+    "t": "Trésorerie, USDT"
+  },
+  "admin.treasury.allocations.empty": {
+    "en": "No allocations yet",
+    "t": "Aucune allocation pour l'instant"
+  },
+  "admin.treasury.allocations.emptyHint": {
+    "en": "Every allocation appears here with its cash, units and holders — the products, and the hidden fee and fund allocations once they exist.",
+    "t": "Chaque allocation apparaît ici avec sa trésorerie, ses parts et ses détenteurs — les produits, et les allocations cachées des frais et du fonds dès qu'elles existent."
+  },
+  "admin.treasury.allocations.moreHolders": {
+    "en": "+{n} more",
+    "t": "+{n} autres"
+  },
+  "admin.treasury.allocations.noHolders": {
+    "en": "no holders",
+    "t": "aucun détenteur"
+  },
+  "admin.treasury.allocations.stale": {
+    "en": "stale · marked {ago}",
+    "t": "périmée · évaluée {ago}"
+  },
+  "admin.treasury.allocations.staleHint": {
+    "en": "The last mark is more than 24 h old: deals and issuances are refused until a new one",
+    "t": "La dernière évaluation date de plus de 24 h : opérations et émissions sont refusées jusqu'à la prochaine"
+  },
   "admin.treasury.allocations.unmarked": {
     "en": "not yet marked",
     "t": "pas encore évalué"
+  },
+  "admin.treasury.allocations.unmarkedHint": {
+    "en": "No mark posted yet: priced at the seed NAV",
+    "t": "Aucune évaluation publiée : valorisée à la NAV initiale"
+  },
+  "admin.treasury.subtitle": {
+    "en": "Every allocation's cash, units, price and largest holders — the hidden fee and fund allocations included",
+    "t": "La trésorerie, les parts, le prix et les principaux détenteurs de chaque allocation — allocations cachées des frais et du fonds comprises"
   },
   "admin.users.kycLevelShort": {
     "en": "L{n}",
@@ -2003,6 +2043,10 @@
     "en": "Your account",
     "t": "Votre compte"
   },
+  "nav.heldThrough": {
+    "en": "Held through allocations",
+    "t": "Détenu via les allocations"
+  },
   "nav.invest": {
     "en": "Invest",
     "t": "Investir"
@@ -2022,10 +2066,6 @@
   "nav.support": {
     "en": "Support",
     "t": "Assistance"
-  },
-  "nav.treasury": {
-    "en": "Treasury",
-    "t": "Trésorerie"
   },
   "nav.users": {
     "en": "Users",

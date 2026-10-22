@@ -14,6 +14,7 @@
 
 import {
   fetchAllocationAccessGrants,
+  fetchAllocationTreasury,
   fetchAllocations as fetchAdminAllocations,
   fetchFundRevenue,
   fetchFeeAssessments,
@@ -44,6 +45,18 @@ export const fundRevenueResource = defineResource({
   fetch: fetchFundRevenue,
   revalidate: OPERATIONAL,
   tags: [TAG.adminRevenue],
+});
+
+// Every allocation's cash, supply, price and largest holders (#36). No tag of its own: the
+// line is made of facts other screens already name — a settled fee moves the cash
+// (`adminRevenue`), a mint or a retirement the supply and the holders (`adminUnitHolders`),
+// a mark the price (`nav`), a registry edit the title, state and access
+// (`adminAllocations`) — so any of those mutations re-reads it.
+export const allocationTreasuryResource = defineResource({
+  name: "admin.allocationTreasury",
+  fetch: fetchAllocationTreasury,
+  revalidate: OPERATIONAL,
+  tags: [TAG.adminRevenue, TAG.adminUnitHolders, TAG.nav, TAG.adminAllocations],
 });
 
 // Fee terms change only when an operator rewrites them — registry cadence, not

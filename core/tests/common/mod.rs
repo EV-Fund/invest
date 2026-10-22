@@ -16,12 +16,23 @@
 //! module still compiles the rest — hence the blanket `dead_code` allowance.
 #![allow(dead_code)]
 
-use std::sync::{Arc, LazyLock};
+use std::{
+	sync::{Arc, LazyLock},
+	time::Duration,
+};
 
+use evconcierge_auth::{Claims, TokenType};
 use invest_core::{
-	application::{book::BookFeed, fees as fee_app, funds::FundPorts, issuance::IssueUnitsRequest},
+	AppState,
+	application::{
+		book::{BookFeed, WatchStreams},
+		fees as fee_app,
+		funds::FundPorts,
+		issuance::IssueUnitsRequest,
+	},
 	infrastructure::{
 		allocations::PgAllocations,
+		book::PgBook,
 		db,
 		fee_policy_changes::PgFeePolicyChanges,
 		fees::{PgFeeAssessments, PgFeePolicies, PgFeeSettlements, PgPositionAccruals},
@@ -37,10 +48,12 @@ use invest_core::{
 		tigerbeetle::TigerBeetle,
 		users::PgUsers,
 	},
-	ports::{ledger::Ledger, users::UserStanding},
+	ports::{fees::FeePorts, ledger::Ledger, users::UserStanding},
 };
 use invest_domain::{
+	authz::Permission,
 	balance::ServiceId,
+	book::{PriceTimeEngine, TakerFeeRiseTerms},
 	error::DomainError,
 	fees::{FeeAssessment, FeeSettlement, Trigger},
 	issuance::{IdempotencyKey, UnitHolder},
@@ -479,6 +492,70 @@ impl Engine {
 			relay: &self.notify,
 		}
 	}
+
+	/// The state a gRPC handler runs on, over this harness's database, banking and ledger —
+	/// for the tests that go through a handler and its permission gate.
+	pub fn app_state(&self) -> AppState {
+		let pool = self.pool.clone();
+		AppState {
+			pool: pool.clone(),
+			ledger: self.ledger.clone(),
+			money: self.money.clone(),
+			users: Arc::new(PgUsers::new(pool.clone())),
+			allocations: Arc::new(PgAllocations::new(pool.clone())),
+			issuances: Arc::new(PgUnitIssuances::new(pool.clone())),
+			subscriptions: Arc::new(PgSubscriptions::new(pool.clone())),
+			redemptions: Arc::new(PgRedemptions::new(pool.clone(), self.ledger.clone())),
+			book: Arc::new(PgBook::new(pool.clone())),
+			book_taker_fee_rise: TakerFeeRiseTerms::new(3_600, 25).unwrap(),
+			book_engine: Arc::new(PriceTimeEngine),
+			book_feed: BookFeed::new(),
+			watch_streams: WatchStreams::new(2, Duration::from_secs(60)).unwrap(),
+			fees: FeePorts {
+				policies: Arc::new(PgFeePolicies::new(pool.clone())),
+				changes: Arc::new(PgFeePolicyChanges::new(pool.clone())),
+				accruals: Arc::new(PgPositionAccruals::new(pool.clone())),
+				assessments: Arc::new(PgFeeAssessments::new(pool.clone())),
+				settlements: Arc::new(PgFeeSettlements::new(pool.clone(), self.ledger.clone())),
+			},
+			nav: Arc::new(PgNav::new(pool.clone())),
+			positions: Arc::new(PgFundPositions::new(pool)),
+			relay_notify: self.notify.clone(),
+		}
+	}
+}
+
+/// A caller the auth layer would have admitted: an access token for `user`.
+pub fn as_caller<T>(user: UserId, message: T) -> tonic::Request<T> {
+	let mut request = tonic::Request::new(message);
+	request.extensions_mut().insert(Claims {
+		sub: user.raw().to_string(),
+		iss: "test".into(),
+		aud: "invest".into(),
+		exp: u64::MAX,
+		iat: 0,
+		typ: TokenType::Access,
+		jti: None,
+		token_version: 0,
+	});
+	request
+}
+
+/// An operator: an active seat holding `invest:allocation:manage`.
+pub async fn operator(h: &Engine) -> UserId {
+	let user = UserId::new();
+	h.users
+		.record(
+			user,
+			&UserStanding {
+				active: true,
+				permissions: Some(vec![Permission::AllocationManage.as_str().into()]),
+			},
+			None,
+		)
+		.await
+		.unwrap();
+	user
 }
 
 /// Park whatever an earlier test of this binary left in the outbox undrained. Its money
