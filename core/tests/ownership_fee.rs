@@ -138,11 +138,7 @@ async fn open_fund(h: &Harness, scope: &ScopeId, service: &ServiceId) {
 }
 
 fn fee_ports(h: &Harness) -> fee_app::FeePolicyPorts<'_> {
-	fee_app::FeePolicyPorts {
-		policies: &h.policies,
-		changes: &h.changes,
-		allocations: &h.allocations,
-	}
+	h.fee_policy_ports()
 }
 
 fn unique_service() -> ServiceId {

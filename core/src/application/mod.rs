@@ -19,10 +19,12 @@
 //! the cap table. [`funds`] is the price — NAV marks, the computed price of the reserved
 //! allocations — a holder's position at it, and dealing with the fund: subscriptions and
 //! redemptions, whose cash is banking's. [`book`] is holders dealing with each other, and
-//! [`fees`] the management and performance fee, charged in units and settled into cash.
+//! [`fees`] the management and performance fee, charged in units and settled into cash;
+//! [`fee_approvals`] takes a change of those terms to the owners through concierge.
 
 pub mod allocations;
 pub mod book;
+pub mod fee_approvals;
 pub mod fees;
 pub mod funds;
 pub mod import;

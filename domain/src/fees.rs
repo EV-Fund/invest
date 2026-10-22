@@ -85,7 +85,7 @@ pub const MAX_MANAGEMENT_BPS: u32 = 500;
 pub const MAX_PERFORMANCE_BPS: u32 = 5_000;
 
 /// The shortest notice a unit holder gets before a change of terms binds them: 24 hours,
-/// measured from the moment the change is SCHEDULED (for a consilium-gated change, that is
+/// measured from the moment the change is SCHEDULED (for a change the owners decide, that is
 /// the moment the owners carry it, not the moment it was proposed). A fund with no holders
 /// has nobody to warn, and the change may take effect at once.
 pub const MIN_NOTICE_SECS: i64 = 24 * 60 * 60;
@@ -289,10 +289,8 @@ impl FeePolicy {
 pub enum ChangeRequirement {
 	/// One `AllocationManage` holder is enough.
 	Admin,
-	/// The owners' quorum. banking's consilium does not move to invest (S2-6); the owners'
-	/// approval arrives from concierge's approvals once invest is their client, and until
-	/// then invest refuses a change that needs it rather than scheduling it on one
-	/// administrator's word.
+	/// The owners' quorum: concierge's approval `invest:fee_policy`, decided by the platform
+	/// owners. banking's consilium does not move to invest (S2-6); the wire name stays.
 	OwnerConsilium,
 }
 
@@ -339,10 +337,15 @@ pub const MAX_REASON_BYTES: usize = 500;
 
 /// Validate the initiator's stated reason for a change. Required — non-empty — when the
 /// owners must approve it (the approval mail is refused without one); optional otherwise.
-/// A control character has no meaning in a reason and every meaning in a mail header.
+/// A control character has no meaning in a reason and every meaning in a mail header. A
+/// reason the owners read carries no link either: concierge refuses a proposal whose reason
+/// has one, and a link in an approval mail is how a request gets dressed up as something else.
 pub fn validate_reason(reason: &str, required: bool) -> Result<(), DomainError> {
 	if required && reason.trim().is_empty() {
 		return Err(DomainError::Validation("a change that needs the owners' approval must state a reason".into()));
+	}
+	if required && (reason.contains("://") || reason.contains("www.")) {
+		return Err(DomainError::Validation("a reason the owners read may not carry a link".into()));
 	}
 	if reason.len() > MAX_REASON_BYTES {
 		return Err(DomainError::Validation(format!("reason exceeds {MAX_REASON_BYTES} bytes")));
@@ -361,9 +364,10 @@ pub struct FeePolicyChangeTag;
 /// Where a change of terms stands.
 ///
 /// `awaiting_consilium → scheduled → active → superseded` is the life of a change that
-/// needs the owners; an administrator's change starts at `scheduled`. `rejected` is the
-/// consilium's refusal, expiry, withdrawal or voiding; `cancelled` is an administrator
-/// withdrawing a scheduled change before it took effect.
+/// needs the owners; an administrator's change starts at `scheduled`. `rejected` is an
+/// approval that ended without passing — refused by concierge, rejected, vetoed, expired,
+/// withdrawn there or voided — or one that passed but could not be carried out;
+/// `cancelled` is an administrator withdrawing a pending change before it took effect.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FeePolicyChangeState {
@@ -1207,6 +1211,10 @@ mod tests {
 		assert!(validate_reason("raise the hurdle to match the new mandate", true).is_ok());
 		assert!(validate_reason(&"x".repeat(MAX_REASON_BYTES + 1), false).is_err());
 		assert!(validate_reason("line\nbreak", false).is_err());
+		// The owners read it in concierge's mail, which takes no link.
+		assert!(validate_reason("see https://example.org", true).is_err());
+		assert!(validate_reason("see www.example.org", true).is_err());
+		assert!(validate_reason("see https://example.org", false).is_ok(), "an administrator's own change is not mailed to anyone");
 	}
 
 	#[test]

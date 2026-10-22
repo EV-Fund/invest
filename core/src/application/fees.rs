@@ -39,15 +39,18 @@ use uuid::Uuid;
 use crate::{
 	application::{
 		allocations as allocations_app,
+		fee_approvals::{self, FeeApprovalPorts, Proposed},
 		funds::{account_cash, dealing_nav, refuse_recent_poster},
 	},
 	ports::{
 		allocations::AllocationRegistry,
+		approvals::Approvals,
 		fees::{AssessmentRecord, FeeAssessments, FeePolicies, FeePolicyChange, FeePolicyChanges, FeeSettlements, NewFeePolicyChange, PolicyRecord, PositionAccruals, SettlementRecord},
 		ledger::Ledger,
 		money::MoneyLedger,
 		nav::NavMarks,
 		redemptions::RedemptionRepository,
+		users::UserDirectory,
 	},
 };
 
@@ -215,6 +218,21 @@ pub struct FeePolicyPorts<'a> {
 	pub policies: &'a dyn FeePolicies,
 	pub changes: &'a dyn FeePolicyChanges,
 	pub allocations: &'a dyn AllocationRegistry,
+	/// Where a change the owners decide is proposed, and its proposal withdrawn.
+	pub approvals: &'a dyn Approvals,
+	/// The asker's `auth_subject`, which a proposal names.
+	pub users: &'a dyn UserDirectory,
+}
+
+impl FeePolicyPorts<'_> {
+	fn approval_ports(&self) -> FeeApprovalPorts<'_> {
+		FeeApprovalPorts {
+			approvals: self.approvals,
+			changes: self.changes,
+			policies: self.policies,
+			users: self.users,
+		}
+	}
 }
 
 /// A change of terms as the operator asks for it.
@@ -234,9 +252,13 @@ pub struct PolicyChangeRequest {
 /// `AllocationManage` holder otherwise. An administrator's change is scheduled at once and
 /// a notice is recorded for every holder; the terms bind no earlier than the notice period
 /// while anyone holds units, and a dearer change binds over a holder only once they were
-/// told or an operator acknowledged them. A change that needs the owners is refused
-/// ([`DomainError::Precondition`]): their approval is concierge's, and invest is not its
-/// client yet.
+/// told or an operator acknowledged them.
+///
+/// A change the owners decide is recorded `awaiting_consilium` and proposed to them as
+/// concierge's `invest:fee_policy` ([`fee_approvals`]); the notice period starts when they
+/// pass it. concierge refusing the proposal closes the change `rejected` and answers
+/// [`DomainError::Precondition`] with concierge's reason. concierge out of reach leaves the
+/// change waiting, and the approvals round proposes it later.
 pub async fn schedule_policy(ports: &FeePolicyPorts<'_>, requester: UserId, request: PolicyChangeRequest, now: i64) -> Result<FeePolicyChange, DomainError> {
 	// The registry is the same gate subscribe runs through: terms for an unregistered
 	// product are always a typo.
@@ -270,23 +292,28 @@ pub async fn schedule_policy(ports: &FeePolicyPorts<'_>, requester: UserId, requ
 		reason: request.reason.clone(),
 		now_unix: now,
 	};
+	let stored = ports.changes.schedule(&change).await?;
 	match requirement {
-		ChangeRequirement::Admin => ports.changes.schedule(&change).await,
-		// TODO(concierge approvals): propose `invest:fee_policy` in concierge and schedule
-		// the change when the owners carry it, as banking's consilium did.
-		ChangeRequirement::OwnerConsilium => Err(DomainError::Precondition(
-			"this change tightens the terms beyond the house envelope, so it needs the owners' approval — invest cannot ask for it yet".into(),
-		)),
+		ChangeRequirement::Admin => Ok(stored),
+		ChangeRequirement::OwnerConsilium => match fee_approvals::propose(&ports.approval_ports(), stored).await? {
+			Proposed::Opened(change) | Proposed::Later(change) => Ok(change),
+			Proposed::Refused { why, .. } => Err(DomainError::Precondition(why)),
+		},
 	}
 }
 
-/// Withdraw a pending change (operator).
-pub async fn cancel_change(changes: &dyn FeePolicyChanges, service: &ServiceId, id: FeePolicyChangeId, by: UserId, now: i64) -> Result<FeePolicyChange, DomainError> {
-	changes.find(id).await?.filter(|change| &change.service == service).ok_or_else(|| DomainError::NotFound {
+/// Withdraw a pending change (operator). The change is closed here first, so the operator's
+/// word holds at once; the proposal of an owner change is then withdrawn in concierge, or by
+/// the approvals round when concierge does not answer now.
+pub async fn cancel_change(ports: &FeePolicyPorts<'_>, service: &ServiceId, id: FeePolicyChangeId, by: UserId, now: i64) -> Result<FeePolicyChange, DomainError> {
+	ports.changes.find(id).await?.filter(|change| &change.service == service).ok_or_else(|| DomainError::NotFound {
 		entity: "fee policy change",
 		id: id.to_string(),
 	})?;
-	changes.cancel(service, id, &by.to_string(), now).await
+	let cancelled = ports.changes.cancel(service, id, &by.to_string(), now).await?;
+	fee_approvals::withdraw_cancelled(&ports.approval_ports(), &cancelled).await?;
+	// Re-read: the withdrawal notes concierge's state on the row.
+	Ok(ports.changes.find(id).await?.unwrap_or(cancelled))
 }
 
 /// Take responsibility for the holders of a scheduled tightening who could not be told

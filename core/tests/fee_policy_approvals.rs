@@ -1,0 +1,341 @@
+//! Integration tests for the owners' approval of a fee-policy change through concierge
+//! (`invest:fee_policy`, invest#37) — real Postgres **and** TigerBeetle, and concierge's
+//! approvals in memory (`InMemoryApprovals`). They run when `DATABASE_URL` is set and a
+//! TigerBeetle replica is reachable, skip otherwise, and fail instead of skipping under `CI`.
+//!
+//! What is pinned: a change beyond the house envelope is recorded `awaiting_consilium` and
+//! proposed once, whatever retries it; a passed proposal is re-read, re-hashed against the
+//! STORED change, scheduled with its notice period starting then, and reported; a proposal
+//! whose hash is not the change's is refused; one that ends any other way closes the change
+//! `rejected`; and a cancel withdraws the proposal, now or on a later round.
+
+use invest_core::{
+	application::{allocations as allocations_app, fee_approvals, fees as fee_app, funds as funds_app},
+	ports::{
+		AllocationRegistry,
+		approvals::{ApprovalOutcome, ApprovalState, ApprovalValue},
+		fees::{FeePolicies, FeePolicyChange, FeePolicyChanges, PositionAccruals},
+		money::ScopeId,
+	},
+};
+use invest_domain::{
+	allocations::{AllocationAccess, AllocationIcon},
+	balance::ServiceId,
+	error::DomainError,
+	fees::{ChangeRequirement, CrystallizationPeriod, FeePolicy, FeePolicyChangeState, MIN_NOTICE_SECS, ManagementBasis},
+	money::Usdt,
+	users::UserId,
+};
+use uuid::Uuid;
+
+mod common;
+
+/// Slack for the second or two between a test's `now()` and the one the write path stamps.
+const CLOCK_SLACK: i64 = 30;
+
+type Harness = common::Engine;
+
+/// The engine, with the owner changes earlier tests of this binary left waiting closed: each
+/// test gets a fresh in-memory concierge, which knows none of their approvals, and a round
+/// would otherwise count them.
+async fn harness() -> Option<Harness> {
+	let h = common::engine("fee-policy approvals test").await?;
+	sqlx::query("UPDATE fee_policy_changes SET state = 'rejected', closed_reason = 'left by an earlier test' WHERE state = 'awaiting_consilium'")
+		.execute(&h.pool)
+		.await
+		.unwrap();
+	sqlx::query("UPDATE fee_policy_changes SET approval_state = 'cancelled' WHERE state = 'cancelled' AND approval_state IN ('open', 'passed')")
+		.execute(&h.pool)
+		.await
+		.unwrap();
+	Some(h)
+}
+
+fn policy_ports(h: &Harness) -> fee_app::FeePolicyPorts<'_> {
+	h.fee_policy_ports()
+}
+
+fn approval_ports(h: &Harness) -> fee_approvals::FeeApprovalPorts<'_> {
+	fee_approvals::FeeApprovalPorts {
+		approvals: &h.approvals,
+		changes: &h.changes,
+		policies: &h.policies,
+		users: &h.users,
+	}
+}
+
+fn now() -> i64 {
+	std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64
+}
+
+/// The house terms with the management rate raised past the envelope — the owners' to carry.
+fn dearer() -> FeePolicy {
+	FeePolicy::new(300, 2_000, 0, ManagementBasis::InvestedCapital, CrystallizationPeriod::Annual).unwrap()
+}
+
+const REASON: &str = "the new mandate costs more to run";
+
+async fn open_fund(h: &Harness) -> ServiceId {
+	let service = ServiceId::parse(&format!("fpa-{}", Uuid::new_v4())).unwrap();
+	allocations_app::register(&h.allocations, service.clone(), &ScopeId::invest(), "EV Trading", "Systematic crypto", AllocationIcon::default())
+		.await
+		.unwrap();
+	allocations_app::open(&h.allocations, h.money.as_ref(), &service).await.unwrap();
+	h.allocations.set_access(&service, AllocationAccess::Invest).await.unwrap();
+	// The house terms, installed on a fund with no holders: scheduled and promoted at once.
+	let installed = schedule(h, UserId::new(), &service, FeePolicy::HOUSE).await.unwrap();
+	assert!(h.changes.promote(installed.id, now()).await.unwrap());
+	service
+}
+
+async fn holder(h: &Harness, service: &ServiceId) -> UserId {
+	let user = common::active_user(&h.users).await;
+	let amount = Usdt::parse_decimal("1000").unwrap();
+	h.money.fund(&ScopeId::invest(), &common::auth_subject(user), amount);
+	funds_app::subscribe(&h.fund_ports(), &h.subscriptions, &h.users, user, service.clone(), amount, now())
+		.await
+		.unwrap();
+	common::drain_to_quiescence(&h.relay, &h.pool).await;
+	assert!(h.accruals.find(user, service).await.unwrap().is_some(), "the subscription's position projection landed");
+	user
+}
+
+async fn schedule(h: &Harness, requester: UserId, service: &ServiceId, policy: FeePolicy) -> Result<FeePolicyChange, DomainError> {
+	fee_app::schedule_policy(
+		&policy_ports(h),
+		requester,
+		fee_app::PolicyChangeRequest {
+			service: service.clone(),
+			policy,
+			requested_effective_from_unix: 0,
+			reason: REASON.to_owned(),
+		},
+		now(),
+	)
+	.await
+}
+
+/// A fund with one holder and an owner change proposed on it.
+async fn proposed(h: &Harness) -> (ServiceId, FeePolicyChange, String) {
+	let service = open_fund(h).await;
+	holder(h, &service).await;
+	let requester = common::active_user(&h.users).await;
+	let change = schedule(h, requester, &service, dearer()).await.unwrap();
+	let approval = change.approval_id.expect("the change carries its proposal").to_string();
+	(service, change, approval)
+}
+
+async fn change_of(h: &Harness, change: &FeePolicyChange) -> FeePolicyChange {
+	h.changes.find(change.id).await.unwrap().expect("the change row exists")
+}
+
+async fn closed_reason(h: &Harness, change: &FeePolicyChange) -> Option<String> {
+	sqlx::query_scalar("SELECT closed_reason FROM fee_policy_changes WHERE id = $1")
+		.bind(change.id.raw())
+		.fetch_one(&h.pool)
+		.await
+		.unwrap()
+}
+
+async fn notice_count(h: &Harness, change: &FeePolicyChange) -> i64 {
+	sqlx::query_scalar("SELECT COUNT(*) FROM fee_policy_notices WHERE change_id = $1")
+		.bind(change.id.raw())
+		.fetch_one(&h.pool)
+		.await
+		.unwrap()
+}
+
+async fn round(h: &Harness) -> fee_approvals::ApprovalRound {
+	fee_approvals::round(&approval_ports(h), now()).await.unwrap()
+}
+
+#[tokio::test]
+async fn a_change_beyond_the_envelope_is_proposed_to_the_owners_with_its_terms() {
+	let Some(h) = harness().await else { return };
+	let service = open_fund(&h).await;
+	holder(&h, &service).await;
+	let requester = common::active_user(&h.users).await;
+
+	let change = schedule(&h, requester, &service, dearer()).await.unwrap();
+
+	assert_eq!(change.state, FeePolicyChangeState::AwaitingConsilium);
+	assert_eq!(change.requirement, ChangeRequirement::OwnerConsilium);
+	assert_eq!(change.scheduled_at_unix, None, "the notice clock starts when the owners carry it");
+	assert_eq!(change.approval_state, Some(ApprovalState::Open));
+	assert_eq!(change.approval_holders, Some(1));
+	assert_eq!(notice_count(&h, &change).await, 0, "nobody is told about terms the owners have not carried");
+	let proposals = h.approvals.proposals();
+	assert_eq!(proposals.len(), 1);
+	let (view, proposal) = &proposals[0];
+	assert_eq!(Some(view.id.clone()), change.approval_id.map(|id| id.to_string()));
+	assert_eq!(proposal.kind, "invest:fee_policy");
+	assert_eq!(proposal.scope, "invest");
+	assert_eq!(proposal.subject_ref, format!("fee_policy_change:{}", change.id));
+	assert_eq!(proposal.dedupe_key, proposal.subject_ref);
+	assert_eq!(proposal.reason, REASON);
+	assert_eq!(proposal.requested_by, common::auth_subject(requester), "concierge mails the asker the outcome");
+	let value = |key: &str| proposal.fields.iter().find(|f| f.key == key).map(|f| f.value.clone());
+	assert_eq!(value("allocation"), Some(ApprovalValue::Text(service.to_string())));
+	assert_eq!(value("current_management"), Some(ApprovalValue::Bps(200)));
+	assert_eq!(value("proposed_management"), Some(ApprovalValue::Bps(300)));
+	assert_eq!(value("raises_ceiling"), Some(ApprovalValue::Flag(true)));
+	assert_eq!(value("holders_notified"), Some(ApprovalValue::Count(1)));
+	assert_eq!(value("effective_from"), Some(ApprovalValue::Timestamp(change.effective_from_unix)));
+	assert_eq!(view.payload_hash, fee_approvals::expected_hash(&change, Some(&FeePolicy::HOUSE)).unwrap());
+	// One pending change per product holds for an awaiting one too.
+	let err = schedule(&h, requester, &service, FeePolicy::HOUSE).await.unwrap_err();
+	assert!(matches!(err, DomainError::Conflict(_)), "got {err:?}");
+}
+
+#[tokio::test]
+async fn a_proposal_lost_to_an_outage_is_proposed_by_the_round_once() {
+	let Some(h) = harness().await else { return };
+	let service = open_fund(&h).await;
+	holder(&h, &service).await;
+
+	h.approvals.outage(true);
+	let change = schedule(&h, UserId::new(), &service, dearer()).await.unwrap();
+	assert_eq!(change.state, FeePolicyChangeState::AwaitingConsilium, "recorded, and waiting to be proposed");
+	assert_eq!(change.approval_id, None);
+	assert_eq!(round(&h).await, fee_approvals::ApprovalRound::default(), "concierge is still away");
+
+	h.approvals.outage(false);
+	assert_eq!(round(&h).await.proposed, 1);
+	let proposed = change_of(&h, &change).await;
+	assert!(proposed.approval_id.is_some());
+	// A retried proposal — two replicas, a request that timed out after concierge opened
+	// it — is deduped by the change: the same approval comes back.
+	let again = fee_approvals::propose(&approval_ports(&h), change_of(&h, &change).await).await.unwrap();
+	assert!(matches!(again, fee_approvals::Proposed::Opened(ref c) if c.approval_id == proposed.approval_id));
+	assert_eq!(h.approvals.proposals().len(), 1, "one proposal per change");
+	assert_eq!(round(&h).await.proposed, 0, "nothing is left unproposed");
+}
+
+#[tokio::test]
+async fn a_passed_proposal_is_re_hashed_scheduled_and_reported() {
+	let Some(h) = harness().await else { return };
+	let (_, change, approval) = proposed(&h).await;
+
+	h.approvals.set_state(&approval, ApprovalState::Passed, "");
+	let before = now();
+	let first = round(&h).await;
+
+	assert_eq!((first.scheduled, first.reported), (1, 1));
+	let scheduled = change_of(&h, &change).await;
+	assert_eq!(scheduled.state, FeePolicyChangeState::Scheduled);
+	let scheduled_at = scheduled.scheduled_at_unix.expect("stamped when the owners carried it");
+	assert!(scheduled_at >= before - CLOCK_SLACK);
+	assert!(
+		scheduled.effective_from_unix >= scheduled_at + MIN_NOTICE_SECS,
+		"the notice period runs from the owners' decision"
+	);
+	assert_eq!(notice_count(&h, &change).await, 1, "the holder is owed word of it now");
+	assert_eq!(scheduled.approval_state, Some(ApprovalState::Executed));
+	assert_eq!(h.approvals.reports(), vec![(approval.clone(), ApprovalOutcome::Executed, String::new())]);
+
+	// Served again (a lost report): reported again, never scheduled again.
+	h.approvals.set_state(&approval, ApprovalState::Passed, "");
+	h.approvals.unreport(&approval);
+	let second = round(&h).await;
+	assert_eq!((second.scheduled, second.reported), (0, 1));
+	assert_eq!(change_of(&h, &change).await.scheduled_at_unix, Some(scheduled_at));
+}
+
+#[tokio::test]
+async fn a_passed_proposal_whose_hash_is_not_the_changes_is_refused() {
+	let Some(h) = harness().await else { return };
+	let (service, change, approval) = proposed(&h).await;
+
+	h.approvals.set_state(&approval, ApprovalState::Passed, "");
+	h.approvals.tamper_hash(&approval);
+	let round = round(&h).await;
+
+	assert_eq!((round.scheduled, round.rejected), (0, 1));
+	let refused = change_of(&h, &change).await;
+	assert_eq!(refused.state, FeePolicyChangeState::Rejected);
+	assert!(closed_reason(&h, &change).await.is_some_and(|why| why.contains("do not match")));
+	assert_eq!(h.policies.find(&service).await.unwrap(), Some(FeePolicy::HOUSE), "the terms did not move");
+	let reports = h.approvals.reports();
+	assert_eq!(reports.len(), 1);
+	assert_eq!((reports[0].0.as_str(), reports[0].1), (approval.as_str(), ApprovalOutcome::Void));
+}
+
+#[tokio::test]
+async fn a_proposal_that_does_not_pass_rejects_the_change() {
+	let Some(h) = harness().await else { return };
+	for (state, note, words) in [
+		(ApprovalState::Rejected, "", "rejected"),
+		(ApprovalState::Vetoed, "not this quarter", "vetoed the change: not this quarter"),
+		(ApprovalState::Expired, "", "expired"),
+	] {
+		let (_, change, approval) = proposed(&h).await;
+		h.approvals.set_state(&approval, state, note);
+
+		assert_eq!(round(&h).await.rejected, 1, "{state:?}");
+		let closed = change_of(&h, &change).await;
+		assert_eq!(closed.state, FeePolicyChangeState::Rejected, "{state:?}");
+		assert_eq!(closed.approval_state, Some(state));
+		assert!(closed_reason(&h, &change).await.is_some_and(|why| why.contains(words)), "{state:?}");
+		assert_eq!(notice_count(&h, &change).await, 0);
+	}
+	assert!(h.approvals.reports().is_empty(), "a decision that did not pass has no outcome to report");
+}
+
+#[tokio::test]
+async fn an_open_proposal_follows_concierge_and_a_refused_one_closes_at_once() {
+	let Some(h) = harness().await else { return };
+	let (_, change, approval) = proposed(&h).await;
+	h.approvals.set_state(&approval, ApprovalState::Passed, "");
+	// Passed but inside its veto delay: concierge does not serve it yet, the state shows.
+	h.approvals.hold_back(&approval, true);
+	round(&h).await;
+	let waiting = change_of(&h, &change).await;
+	assert_eq!((waiting.state, waiting.approval_state), (FeePolicyChangeState::AwaitingConsilium, Some(ApprovalState::Passed)));
+
+	let service = open_fund(&h).await;
+	h.approvals.refuse_proposals(Some("FailedPrecondition: the platform pauses after its owners changed"));
+	let err = schedule(&h, UserId::new(), &service, dearer()).await.unwrap_err();
+	assert!(matches!(err, DomainError::Precondition(ref why) if why.contains("pauses")), "got {err:?}");
+	let refused = h.changes.list(&service).await.unwrap().into_iter().next().unwrap();
+	assert_eq!(refused.state, FeePolicyChangeState::Rejected, "the history keeps the refused change");
+	assert!(h.changes.pending(&service).await.unwrap().is_none(), "and it holds no pending slot");
+}
+
+#[tokio::test]
+async fn cancelling_a_proposed_change_withdraws_its_proposal() {
+	let Some(h) = harness().await else { return };
+	let (service, change, approval) = proposed(&h).await;
+
+	let cancelled = fee_app::cancel_change(&policy_ports(&h), &service, change.id, UserId::new(), now()).await.unwrap();
+
+	assert_eq!(cancelled.state, FeePolicyChangeState::Cancelled);
+	assert_eq!(h.approvals.withdrawals(), vec![approval.clone()]);
+	assert_eq!(change_of(&h, &change).await.approval_state, Some(ApprovalState::Cancelled));
+	assert_eq!(round(&h).await, fee_approvals::ApprovalRound::default(), "nothing is left to withdraw");
+}
+
+#[tokio::test]
+async fn a_withdrawal_concierge_missed_is_made_by_the_round_and_a_late_pass_is_reported_void() {
+	let Some(h) = harness().await else { return };
+	let (service, change, approval) = proposed(&h).await;
+
+	h.approvals.outage(true);
+	let cancelled = fee_app::cancel_change(&policy_ports(&h), &service, change.id, UserId::new(), now()).await.unwrap();
+	assert_eq!(cancelled.state, FeePolicyChangeState::Cancelled, "the operator's word ends it here at once");
+	assert!(h.approvals.withdrawals().is_empty());
+	h.approvals.outage(false);
+	assert_eq!(round(&h).await.withdrawn, 1);
+	assert_eq!(h.approvals.withdrawals(), vec![approval]);
+
+	// Past its delay a passed proposal cannot be withdrawn; the pull serves it and the round
+	// reports it void rather than scheduling a change the operator cancelled.
+	let (service, change, approval) = proposed(&h).await;
+	h.approvals.set_state(&approval, ApprovalState::Passed, "");
+	h.approvals.outage(true);
+	fee_app::cancel_change(&policy_ports(&h), &service, change.id, UserId::new(), now()).await.unwrap();
+	h.approvals.outage(false);
+	round(&h).await;
+	assert_eq!(change_of(&h, &change).await.state, FeePolicyChangeState::Cancelled);
+	assert!(h.approvals.reports().iter().any(|(id, outcome, _)| id == &approval && *outcome == ApprovalOutcome::Void));
+	assert_eq!(change_of(&h, &change).await.approval_state, Some(ApprovalState::Void));
+}

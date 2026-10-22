@@ -56,6 +56,11 @@ banking's on purpose.
   cursor commit in one transaction. A redemption's approval verdict is always read back with
   `GetPendingOperation` — the event is only the nudge.
 - **A buy's hold may outlive its order only for a minute.** The hold reaper (`infrastructure/hold_reaper.rs`) voids `book_order:` holds with no order row once banking's `created_at` is older than `HOLD_REAPER_AFTER_SECS` (default 900, at least 60). Never age a hold by this process's clock.
+- **A passed approval is re-read and re-hashed before invest acts on it.** concierge's
+  approvals (`invest:fee_policy`, `application/fee_approvals.rs`) serve a passed proposal
+  until its outcome is reported; invest reads it again by id, acts only on `PASSED`, and
+  recomputes `payload_hash` from the row it STORED. The store re-checks the row under its
+  lock. Report the outcome only after the effect has committed.
 - **Health stays outside auth.** `grpc.health.v1` is not wrapped in the auth layer.
 - **The browser holds no token.** The cabinet BFF keeps concierge's tokens sealed (key
   derived from the cookie) in `cabinet.sessions`, keyed by the hash of the session cookie. Every mutating route calls
@@ -77,7 +82,8 @@ banking's on purpose.
 
 - Integration suites (`core/tests/`) use real Postgres **and** TigerBeetle — no mocks of
   either. Banking's cash is the in-memory `MoneyLedger` fake
-  (`infrastructure::money::fake`), never wired into a running server.
+  (`infrastructure::money::fake`), and concierge's approvals the `InMemoryApprovals` fake
+  (`infrastructure::concierge::fake`); neither is wired into a running server.
 - Locally a missing `DATABASE_URL`/TigerBeetle **skips** a suite; with `CI=true` it fails.
   Run with `CI=true` and read the counts — a green run that skipped is not a run.
   `nix run .#check-rust` is the gate CI runs.

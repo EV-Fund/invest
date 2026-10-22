@@ -25,6 +25,9 @@ use invest_domain::{
 	money::{Nav, Shares, Usdt},
 	users::UserId,
 };
+use uuid::Uuid;
+
+use crate::ports::approvals::{ApprovalState, Approvals};
 
 /// The live row of `fee_policies`: the terms in force right now, which version of the
 /// product's history they are, and since when.
@@ -81,6 +84,28 @@ pub struct FeePolicyChange {
 	/// The operator's acknowledgement of holders who could not be told, if given — see
 	/// [`FeePolicyChanges::acknowledge_undelivered_notices`].
 	pub notices_waiver: Option<NoticeWaiver>,
+	/// The concierge approval an owner change waits on (the `consilium_id` column); `None`
+	/// for an administrator's change, and for an owner change not proposed yet.
+	pub approval_id: Option<Uuid>,
+	/// concierge's state of that approval as invest last read it.
+	pub approval_state: Option<ApprovalState>,
+	/// The holder count the proposal named. One of the approved fields, so it is kept to
+	/// re-check the approval; `None` on any change invest did not propose.
+	pub approval_holders: Option<u32>,
+}
+
+/// What the owners passed, as the executor re-checked it against the stored change. The
+/// store schedules the change only if the row under its lock still says exactly this.
+#[derive(Clone, Debug)]
+pub struct ApprovedTerms {
+	pub approval_id: Uuid,
+	pub policy: FeePolicy,
+	/// The terms in force when the owners were asked: a change approved against other
+	/// terms is not the change they approved.
+	pub current: Option<FeePolicy>,
+	/// The provisional `effective_from` the proposal named.
+	pub effective_from_unix: i64,
+	pub holders: Option<u32>,
 }
 
 /// An operator taking responsibility for holders whose notice never arrived: who, when, and
@@ -112,14 +137,41 @@ pub struct NewFeePolicyChange {
 
 #[async_trait]
 pub trait FeePolicyChanges: Send + Sync {
-	/// Record an administrator's change: `scheduled` at once, its `effective_from` fixed by
-	/// the notice rule, and a notice recorded for every holder. Refuses with
-	/// [`DomainError::Conflict`] when another change is already pending for the product, and
-	/// a change that needs the owners — invest has no path to their approval yet.
+	/// Record a change. An administrator's is `scheduled` at once, its `effective_from` fixed
+	/// by the notice rule, and a notice recorded for every holder. One the owners decide is
+	/// `awaiting_consilium`, not proposed yet: no notice, a provisional `effective_from`, and
+	/// the holder count the proposal will name. Refuses with [`DomainError::Conflict`] when
+	/// another change is already pending for the product.
 	async fn schedule(&self, change: &NewFeePolicyChange) -> Result<FeePolicyChange, DomainError>;
 
+	/// Link an owner change to the concierge approval proposed for it, with the approval's
+	/// state. Recorded whatever the change's state, so a proposal opened for a change that
+	/// was cancelled meanwhile is still withdrawn. Idempotent on the same approval; a
+	/// conflict when the change already names another.
+	async fn record_proposal(&self, id: FeePolicyChangeId, approval: Uuid, state: ApprovalState) -> Result<FeePolicyChange, DomainError>;
+
+	/// The owners carried the change: move it to `scheduled`, start the notice period now,
+	/// record the holders' notices. Idempotent on a change already scheduled by this
+	/// approval; a conflict when the row, or the terms in force, no longer match `terms`, or
+	/// the change is no longer awaiting.
+	async fn schedule_approved(&self, id: FeePolicyChangeId, terms: &ApprovedTerms, now_unix: i64) -> Result<FeePolicyChange, DomainError>;
+
+	/// Close an owner change whose approval ended without passing, or could not be carried
+	/// out, as `rejected` with `why`; `approval_state` is noted when given. A change no
+	/// longer awaiting is returned as it is.
+	async fn close_unapproved(&self, id: FeePolicyChangeId, approval_state: Option<ApprovalState>, why: &str) -> Result<FeePolicyChange, DomainError>;
+
+	/// Note concierge's state of the change's approval. A change with no approval is left
+	/// alone.
+	async fn note_approval_state(&self, id: FeePolicyChangeId, state: ApprovalState) -> Result<(), DomainError>;
+
+	/// The owner changes still waiting on concierge, oldest first: every `awaiting_consilium`
+	/// one, and every cancelled one invest proposed whose approval may still be live.
+	async fn watched(&self, limit: u32) -> Result<Vec<FeePolicyChange>, DomainError>;
+
 	/// Withdraw a pending change. Idempotent on an already-cancelled change; a conflict on
-	/// any other closed state.
+	/// any other closed state. The approval of an owner change is concierge's to withdraw:
+	/// the caller does that.
 	async fn cancel(&self, service: &ServiceId, id: FeePolicyChangeId, by: &str, now_unix: i64) -> Result<FeePolicyChange, DomainError>;
 
 	/// Take responsibility for the holders of a scheduled tightening whose notice has been
@@ -273,6 +325,8 @@ pub struct FeePorts {
 	pub policies: Arc<dyn FeePolicies>,
 	/// The history of the terms and the only path that writes `fee_policies`.
 	pub changes: Arc<dyn FeePolicyChanges>,
+	/// concierge's approvals, where a change the owners decide is proposed.
+	pub approvals: Arc<dyn Approvals>,
 	pub accruals: Arc<dyn PositionAccruals>,
 	pub assessments: Arc<dyn FeeAssessments>,
 	pub settlements: Arc<dyn FeeSettlements>,

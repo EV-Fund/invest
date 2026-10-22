@@ -22,6 +22,7 @@ use invest_core::{
 	application::{book::BookFeed, fees as fee_app, funds::FundPorts, issuance::IssueUnitsRequest},
 	infrastructure::{
 		allocations::PgAllocations,
+		concierge::fake::InMemoryApprovals,
 		db,
 		fee_policy_changes::PgFeePolicyChanges,
 		fees::{PgFeeAssessments, PgFeePolicies, PgFeeSettlements, PgPositionAccruals},
@@ -424,6 +425,8 @@ pub struct Engine {
 	pub ledger: Arc<dyn Ledger>,
 	/// Shared with the relay, so a test steering it (a refusal, an outage) steers the sagas.
 	pub money: Arc<InMemoryMoneyLedger>,
+	/// concierge's approvals, where a fee change the owners decide is proposed.
+	pub approvals: InMemoryApprovals,
 	pub relay: Relay,
 	pub notify: Arc<Notify>,
 	/// Held for the test's whole life — declared last so it is released after the relay.
@@ -455,6 +458,7 @@ pub async fn engine(suite: &str) -> Option<Engine> {
 		settlements: PgFeeSettlements::new(pool.clone(), ledger.clone()),
 		relay: Relay::new(pool.clone(), ledger.clone(), money.clone(), notify.clone()),
 		money,
+		approvals: InMemoryApprovals::new(),
 		ledger,
 		notify,
 		pool,
@@ -467,6 +471,17 @@ impl Engine {
 	/// telling `feed` what it took off a book.
 	pub fn money_events(&self, feed: Arc<BookFeed>) -> MoneyEventsConsumer {
 		MoneyEventsConsumer::new(self.pool.clone(), self.money.clone(), self.money.clone(), self.notify.clone(), feed)
+	}
+
+	/// The ports a change of fee terms borrows, for one call.
+	pub fn fee_policy_ports(&self) -> fee_app::FeePolicyPorts<'_> {
+		fee_app::FeePolicyPorts {
+			policies: &self.policies,
+			changes: &self.changes,
+			allocations: &self.allocations,
+			approvals: &self.approvals,
+			users: &self.users,
+		}
 	}
 
 	/// The dealing ports, borrowed for one call — the wiring behind every fund use case.

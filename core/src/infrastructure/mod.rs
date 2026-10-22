@@ -28,6 +28,7 @@ pub mod book;
 pub mod concierge;
 pub mod db;
 pub mod fee_accrual;
+pub mod fee_approvals;
 pub mod fee_policy_changes;
 pub mod fee_sweeper;
 pub mod fees;

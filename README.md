@@ -144,8 +144,29 @@ unreachable: concierge resolves `invest:*` grants only against it.
 There is no "may use invest" permission: concierge grants a member nothing by default, so
 an investor is admitted by the projection (known, active), not by a permission. The
 version is `CATALOG_VERSION` (`core/src/ports/catalog.rs`) — bump it with every change.
-The scope catalog (approval kinds, notification topics) is published once invest opens a
-proposal or emits a notice; it does neither yet.
+The scope catalog (`ScopeCatalogService.PublishScopeCatalog`: approval kinds and
+notification topics) is published the same way at `SCOPE_CATALOG_VERSION`. concierge refuses
+a version older than the one it stores, so an older image cannot publish after a newer one.
+
+## Fee changes the owners decide
+
+A change of fee terms that makes them dearer and leaves the house envelope (more than 2 %
+management or 20 % performance, a basis on the market value, a crystallization more often
+than yearly), or one that lowers the hurdle, is the platform owners' to approve
+(`core/src/application/fee_approvals.rs`):
+
+1. `ScheduleFeePolicy` records it `awaiting_consilium`, with no notice yet, and proposes it as
+   concierge's `invest:fee_policy` (PLATFORM level), deduped by `fee_policy_change:<id>`.
+   `consilium_id` on the change is the concierge approval id.
+2. Every 30 s the approvals round pulls the passed proposals (`PullApproved`), reads each
+   again, checks its `payload_hash` against the STORED change, schedules the change — the
+   holders' notices and the notice period start now — and reports `EXECUTED`. A hash that
+   does not match rejects the change and reports `VOID`.
+3. A proposal that is rejected, vetoed, expired, withdrawn in concierge or voided closes the
+   change as `rejected`. `CancelFeePolicyChange` withdraws the proposal.
+
+The round runs only when `CONCIERGE_GRPC_ADDR` is set; without concierge such a change is
+refused. A step concierge does not answer is retried on the next round.
 
 ## Money flows
 
@@ -175,9 +196,8 @@ of invest's own (`units_unavailable`, `money_ledger_unavailable`).
 
 Not on banking's side yet (cf38ba57): the automatic sweep of `(<scope>, fee)` that ledger.proto promises — cash sits on the collector until banking runs it, so `(invest, alloc:fee)` receives nothing, and no scope's fee reaches the treasury.
 
-Not here yet: the owners' approval of a fee change beyond the house envelope (refused until
-invest is a client of concierge's approvals), delivering holder notices of a fee change
-(recorded as given up; a dearer change binds once its requester acknowledges), and a reaper
+Not here yet: delivering holder notices of a fee change (recorded as given up; a dearer
+change binds once its requester acknowledges), and a reaper
 for a buy's hold whose `Reserve` answer was lost (`application/book.rs`).
 banking's `ownership_contract` suite pins banking's own migration 0047 over its production
 history and has no counterpart here.

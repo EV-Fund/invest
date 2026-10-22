@@ -25,6 +25,7 @@ use invest_core::{
 	infrastructure::{
 		allocations::PgAllocations,
 		book::PgBook,
+		concierge::fake::InMemoryApprovals,
 		fee_policy_changes::PgFeePolicyChanges,
 		fees::{PgFeeAssessments, PgFeePolicies, PgFeeSettlements, PgPositionAccruals},
 		issuance::PgUnitIssuances,
@@ -1134,6 +1135,7 @@ fn funds_service(h: &Harness) -> invest_core::services::funds::FundsSvc {
 		fees: FeePorts {
 			policies: Arc::new(PgFeePolicies::new(pool.clone())),
 			changes: Arc::new(PgFeePolicyChanges::new(pool.clone())),
+			approvals: Arc::new(InMemoryApprovals::new()),
 			accruals: Arc::new(PgPositionAccruals::new(pool.clone())),
 			assessments: Arc::new(PgFeeAssessments::new(pool.clone())),
 			settlements: Arc::new(PgFeeSettlements::new(pool.clone(), h.ledger.clone())),

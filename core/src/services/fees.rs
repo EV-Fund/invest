@@ -9,7 +9,7 @@
 //! `invest:allocation:manage` — the same trust seam as registering the product or
 //! posting its valuation, because a fee policy is part of what the product *is* — and a
 //! change that tightens the terms beyond the house envelope needs the owners besides,
-//! which invest refuses until it can ask concierge for their approval.
+//! whom invest asks through concierge's approvals.
 //!
 //! Only [`SettleFeeShares`](FeesService::settle_fee_shares) moves money, and it
 //! notifies the relay. Charging happens on the sweeper, not on this surface: a fee is
@@ -58,6 +58,8 @@ impl AppState {
 			policies: self.fees.policies.as_ref(),
 			changes: self.fees.changes.as_ref(),
 			allocations: self.allocations.as_ref(),
+			approvals: self.fees.approvals.as_ref(),
+			users: self.users.as_ref(),
 		}
 	}
 }
@@ -144,7 +146,7 @@ impl FeesService for FeesSvc {
 		let req = request.get_ref();
 		let service = ServiceId::parse(&req.service).map_err(map_err)?;
 		let id = parse_change_id(&req.change_id)?;
-		let change = fee_app::cancel_change(self.state.fees.changes.as_ref(), &service, id, by, unix_now()).await.map_err(map_err)?;
+		let change = fee_app::cancel_change(&self.state.fee_policy_ports(), &service, id, by, unix_now()).await.map_err(map_err)?;
 		Ok(Response::new(change_to_proto(&change, Audience::Operator)))
 	}
 
@@ -369,8 +371,11 @@ fn change_to_proto(change: &FeePolicyChange, audience: Audience) -> pb::FeePolic
 		crystallization: change.policy.crystallization().as_str().to_owned(),
 		effective_from: change.effective_from_unix,
 		requirement: change.requirement.as_str().to_owned(),
-		// invest records no change the owners decide (see `fee_app::schedule_policy`).
-		consilium_id: String::new(),
+		// Which approval, and where it stands, is governance detail; that the change awaits
+		// the owners is public in `state`.
+		consilium_id: change.approval_id.filter(|_| operator).map(|id| id.to_string()).unwrap_or_default(),
+		approval_state: change.approval_state.filter(|_| operator).map(|state| state.as_str().to_owned()).unwrap_or_default(),
+		approval_holders: change.approval_holders.filter(|_| operator),
 		requested_by: if operator { change.requested_by.clone() } else { String::new() },
 		requested_at: change.requested_at_unix,
 		scheduled_at: change.scheduled_at_unix.unwrap_or_default(),

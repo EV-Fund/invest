@@ -553,8 +553,19 @@ pub struct FeePolicyChange {
 	pub crystallization: String,
 	pub effective_from: String,
 	pub requirement: String,
-	/// The consilium this change waits on; `null` for an administrator's change.
+	/// The concierge approval (`invest:fee_policy`) this change waits on or waited on;
+	/// `null` for an administrator's change, for an owner change not proposed yet, and for
+	/// a caller without `AllocationManage`.
 	pub consilium_id: Option<String>,
+	/// concierge's state of that approval as invest last read it: open | passed |
+	/// executed | execution_failed | rejected | vetoed | expired | cancelled | void; `null`
+	/// when there is none. `passed` while `state` is still `awaiting_consilium` means the
+	/// owners carried it: any owner may still veto it until its delay ends (24 h), and
+	/// invest schedules it on its next round after that.
+	pub approval_state: Option<String>,
+	/// How many holders the proposal told the owners would be notified; `null` when invest
+	/// did not propose the change.
+	pub approval_holders: Option<u32>,
 	pub requested_by: String,
 	pub requested_at: String,
 	pub scheduled_at: String,
@@ -594,6 +605,8 @@ impl From<iv::FeePolicyChange> for FeePolicyChange {
 			effective_from: c.effective_from.to_string(),
 			requirement: c.requirement,
 			consilium_id: non_empty(c.consilium_id),
+			approval_state: non_empty(c.approval_state),
+			approval_holders: c.approval_holders,
 			requested_by: c.requested_by,
 			requested_at: c.requested_at.to_string(),
 			scheduled_at: c.scheduled_at.to_string(),

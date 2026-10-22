@@ -11,11 +11,10 @@
 //! before the new one binds.
 //!
 //! Moved from banking 9ffafce3 (`piggybank/core/tests/fee_policy_changes.rs`), cut to what
-//! invest does. Two things are not here yet, and their tests stayed in banking: the
-//! owners' approval of a change beyond the house envelope (concierge's approvals; until
-//! invest is their client such a change is refused, which is pinned below), and delivering
-//! the holders' notices (concierge's scope notifications; until then a notice is recorded
-//! given up on). A notifier's outcomes are stood in for by writing `fee_policy_notices`
+//! invest does. The owners' approval of a change beyond the house envelope is concierge's
+//! and has its own suite (`tests/fee_policy_approvals.rs`); what is pinned here is only how
+//! such a change is recorded. Delivering the holders' notices is not here yet
+//! (concierge's scope notifications; until then a notice is recorded given up on). A notifier's outcomes are stood in for by writing `fee_policy_notices`
 //! directly — the columns it will stamp are the ones the promotion gate reads. banking's
 //! legacy-row tests are not here either: invest's ceilings are validated CHECKs (0001), so
 //! an active row above them cannot exist to be lowered.
@@ -53,11 +52,7 @@ async fn harness() -> Option<Harness> {
 }
 
 fn policy_ports(h: &Harness) -> fee_app::FeePolicyPorts<'_> {
-	fee_app::FeePolicyPorts {
-		policies: &h.policies,
-		changes: &h.changes,
-		allocations: &h.allocations,
-	}
+	h.fee_policy_ports()
 }
 
 /// The terms as an `AllocationManage` holder reads them: every product, hidden or not.
@@ -502,7 +497,7 @@ async fn cancelling_a_change_withdraws_the_notices_not_delivered() {
 	deliver_notice(&h, &change, told).await;
 	assert_eq!(change_of(&h, &change).await.undelivered_notices, 1);
 
-	let cancelled = fee_app::cancel_change(&h.changes, &service, change.id, UserId::new(), now()).await.unwrap();
+	let cancelled = fee_app::cancel_change(&policy_ports(&h), &service, change.id, UserId::new(), now()).await.unwrap();
 	assert_eq!(cancelled.state, FeePolicyChangeState::Cancelled);
 	assert_eq!(cancelled.undelivered_notices, 0, "a closed change is owed to nobody");
 	let rows = notices(&h, &change).await;
@@ -571,12 +566,12 @@ async fn a_holder_invest_does_not_know_still_gets_the_notice_period() {
 	assert_eq!(h.policies.find(&service).await.unwrap(), Some(FeePolicy::HOUSE));
 }
 
-/// A tightening beyond the house envelope is the owners' to carry, and invest cannot ask
-/// them yet (concierge's approvals): it is refused — before anything is written, whether
-/// it comes through the use case or straight at the store — rather than scheduled on one
-/// administrator's word.
+/// A tightening beyond the house envelope is the owners' to carry: it says why, and it is
+/// recorded waiting for them — no notice, no notice clock, and the holder count the
+/// proposal names — never scheduled on one administrator's word, whether it comes through
+/// the use case or straight at the store.
 #[tokio::test]
-async fn a_tightening_beyond_the_envelope_is_refused_until_invest_can_ask_the_owners() {
+async fn a_tightening_beyond_the_envelope_waits_for_the_owners() {
 	let Some(h) = harness().await else { return };
 	let service = unique_service();
 	open_fund(&h, &service).await;
@@ -587,8 +582,10 @@ async fn a_tightening_beyond_the_envelope_is_refused_until_invest_can_ask_the_ow
 	// refused as such first.
 	let err = schedule(&h, UserId::new(), &service, dearer(), 0, "  ").await.unwrap_err();
 	assert!(matches!(err, DomainError::Validation(_)), "got {err:?}");
-	let err = schedule(&h, UserId::new(), &service, dearer(), 0, "the new mandate costs more to run").await.unwrap_err();
-	assert!(matches!(err, DomainError::Precondition(ref m) if m.contains("owners")), "got {err:?}");
+	let err = schedule(&h, UserId::new(), &service, dearer(), 0, "see https://example.org").await.unwrap_err();
+	assert!(matches!(err, DomainError::Validation(ref m) if m.contains("link")), "got {err:?}");
+	assert!(h.changes.pending(&service).await.unwrap().is_none(), "nothing was recorded");
+
 	let direct = NewFeePolicyChange {
 		id: FeePolicyChangeId::new(),
 		service: service.clone(),
@@ -599,10 +596,14 @@ async fn a_tightening_beyond_the_envelope_is_refused_until_invest_can_ask_the_ow
 		reason: "the new mandate costs more to run".into(),
 		now_unix: now(),
 	};
-	let err = h.changes.schedule(&direct).await.unwrap_err();
-	assert!(matches!(err, DomainError::Precondition(ref m) if m.contains("owners")), "got {err:?}");
-	assert!(h.changes.pending(&service).await.unwrap().is_none(), "nothing was recorded");
-	assert_eq!(h.changes.list(&service).await.unwrap().len(), 1, "only the installed terms are on record");
+	let waiting = h.changes.schedule(&direct).await.unwrap();
+	assert_eq!(waiting.state, FeePolicyChangeState::AwaitingConsilium);
+	assert_eq!(waiting.scheduled_at_unix, None, "the notice clock starts when the owners carry it");
+	assert_eq!((waiting.approval_id, waiting.approval_state, waiting.approval_holders), (None, None, Some(1)));
+	assert!(notices(&h, &waiting).await.is_empty(), "nobody is told about terms the owners have not carried");
+	assert_eq!(h.changes.pending(&service).await.unwrap().map(|c| c.id), Some(waiting.id), "it holds the one pending slot");
+	assert!(!h.changes.promote(waiting.id, now() + YEAR).await.unwrap(), "a change awaiting the owners never binds");
+	assert!(h.approvals.proposals().is_empty(), "the store proposes nothing; the use case does");
 }
 
 #[tokio::test]
@@ -888,11 +889,11 @@ async fn one_change_is_on_its_way_per_product_until_it_is_cancelled() {
 	assert!(err.to_string().contains("cancel it"), "the refusal must say what to do: {err}");
 
 	let admin = UserId::new();
-	let cancelled = fee_app::cancel_change(&h.changes, &service, first.id, admin, now()).await.unwrap();
+	let cancelled = fee_app::cancel_change(&policy_ports(&h), &service, first.id, admin, now()).await.unwrap();
 	assert_eq!(cancelled.state, FeePolicyChangeState::Cancelled);
 	// Idempotent, and never promoted.
 	assert_eq!(
-		fee_app::cancel_change(&h.changes, &service, first.id, admin, now()).await.unwrap().state,
+		fee_app::cancel_change(&policy_ports(&h), &service, first.id, admin, now()).await.unwrap().state,
 		FeePolicyChangeState::Cancelled
 	);
 	let_the_notice_run(&h, &first).await;
@@ -911,13 +912,13 @@ async fn one_change_is_on_its_way_per_product_until_it_is_cancelled() {
 	.await
 	.unwrap();
 	assert!(matches!(
-		fee_app::cancel_change(&h.changes, &unique_service(), second.id, admin, now()).await.unwrap_err(),
+		fee_app::cancel_change(&policy_ports(&h), &unique_service(), second.id, admin, now()).await.unwrap_err(),
 		DomainError::NotFound { .. }
 	));
 	// A live version cannot be cancelled: it is not on its way anywhere.
 	let active = h.changes.list(&service).await.unwrap().into_iter().find(|row| row.state == FeePolicyChangeState::Active).unwrap();
 	assert!(matches!(
-		fee_app::cancel_change(&h.changes, &service, active.id, admin, now()).await.unwrap_err(),
+		fee_app::cancel_change(&policy_ports(&h), &service, active.id, admin, now()).await.unwrap_err(),
 		DomainError::Conflict(_)
 	));
 }
