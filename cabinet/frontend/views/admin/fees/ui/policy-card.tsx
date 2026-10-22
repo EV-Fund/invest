@@ -3,7 +3,7 @@
 // Pricing a product: the terms in force, and the form that schedules the next ones.
 //
 // Nothing here changes what a fund charges. Submitting SCHEDULES a change: the plane
-// decides who has to agree (one administrator, or the owners' consilium when the terms
+// decides who has to agree (one administrator, or the owners' approval when the terms
 // tighten beyond the house 2 and 20) and when it binds (no earlier than 24 hours after
 // scheduling while anyone holds units), and the answer says both. Every word on this
 // surface has to carry that, because the failure it invites is an operator reading
@@ -111,8 +111,8 @@ export function PolicyCard({
       onScheduled(change);
       reset();
     } catch (e) {
-      // A change that needs the owners is refused in invest-core's words until invest is a
-      // client of concierge's approvals; it is shown as it came, like any other refusal.
+      // concierge refusing the owners' proposal comes back as a 412 in its own words; it is
+      // shown as it came, like any other refusal.
       setProblem(e instanceof Error ? errorMessage(e, t) : t("err.feePolicySave", "Could not save these terms."));
       // "Already pending" means a colleague got there first, and this screen still shows
       // the fund without their change. The re-read brings their pending card in and

@@ -559,13 +559,117 @@
     "en": "Superseded",
     "t": "Đã bị thay thế"
   },
+  "admin.fees.approval.historyNote": {
+    "en": "Owners: {state}",
+    "t": "Chủ sở hữu: {state}"
+  },
+  "admin.fees.approval.holders": {
+    "en": "The proposal tells the owners that {count, plural, one {# holder} other {# holders}} will be notified.",
+    "t": "Đề xuất cho chủ sở hữu biết rằng {count, plural, other {# người nắm giữ}} sẽ được thông báo."
+  },
+  "admin.fees.approval.id": {
+    "en": "Approval id",
+    "t": "Mã phê duyệt"
+  },
+  "admin.fees.approval.line.cancelled": {
+    "en": "The proposal was withdrawn, so the votes given on it no longer count.",
+    "t": "Đề xuất đã bị rút lại, nên các phiếu đã bỏ cho nó không còn được tính."
+  },
+  "admin.fees.approval.line.executed": {
+    "en": "The owners carried the change, and invest scheduled it.",
+    "t": "Các chủ sở hữu đã thông qua thay đổi và invest đã lên lịch cho nó."
+  },
+  "admin.fees.approval.line.execution_failed": {
+    "en": "The owners carried the change, but invest could not schedule it. The change is closed.",
+    "t": "Các chủ sở hữu đã thông qua thay đổi, nhưng invest không thể lên lịch cho nó. Thay đổi đã đóng."
+  },
+  "admin.fees.approval.line.expired": {
+    "en": "The owners did not decide within 72 hours, so the proposal expired.",
+    "t": "Các chủ sở hữu không quyết định trong vòng 72 giờ, nên đề xuất đã hết hạn."
+  },
+  "admin.fees.approval.line.open": {
+    "en": "The owners are voting. The change passes when more than half of them approve it.",
+    "t": "Các chủ sở hữu đang bỏ phiếu. Thay đổi được thông qua khi hơn một nửa số họ chấp thuận."
+  },
+  "admin.fees.approval.line.passed": {
+    "en": "The owners carried the change, and invest scheduled it.",
+    "t": "Các chủ sở hữu đã thông qua thay đổi, và invest đã lên lịch nó."
+  },
+  "admin.fees.approval.line.passedAwaiting": {
+    "en": "The owners carried the change. Any owner can still veto it during the 24-hour delay that follows; after that, invest schedules it.",
+    "t": "Các chủ sở hữu đã thông qua thay đổi. Bất kỳ chủ sở hữu nào vẫn có thể phủ quyết trong 24 giờ chờ tiếp theo; sau đó invest sẽ lên lịch cho nó."
+  },
+  "admin.fees.approval.line.rejected": {
+    "en": "The owners rejected the change. The fund keeps its current terms.",
+    "t": "Các chủ sở hữu đã từ chối thay đổi. Quỹ giữ nguyên điều khoản hiện tại."
+  },
+  "admin.fees.approval.line.unproposed": {
+    "en": "concierge could not be reached when you asked. invest proposes the change to the owners again within a minute.",
+    "t": "Không kết nối được concierge khi bạn gửi yêu cầu. invest sẽ đề xuất lại thay đổi cho các chủ sở hữu trong vòng một phút."
+  },
+  "admin.fees.approval.line.vetoed": {
+    "en": "An owner vetoed the change. The fund keeps its current terms.",
+    "t": "Một chủ sở hữu đã phủ quyết thay đổi. Quỹ giữ nguyên điều khoản hiện tại."
+  },
+  "admin.fees.approval.line.void": {
+    "en": "concierge voided the proposal, so the votes given on it no longer count.",
+    "t": "concierge đã vô hiệu hóa đề xuất, nên các phiếu đã bỏ cho nó không còn được tính."
+  },
+  "admin.fees.approval.state.cancelled": {
+    "en": "Withdrawn",
+    "t": "Đã rút lại"
+  },
+  "admin.fees.approval.state.executed": {
+    "en": "Carried out",
+    "t": "Đã thực hiện"
+  },
+  "admin.fees.approval.state.execution_failed": {
+    "en": "Could not be carried out",
+    "t": "Không thể thực hiện"
+  },
+  "admin.fees.approval.state.expired": {
+    "en": "Expired",
+    "t": "Đã hết hạn"
+  },
+  "admin.fees.approval.state.open": {
+    "en": "Voting",
+    "t": "Đang bỏ phiếu"
+  },
+  "admin.fees.approval.state.passed": {
+    "en": "Carried",
+    "t": "Đã thông qua"
+  },
+  "admin.fees.approval.state.rejected": {
+    "en": "Rejected",
+    "t": "Bị từ chối"
+  },
+  "admin.fees.approval.state.unknown": {
+    "en": "State not known",
+    "t": "Chưa rõ trạng thái"
+  },
+  "admin.fees.approval.state.unproposed": {
+    "en": "Not proposed yet",
+    "t": "Chưa được đề xuất"
+  },
+  "admin.fees.approval.state.vetoed": {
+    "en": "Vetoed",
+    "t": "Bị phủ quyết"
+  },
+  "admin.fees.approval.state.void": {
+    "en": "Voided",
+    "t": "Đã vô hiệu"
+  },
+  "admin.fees.approval.title": {
+    "en": "Owners' approval",
+    "t": "Phê duyệt của chủ sở hữu"
+  },
   "admin.fees.askOwners": {
     "en": "Ask the owners",
     "t": "Hỏi các chủ sở hữu"
   },
-  "admin.fees.awaitingBody": {
-    "en": "The owners have each been emailed a link. Version {version} is scheduled only once more than half of them approve, and binds 24 hours after that while anyone holds units. The live tally is in the consilium.",
-    "t": "Mỗi chủ sở hữu đã được gửi một liên kết qua email. Phiên bản {version} chỉ được lên lịch khi hơn một nửa trong số họ chấp thuận, và có hiệu lực 24 giờ sau đó khi còn người nắm giữ đơn vị. Kết quả kiểm phiếu trực tiếp nằm trong consilium."
+  "admin.fees.awaitingApprovalsBody": {
+    "en": "Version {version} went to the owners' approvals. It is scheduled only once more than half of them approve and no owner vetoes it within 24 hours, and while anyone holds units it binds 24 hours after that. The owners vote in the central admin.",
+    "t": "Phiên bản {version} đã được gửi tới mục phê duyệt của chủ sở hữu. Nó chỉ được lên lịch khi hơn một nửa số chủ sở hữu chấp thuận và không ai phủ quyết trong 24 giờ; khi còn người nắm giữ đơn vị, nó có hiệu lực 24 giờ sau đó. Các chủ sở hữu bỏ phiếu trong trang quản trị trung tâm."
   },
   "admin.fees.awaitingTitle": {
     "en": "Sent to the owners — nothing has changed yet",
@@ -595,9 +699,13 @@
     "en": "Cancelling withdraws the change. The fund keeps its current terms, and the holders who were notified will not see the new ones.",
     "t": "Hủy sẽ rút lại thay đổi. Quỹ giữ nguyên điều khoản hiện tại, và những người nắm giữ đã được thông báo sẽ không thấy điều khoản mới."
   },
-  "admin.fees.cancelWarningAwaiting": {
-    "en": "Cancelling withdraws the change and takes its consilium down with it, voiding every approval collected so far. The owners who have already answered would each have to answer again.",
-    "t": "Hủy sẽ rút lại thay đổi và đóng consilium của nó, vô hiệu mọi chấp thuận đã thu được. Các chủ sở hữu đã trả lời sẽ phải trả lời lại."
+  "admin.fees.cancelWarningWithdraws": {
+    "en": "Cancelling withdraws the change and its proposal from the owners' approvals. The votes given so far stop counting, and a new request starts a new vote.",
+    "t": "Hủy sẽ rút lại thay đổi và đề xuất của nó khỏi mục phê duyệt của chủ sở hữu. Các phiếu đã bỏ không còn được tính, và một yêu cầu mới sẽ bắt đầu một cuộc bỏ phiếu mới."
+  },
+  "admin.fees.cancelWithdraw": {
+    "en": "Cancel and withdraw the proposal",
+    "t": "Hủy và rút lại đề xuất"
   },
   "admin.fees.chargedOn": {
     "en": "Charged on",
@@ -827,9 +935,13 @@
     "en": "{n, plural, one {# notice is} other {# notices are}} still being delivered. A change that tightens the terms waits for every holder to be told; there is nothing to do unless the mailer gives up on one.",
     "t": "{n, plural, other {# thông báo}} vẫn đang được gửi. Thay đổi siết chặt điều khoản chờ đến khi mọi người nắm giữ được thông báo; không cần làm gì trừ khi hệ thống gửi thư bỏ cuộc với một người."
   },
-  "admin.fees.pending.awaiting": {
-    "en": "Version {version} awaits the owners' approval. It binds 24 hours after they carry it, while anyone holds units.",
-    "t": "Phiên bản {version} đang chờ các chủ sở hữu chấp thuận. Nó có hiệu lực 24 giờ sau khi họ thông qua, khi còn người nắm giữ đơn vị."
+  "admin.fees.openApprovals": {
+    "en": "Open the owners' approvals",
+    "t": "Mở mục phê duyệt của chủ sở hữu"
+  },
+  "admin.fees.pending.awaitingProvisional": {
+    "en": "Version {version} awaits the owners' approval. Provisional start: {at}. While anyone holds units, it binds no earlier than 24 hours after they carry it, so the date can move later.",
+    "t": "Phiên bản {version} đang chờ chủ sở hữu phê duyệt. Ngày bắt đầu tạm tính: {at}. Khi còn người nắm giữ đơn vị, nó có hiệu lực không sớm hơn 24 giờ sau khi được thông qua, nên ngày này có thể lùi lại."
   },
   "admin.fees.pending.immediate": {
     "en": "Version {version} takes effect now and is applied within a minute. Nobody holds units, so no notice was sent.",
@@ -871,6 +983,10 @@
     "en": "Every 6 months",
     "t": "Mỗi 6 tháng"
   },
+  "admin.fees.provisional": {
+    "en": "provisional",
+    "t": "tạm tính"
+  },
   "admin.fees.reason": {
     "en": "Reason",
     "t": "Lý do"
@@ -891,9 +1007,9 @@
     "en": "No vote needed: one administrator may make this change. Holders are mailed the notice when it is scheduled.",
     "t": "Không cần bỏ phiếu: một quản trị viên có thể thực hiện thay đổi này. Người nắm giữ sẽ nhận thông báo qua email khi thay đổi được lên lịch."
   },
-  "admin.fees.requirement.consilium": {
-    "en": "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. You must be an owner to open the request.",
-    "t": "Cần các chủ sở hữu chấp thuận: các điều khoản này siết chặt hơn mức 2 và 20 mặc định, hoặc hạ ngưỡng vượt. Chỉ chủ sở hữu mới có thể mở yêu cầu."
+  "admin.fees.requirement.owners": {
+    "en": "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. The request goes to the owners' approvals in the central admin.",
+    "t": "Cần chủ sở hữu phê duyệt: các điều khoản này chặt hơn mức 2 và 20 của quỹ, hoặc hạ ngưỡng lợi nhuận. Yêu cầu được gửi tới mục phê duyệt của chủ sở hữu trong trang quản trị trung tâm."
   },
   "admin.fees.scheduleChange": {
     "en": "Schedule the change",
@@ -1026,10 +1142,6 @@
   "admin.kyc.verified": {
     "en": "Verified",
     "t": "Đã xác minh"
-  },
-  "admin.payments.openConsilium": {
-    "en": "Open the consilium",
-    "t": "Mở hội đồng"
   },
   "admin.rail.bep20": {
     "en": "BEP20 · BNB Chain",
@@ -1558,6 +1670,18 @@
   "err.verificationRequired": {
     "en": "Verify your identity to continue.",
     "t": "Xác minh danh tính để tiếp tục."
+  },
+  "fund.feeDiff.nothingCharged": {
+    "en": "Nothing charged",
+    "t": "Không thu phí"
+  },
+  "fund.feeDiff.now": {
+    "en": "Now",
+    "t": "Hiện tại"
+  },
+  "fund.feeDiff.proposed": {
+    "en": "Proposed",
+    "t": "Đề xuất"
   },
   "invest.about.risk": {
     "en": "Units can fall in value as well as rise. The NAV is set by a posted valuation, not by a market price, and past marks are no guide to future ones. Cash comes back only when a redemption settles or a buyer takes your units on the book. Invest only what you can afford to leave in.",

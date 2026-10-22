@@ -3,8 +3,8 @@
 // The change on its way for one product, and the one thing an operator can do to it.
 //
 // Cancelling is not the reversible click a single ghost button makes it look like: a
-// change still awaiting the owners takes its consilium down with it, voiding every
-// approval collected so far. So the button opens a second step in place — no
+// change still awaiting the owners withdraws its proposal in concierge's approvals, and
+// every vote given on it stops counting. So the button opens a second step in place — no
 // `window.confirm`, whose text no catalogue can translate.
 
 import { useEffect, useRef, useState } from "react";
@@ -13,26 +13,30 @@ import { useLocale, useT } from "@evinvest/i18n/react";
 import { Alert, AlertDescription, Badge, Button, Card, CardContent, Spinner } from "@evinvest/uikit";
 
 import { cancelFeePolicyChange } from "@/entities/admin/api/admin-client";
-import type { FeePolicyChange } from "@/shared/contracts/admin";
+import { FeeTermsDiff } from "@/entities/fund/ui/fee-terms-diff";
+import type { FeePolicy, FeePolicyChange } from "@/shared/contracts/admin";
 import { errorMessage, RequestError } from "@/shared/lib/api-client";
 import { TAG } from "@/shared/lib/cache-tags";
 import { cn } from "@/shared/lib/cn";
 import { formatMoment } from "@/shared/lib/datetime";
 import { stripTransportPrefix } from "@/shared/lib/hub-refusal";
 import { revalidateTag } from "@/shared/lib/resource";
-import { changeStateLabel, changeStateTone, termsSummary } from "@/views/admin/fees/lib/format";
+import { changeStateLabel, changeStateTone } from "@/views/admin/fees/lib/format";
 import { receiptKind } from "@/views/admin/fees/lib/receipt";
+import { ApprovalStatus } from "@/views/admin/fees/ui/approval-status";
 import { NoticeWaiver } from "@/views/admin/fees/ui/notice-waiver";
 import { ago } from "@/views/admin/lib/format";
-import { PLATFORM_APPROVALS_URL } from "@/shared/config/platform-admin";
 
-export function PendingCard({ change, onCancelled }: { change: FeePolicyChange; onCancelled: () => void }) {
+/** `current` is the terms in force, `null` when the fund charges nothing yet: the diff's
+ *  "Now" column. A history row keeps no "from" terms, so only the pending card has them. */
+export function PendingCard({ change, current, onCancelled }: { change: FeePolicyChange; current: FeePolicy | null; onCancelled: () => void }) {
   const t = useT();
   const locale = useLocale();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const awaiting = change.state === "awaiting_consilium";
+  const owners = change.requirement === "owner_consilium";
   // A product nobody holds binds at the request itself and the card lives for the minute
   // until the sweeper applies it — "holders have been notified" would name nobody.
   const [kind] = useState(() => receiptKind(change, Math.floor(Date.now() / 1000)));
@@ -75,10 +79,10 @@ export function PendingCard({ change, onCancelled }: { change: FeePolicyChange; 
             {changeStateLabel(change.state, t)}
           </Badge>
         </div>
-        <p className="text-sm tabular-nums">{termsSummary(change, t)}</p>
+        <FeeTermsDiff from={current} to={change} />
         <p className="text-xs text-ink-soft">
           {awaiting
-            ? t("admin.fees.pending.awaiting", "Version {version} awaits the owners' approval. It binds 24 hours after they carry it, while anyone holds units.", { version: change.version })
+            ? t("admin.fees.pending.awaitingProvisional", "Version {version} awaits the owners' approval. Provisional start: {at}. While anyone holds units, it binds no earlier than 24 hours after they carry it, so the date can move later.", { version: change.version, at: formatMoment(change.effective_from, locale) })
             : kind === "immediate"
               ? t("admin.fees.pending.immediate", "Version {version} takes effect now and is applied within a minute. Nobody holds units, so no notice was sent.", { version: change.version })
               : t("admin.fees.pending.scheduled", "Version {version} takes effect on {at}. Holders have been notified.", { version: change.version, at: formatMoment(change.effective_from, locale) })}
@@ -87,6 +91,7 @@ export function PendingCard({ change, onCancelled }: { change: FeePolicyChange; 
           <blockquote className="border-l-2 border-accent-warn/60 pl-3 text-sm leading-relaxed">{change.reason.trim()}</blockquote>
         )}
         <p className="text-xs text-ink-soft">{t("admin.fees.pending.requested", "Requested {when}", { when: ago(change.requested_at, t) })}</p>
+        {owners && <ApprovalStatus change={change} />}
         <NoticeWaiver change={change} />
 
         {problem && <p className="text-xs text-accent-error">{problem}</p>}
@@ -94,7 +99,7 @@ export function PendingCard({ change, onCancelled }: { change: FeePolicyChange; 
         {confirming ? (
           <Alert variant="destructive" role="status">
             <AlertDescription className="gap-3">
-              <p className="text-sm leading-relaxed">{(awaiting ? t("admin.fees.cancelWarningAwaiting", "Cancelling withdraws the change and takes its consilium down with it, voiding every approval collected so far. The owners who have already answered would each have to answer again.") : t("admin.fees.cancelWarning", "Cancelling withdraws the change. The fund keeps its current terms, and the holders who were notified will not see the new ones."))}</p>
+              <p className="text-sm leading-relaxed">{(awaiting ? t("admin.fees.cancelWarningWithdraws", "Cancelling withdraws the change and its proposal from the owners' approvals. The votes given so far stop counting, and a new request starts a new vote.") : t("admin.fees.cancelWarning", "Cancelling withdraws the change. The fund keeps its current terms, and the holders who were notified will not see the new ones."))}</p>
               <div className="flex flex-col gap-2.5 sm:flex-row">
                 <Button variant="destructive" size="sm" disabled={busy} onClick={() => void cancel()}>
                   {busy && <Spinner aria-hidden />}
@@ -109,13 +114,8 @@ export function PendingCard({ change, onCancelled }: { change: FeePolicyChange; 
           </Alert>
         ) : (
           <div className="flex flex-wrap gap-2">
-            {awaiting && (
-              <Button asChild size="sm" variant="outline">
-                <a href={PLATFORM_APPROVALS_URL}>{t("admin.payments.openConsilium", "Open the consilium")}</a>
-              </Button>
-            )}
             <Button variant="ghost" size="sm" onClick={() => setConfirming(true)}>
-              {t("admin.fees.cancelChange", "Cancel this change")}
+              {awaiting && owners ? t("admin.fees.cancelWithdraw", "Cancel and withdraw the proposal") : t("admin.fees.cancelChange", "Cancel this change")}
             </Button>
           </div>
         )}

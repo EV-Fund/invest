@@ -123,7 +123,12 @@ export interface FeePolicyList {
  *  break the build. The names this build knows are `admin.feeChange.state.*`. */
 export type FeePolicyChangeState = "awaiting_consilium" | "scheduled" | "active" | "superseded" | "rejected" | "cancelled" | string;
 
-/** Who had to agree: one `AllocationManage` holder, or the owners' consilium. */
+/** Where the owners' decision on a change stands in concierge. The names this build knows
+ *  are `admin.fees.approval.state.*`. */
+export type ApprovalState = "open" | "passed" | "executed" | "execution_failed" | "rejected" | "vetoed" | "expired" | "cancelled" | "void" | string;
+
+/** Who had to agree: one `AllocationManage` holder, or the platform owners through
+ *  concierge's approvals (`invest:fee_policy`). The wire word keeps its banking-era name. */
 export type FeePolicyRequirement = "admin" | "owner_consilium" | string;
 
 /**
@@ -141,8 +146,19 @@ export interface FeePolicyChange extends FeeTerms {
   state: FeePolicyChangeState;
   effective_from: string;
   requirement: FeePolicyRequirement;
-  /** The consilium this change waits on; `null` for an administrator's change. */
+  /** The concierge approval (`invest:fee_policy`) this change waits on or waited on; the
+   *  field keeps its banking-era name. `null` for an administrator's change, for an owner
+   *  change not proposed yet (concierge was out of reach; invest proposes it on a later
+   *  round), and for a caller without `AllocationManage`. */
   consilium_id?: string | null;
+  /** concierge's state of that approval as invest last read it. `passed` while `state` is
+   *  still `awaiting_consilium` means the owners carried it, but any owner may veto it until
+   *  the 24h delay ends; invest schedules it after that. `null` when there is no approval.
+   *  An open string for the reason `FeePolicyChangeState` gives. */
+  approval_state: ApprovalState | null;
+  /** How many holders the proposal told the owners would be notified, counted when it was
+   *  proposed; `null` when invest did not propose the change. */
+  approval_holders: number | null;
   requested_by: string;
   requested_at: string;
   scheduled_at: string;

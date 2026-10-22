@@ -15,6 +15,7 @@ import { cn } from "@/shared/lib/cn";
 import { formatMoment, hasStamp } from "@/shared/lib/datetime";
 import { useResource } from "@/shared/lib/resource";
 import { ResourceError } from "@/shared/ui/resource-error";
+import { approvalStateLabel } from "@/views/admin/fees/lib/approval";
 import { changeStateLabel, changeStateTone, termsSummary } from "@/views/admin/fees/lib/format";
 import { WaiverNote } from "@/views/admin/fees/ui/notice-waiver";
 import { TABLE_HEAD } from "@/views/admin/lib/table";
@@ -65,12 +66,21 @@ export function ChangeHistory({ service }: { service: string }) {
                     <Badge variant="outline" className={cn(changeStateTone(c.state))}>
                       {changeStateLabel(c.state, t)}
                     </Badge>
+                    {/* Only rows invest proposed carry a state; rows imported from banking
+                        name their old consilium and have none. */}
+                    {c.approval_state !== null && (
+                      <p className="mt-1 text-xs text-ink-soft">{t("admin.fees.approval.historyNote", "Owners: {state}", { state: approvalStateLabel(c, t) })}</p>
+                    )}
                     <WaiverNote change={c} />
                   </TableCell>
                   <TableCell className="align-top tabular-nums">{termsSummary(c, t)}</TableCell>
-                  {/* "0" while a change awaits the owners: the moment is not known until
-                      they carry it, and a dash says so better than 1 Jan 1970 would. */}
-                  <TableCell className="align-top tabular-nums text-ink-soft">{hasStamp(c.effective_from) ? formatMoment(c.effective_from, locale) : "—"}</TableCell>
+                  {/* While a change awaits the owners the moment is provisional: the notice
+                      counts from their approval, so it can only move later. A "0" from an
+                      older row renders as a dash, not 1 Jan 1970. */}
+                  <TableCell className="align-top tabular-nums text-ink-soft">
+                    {hasStamp(c.effective_from) ? formatMoment(c.effective_from, locale) : "—"}
+                    {c.state === "awaiting_consilium" && hasStamp(c.effective_from) && <span className="block text-xs">{t("admin.fees.provisional", "provisional")}</span>}
+                  </TableCell>
                   {/* The one free-text column: it wraps (uikit cells default to nowrap) so a
                       long reason costs height, not a sideways scroll of the whole table. */}
                   <TableCell className="max-w-xs align-top whitespace-normal text-ink-soft">{c.reason.trim() || "—"}</TableCell>

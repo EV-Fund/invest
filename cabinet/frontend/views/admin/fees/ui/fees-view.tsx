@@ -122,6 +122,7 @@ export function FeesView() {
                 <PendingCard
                   key={pending.id}
                   change={pending}
+                  current={policy?.configured ? policy : null}
                   onCancelled={() => {
                     setReceipt(null);
                     setCancelledIn(selected);

@@ -559,13 +559,117 @@
     "en": "Superseded",
     "t": "Заменено"
   },
+  "admin.fees.approval.historyNote": {
+    "en": "Owners: {state}",
+    "t": "Владельцы: {state}"
+  },
+  "admin.fees.approval.holders": {
+    "en": "The proposal tells the owners that {count, plural, one {# holder} other {# holders}} will be notified.",
+    "t": "Предложение сообщает владельцам, что уведомление получат {count, plural, one {# держатель} few {# держателя} many {# держателей} other {# держателя}}."
+  },
+  "admin.fees.approval.id": {
+    "en": "Approval id",
+    "t": "Идентификатор согласования"
+  },
+  "admin.fees.approval.line.cancelled": {
+    "en": "The proposal was withdrawn, so the votes given on it no longer count.",
+    "t": "Предложение отозвано, поэтому поданные по нему голоса больше не учитываются."
+  },
+  "admin.fees.approval.line.executed": {
+    "en": "The owners carried the change, and invest scheduled it.",
+    "t": "Владельцы одобрили изменение, и invest его запланировал."
+  },
+  "admin.fees.approval.line.execution_failed": {
+    "en": "The owners carried the change, but invest could not schedule it. The change is closed.",
+    "t": "Владельцы одобрили изменение, но invest не смог его запланировать. Изменение закрыто."
+  },
+  "admin.fees.approval.line.expired": {
+    "en": "The owners did not decide within 72 hours, so the proposal expired.",
+    "t": "Владельцы не приняли решение за 72 часа, поэтому срок предложения истёк."
+  },
+  "admin.fees.approval.line.open": {
+    "en": "The owners are voting. The change passes when more than half of them approve it.",
+    "t": "Владельцы голосуют. Изменение принимается, когда его одобряют больше половины из них."
+  },
+  "admin.fees.approval.line.passed": {
+    "en": "The owners carried the change, and invest scheduled it.",
+    "t": "Владельцы одобрили изменение, и invest запланировал его."
+  },
+  "admin.fees.approval.line.passedAwaiting": {
+    "en": "The owners carried the change. Any owner can still veto it during the 24-hour delay that follows; after that, invest schedules it.",
+    "t": "Владельцы одобрили изменение. Любой владелец ещё может наложить вето в течение следующих 24 часов; после этого invest его запланирует."
+  },
+  "admin.fees.approval.line.rejected": {
+    "en": "The owners rejected the change. The fund keeps its current terms.",
+    "t": "Владельцы отклонили изменение. Фонд сохраняет текущие условия."
+  },
+  "admin.fees.approval.line.unproposed": {
+    "en": "concierge could not be reached when you asked. invest proposes the change to the owners again within a minute.",
+    "t": "Когда вы отправили запрос, concierge был недоступен. invest снова предложит изменение владельцам в течение минуты."
+  },
+  "admin.fees.approval.line.vetoed": {
+    "en": "An owner vetoed the change. The fund keeps its current terms.",
+    "t": "Один из владельцев наложил вето. Фонд сохраняет текущие условия."
+  },
+  "admin.fees.approval.line.void": {
+    "en": "concierge voided the proposal, so the votes given on it no longer count.",
+    "t": "concierge аннулировал предложение, поэтому поданные по нему голоса больше не учитываются."
+  },
+  "admin.fees.approval.state.cancelled": {
+    "en": "Withdrawn",
+    "t": "Отозвано"
+  },
+  "admin.fees.approval.state.executed": {
+    "en": "Carried out",
+    "t": "Исполнено"
+  },
+  "admin.fees.approval.state.execution_failed": {
+    "en": "Could not be carried out",
+    "t": "Не удалось исполнить"
+  },
+  "admin.fees.approval.state.expired": {
+    "en": "Expired",
+    "t": "Истекло"
+  },
+  "admin.fees.approval.state.open": {
+    "en": "Voting",
+    "t": "Идёт голосование"
+  },
+  "admin.fees.approval.state.passed": {
+    "en": "Carried",
+    "t": "Одобрено"
+  },
+  "admin.fees.approval.state.rejected": {
+    "en": "Rejected",
+    "t": "Отклонено"
+  },
+  "admin.fees.approval.state.unknown": {
+    "en": "State not known",
+    "t": "Состояние неизвестно"
+  },
+  "admin.fees.approval.state.unproposed": {
+    "en": "Not proposed yet",
+    "t": "Ещё не предложено"
+  },
+  "admin.fees.approval.state.vetoed": {
+    "en": "Vetoed",
+    "t": "Вето"
+  },
+  "admin.fees.approval.state.void": {
+    "en": "Voided",
+    "t": "Аннулировано"
+  },
+  "admin.fees.approval.title": {
+    "en": "Owners' approval",
+    "t": "Согласование владельцев"
+  },
   "admin.fees.askOwners": {
     "en": "Ask the owners",
     "t": "Запросить владельцев"
   },
-  "admin.fees.awaitingBody": {
-    "en": "The owners have each been emailed a link. Version {version} is scheduled only once more than half of them approve, and binds 24 hours after that while anyone holds units. The live tally is in the consilium.",
-    "t": "Каждому владельцу отправлена ссылка. Версия {version} будет назначена, только когда одобрит больше половины из них, и вступит в силу через 24 часа после этого, пока у кого-то есть юниты. Текущий подсчёт — в консилиуме."
+  "admin.fees.awaitingApprovalsBody": {
+    "en": "Version {version} went to the owners' approvals. It is scheduled only once more than half of them approve and no owner vetoes it within 24 hours, and while anyone holds units it binds 24 hours after that. The owners vote in the central admin.",
+    "t": "Версия {version} отправлена на согласование владельцам. Её запланируют, только если больше половины владельцев одобрят её и никто не наложит вето в течение 24 часов; пока кто-то держит паи, она вступит в силу ещё через 24 часа. Владельцы голосуют в центральной админке."
   },
   "admin.fees.awaitingTitle": {
     "en": "Sent to the owners — nothing has changed yet",
@@ -595,9 +699,13 @@
     "en": "Cancelling withdraws the change. The fund keeps its current terms, and the holders who were notified will not see the new ones.",
     "t": "Отмена отзывает изменение. Фонд сохраняет текущие условия, и уведомлённые держатели новых не увидят."
   },
-  "admin.fees.cancelWarningAwaiting": {
-    "en": "Cancelling withdraws the change and takes its consilium down with it, voiding every approval collected so far. The owners who have already answered would each have to answer again.",
-    "t": "Отмена отзывает изменение и закрывает его консилиум, аннулируя все собранные одобрения. Владельцам, которые уже ответили, придётся отвечать заново."
+  "admin.fees.cancelWarningWithdraws": {
+    "en": "Cancelling withdraws the change and its proposal from the owners' approvals. The votes given so far stop counting, and a new request starts a new vote.",
+    "t": "Отмена отзывает изменение и его предложение из согласований владельцев. Уже поданные голоса перестают учитываться, а новый запрос начнёт новое голосование."
+  },
+  "admin.fees.cancelWithdraw": {
+    "en": "Cancel and withdraw the proposal",
+    "t": "Отменить и отозвать предложение"
   },
   "admin.fees.chargedOn": {
     "en": "Charged on",
@@ -827,9 +935,13 @@
     "en": "{n, plural, one {# notice is} other {# notices are}} still being delivered. A change that tightens the terms waits for every holder to be told; there is nothing to do unless the mailer gives up on one.",
     "t": "{n, plural, one {# уведомление ещё доставляется} few {# уведомления ещё доставляются} many {# уведомлений ещё доставляются} other {# уведомления ещё доставляются}}. Изменение, ужесточающее условия, ждёт, пока будут уведомлены все держатели; делать ничего не нужно, пока рассылка не откажется от попыток."
   },
-  "admin.fees.pending.awaiting": {
-    "en": "Version {version} awaits the owners' approval. It binds 24 hours after they carry it, while anyone holds units.",
-    "t": "Версия {version} ждёт одобрения владельцев. Она вступит в силу через 24 часа после их решения, пока у кого-то есть юниты."
+  "admin.fees.openApprovals": {
+    "en": "Open the owners' approvals",
+    "t": "Открыть согласования владельцев"
+  },
+  "admin.fees.pending.awaitingProvisional": {
+    "en": "Version {version} awaits the owners' approval. Provisional start: {at}. While anyone holds units, it binds no earlier than 24 hours after they carry it, so the date can move later.",
+    "t": "Версия {version} ждёт одобрения владельцев. Предварительная дата начала: {at}. Пока кто-то держит паи, она вступит в силу не раньше чем через 24 часа после одобрения, поэтому дата может сдвинуться позже."
   },
   "admin.fees.pending.immediate": {
     "en": "Version {version} takes effect now and is applied within a minute. Nobody holds units, so no notice was sent.",
@@ -871,6 +983,10 @@
     "en": "Every 6 months",
     "t": "Раз в полгода"
   },
+  "admin.fees.provisional": {
+    "en": "provisional",
+    "t": "предварительно"
+  },
   "admin.fees.reason": {
     "en": "Reason",
     "t": "Причина"
@@ -891,9 +1007,9 @@
     "en": "No vote needed: one administrator may make this change. Holders are mailed the notice when it is scheduled.",
     "t": "Голосование не нужно: это изменение может внести один администратор. Держателям отправят уведомление, когда оно будет назначено."
   },
-  "admin.fees.requirement.consilium": {
-    "en": "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. You must be an owner to open the request.",
-    "t": "Требуется одобрение владельцев: эти условия ужесточают текущие сверх домашних 2 и 20 либо снижают барьер. Открыть запрос может только владелец."
+  "admin.fees.requirement.owners": {
+    "en": "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. The request goes to the owners' approvals in the central admin.",
+    "t": "Нужно одобрение владельцев: эти условия ужесточают текущие сверх принятых 2 и 20 или снижают барьерную доходность. Запрос уходит на согласование владельцам в центральной админке."
   },
   "admin.fees.scheduleChange": {
     "en": "Schedule the change",
@@ -1026,10 +1142,6 @@
   "admin.kyc.verified": {
     "en": "Verified",
     "t": "Верификация"
-  },
-  "admin.payments.openConsilium": {
-    "en": "Open the consilium",
-    "t": "Открыть консилиум"
   },
   "admin.rail.bep20": {
     "en": "BEP20 · BNB Chain",
@@ -1558,6 +1670,18 @@
   "err.verificationRequired": {
     "en": "Verify your identity to continue.",
     "t": "Подтвердите личность, чтобы продолжить."
+  },
+  "fund.feeDiff.nothingCharged": {
+    "en": "Nothing charged",
+    "t": "Без комиссии"
+  },
+  "fund.feeDiff.now": {
+    "en": "Now",
+    "t": "Сейчас"
+  },
+  "fund.feeDiff.proposed": {
+    "en": "Proposed",
+    "t": "Предложено"
   },
   "invest.about.risk": {
     "en": "Units can fall in value as well as rise. The NAV is set by a posted valuation, not by a market price, and past marks are no guide to future ones. Cash comes back only when a redemption settles or a buyer takes your units on the book. Invest only what you can afford to leave in.",
