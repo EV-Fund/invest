@@ -11,12 +11,12 @@
 //! before the new one binds.
 //!
 //! Moved from banking 9ffafce3 (`piggybank/core/tests/fee_policy_changes.rs`), cut to what
-//! invest does. Two things are not here yet, and their tests stayed in banking: the
-//! owners' approval of a change beyond the house envelope (concierge's approvals; until
-//! invest is their client such a change is refused, which is pinned below), and delivering
-//! the holders' notices (concierge's scope notifications; until then a notice is recorded
-//! given up on). A notifier's outcomes are stood in for by writing `fee_policy_notices`
-//! directly — the columns it will stamp are the ones the promotion gate reads. banking's
+//! invest does. The owners' approval of a change beyond the house envelope is concierge's
+//! and has its own suite (`tests/fee_policy_approvals.rs`); what is pinned here is only how
+//! such a change is recorded. Delivering the holders' notices has its own suite too
+//! (`tests/fee_policy_notices.rs`): a notice is recorded undelivered, and the sender's outcomes
+//! are stood in for here by writing `fee_policy_notices` directly — the columns it stamps are
+//! the ones the promotion gate reads. banking's
 //! legacy-row tests are not here either: invest's ceilings are validated CHECKs (0001), so
 //! an active row above them cannot exist to be lowered.
 
@@ -53,11 +53,7 @@ async fn harness() -> Option<Harness> {
 }
 
 fn policy_ports(h: &Harness) -> fee_app::FeePolicyPorts<'_> {
-	fee_app::FeePolicyPorts {
-		policies: &h.policies,
-		changes: &h.changes,
-		allocations: &h.allocations,
-	}
+	h.fee_policy_ports()
 }
 
 /// The terms as an `AllocationManage` holder reads them: every product, hidden or not.
@@ -123,6 +119,7 @@ async fn schedule(h: &Harness, requester: UserId, service: &ServiceId, policy: F
 			policy,
 			requested_effective_from_unix: effective_from,
 			reason: reason.to_owned(),
+			requester_proof: None,
 		},
 		now(),
 	)
@@ -192,6 +189,15 @@ async fn still_trying(h: &Harness, change: &FeePolicyChange, user: UserId) {
 	sqlx::query("UPDATE fee_policy_notices SET given_up_at = NULL WHERE change_id = $1 AND user_id = $2")
 		.bind(change.id.raw())
 		.bind(user.raw())
+		.execute(&h.pool)
+		.await
+		.unwrap();
+}
+
+/// Stand in for the notice sender giving up on every holder of `change`: nobody could be reached.
+async fn nobody_reached(h: &Harness, change: &FeePolicyChange) {
+	sqlx::query("UPDATE fee_policy_notices SET given_up_at = now() WHERE change_id = $1 AND delivered_at IS NULL")
+		.bind(change.id.raw())
 		.execute(&h.pool)
 		.await
 		.unwrap();
@@ -426,14 +432,13 @@ async fn a_change_over_a_held_fund_waits_out_the_notice_and_records_a_notice_per
 	);
 	assert!(change.effective_from_unix <= now() + MIN_NOTICE_SECS + CLOCK_SLACK);
 
-	// One notice per holder, in the same transaction — given up on as it is recorded: invest
-	// has no channel to deliver one yet, and says so on the row rather than pretending.
+	// One notice per holder, in the same transaction, undelivered: the sender's to deliver.
 	let recorded = notices(&h, &change).await;
 	let mut expected = vec![first.raw(), second.raw()];
 	expected.sort();
 	assert_eq!(recorded.iter().map(|notice| notice.user).collect::<Vec<_>>(), expected);
-	assert!(recorded.iter().all(|notice| notice.given_up && !notice.delivered && !notice.withdrawn), "{recorded:?}");
-	assert_eq!((change.undelivered_notices, change.notices_given_up), (2, 2));
+	assert!(recorded.iter().all(|notice| !notice.given_up && !notice.delivered && !notice.withdrawn), "{recorded:?}");
+	assert_eq!((change.undelivered_notices, change.notices_given_up), (2, 0));
 
 	// Not due yet: the old terms stay live and the sweeper leaves the change alone.
 	assert!(!h.changes.due(now()).await.unwrap().contains(&change.id));
@@ -468,6 +473,7 @@ async fn a_tightening_does_not_bind_over_a_holder_who_was_never_told() {
 	assert_eq!(change.requirement, ChangeRequirement::Admin);
 	assert_eq!(notices(&h, &change).await.len(), 1);
 	let_the_notice_run(&h, &change).await;
+	nobody_reached(&h, &change).await;
 
 	// Nobody could tell the holder: dearer terms do not bind over them.
 	let refused = h.changes.promote(change.id, now()).await.unwrap_err();
@@ -502,7 +508,7 @@ async fn cancelling_a_change_withdraws_the_notices_not_delivered() {
 	deliver_notice(&h, &change, told).await;
 	assert_eq!(change_of(&h, &change).await.undelivered_notices, 1);
 
-	let cancelled = fee_app::cancel_change(&h.changes, &service, change.id, UserId::new(), now()).await.unwrap();
+	let cancelled = fee_app::cancel_change(&policy_ports(&h), &service, change.id, UserId::new(), now()).await.unwrap();
 	assert_eq!(cancelled.state, FeePolicyChangeState::Cancelled);
 	assert_eq!(cancelled.undelivered_notices, 0, "a closed change is owed to nobody");
 	let rows = notices(&h, &change).await;
@@ -571,12 +577,12 @@ async fn a_holder_invest_does_not_know_still_gets_the_notice_period() {
 	assert_eq!(h.policies.find(&service).await.unwrap(), Some(FeePolicy::HOUSE));
 }
 
-/// A tightening beyond the house envelope is the owners' to carry, and invest cannot ask
-/// them yet (concierge's approvals): it is refused — before anything is written, whether
-/// it comes through the use case or straight at the store — rather than scheduled on one
-/// administrator's word.
+/// A tightening beyond the house envelope is the owners' to carry: it says why, and it is
+/// recorded waiting for them — no notice, no notice clock, and the holder count the
+/// proposal names — never scheduled on one administrator's word, whether it comes through
+/// the use case or straight at the store.
 #[tokio::test]
-async fn a_tightening_beyond_the_envelope_is_refused_until_invest_can_ask_the_owners() {
+async fn a_tightening_beyond_the_envelope_waits_for_the_owners() {
 	let Some(h) = harness().await else { return };
 	let service = unique_service();
 	open_fund(&h, &service).await;
@@ -587,8 +593,10 @@ async fn a_tightening_beyond_the_envelope_is_refused_until_invest_can_ask_the_ow
 	// refused as such first.
 	let err = schedule(&h, UserId::new(), &service, dearer(), 0, "  ").await.unwrap_err();
 	assert!(matches!(err, DomainError::Validation(_)), "got {err:?}");
-	let err = schedule(&h, UserId::new(), &service, dearer(), 0, "the new mandate costs more to run").await.unwrap_err();
-	assert!(matches!(err, DomainError::Precondition(ref m) if m.contains("owners")), "got {err:?}");
+	let err = schedule(&h, UserId::new(), &service, dearer(), 0, "see https://example.org").await.unwrap_err();
+	assert!(matches!(err, DomainError::Validation(ref m) if m.contains("link")), "got {err:?}");
+	assert!(h.changes.pending(&service).await.unwrap().is_none(), "nothing was recorded");
+
 	let direct = NewFeePolicyChange {
 		id: FeePolicyChangeId::new(),
 		service: service.clone(),
@@ -599,10 +607,14 @@ async fn a_tightening_beyond_the_envelope_is_refused_until_invest_can_ask_the_ow
 		reason: "the new mandate costs more to run".into(),
 		now_unix: now(),
 	};
-	let err = h.changes.schedule(&direct).await.unwrap_err();
-	assert!(matches!(err, DomainError::Precondition(ref m) if m.contains("owners")), "got {err:?}");
-	assert!(h.changes.pending(&service).await.unwrap().is_none(), "nothing was recorded");
-	assert_eq!(h.changes.list(&service).await.unwrap().len(), 1, "only the installed terms are on record");
+	let waiting = h.changes.schedule(&direct).await.unwrap();
+	assert_eq!(waiting.state, FeePolicyChangeState::AwaitingConsilium);
+	assert_eq!(waiting.scheduled_at_unix, None, "the notice clock starts when the owners carry it");
+	assert_eq!((waiting.approval_id, waiting.approval_state, waiting.approval_holders), (None, None, Some(1)));
+	assert!(notices(&h, &waiting).await.is_empty(), "nobody is told about terms the owners have not carried");
+	assert_eq!(h.changes.pending(&service).await.unwrap().map(|c| c.id), Some(waiting.id), "it holds the one pending slot");
+	assert!(!h.changes.promote(waiting.id, now() + YEAR).await.unwrap(), "a change awaiting the owners never binds");
+	assert!(h.approvals.proposals().is_empty(), "the store proposes nothing; the use case does");
 }
 
 #[tokio::test]
@@ -629,7 +641,9 @@ async fn an_acknowledged_notice_lets_a_tightening_bind_and_the_history_says_who_
 	let unreachable = holder(&h, &service, "1000").await;
 	let requester = UserId::new();
 	let change = schedule(&h, requester, &service, FeePolicy::HOUSE, 0, "").await.unwrap();
-	assert_eq!((change.undelivered_notices, change.notices_given_up), (1, 1), "one holder, given up on as recorded");
+	nobody_reached(&h, &change).await;
+	let change = change_of(&h, &change).await;
+	assert_eq!((change.undelivered_notices, change.notices_given_up), (1, 1), "one holder, given up on");
 	assert_eq!(change.notices_waiver, None);
 	let_the_notice_run(&h, &change).await;
 
@@ -670,6 +684,7 @@ async fn an_acknowledgement_covers_the_holders_of_its_moment_and_no_one_else() {
 	let requester = UserId::new();
 	let change = schedule(&h, requester, &service, FeePolicy::HOUSE, 0, "").await.unwrap();
 	assert_eq!(change.undelivered_notices, 2);
+	nobody_reached(&h, &change).await;
 	let_the_notice_run(&h, &change).await;
 
 	// `away` holds nothing at the moment of the acknowledgement, so it names `untold` alone.
@@ -759,6 +774,7 @@ async fn a_later_acknowledgement_adds_the_holders_given_up_on_since_and_stands_a
 	let requester = UserId::new();
 	let change = schedule(&h, requester, &service, FeePolicy::HOUSE, 0, "").await.unwrap();
 	// The second holder's notice is still being tried when the first acknowledgement is given.
+	give_up(&h, &change, first_lost).await;
 	still_trying(&h, &change, second_lost).await;
 	assert_eq!(change_of(&h, &change).await.notices_unacknowledged, 1, "one holder to offer the acknowledgement over");
 	let first = acknowledge(&h, &service, &change, requester).await.unwrap();
@@ -800,6 +816,7 @@ async fn an_acknowledgement_is_the_requesters_and_the_schema_holds_it_whole() {
 	let unreachable = holder(&h, &service, "1000").await;
 	let requester = UserId::new();
 	let change = schedule(&h, requester, &service, FeePolicy::HOUSE, 0, "").await.unwrap();
+	nobody_reached(&h, &change).await;
 
 	// Another administrator — `AllocationManage` alone — may not waive the holders' notice
 	// on a change somebody else asked for.
@@ -888,11 +905,11 @@ async fn one_change_is_on_its_way_per_product_until_it_is_cancelled() {
 	assert!(err.to_string().contains("cancel it"), "the refusal must say what to do: {err}");
 
 	let admin = UserId::new();
-	let cancelled = fee_app::cancel_change(&h.changes, &service, first.id, admin, now()).await.unwrap();
+	let cancelled = fee_app::cancel_change(&policy_ports(&h), &service, first.id, admin, now()).await.unwrap();
 	assert_eq!(cancelled.state, FeePolicyChangeState::Cancelled);
 	// Idempotent, and never promoted.
 	assert_eq!(
-		fee_app::cancel_change(&h.changes, &service, first.id, admin, now()).await.unwrap().state,
+		fee_app::cancel_change(&policy_ports(&h), &service, first.id, admin, now()).await.unwrap().state,
 		FeePolicyChangeState::Cancelled
 	);
 	let_the_notice_run(&h, &first).await;
@@ -911,13 +928,13 @@ async fn one_change_is_on_its_way_per_product_until_it_is_cancelled() {
 	.await
 	.unwrap();
 	assert!(matches!(
-		fee_app::cancel_change(&h.changes, &unique_service(), second.id, admin, now()).await.unwrap_err(),
+		fee_app::cancel_change(&policy_ports(&h), &unique_service(), second.id, admin, now()).await.unwrap_err(),
 		DomainError::NotFound { .. }
 	));
 	// A live version cannot be cancelled: it is not on its way anywhere.
 	let active = h.changes.list(&service).await.unwrap().into_iter().find(|row| row.state == FeePolicyChangeState::Active).unwrap();
 	assert!(matches!(
-		fee_app::cancel_change(&h.changes, &service, active.id, admin, now()).await.unwrap_err(),
+		fee_app::cancel_change(&policy_ports(&h), &service, active.id, admin, now()).await.unwrap_err(),
 		DomainError::Conflict(_)
 	));
 }
@@ -1139,6 +1156,7 @@ async fn the_horizon_is_inclusive_at_366_days_and_refuses_the_next_second() {
 		policy: FeePolicy::HOUSE,
 		requested_effective_from_unix: effective_from,
 		reason: String::new(),
+		requester_proof: None,
 	};
 
 	let err = fee_app::schedule_policy(&policy_ports(&h), UserId::new(), request(at + MAX_EFFECTIVE_FROM_HORIZON_SECS + 1), at)

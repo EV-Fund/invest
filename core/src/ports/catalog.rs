@@ -31,8 +31,12 @@ pub trait CatalogPublisher: Send + Sync {
 
 /// The scope catalog's version: unix seconds, same comparison as [`CATALOG_VERSION`] and
 /// kept apart from it because concierge stores the two catalogs separately. Bump it with
-/// every change of [`ScopeCatalog::invest`] (a test pins the two together).
-pub const SCOPE_CATALOG_VERSION: u64 = 1_792_195_200;
+/// every change of [`ScopeCatalog::invest`] (a test pins the two together). concierge also
+/// refuses a version more than a day ahead of its clock, so the bump is never a future date.
+pub const SCOPE_CATALOG_VERSION: u64 = 1_792_692_000;
+
+/// The topic of the holders' notice of a fee-policy change (`application::fee_notices`).
+pub const FEE_TERMS_TOPIC: &str = "invest:fee-terms";
 
 /// One notification topic invest emits on.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -41,32 +45,144 @@ pub struct TopicSpec {
 	pub label: &'static str,
 	pub description: &'static str,
 	pub default_subscribed: bool,
+	/// `Some(why)` for a notice a member cannot switch off: concierge delivers it to every
+	/// active member of the scope whatever they chose, and shows them `why` (plain text, at
+	/// most 120 bytes; at most 3 such topics per catalog).
+	pub required_reason: Option<&'static str>,
+}
+
+/// Who decides a kind (concierge §5.2).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum KindLevel {
+	/// The persisted owners, more than half.
+	Platform,
+	/// The scope's admins, under the scope's policy.
+	Scope,
+}
+
+/// A field type concierge renders and hashes.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum FieldType {
+	Text,
+	Bps,
+	Flag,
+	/// Unix seconds.
+	Timestamp,
+	Count,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FieldSpec {
+	pub key: &'static str,
+	pub label: &'static str,
+	pub field_type: FieldType,
+	pub required: bool,
+}
+
+/// One approval kind invest proposes and executes. A PLATFORM kind escalates nowhere, so
+/// none of invest's kinds declares an escalation.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct KindSpec {
+	pub name: &'static str,
+	pub label: &'static str,
+	pub description: &'static str,
+	pub level: KindLevel,
+	pub fields: Vec<FieldSpec>,
+}
+
+/// The field keys of `invest:fee_policy`, shared by the catalog and the proposer.
+pub mod fee_policy_fields {
+	pub const ALLOCATION: &str = "allocation";
+	pub const CURRENT_MANAGEMENT: &str = "current_management";
+	pub const PROPOSED_MANAGEMENT: &str = "proposed_management";
+	pub const CURRENT_PERFORMANCE: &str = "current_performance";
+	pub const PROPOSED_PERFORMANCE: &str = "proposed_performance";
+	pub const CURRENT_HURDLE: &str = "current_hurdle";
+	pub const PROPOSED_HURDLE: &str = "proposed_hurdle";
+	pub const CURRENT_BASIS: &str = "current_basis";
+	pub const PROPOSED_BASIS: &str = "proposed_basis";
+	pub const CURRENT_CRYSTALLIZATION: &str = "current_crystallization";
+	pub const PROPOSED_CRYSTALLIZATION: &str = "proposed_crystallization";
+	/// The proposed terms leave the house envelope. The flag only informs the owners:
+	/// concierge holds `invest:fee_policy` at PLATFORM, so there is no scope level for it to
+	/// escalate from. The key is hashed with the other fields, so it is not renamed.
+	pub const RAISES_CEILING: &str = "raises_ceiling";
+	pub const EFFECTIVE_FROM: &str = "effective_from";
+	pub const HOLDERS_NOTIFIED: &str = "holders_notified";
+}
+
+/// `invest:fee_policy` at PLATFORM: the owners decide a fee change beyond the house envelope,
+/// as banking's consilium did (owner's decision, 2026-10-22).
+fn fee_policy_kind() -> KindSpec {
+	use fee_policy_fields as f;
+	let field = |key, label, field_type| FieldSpec {
+		key,
+		label,
+		field_type,
+		required: true,
+	};
+	KindSpec {
+		name: "invest:fee_policy",
+		label: "Fee-policy change",
+		description: "Change a fund's fee terms beyond the house envelope (at most 2% management and 20% performance, on invested capital, crystallized yearly), or lower its hurdle. When the owners pass it, the holders are told and the 24-hour notice period starts.",
+		level: KindLevel::Platform,
+		fields: vec![
+			field(f::ALLOCATION, "Fund", FieldType::Text),
+			field(f::CURRENT_MANAGEMENT, "Management fee now", FieldType::Bps),
+			field(f::PROPOSED_MANAGEMENT, "Management fee proposed", FieldType::Bps),
+			field(f::CURRENT_PERFORMANCE, "Performance fee now", FieldType::Bps),
+			field(f::PROPOSED_PERFORMANCE, "Performance fee proposed", FieldType::Bps),
+			field(f::CURRENT_HURDLE, "Hurdle now", FieldType::Bps),
+			field(f::PROPOSED_HURDLE, "Hurdle proposed", FieldType::Bps),
+			field(f::CURRENT_BASIS, "Management fee basis now", FieldType::Text),
+			field(f::PROPOSED_BASIS, "Management fee basis proposed", FieldType::Text),
+			field(f::CURRENT_CRYSTALLIZATION, "Crystallization now", FieldType::Text),
+			field(f::PROPOSED_CRYSTALLIZATION, "Crystallization proposed", FieldType::Text),
+			field(f::RAISES_CEILING, "Leaves the house envelope", FieldType::Flag),
+			field(f::EFFECTIVE_FROM, "Binds no earlier than", FieldType::Timestamp),
+			field(f::HOLDERS_NOTIFIED, "Holders to be notified", FieldType::Count),
+		],
+	}
 }
 
 /// What invest publishes to `ScopeCatalogService`: its notification topics and approval
 /// kinds. Published whole — whatever is left out is withdrawn.
 ///
-/// No approval kinds yet: invest does not open a proposal today (a fee change that needs
-/// the owners is refused), and concierge treats a kind it does not know in `invest:*` as a
-/// platform-level one, so declaring none costs nothing. The kinds are added together with
-/// the code that proposes them (`invest:fee_policy`, `invest:valuation_override`,
-/// `invest:holder_grant`).
+/// A kind is added together with the code that proposes it: concierge refuses a proposal
+/// of a kind the catalog in force does not declare. `invest:valuation_override` and
+/// `invest:holder_grant` are not proposed yet.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ScopeCatalog {
 	pub topics: Vec<TopicSpec>,
+	pub kinds: Vec<KindSpec>,
 }
 
 impl ScopeCatalog {
 	pub fn invest() -> Self {
 		Self {
-			topics: vec![TopicSpec {
-				topic: "invest:fund:quy-nhon",
-				label: "Quy Nhon fund",
-				description: "News and notices about the Quy Nhon fund.",
-				// Following it was an explicit choice before the topic moved here from
-				// `fund:quy-nhon`; concierge carried those subscriptions across.
-				default_subscribed: false,
-			}],
+			kinds: vec![fee_policy_kind()],
+			topics: vec![
+				TopicSpec {
+					topic: "invest:fund:quy-nhon",
+					label: "Quy Nhon fund",
+					description: "News and notices about the Quy Nhon fund.",
+					// Following it was an explicit choice before the topic moved here from
+					// `fund:quy-nhon`; concierge carried those subscriptions across.
+					default_subscribed: false,
+					required_reason: None,
+				},
+				TopicSpec {
+					topic: FEE_TERMS_TOPIC,
+					label: "Fee changes in your funds",
+					description: "A notice before the fee terms of a fund you hold change.",
+					// concierge ignores it on a required topic; kept on, so a concierge that drops
+					// `required` still sends the notice to a member who never chose.
+					default_subscribed: true,
+					// The notice the notice period exists for: a holder who switched it off would
+					// let dearer terms bind untold, or hold a change up for good.
+					required_reason: Some("Fee changes must reach every holder before they bind."),
+				},
+			],
 		}
 	}
 }
@@ -74,4 +190,8 @@ impl ScopeCatalog {
 #[async_trait]
 pub trait ScopeCatalogPublisher: Send + Sync {
 	async fn publish(&self, catalog: &ScopeCatalog, version: u64) -> Result<(), PublishError>;
+
+	/// The topics the catalog concierge holds now marks required. A concierge older than
+	/// v0.21.0 drops the flag without a word, so the publication alone does not prove it.
+	async fn required_topics(&self) -> Result<Vec<String>, PublishError>;
 }

@@ -134,17 +134,14 @@ async fn open_fund(h: &Harness, scope: &ScopeId, service: &ServiceId) {
 		policy: FeePolicy::HOUSE,
 		requested_effective_from_unix: 0,
 		reason: String::new(),
+		requester_proof: None,
 	};
 	let change = fee_app::schedule_policy(&fee_ports(h), UserId::new(), request, now_unix()).await.unwrap();
 	assert!(h.changes.promote(change.id, now_unix()).await.unwrap(), "a fund with no holders takes new terms at once");
 }
 
 fn fee_ports(h: &Harness) -> fee_app::FeePolicyPorts<'_> {
-	fee_app::FeePolicyPorts {
-		policies: &h.policies,
-		changes: &h.changes,
-		allocations: &h.allocations,
-	}
+	h.fee_policy_ports()
 }
 
 fn unique_service() -> ServiceId {
@@ -266,6 +263,7 @@ async fn a_reserved_allocation_takes_no_mark_and_no_fee_policy() {
 			policy: FeePolicy::HOUSE,
 			requested_effective_from_unix: 0,
 			reason: String::new(),
+			requester_proof: None,
 		};
 		let err = fee_app::schedule_policy(&fee_ports(&h), UserId::new(), request, now_unix()).await.unwrap_err();
 		assert!(matches!(err, DomainError::Validation(ref m) if m.contains("reserved")), "{reserved}: {err:?}");
@@ -387,6 +385,7 @@ async fn a_product_in_another_scope_charges_the_fee_holders_nothing() {
 		policy: FeePolicy::HOUSE,
 		requested_effective_from_unix: 0,
 		reason: String::new(),
+		requester_proof: None,
 	};
 	let err = fee_app::schedule_policy(&fee_ports(&h), UserId::new(), request, now_unix()).await.unwrap_err();
 	assert!(matches!(err, DomainError::Precondition(ref reason) if reason.contains("outside invest's scope")), "{err:?}");

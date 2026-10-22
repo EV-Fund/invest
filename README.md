@@ -102,7 +102,7 @@ invest-core reads the environment only; `core/.env.example` documents every vari
 | `AUTH_JWKS_GRPC_ENDPOINT` | — | concierge gRPC, for its JWKS |
 | `SCOPE_LEDGER_ADDR` | unset | banking's scope ledger (`https://…:50054`); unset ⇒ cash reads are unavailable |
 | `SCOPE_LEDGER_TLS_CA_PEM_FILE`, `SCOPE_LEDGER_TLS_CERT_PEM_FILE`, `SCOPE_LEDGER_TLS_KEY_PEM_FILE`, `SCOPE_LEDGER_TLS_DOMAIN` | unset | mTLS to banking; the three files are required with the address. The `typ=service` bearer is not configured: banking mints it for the certificate (`ScopeAuthService/MintServiceToken`, ~300 s) and invest renews it before it lapses |
-| `CONCIERGE_GRPC_ADDR` | unset | concierge's gRPC (`http://…:55670`, or its TLS listener `https://…:55672`), pulled for the `users` projection; unset ⇒ the projection does not run and nobody is known to invest |
+| `CONCIERGE_GRPC_ADDR` | unset | concierge's gRPC (`http://…:55670`, or its TLS listener `https://…:55672`), pulled for the `users` projection and used for the owners' approvals; unset ⇒ the projection does not run and nobody is known to invest. With `APP_ENV=production` only `https://` starts |
 | `CONCIERGE_CLIENT_ID` | `invest` | the relying-party client invest reads the streams as |
 | `CONCIERGE_CLIENT_SECRET` | unset | secret; concierge's `RP_CLIENT_SECRET_INVEST`; required with the address |
 | `CONCIERGE_TLS_CA_PEM_FILE`, `CONCIERGE_TLS_DOMAIN` | unset | the CA (required for `https://`) and the name of concierge's TLS listener |
@@ -144,8 +144,76 @@ unreachable: concierge resolves `invest:*` grants only against it.
 There is no "may use invest" permission: concierge grants a member nothing by default, so
 an investor is admitted by the projection (known, active), not by a permission. The
 version is `CATALOG_VERSION` (`core/src/ports/catalog.rs`) — bump it with every change.
-The scope catalog (approval kinds, notification topics) is published once invest opens a
-proposal or emits a notice; it does neither yet.
+The scope catalog (`ScopeCatalogService.PublishScopeCatalog`: approval kinds and
+notification topics) is published the same way at `SCOPE_CATALOG_VERSION`. concierge refuses
+a version older than the one it stores, so an older image cannot publish after a newer one.
+
+## Holder notices of a fee change
+
+A scheduled change owes every holder one notice (`fee_policy_notices`, written with the
+change). Only people hold positions: the `fee` allocation holds a product's fee class on the
+ledger, not in `fund_positions`, so it gets no notice. The notice sender
+(`core/src/infrastructure/fee_notices.rs`, one per deployment under an advisory lock) emits
+each through concierge's `ScopeInboxService.EmitScopeNotification` on the topic
+`invest:fee-terms`, deduped by `fee_policy_notice:<change>`. The topic is **required**
+(concierge v0.21.0): a member cannot switch it off, and every active member gets it in-app,
+and by mail when their address is verified, whatever they chose. At boot invest reads its
+scope catalog back and warns when concierge does not hold the topic as required.
+
+- concierge delivered it: `delivered_at`. An in-app notice counts; concierge does not say
+  whether the mail copy went;
+- concierge will not: `given_up_at` at once. On a required topic that means the holder is not
+  an active member of invest's scope (a concierge that dropped the flag also answers so for
+  a member who switched the topic off);
+- concierge failed: retried after 30 s, doubling to at most an hour; given up after 10
+  attempts (about three hours). Without `CONCIERGE_GRPC_ADDR` every notice is given up at once.
+
+The notice states the fund, the old and new terms and the date they apply, and links to
+`/invest/<fund>` with `link_scope = invest`: the mail opens the invest cabinet once
+concierge's `NOTICE_LINK_BASES` has a base for `invest`, and the platform's cabinet otherwise.
+
+The 24-hour notice period runs from scheduling (for an owner change, from the owners'
+pass), never from delivery, and delivery does not shorten it. A dearer change binds once its
+moment has come AND every current holder's notice is delivered; an administrator's change
+also binds over the holders its requester acknowledged after their notice was given up on.
+
+## Fee changes the owners decide
+
+A change of fee terms that makes them dearer and leaves the house envelope (more than 2 %
+management or 20 % performance, a basis on the market value, a crystallization more often
+than yearly), or one that lowers the hurdle, is the platform owners' to approve
+(`core/src/application/fee_approvals.rs`). The notice of a holder of such a change cannot
+be waived: a holder who could not be told keeps it from binding, and its requester
+withdraws it.
+
+1. `ScheduleFeePolicy` records it `awaiting_consilium`, with no notice yet, and proposes it as
+   concierge's `invest:fee_policy` (PLATFORM level), deduped by `fee_policy_change:<id>`.
+   `consilium_id` on the change is the concierge approval id.
+2. **The requester does not vote on it (D24(1)).** The request carries the requester's own
+   `invest` token from a sign-in confirmed seconds ago (`x-ev-user-token`; the cabinet gets it
+   with a `max_age=0` sign-in, see the [BFF README](cabinet/backend/README.md)). invest-core
+   relays it on `Propose` with `requested_by` = the requester's `auth_subject` from the
+   `users` projection (concierge requires it to equal the token's `sub`), and concierge keeps
+   that person off the owners' roster. Without the token the change is refused before
+   anything is written (FAILED_PRECONDITION, `reauth_required: …`), and so is a requester
+   whose `auth_subject` invest has not learned yet. A token concierge does not take closes
+   the change `rejected` with the same `reauth_required` answer; its other refusals (another
+   person's token, an ended session, too few owners besides the requester) close it with
+   concierge's reason. The token is never stored.
+3. Every 30 s the approvals round pulls the passed proposals (`PullApproved`), reads each
+   again, checks its `payload_hash` against the STORED change and its level (PLATFORM),
+   schedules the change — the holders' notices are sent and the notice period starts — and
+   reports `EXECUTED`. A hash that does not match, or a pass at any other level, rejects
+   the change and reports `VOID`.
+4. A proposal that is rejected, vetoed, expired, withdrawn in concierge or voided closes the
+   change as `rejected`. `CancelFeePolicyChange` withdraws the proposal; only the one who
+   requested the change may call it, as in banking.
+
+The round runs only when `CONCIERGE_GRPC_ADDR` is set; without concierge such a change is
+refused. Nothing proposes a change later: one that its own request could not propose
+(concierge away, or the request died for more than 5 minutes) closes as `rejected`, and the
+operator submits it again. Any other step concierge does not answer is retried on the next
+round.
 
 ## Money flows
 
@@ -175,9 +243,7 @@ of invest's own (`units_unavailable`, `money_ledger_unavailable`).
 
 Not on banking's side yet (cf38ba57): the automatic sweep of `(<scope>, fee)` that ledger.proto promises — cash sits on the collector until banking runs it, so `(invest, alloc:fee)` receives nothing, and no scope's fee reaches the treasury.
 
-Not here yet: the owners' approval of a fee change beyond the house envelope (refused until
-invest is a client of concierge's approvals), delivering holder notices of a fee change
-(recorded as given up; a dearer change binds once its requester acknowledges), and a reaper
-for a buy's hold whose `Reserve` answer was lost (`application/book.rs`).
+Not here yet: a reaper for a buy's hold whose `Reserve` answer was lost
+(`application/book.rs`).
 banking's `ownership_contract` suite pins banking's own migration 0047 over its production
 history and has no counterpart here.

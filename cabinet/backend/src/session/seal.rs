@@ -18,11 +18,13 @@ use ring::{
 
 const INFO: &[u8] = b"invest-cabinet/tokens/v1";
 
-/// Which of a session's two tokens.
+/// Which of a session's tokens.
 #[derive(Clone, Copy, Debug)]
 pub enum Which {
 	Access,
 	Refresh,
+	/// The access token of a sign-in confirmed for one owner-level act.
+	Proof,
 }
 
 impl Which {
@@ -30,6 +32,7 @@ impl Which {
 		match self {
 			Self::Access => b"access/",
 			Self::Refresh => b"refresh/",
+			Self::Proof => b"proof/",
 		}
 	}
 }
@@ -89,6 +92,7 @@ mod tests {
 		let other = TokenKey::of_cookie("b".repeat(64).as_str()).unwrap();
 		assert!(other.open(Which::Access, ROW, &sealed).is_err(), "another cookie");
 		assert!(key.open(Which::Refresh, ROW, &sealed).is_err(), "the other token");
+		assert!(key.open(Which::Proof, ROW, &sealed).is_err(), "a session token is no proof");
 		assert!(key.open(Which::Access, &[8u8; 32], &sealed).is_err(), "another row");
 		let mut tampered = sealed.clone();
 		*tampered.last_mut().unwrap() ^= 1;

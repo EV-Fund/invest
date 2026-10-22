@@ -144,16 +144,13 @@ async fn open_fund(h: &Harness, service: &ServiceId) {
 /// the notice period is zero and the change binds at once; the full life of a change is the
 /// subject of `tests/fee_policy_changes.rs`.
 async fn install_policy(h: &Harness, service: &ServiceId, policy: FeePolicy) {
-	let ports = fee_app::FeePolicyPorts {
-		policies: &h.policies,
-		changes: &h.changes,
-		allocations: &h.allocations,
-	};
+	let ports = h.fee_policy_ports();
 	let request = fee_app::PolicyChangeRequest {
 		service: service.clone(),
 		policy,
 		requested_effective_from_unix: 0,
 		reason: String::new(),
+		requester_proof: None,
 	};
 	let change = fee_app::schedule_policy(&ports, UserId::new(), request, now_unix()).await.unwrap();
 	assert!(h.changes.promote(change.id, now_unix()).await.unwrap(), "a fund with no holders takes new terms at once");

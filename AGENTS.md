@@ -56,6 +56,23 @@ banking's on purpose.
   cursor commit in one transaction. A redemption's approval verdict is always read back with
   `GetPendingOperation` — the event is only the nudge.
 - **A buy's hold may outlive its order only for a minute.** The hold reaper (`infrastructure/hold_reaper.rs`) voids `book_order:` holds with no order row once banking's `created_at` is older than `HOLD_REAPER_AFTER_SECS` (default 900, at least 60). Never age a hold by this process's clock.
+- **A passed approval is re-read and re-hashed before invest acts on it.** concierge's
+  approvals (`invest:fee_policy`, `application/fee_approvals.rs`) serve a passed proposal
+  until its outcome is reported; invest reads it again by id, acts only on `PASSED` at
+  `PLATFORM` level, and recomputes `payload_hash` from the row it STORED. The store re-checks the row under its
+  lock. Report the outcome only after the effect has committed.
+- **The requester of an owner change does not vote on it (D24(1)).** `Propose` carries the
+  requester's freshly confirmed `invest` token (`x-ev-user-token`), and concierge keeps them off
+  the roster. The token is used once and never stored, so a change is proposed only in the
+  request that wrote it; nothing proposes it later.
+- **A holder is told before dearer terms bind.** `fee_policy_notices` is the outbox of the
+  holders' notices, written with the change; one sender (`infrastructure/fee_notices.rs`,
+  session advisory lock) delivers them through concierge's scope inbox on the required topic
+  `invest:fee-terms`, deduped per change. The 24-hour notice period runs from scheduling,
+  never from delivery. A notice concierge answers "not delivered" for is given up on, never
+  marked delivered; the notice of an owner change is never waived. A member cannot switch
+  the topic off: should invest ever set subscriptions, `FAILED_PRECONDITION required_topic:`
+  is the expected answer for it, not an error.
 - **Health stays outside auth.** `grpc.health.v1` is not wrapped in the auth layer.
 - **The browser holds no token.** The cabinet BFF keeps concierge's tokens sealed (key
   derived from the cookie) in `cabinet.sessions`, keyed by the hash of the session cookie. Every mutating route calls
@@ -77,7 +94,8 @@ banking's on purpose.
 
 - Integration suites (`core/tests/`) use real Postgres **and** TigerBeetle — no mocks of
   either. Banking's cash is the in-memory `MoneyLedger` fake
-  (`infrastructure::money::fake`), never wired into a running server.
+  (`infrastructure::money::fake`), and concierge's approvals the `InMemoryApprovals` fake
+  (`infrastructure::concierge::fake`); neither is wired into a running server.
 - Locally a missing `DATABASE_URL`/TigerBeetle **skips** a suite; with `CI=true` it fails.
   Run with `CI=true` and read the counts — a green run that skipped is not a run.
   `nix run .#check-rust` is the gate CI runs.

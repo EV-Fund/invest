@@ -1,5 +1,7 @@
-//! An in-memory concierge for tests: the two pull streams relying parties read, and the
-//! catalog publication ([`InMemoryCatalogPublisher`]), without concierge.
+//! An in-memory concierge for tests: the two pull streams relying parties read, the
+//! catalog publication ([`InMemoryCatalogPublisher`]), the approvals
+//! ([`InMemoryApprovals`]) and the scope inbox's emit ([`InMemoryNotifier`]), without
+//! concierge.
 //!
 //! It keeps what the engine leans on — each stream's own positions, oldest first, rows never
 //! deleted, `next_position` as concierge computes it (the position a full page ends on; the
@@ -14,13 +16,20 @@
 //!
 //! Never wired into a running server.
 
-use std::sync::{Arc, Mutex};
+use std::{
+	collections::{HashSet, VecDeque},
+	sync::{Arc, Mutex},
+};
 
 use async_trait::async_trait;
 use evconcierge_projection::{EventSource, Page, Pulled, ScopeEvent, SourceError, UnknownEvent, UserEvent};
-use invest_domain::authz::PermissionCatalog;
+use invest_domain::{authz::PermissionCatalog, users::UserId};
 
-use crate::ports::catalog::{CatalogPublisher, PublishError, ScopeCatalog, ScopeCatalogPublisher};
+use crate::ports::{
+	approvals::{ApprovalOutcome, ApprovalState, ApprovalView, Approvals, ApprovalsError, Proposal, UserProof, payload_hash},
+	catalog::{CatalogPublisher, KindLevel, PublishError, ScopeCatalog, ScopeCatalogPublisher},
+	notices::{HolderNotice, HolderNotifier, NoticeOutcome, NotifyError},
+};
 
 #[derive(Clone, Default)]
 pub struct InMemoryConcierge {
@@ -158,6 +167,8 @@ struct PublisherState<C> {
 	script: std::collections::VecDeque<Result<(), PublishError>>,
 	attempts: u32,
 	published: Vec<(C, u64)>,
+	/// Store topics as ordinary ones, as a concierge older than v0.21.0 does.
+	drops_required: bool,
 }
 
 // Manual impls: a derive would demand `C: Clone`/`Default` of the handle, not of the catalog.
@@ -174,6 +185,7 @@ impl<C> Default for ScriptedPublisher<C> {
 				script: std::collections::VecDeque::new(),
 				attempts: 0,
 				published: Vec::new(),
+				drops_required: false,
 			})),
 		}
 	}
@@ -225,9 +237,328 @@ impl CatalogPublisher for InMemoryCatalogPublisher {
 	}
 }
 
+impl InMemoryScopeCatalogPublisher {
+	/// Store every topic as an ordinary one from now on, as a concierge older than v0.21.0.
+	pub fn drop_required(&self) {
+		self.lock().drops_required = true;
+	}
+}
+
 #[async_trait]
 impl ScopeCatalogPublisher for InMemoryScopeCatalogPublisher {
 	async fn publish(&self, catalog: &ScopeCatalog, version: u64) -> Result<(), PublishError> {
 		self.record(catalog, version)
+	}
+
+	async fn required_topics(&self) -> Result<Vec<String>, PublishError> {
+		let state = self.lock();
+		if state.drops_required {
+			return Ok(Vec::new());
+		}
+		let Some((catalog, _)) = state.published.last() else {
+			return Err(PublishError::Refused("NotFound: no catalog published".into()));
+		};
+		Ok(catalog.topics.iter().filter(|t| t.required_reason.is_some()).map(|t| t.topic.to_owned()).collect())
+	}
+}
+
+/// concierge's approvals, in memory: enough of §5.4 to drive invest's proposer and executor
+/// — `Propose` deduped per key and hashed as concierge hashes, the state a test sets,
+/// `PullApproved` serving every passed proposal until its outcome is reported, and a
+/// withdrawal while open or passed. A test steers it with [`InMemoryApprovals::set_state`],
+/// [`InMemoryApprovals::tamper_hash`], [`InMemoryApprovals::unreport`],
+/// [`InMemoryApprovals::hold_back`], [`InMemoryApprovals::set_level`],
+/// [`InMemoryApprovals::set_executable_at`], [`InMemoryApprovals::refuse_proposals`],
+/// [`InMemoryApprovals::refuse_proofs`] and [`InMemoryApprovals::outage`].
+#[derive(Clone, Default)]
+pub struct InMemoryApprovals {
+	state: Arc<Mutex<ApprovalsState>>,
+}
+
+#[derive(Default)]
+struct ApprovalsState {
+	proposals: Vec<StoredProposal>,
+	reports: Vec<(String, ApprovalOutcome, String)>,
+	withdrawals: Vec<String>,
+	/// The requester's token every `Propose` carried, in order.
+	proofs: Vec<String>,
+	refuse: Option<String>,
+	refuse_proof: Option<String>,
+	down: bool,
+}
+
+struct StoredProposal {
+	view: ApprovalView,
+	proposal: Proposal,
+	reported: bool,
+	/// Passed but inside its veto delay: not served by a pull yet.
+	held_back: bool,
+}
+
+impl InMemoryApprovals {
+	pub fn new() -> Self {
+		Self::default()
+	}
+
+	fn lock(&self) -> std::sync::MutexGuard<'_, ApprovalsState> {
+		// A test that panicked while holding the lock already failed.
+		self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+	}
+
+	/// Every proposal opened, in order.
+	pub fn proposals(&self) -> Vec<(ApprovalView, Proposal)> {
+		self.lock().proposals.iter().map(|p| (p.view.clone(), p.proposal.clone())).collect()
+	}
+
+	/// Every outcome reported, in order: approval id, outcome, detail.
+	pub fn reports(&self) -> Vec<(String, ApprovalOutcome, String)> {
+		self.lock().reports.clone()
+	}
+
+	/// The requester's token each `Propose` carried, in order — deduped calls included.
+	pub fn proofs(&self) -> Vec<String> {
+		self.lock().proofs.clone()
+	}
+
+	/// Every approval id withdrawn, in order.
+	pub fn withdrawals(&self) -> Vec<String> {
+		self.lock().withdrawals.clone()
+	}
+
+	/// The owners (or the clock) move a proposal to `state`, with the veto or void reason.
+	pub fn set_state(&self, approval_id: &str, state: ApprovalState, note: &str) {
+		let mut guard = self.lock();
+		let stored = guard.proposals.iter_mut().find(|p| p.view.id == approval_id).expect("no such proposal");
+		stored.view.state = state;
+		stored.view.note = note.to_owned();
+	}
+
+	/// The end of a passed proposal's veto window, as concierge would name it.
+	pub fn set_executable_at(&self, approval_id: &str, at_unix: Option<i64>) {
+		let mut guard = self.lock();
+		let stored = guard.proposals.iter_mut().find(|p| p.view.id == approval_id).expect("no such proposal");
+		stored.view.executable_at_unix = at_unix;
+	}
+
+	/// Make concierge hold the proposal at another level than the one it resolved.
+	pub fn set_level(&self, approval_id: &str, level: Option<KindLevel>) {
+		let mut guard = self.lock();
+		let stored = guard.proposals.iter_mut().find(|p| p.view.id == approval_id).expect("no such proposal");
+		stored.view.level = level;
+	}
+
+	/// Make concierge hold another payload hash than the one it computed — a proposal whose
+	/// terms are not the change's.
+	pub fn tamper_hash(&self, approval_id: &str) {
+		let mut guard = self.lock();
+		let stored = guard.proposals.iter_mut().find(|p| p.view.id == approval_id).expect("no such proposal");
+		stored.view.payload_hash = "0".repeat(64);
+	}
+
+	/// Forget that an outcome was reported — a report concierge lost — so a pull serves the
+	/// proposal again.
+	pub fn unreport(&self, approval_id: &str) {
+		let mut guard = self.lock();
+		let stored = guard.proposals.iter_mut().find(|p| p.view.id == approval_id).expect("no such proposal");
+		stored.reported = false;
+	}
+
+	/// Keep a passed proposal out of the pull, as its veto delay does.
+	pub fn hold_back(&self, approval_id: &str, held: bool) {
+		let mut guard = self.lock();
+		let stored = guard.proposals.iter_mut().find(|p| p.view.id == approval_id).expect("no such proposal");
+		stored.held_back = held;
+	}
+
+	/// While set, `Propose` is refused with this reason.
+	pub fn refuse_proposals(&self, why: Option<&str>) {
+		self.lock().refuse = why.map(str::to_owned);
+	}
+
+	/// While set, `Propose` refuses the requester's proof with this reason, as concierge
+	/// does for a stale, spent or foreign token.
+	pub fn refuse_proofs(&self, why: Option<&str>) {
+		self.lock().refuse_proof = why.map(str::to_owned);
+	}
+
+	/// While set, every call answers UNAVAILABLE.
+	pub fn outage(&self, down: bool) {
+		self.lock().down = down;
+	}
+
+	fn up(&self) -> Result<std::sync::MutexGuard<'_, ApprovalsState>, ApprovalsError> {
+		let guard = self.lock();
+		if guard.down {
+			return Err(ApprovalsError::Unavailable("concierge is down (fake)".into()));
+		}
+		Ok(guard)
+	}
+}
+
+#[async_trait]
+impl Approvals for InMemoryApprovals {
+	async fn propose(&self, proposal: &Proposal, proof: &UserProof) -> Result<ApprovalView, ApprovalsError> {
+		let mut guard = self.up()?;
+		guard.proofs.push(proof.token().to_owned());
+		if let Some(why) = &guard.refuse_proof {
+			return Err(ApprovalsError::ReauthRequired(format!("reauth_required: {why}")));
+		}
+		if let Some(why) = &guard.refuse {
+			return Err(ApprovalsError::Refused(why.clone()));
+		}
+		if let Some(existing) = guard.proposals.iter().find(|p| p.proposal.dedupe_key == proposal.dedupe_key) {
+			return Ok(existing.view.clone());
+		}
+		let view = ApprovalView {
+			id: uuid::Uuid::new_v4().to_string(),
+			kind: proposal.kind.to_owned(),
+			scope: proposal.scope.to_owned(),
+			subject_ref: proposal.subject_ref.clone(),
+			state: ApprovalState::Open,
+			// What concierge resolves `invest:fee_policy` to; a test moves it with `set_level`.
+			level: Some(KindLevel::Platform),
+			executable_at_unix: None,
+			payload_hash: payload_hash(proposal.kind, proposal.scope, &proposal.subject_ref, &proposal.fields),
+			note: String::new(),
+		};
+		guard.proposals.push(StoredProposal {
+			view: view.clone(),
+			proposal: proposal.clone(),
+			reported: false,
+			held_back: false,
+		});
+		Ok(view)
+	}
+
+	async fn get(&self, approval_id: &str) -> Result<ApprovalView, ApprovalsError> {
+		let guard = self.up()?;
+		guard
+			.proposals
+			.iter()
+			.find(|p| p.view.id == approval_id)
+			.map(|p| p.view.clone())
+			.ok_or_else(|| ApprovalsError::Refused(format!("NotFound: no approval {approval_id}")))
+	}
+
+	async fn pull_approved(&self, limit: u32) -> Result<Vec<ApprovalView>, ApprovalsError> {
+		let guard = self.up()?;
+		Ok(guard
+			.proposals
+			.iter()
+			.filter(|p| p.view.state == ApprovalState::Passed && !p.reported && !p.held_back)
+			.take(usize::try_from(limit).unwrap_or(usize::MAX))
+			.map(|p| p.view.clone())
+			.collect())
+	}
+
+	async fn report(&self, approval_id: &str, outcome: ApprovalOutcome, detail: &str) -> Result<(), ApprovalsError> {
+		let mut guard = self.up()?;
+		let stored = guard
+			.proposals
+			.iter_mut()
+			.find(|p| p.view.id == approval_id)
+			.ok_or_else(|| ApprovalsError::Refused(format!("NotFound: no approval {approval_id}")))?;
+		stored.reported = true;
+		stored.view.state = match outcome {
+			ApprovalOutcome::Executed => ApprovalState::Executed,
+			ApprovalOutcome::Failed => ApprovalState::ExecutionFailed,
+			ApprovalOutcome::Void => ApprovalState::Void,
+		};
+		guard.reports.push((approval_id.to_owned(), outcome, detail.to_owned()));
+		Ok(())
+	}
+
+	async fn withdraw(&self, approval_id: &str, _reason: &str) -> Result<ApprovalView, ApprovalsError> {
+		let mut guard = self.up()?;
+		let stored = guard
+			.proposals
+			.iter_mut()
+			.find(|p| p.view.id == approval_id)
+			.ok_or_else(|| ApprovalsError::Refused(format!("NotFound: no approval {approval_id}")))?;
+		if !stored.view.state.is_live() {
+			return Err(ApprovalsError::Refused(format!("FailedPrecondition: the approval is {}", stored.view.state.as_str())));
+		}
+		stored.view.state = ApprovalState::Cancelled;
+		let view = stored.view.clone();
+		guard.withdrawals.push(approval_id.to_owned());
+		Ok(view)
+	}
+}
+
+/// concierge's scope inbox, in memory: enough of `EmitScopeNotification` to drive the notice
+/// sender. A notice reaches an active member of invest's scope who has not switched the topic
+/// off — or any active member, on a topic invest's catalog requires; a repeated `dedupe_key`
+/// for one user writes nothing and answers `delivered = false`, as concierge's
+/// `ON CONFLICT DO NOTHING` does. A test steers it with
+/// [`InMemoryNotifier::join`], [`InMemoryNotifier::opt_out`] and
+/// [`InMemoryNotifier::fail_next`].
+#[derive(Clone, Default)]
+pub struct InMemoryNotifier {
+	state: Arc<Mutex<NotifierState>>,
+}
+
+#[derive(Default)]
+struct NotifierState {
+	members: HashSet<UserId>,
+	opted_out: HashSet<UserId>,
+	/// Answers the next calls with these errors, in order, before any other answer.
+	failures: VecDeque<NotifyError>,
+	/// Every call, answered or not.
+	calls: Vec<HolderNotice>,
+	/// What was written into someone's inbox, in order.
+	written: Vec<HolderNotice>,
+}
+
+impl InMemoryNotifier {
+	pub fn new() -> Self {
+		Self::default()
+	}
+
+	/// `user` becomes an active member of invest's scope.
+	pub fn join(&self, user: UserId) {
+		self.lock().members.insert(user);
+	}
+
+	/// `user` switches the topic off.
+	pub fn opt_out(&self, user: UserId) {
+		self.lock().opted_out.insert(user);
+	}
+
+	/// The next calls fail with `errors`, in order.
+	pub fn fail_next(&self, errors: impl IntoIterator<Item = NotifyError>) {
+		self.lock().failures.extend(errors);
+	}
+
+	pub fn calls(&self) -> Vec<HolderNotice> {
+		self.lock().calls.clone()
+	}
+
+	/// The notices written into an inbox — each one a message the holder receives.
+	pub fn written(&self) -> Vec<HolderNotice> {
+		self.lock().written.clone()
+	}
+
+	fn lock(&self) -> std::sync::MutexGuard<'_, NotifierState> {
+		// See `InMemoryConcierge::lock`.
+		self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+	}
+}
+
+#[async_trait]
+impl HolderNotifier for InMemoryNotifier {
+	async fn notify(&self, notice: &HolderNotice) -> Result<NoticeOutcome, NotifyError> {
+		let mut state = self.lock();
+		state.calls.push(notice.clone());
+		if let Some(err) = state.failures.pop_front() {
+			return Err(err);
+		}
+		let required = ScopeCatalog::invest().topics.iter().any(|t| t.topic == notice.topic && t.required_reason.is_some());
+		let reachable = state.members.contains(&notice.user) && (required || !state.opted_out.contains(&notice.user));
+		let repeated = state.written.iter().any(|w| w.user == notice.user && w.dedupe_key == notice.dedupe_key);
+		if !reachable || repeated {
+			return Ok(NoticeOutcome::NotDelivered("not delivered".to_owned()));
+		}
+		state.written.push(notice.clone());
+		Ok(NoticeOutcome::Delivered)
 	}
 }

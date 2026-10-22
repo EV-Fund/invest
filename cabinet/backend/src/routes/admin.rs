@@ -25,7 +25,8 @@ use crate::{
 	cookies::Cookies,
 	dto,
 	error::ApiError,
-	routes::{editable, parse_body, require_permission, required, required_u32, verify_csrf},
+	now_secs,
+	routes::{editable, parse_body, require_permission, require_permission_session, required, required_u32, verify_csrf},
 	state::AppState,
 };
 
@@ -68,11 +69,16 @@ pub async fn list_fee_policies(State(st): State<AppState>, jar: Cookies) -> Resu
 /// how a fund ends up charging terms nobody chose. `effective_from` (unix seconds, omitted
 /// or 0 = as soon as the notice allows) and `reason` (required by invest-core when the change
 /// needs the owners) travel as given; invest-core decides the requirement and the moment.
+///
+/// A change the owners decide also needs the requester's freshly confirmed sign-in (D24(1)).
+/// The session's confirmation, if it has one, goes to invest-core as `x-ev-user-token` and is
+/// spent; without one invest-core refuses such a change before writing it, and the answer is
+/// 403 `{"error":"reauth_required"}`, on which the cabinet starts `auth/reauth`.
 pub async fn schedule_fee_policy(State(st): State<AppState>, jar: Cookies, headers: HeaderMap, body: Bytes) -> Result<Json<dto::FeePolicyChange>, ApiError> {
 	if !verify_csrf(&st, &jar, &headers) {
 		return Err(ApiError::Csrf);
 	}
-	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
+	let session = require_permission_session(&st, &jar, Permission::AllocationManage).await?;
 	let v = parse_body(&body);
 	let (Some(service), Some(basis), Some(crystallization)) = (required(&v, "service"), required(&v, "basis"), required(&v, "crystallization")) else {
 		return Err(ApiError::BadRequest("service, basis and crystallization are required".into()));
@@ -101,7 +107,10 @@ pub async fn schedule_fee_policy(State(st): State<AppState>, jar: Cookies, heade
 		effective_from,
 		reason: editable(&v, "reason"),
 	};
-	let change = st.grpc.schedule_fee_policy(&token, req).await?;
+	// Taken only now, after the request is known well-formed, so a typo does not spend it.
+	let cookie = jar.get(&st.cookies.session).ok_or(ApiError::Unauthenticated)?;
+	let proof = st.sessions.take_proof(cookie, &session, now_secs()).await.map_err(ApiError::Internal)?;
+	let change = st.grpc.schedule_fee_policy(&session.access_token, proof.as_deref(), req).await?;
 	Ok(Json(change.into()))
 }
 
@@ -649,6 +658,8 @@ mod admin_route_tests {
 		issue: Option<iv::IssueUnitsRequest>,
 		retire: Option<iv::RetireUnitsRequest>,
 		schedule: Option<iv::ScheduleFeePolicyRequest>,
+		/// The `x-ev-user-token` of each schedule, in order.
+		schedule_proofs: Vec<Option<String>>,
 		settle_fees: Option<iv::SettleFeeSharesRequest>,
 		valuation: Option<iv::PostFundValuationRequest>,
 		subscribe: Option<iv::SubscribeRequest>,
@@ -659,6 +670,8 @@ mod admin_route_tests {
 	#[derive(Clone, Default)]
 	struct Core {
 		fail_with: Option<Code>,
+		/// Answer a schedule without `x-ev-user-token` as invest-core does for an owner change.
+		owner_change: bool,
 		seen: Arc<Mutex<Seen>>,
 	}
 
@@ -887,6 +900,13 @@ mod admin_route_tests {
 
 		async fn schedule_fee_policy(&self, request: GrpcRequest<iv::ScheduleFeePolicyRequest>) -> Result<GrpcResponse<iv::FeePolicyChange>, Status> {
 			self.guard(&request)?;
+			let proof = request.metadata().get("x-ev-user-token").and_then(|v| v.to_str().ok()).map(str::to_owned);
+			self.seen.lock().unwrap().schedule_proofs.push(proof.clone());
+			if self.owner_change && proof.is_none() {
+				return Err(Status::failed_precondition(
+					"reauth_required: a change the owners decide is put to them in the name of the person who asks",
+				));
+			}
 			let req = request.into_inner();
 			self.seen.lock().unwrap().schedule = Some(req.clone());
 			Ok(GrpcResponse::new(iv::FeePolicyChange {
@@ -1172,6 +1192,48 @@ mod admin_route_tests {
 			"an explicit zero is a rate"
 		);
 		assert_eq!((forwarded.effective_from, forwarded.reason.as_str()), (1_760_000_000, "repricing"));
+	}
+
+	/// D24(1): the session's confirmed sign-in rides to invest-core with the change, once.
+	#[tokio::test]
+	async fn the_confirmed_sign_in_goes_with_the_change_once() {
+		let Some(f) = fixture(Core::default(), MANAGER).await else { return };
+		let proof = f.h.confirm(&f.signed).await;
+
+		assert_eq!(f.send("POST", "/cabinet/api/admin/fees/policy", Some(SCHEDULE), true).await.0, StatusCode::OK);
+		assert_eq!(f.send("POST", "/cabinet/api/admin/fees/policy", Some(SCHEDULE), true).await.0, StatusCode::OK);
+
+		assert_eq!(f.seen().schedule_proofs, vec![Some(proof), None], "spent by the first change");
+	}
+
+	/// invest-core refusing an owner change for want of a confirmed sign-in is the one 403 the
+	/// cabinet acts on by starting `auth/reauth`.
+	#[tokio::test]
+	async fn an_owner_change_without_a_confirmed_sign_in_is_403_reauth_required() {
+		let core = Core {
+			owner_change: true,
+			..Core::default()
+		};
+		let Some(f) = fixture(core, MANAGER).await else { return };
+
+		let (status, body) = f.send("POST", "/cabinet/api/admin/fees/policy", Some(SCHEDULE), true).await;
+		assert_eq!((status, body), (StatusCode::FORBIDDEN, json!({ "error": "reauth_required" })));
+
+		f.h.confirm(&f.signed).await;
+		let (status, body) = f.send("POST", "/cabinet/api/admin/fees/policy", Some(SCHEDULE), true).await;
+		assert_eq!((status, body["state"].as_str()), (StatusCode::OK, Some("scheduled")));
+	}
+
+	/// A request this layer refuses never reaches invest-core, so it does not spend the
+	/// confirmation the operator just made.
+	#[tokio::test]
+	async fn a_malformed_change_does_not_spend_the_confirmed_sign_in() {
+		let Some(f) = fixture(Core::default(), MANAGER).await else { return };
+		let proof = f.h.confirm(&f.signed).await;
+		let malformed = r#"{"service":"quy-nhon","management_bps":"200","performance_bps":2000,"hurdle_bps":500,"basis":"invested_capital","crystallization":"annual"}"#;
+		assert_eq!(f.send("POST", "/cabinet/api/admin/fees/policy", Some(malformed), true).await.0, StatusCode::BAD_REQUEST);
+		assert_eq!(f.send("POST", "/cabinet/api/admin/fees/policy", Some(SCHEDULE), true).await.0, StatusCode::OK);
+		assert_eq!(f.seen().schedule_proofs, vec![Some(proof)]);
 	}
 
 	/// A rate this layer cannot read is refused, never coerced to zero — zero is a price.

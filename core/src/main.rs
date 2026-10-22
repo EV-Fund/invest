@@ -1,7 +1,8 @@
 //! invest-core's composition root: read the config, dial Postgres, TigerBeetle, banking and
 //! concierge, apply the migrations, and run the gRPC server, the outbox relay, the fee
-//! sweeper, the users projection, the money-event consumer, the hold reaper and the catalog
-//! publication as branches of one structured `join!` until a signal.
+//! sweeper, the users projection, the money-event consumer, the hold reaper, the fee
+//! approvals round, the fee notice sender and the catalog publication as branches of one
+//! structured `join!` until a signal.
 
 use std::{future::Future, process::ExitCode, sync::Arc, time::Duration};
 
@@ -18,9 +19,13 @@ use invest_core::{
 		book::PgBook,
 		concierge::{
 			self, ConciergeProjection, ConciergeStreamsConfig,
+			approvals::{ConciergeApprovals, UnconfiguredApprovals},
 			catalog::{ClientCatalogPublisher, ClientScopeCatalogPublisher, publish_at_boot, publish_scope_at_boot},
+			notices::{ConciergeNotifier, UnconfiguredNotifier},
 		},
 		db,
+		fee_approvals::FeeApprovalsExecutor,
+		fee_notices::FeeNoticeSender,
 		fee_policy_changes::PgFeePolicyChanges,
 		fee_sweeper::FeeSweeper,
 		fees::{PgFeeAssessments, PgFeePolicies, PgFeeSettlements, PgPositionAccruals},
@@ -41,10 +46,12 @@ use invest_core::{
 		users::PgUsers,
 	},
 	ports::{
-		Ledger, MoneyLedger,
+		Ledger, MoneyLedger, UserDirectory,
+		approvals::Approvals,
 		book::{BookStore, OrderPresence},
 		catalog::{CATALOG_VERSION, CatalogPublisher, SCOPE_CATALOG_VERSION, ScopeCatalog, ScopeCatalogPublisher},
 		fees::FeePorts,
+		notices::HolderNotifier,
 	},
 	services,
 };
@@ -150,16 +157,13 @@ async fn run(
 		// them. Every cash read answers UNAVAILABLE until they are — loud, not wrong.
 		tracing::warn!("no scope ledger configured (SCOPE_LEDGER_ADDR unset) — the reserved allocations' NAV is unavailable until it is");
 	}
-	match &concierge_streams {
-		// Not refused: invest-core serves the registry without anyone known to it, and every
-		// check that needs a person fails closed — loud, not wrong.
-		None => tracing::warn!(
+	// Not refused: invest-core serves the registry without anyone known to it, and every
+	// check that needs a person fails closed — loud, not wrong. A cleartext address in
+	// production is refused by `concierge_streams` itself.
+	if concierge_streams.is_none() {
+		tracing::warn!(
 			"no concierge streams configured (CONCIERGE_GRPC_ADDR unset) — the users projection does not run and the permission catalog is not published: nobody is known to invest, so every permission check and every mint is refused"
-		),
-		Some(streams) if streams.ca_pem.is_none() && config.app_env == "production" => {
-			tracing::warn!("CONCIERGE_GRPC_ADDR is cleartext in production — the client secret crosses the cluster network unencrypted; point it at concierge's TLS listener");
-		}
-		Some(_) => {}
+		);
 	}
 	let verifier_config = VerifierConfig {
 		issuer: config.auth_issuer.clone(),
@@ -217,6 +221,25 @@ async fn run(
 	};
 	let catalog_publisher = concierge_streams.as_ref().map(ClientCatalogPublisher::connect).transpose()?;
 	let scope_catalog_publisher = concierge_streams.as_ref().map(ClientScopeCatalogPublisher::connect).transpose()?;
+	let approvals: Arc<dyn Approvals> = match &concierge_streams {
+		Some(streams) => Arc::new(ConciergeApprovals::connect(streams)?),
+		None => Arc::new(UnconfiguredApprovals),
+	};
+
+	// Without concierge the sender still runs: every notice is then given up on at once, so an
+	// administrator's change waits for its requester's acknowledgement, as before invest had a
+	// channel.
+	let notifier: Arc<dyn HolderNotifier> = match &concierge_streams {
+		Some(streams) => Arc::new(ConciergeNotifier::connect(streams)?),
+		None => Arc::new(UnconfiguredNotifier),
+	};
+	// Its own small pool: the lock-holding connection plus the claim held through each call.
+	let fee_notices = FeeNoticeSender::new(
+		db::connect_sized(&config.database_url, 2)
+			.await
+			.context("failed to connect the fee notice sender's Postgres pool")?,
+		notifier,
+	);
 
 	let relay_notify = Arc::new(Notify::new());
 	let relay = Relay::new(relay_pool, ledger.clone(), money.clone(), relay_notify.clone());
@@ -239,6 +262,7 @@ async fn run(
 	let fees = FeePorts {
 		policies: Arc::new(PgFeePolicies::new(pool.clone())),
 		changes: Arc::new(PgFeePolicyChanges::new(pool.clone())),
+		approvals: approvals.clone(),
 		accruals: Arc::new(PgPositionAccruals::new(pool.clone())),
 		assessments: Arc::new(PgFeeAssessments::new(pool.clone())),
 		settlements: Arc::new(PgFeeSettlements::new(pool.clone(), ledger.clone())),
@@ -258,11 +282,16 @@ async fn run(
 		relay_notify.clone(),
 	)
 	.with_book(book.clone());
+	let users: Arc<dyn UserDirectory> = Arc::new(PgUsers::new(pool.clone()));
+	// Without concierge nothing is proposed, so there is nothing to follow: the branch idles.
+	let fee_approvals = concierge_streams
+		.is_some()
+		.then(|| FeeApprovalsExecutor::new(approvals, fees.changes.clone(), fees.policies.clone()));
 	let state = AppState {
 		pool: pool.clone(),
 		ledger: ledger.clone(),
 		money,
-		users: Arc::new(PgUsers::new(pool.clone())),
+		users,
 		allocations,
 		issuances: Arc::new(PgUnitIssuances::new(pool.clone())),
 		subscriptions: Arc::new(PgSubscriptions::new(pool.clone())),
@@ -280,12 +309,12 @@ async fn run(
 
 	tracing::info!(addr = %config.grpc_addr, "invest-core serving");
 	// Graceful shutdown, structured (no detached spawns): the server, the relay, the fee
-	// sweeper, the users projection, the money-event consumer and the catalog publication
-	// run as branches of one `join!` on this task. A signal cancels a shared token;
+	// sweeper, the users projection, the money-event consumer, the fee approvals round, the
+	// fee notice sender and the catalog publication run as branches of one `join!` on this task. A signal cancels a shared token;
 	// the server drains in-flight calls, the workers stop at a batch boundary, and `join!`
 	// waits for all of them.
 	let shutdown = CancellationToken::new();
-	let ((), served, relayed, swept, projected, consumed, reaped, published) = tokio::join!(
+	let ((), served, relayed, swept, projected, consumed, reaped, approved, noticed, published) = tokio::join!(
 		await_signal(shutdown.clone()),
 		branch(&shutdown, "gRPC server", services::serve(config.grpc_addr, state, verifier, shutdown.clone().cancelled_owned())),
 		branch(&shutdown, "relay", infallible(relay.run(shutdown.clone()))),
@@ -325,6 +354,17 @@ async fn run(
 		),
 		branch(
 			&shutdown,
+			"fee approvals",
+			infallible(async {
+				match fee_approvals {
+					Some(executor) => executor.run(shutdown.clone()).await,
+					None => shutdown.cancelled().await,
+				}
+			})
+		),
+		branch(&shutdown, "fee notices", infallible(fee_notices.run(shutdown.clone()))),
+		branch(
+			&shutdown,
 			"catalog publisher",
 			infallible(async {
 				// Side by side, so one catalog stuck on retries does not hold the other back.
@@ -345,7 +385,7 @@ async fn run(
 			})
 		),
 	);
-	served.and(relayed).and(swept).and(projected).and(consumed).and(reaped).and(published)
+	served.and(relayed).and(swept).and(projected).and(consumed).and(reaped).and(approved).and(noticed).and(published)
 }
 
 /// Run one branch of the root `join!`: whatever ends it — an error or a clean return —

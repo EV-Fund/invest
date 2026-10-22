@@ -10,14 +10,22 @@ use std::{future::Future, time::Duration};
 use async_trait::async_trait;
 use evconcierge_client::{
 	Catalog, ConciergeClient, ConciergeError, ScopeCatalog as WireScopeCatalog,
-	proto::{CatalogAlias, NotificationTopicSpec},
+	proto::{
+		ApprovalFieldSpec, ApprovalFieldType, ApprovalKindSpec, ApprovalLevel as WireLevel, CatalogAlias, GetScopeCatalogRequest, NotificationTopicSpec,
+		scope_catalog_service_client::ScopeCatalogServiceClient,
+	},
 };
 use invest_domain::authz::PermissionCatalog;
 use tokio_util::sync::CancellationToken;
+use tonic::{
+	Request,
+	metadata::{AsciiMetadataValue, MetadataValue},
+	transport::Channel,
+};
 use tracing::{error, info, warn};
 
 use super::ConciergeStreamsConfig;
-use crate::ports::catalog::{CatalogPublisher, PublishError, ScopeCatalog, ScopeCatalogPublisher};
+use crate::ports::catalog::{CatalogPublisher, FieldType, KindLevel, KindSpec, PublishError, ScopeCatalog, ScopeCatalogPublisher};
 
 pub struct ClientCatalogPublisher {
 	client: ConciergeClient,
@@ -69,15 +77,31 @@ fn publish_error(err: ConciergeError) -> PublishError {
 
 pub struct ClientScopeCatalogPublisher {
 	client: ConciergeClient,
+	/// `GetScopeCatalog` has no wrapper in `evconcierge_client`; the stub, with the same
+	/// credential.
+	reader: ScopeCatalogServiceClient<Channel>,
+	client_id: AsciiMetadataValue,
+	bearer: AsciiMetadataValue,
 }
 
 impl ClientScopeCatalogPublisher {
 	/// Over the same credential as the permission catalog: `ScopeCatalogService` resolves
 	/// the namespace from the client, so nothing new is configured.
 	pub fn connect(config: &ConciergeStreamsConfig) -> color_eyre::Result<Self> {
-		let client = ConciergeClient::from_channel(super::channel(config)?, config.client_id.clone(), config.client_secret.clone())
+		let channel = super::channel(config)?;
+		let client = ConciergeClient::from_channel(channel.clone(), config.client_id.clone(), config.client_secret.clone())
 			.map_err(|err| color_eyre::eyre::eyre!("concierge scope catalog client: {err}"))?;
-		Ok(Self { client })
+		let client_id = MetadataValue::try_from(config.client_id.as_str()).map_err(|_| color_eyre::eyre::eyre!("the concierge client id is not a valid header value"))?;
+		let mut bearer =
+			MetadataValue::try_from(format!("Bearer {}", config.client_secret)).map_err(|_| color_eyre::eyre::eyre!("the concierge client secret is not a valid header value"))?;
+		// Keeps the secret out of any Debug print of the request's metadata.
+		bearer.set_sensitive(true);
+		Ok(Self {
+			client,
+			reader: ScopeCatalogServiceClient::new(channel),
+			client_id,
+			bearer,
+		})
 	}
 }
 
@@ -86,7 +110,7 @@ impl ScopeCatalogPublisher for ClientScopeCatalogPublisher {
 	async fn publish(&self, catalog: &ScopeCatalog, version: u64) -> Result<(), PublishError> {
 		let wire = WireScopeCatalog {
 			version,
-			approval_kinds: Vec::new(),
+			approval_kinds: catalog.kinds.iter().map(kind_spec).collect(),
 			notification_topics: catalog
 				.topics
 				.iter()
@@ -95,10 +119,52 @@ impl ScopeCatalogPublisher for ClientScopeCatalogPublisher {
 					label: t.label.to_owned(),
 					description: t.description.to_owned(),
 					default_subscribed: t.default_subscribed,
+					required: t.required_reason.is_some(),
+					required_reason: t.required_reason.unwrap_or_default().to_owned(),
 				})
 				.collect(),
 		};
 		self.client.publish_scope_catalog(wire).await.map_err(publish_error)
+	}
+
+	async fn required_topics(&self) -> Result<Vec<String>, PublishError> {
+		let mut request = Request::new(GetScopeCatalogRequest {});
+		request.metadata_mut().insert("x-ev-client-id", self.client_id.clone());
+		request.metadata_mut().insert("authorization", self.bearer.clone());
+		let catalog = self.reader.clone().get_scope_catalog(request).await.map_err(|status| publish_error(status.into()))?.into_inner();
+		Ok(catalog.notification_topics.into_iter().filter(|t| t.required).map(|t| t.topic).collect())
+	}
+}
+
+fn kind_spec(spec: &KindSpec) -> ApprovalKindSpec {
+	ApprovalKindSpec {
+		name: spec.name.to_owned(),
+		label: spec.label.to_owned(),
+		description: spec.description.to_owned(),
+		level: match spec.level {
+			KindLevel::Platform => WireLevel::Platform,
+			KindLevel::Scope => WireLevel::Scope,
+		} as i32,
+		fields: spec
+			.fields
+			.iter()
+			.map(|field| ApprovalFieldSpec {
+				key: field.key.to_owned(),
+				label: field.label.to_owned(),
+				r#type: match field.field_type {
+					FieldType::Text => ApprovalFieldType::Text,
+					FieldType::Bps => ApprovalFieldType::Bps,
+					FieldType::Flag => ApprovalFieldType::Flag,
+					FieldType::Timestamp => ApprovalFieldType::Timestamp,
+					FieldType::Count => ApprovalFieldType::Count,
+				} as i32,
+				required: field.required,
+			})
+			.collect(),
+		// A PLATFORM kind escalates nowhere (concierge refuses one that declares any).
+		escalations: Vec::new(),
+		// Filled by concierge on read; ignored on publish.
+		proposer: String::new(),
 	}
 }
 
@@ -129,11 +195,37 @@ pub async fn publish_at_boot(publisher: &dyn CatalogPublisher, catalog: &Permiss
 
 /// The scope catalog, the same way: until it lands concierge refuses an `invest:*` proposal
 /// and an emit on an `invest:*` topic, and a refusal leaves the last stored catalog in force.
+/// Once it lands, the catalog is read back: a concierge older than v0.21.0 stores a required
+/// topic as an ordinary one, and members could then switch the holders' fee notice off.
 pub async fn publish_scope_at_boot(publisher: &dyn ScopeCatalogPublisher, catalog: &ScopeCatalog, version: u64, shutdown: &CancellationToken) -> Published {
-	retry_publish("scope catalog", "invest topics and kinds stay as the last one it stored", version, shutdown, || {
+	let published = retry_publish("scope catalog", "invest topics and kinds stay as the last one it stored", version, shutdown, || {
 		publisher.publish(catalog, version)
 	})
-	.await
+	.await;
+	if published == Published::Done {
+		check_required(publisher, catalog).await;
+	}
+	published
+}
+
+/// Warn when a topic the catalog requires is not required in the catalog concierge holds.
+/// Only a warning: the notices still go out, and one a member switched off is given up on.
+async fn check_required(publisher: &dyn ScopeCatalogPublisher, catalog: &ScopeCatalog) {
+	let held = match publisher.required_topics().await {
+		Ok(held) => held,
+		Err(err) => {
+			warn!("concierge: could not read the invest scope catalog back to check its required topics: {err}");
+			return;
+		}
+	};
+	for topic in catalog.topics.iter().filter(|t| t.required_reason.is_some()) {
+		if !held.iter().any(|h| h == topic.topic) {
+			warn!(
+				topic = topic.topic,
+				"concierge does not hold this topic as required (older than v0.21.0?): members can switch it off"
+			);
+		}
+	}
 }
 
 async fn retry_publish<F, Fut>(what: &str, on_refusal: &str, version: u64, shutdown: &CancellationToken, mut attempt: F) -> Published
@@ -253,15 +345,70 @@ mod tests {
 	fn the_published_scope_catalog_is_pinned_to_its_version() {
 		// Same rule as the permission catalog: other content under the same version is
 		// refused by concierge, so change the catalog, the version and this pin together.
-		let pinned = ScopeCatalog {
-			topics: vec![TopicSpec {
+		let catalog = ScopeCatalog::invest();
+		let topics = vec![
+			TopicSpec {
 				topic: "invest:fund:quy-nhon",
 				label: "Quy Nhon fund",
 				description: "News and notices about the Quy Nhon fund.",
 				default_subscribed: false,
-			}],
-		};
-		assert_eq!((SCOPE_CATALOG_VERSION, ScopeCatalog::invest()), (1_792_195_200, pinned));
+				required_reason: None,
+			},
+			TopicSpec {
+				topic: "invest:fee-terms",
+				label: "Fee changes in your funds",
+				description: "A notice before the fee terms of a fund you hold change.",
+				default_subscribed: true,
+				required_reason: Some("Fee changes must reach every holder before they bind."),
+			},
+		];
+		let kinds: Vec<(&str, KindLevel, Vec<&str>)> = catalog.kinds.iter().map(|k| (k.name, k.level, k.fields.iter().map(|f| f.key).collect())).collect();
+		let pinned_kinds = vec![(
+			"invest:fee_policy",
+			KindLevel::Platform,
+			vec![
+				"allocation",
+				"current_management",
+				"proposed_management",
+				"current_performance",
+				"proposed_performance",
+				"current_hurdle",
+				"proposed_hurdle",
+				"current_basis",
+				"proposed_basis",
+				"current_crystallization",
+				"proposed_crystallization",
+				"raises_ceiling",
+				"effective_from",
+				"holders_notified",
+			],
+		)];
+		assert_eq!((SCOPE_CATALOG_VERSION, catalog.topics, kinds), (1_792_692_000, topics, pinned_kinds));
+	}
+
+	#[test]
+	fn the_approval_kinds_are_ones_concierge_accepts() {
+		// concierge's rules on kinds (`domain::scope_catalog`, `domain::floors`), checked
+		// here so a bad constant fails a test and not the boot-time publication.
+		let catalog = ScopeCatalog::invest();
+		let key_ok = |s: &str| s.len() <= 32 && s.bytes().next().is_some_and(|b| b.is_ascii_lowercase()) && s.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_');
+		let text_ok = |s: &str, max: usize| !s.is_empty() && s.len() <= max && !s.chars().any(char::is_control) && !s.contains("://") && !s.contains("www.");
+		for kind in &catalog.kinds {
+			let rest = kind.name.strip_prefix("invest:").unwrap_or_else(|| panic!("{} is outside the invest namespace", kind.name));
+			assert!(key_ok(rest), "{}", kind.name);
+			assert!(text_ok(kind.label, 80) && text_ok(kind.description, 500), "{}", kind.name);
+			assert!(kind.fields.len() <= 16, "{}", kind.name);
+			let mut seen = std::collections::BTreeSet::new();
+			for field in &kind.fields {
+				assert!(key_ok(field.key) && seen.insert(field.key), "{} field {}", kind.name, field.key);
+				assert!(text_ok(field.label, 60), "{} field {}", kind.name, field.key);
+			}
+			// The owners decide every kind invest publishes (2026-10-22): a SCOPE kind would
+			// need concierge's floor fields, a PLATFORM one needs nothing more.
+			assert_eq!(kind.level, KindLevel::Platform, "{}", kind.name);
+			let wire = kind_spec(kind);
+			assert!(wire.escalations.is_empty() && wire.level == WireLevel::Platform as i32, "{}", kind.name);
+		}
 	}
 
 	#[test]
@@ -277,7 +424,16 @@ mod tests {
 			assert!(t.topic.len() <= 64 && t.label.len() <= 60 && t.description.len() <= 200, "{}", t.topic);
 			assert!(!rest.starts_with("floor_"), "floor_* is reserved to concierge: {}", t.topic);
 			assert!(seen.insert(t.topic), "duplicate topic {}", t.topic);
+			if let Some(why) = t.required_reason {
+				let plain = !why.is_empty()
+					&& why.len() <= 120
+					&& !why
+						.chars()
+						.any(|c| c.is_control() || c.is_whitespace() && c != ' ' || matches!(c, '\u{200b}'..='\u{200f}' | '\u{2060}' | '\u{feff}'));
+				assert!(plain && !why.contains("://") && !why.contains("www."), "{} required reason", t.topic);
+			}
 		}
+		assert!(catalog.topics.iter().filter(|t| t.required_reason.is_some()).count() <= 3, "at most 3 required topics");
 	}
 
 	#[tokio::test(start_paused = true)]
@@ -292,6 +448,26 @@ mod tests {
 		assert_eq!(publisher.attempts(), 4);
 		assert_eq!(started.elapsed(), Duration::from_secs(1 + 2 + 4));
 		assert_eq!(publisher.published(), vec![(ScopeCatalog::invest(), SCOPE_CATALOG_VERSION)]);
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn the_required_topics_are_read_back_and_a_dropped_flag_only_warns() {
+		let publisher = InMemoryScopeCatalogPublisher::new();
+		let catalog = ScopeCatalog::invest();
+
+		assert_eq!(
+			publish_scope_at_boot(&publisher, &catalog, SCOPE_CATALOG_VERSION, &CancellationToken::new()).await,
+			Published::Done
+		);
+		assert_eq!(publisher.required_topics().await.unwrap(), vec!["invest:fee-terms".to_owned()]);
+
+		// An older concierge stores the topic as an ordinary one: the publication still stands.
+		publisher.drop_required();
+		assert_eq!(
+			publish_scope_at_boot(&publisher, &catalog, SCOPE_CATALOG_VERSION, &CancellationToken::new()).await,
+			Published::Done
+		);
+		assert!(publisher.required_topics().await.unwrap().is_empty());
 	}
 
 	#[tokio::test(start_paused = true)]

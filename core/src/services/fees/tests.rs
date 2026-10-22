@@ -10,10 +10,13 @@ use invest_domain::{
 };
 use uuid::Uuid;
 
-use super::{Audience, change_to_proto, policy_to_proto};
+use super::{Audience, change_to_proto, policy_to_proto, schedule_err};
 use crate::{
-	application::fees::PolicyView,
-	ports::fees::{FeePolicyChange, NoticeWaiver, PolicyRecord},
+	application::{fee_approvals, fees::PolicyView},
+	ports::{
+		approvals::ApprovalState,
+		fees::{FeePolicyChange, NoticeWaiver, PolicyRecord},
+	},
 };
 
 fn scheduled_change() -> FeePolicyChange {
@@ -34,6 +37,24 @@ fn scheduled_change() -> FeePolicyChange {
 		notices_given_up: 0,
 		notices_unacknowledged: 0,
 		notices_waiver: None,
+		approval_id: None,
+		approval_state: None,
+		approval_holders: None,
+		approval_executable_at_unix: None,
+	}
+}
+
+/// A change beyond the house envelope, proposed to the owners and passed by them.
+fn owner_change() -> FeePolicyChange {
+	FeePolicyChange {
+		state: FeePolicyChangeState::AwaitingConsilium,
+		requirement: ChangeRequirement::OwnerConsilium,
+		scheduled_at_unix: None,
+		approval_id: Some(Uuid::from_u128(0xc0)),
+		approval_state: Some(ApprovalState::Passed),
+		approval_holders: Some(3),
+		approval_executable_at_unix: Some(1_700_086_400),
+		..scheduled_change()
 	}
 }
 
@@ -61,7 +82,7 @@ fn an_investor_is_shown_the_terms_but_not_who_asked() {
 	let shown = change_to_proto(&change, Audience::Investor);
 
 	assert_eq!(shown.requested_by, "", "who asked is governance detail");
-	assert_eq!(shown.consilium_id, "", "invest records no change the owners decide");
+	assert_eq!(shown.consilium_id, "", "an administrator's change has no approval");
 	// Everything an investor is entitled to stays: the terms they will be on, when, and why.
 	assert_eq!(shown.id, change.id.to_string());
 	assert_eq!(shown.management_bps, 300);
@@ -79,6 +100,38 @@ fn an_operator_is_shown_who_asked() {
 	let shown = change_to_proto(&change, Audience::Operator);
 
 	assert_eq!(shown.requested_by, "8f0d2a8e-2b3e-4a1a-9a53-6d5a0d1d2e3f");
+}
+
+#[test]
+fn the_owners_approval_is_shown_to_operators_and_its_existence_to_everyone() {
+	let change = owner_change();
+
+	let operator = change_to_proto(&change, Audience::Operator);
+	assert_eq!(operator.consilium_id, Uuid::from_u128(0xc0).to_string());
+	assert_eq!(operator.approval_state, "passed");
+	assert_eq!(operator.approval_holders, Some(3));
+	assert_eq!(operator.approval_executable_at, 1_700_086_400, "until when an owner may veto");
+	assert_eq!(operator.state, "awaiting_consilium");
+	assert_eq!(operator.requirement, "owner_consilium");
+
+	let investor = change_to_proto(&change, Audience::Investor);
+	assert_eq!(
+		(
+			investor.consilium_id.as_str(),
+			investor.approval_state.as_str(),
+			investor.approval_holders,
+			investor.approval_executable_at
+		),
+		("", "", None, 0),
+		"which approval, and its tally, is governance detail"
+	);
+	assert_eq!(investor.state, "awaiting_consilium", "that the owners are deciding is public");
+
+	let admin = change_to_proto(&scheduled_change(), Audience::Operator);
+	assert_eq!(
+		(admin.consilium_id.as_str(), admin.approval_state.as_str(), admin.approval_holders, admin.approval_executable_at),
+		("", "", None, 0)
+	);
 }
 
 #[test]
@@ -135,4 +188,18 @@ fn the_redaction_follows_the_pending_change_onto_the_policy_view() {
 	let operator = policy_to_proto(&service, &view, Audience::Operator);
 	let pending = operator.pending.expect("the change on its way is shown to everyone");
 	assert_ne!(pending.requested_by, "");
+}
+
+/// The BFF turns exactly this into its 403 `reauth_required`: the message must START with the
+/// word, so the usual "precondition failed: " prefix stays off it — and only off it.
+#[test]
+fn a_refusal_only_a_fresh_sign_in_cures_reaches_the_bff_bare() {
+	let status = schedule_err(fee_approvals::reauth_required("confirm your sign-in"));
+	assert_eq!(status.code(), tonic::Code::FailedPrecondition);
+	assert_eq!(status.message(), "reauth_required: confirm your sign-in");
+
+	let other = schedule_err(invest_domain::error::DomainError::Precondition("a fund with no holders".into()));
+	assert_eq!(other.code(), tonic::Code::FailedPrecondition);
+	assert!(!other.message().starts_with(fee_approvals::REAUTH_REQUIRED), "{}", other.message());
+	assert!(!fee_approvals::is_reauth_required("reauth_requiredness: no"));
 }

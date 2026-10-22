@@ -49,20 +49,32 @@ service FeesService {
   // effect no earlier than 24h after it was scheduled while anyone holds units (at once
   // for a fund with no holders); `effective_from` may ask for later, never earlier. A
   // change that TIGHTENS the terms beyond the house envelope (2-and-20 on invested
-  // capital, annual) needs the owners' approval, which invest cannot ask concierge for
-  // yet: it is refused with FAILED_PRECONDITION. Every other change is scheduled at once,
-  // and a notice is recorded for every holder. invest has no channel to deliver those
-  // notices yet, so each counts as given up: a change that makes the terms DEARER binds
-  // only once its requester acknowledges them (AcknowledgeUndeliveredNotices); a cheaper
-  // one binds by itself. One pending change per fund: a second is refused with
-  // ALREADY_EXISTS until the first is cancelled.
+  // capital, annual), or lowers the hurdle, needs the owners' approval: it is recorded
+  // `awaiting_consilium` and proposed to the platform owners as concierge's
+  // `invest:fee_policy`. When they pass it, invest schedules it — the holders are told and
+  // the notice period starts then — and when the proposal ends otherwise (rejected, vetoed, expired, voided) the
+  // change is `rejected`. concierge refusing the proposal outright rejects the change and
+  // answers FAILED_PRECONDITION with concierge's reason; concierge out of reach leaves it
+  // `awaiting_consilium` with no `consilium_id`, and invest proposes it again shortly.
+  // Every other change is scheduled at once. A scheduled change owes every holder a notice,
+  // which invest delivers through concierge's inbox and mail, retrying for about three
+  // hours. Delivery never moves `effective_from`. A change that makes the terms DEARER binds
+  // only once every holder's notice is delivered — or, for a change that is not the owners',
+  // once its requester acknowledges the holders given up on (AcknowledgeUndeliveredNotices);
+  // a cheaper one binds by itself. One pending change per
+  // fund, awaiting the owners or scheduled: a second is refused with ALREADY_EXISTS until
+  // the first is cancelled.
   rpc ScheduleFeePolicy(ScheduleFeePolicyRequest) returns (FeePolicyChange);
 
   // Withdraw a pending change (AllocationManage). Idempotent on an already-cancelled change.
+  // A change the owners decide may be withdrawn only by the one who requested it
+  // (PERMISSION_DENIED otherwise); its proposal is withdrawn in concierge too — at once, or
+  // shortly after when concierge does not answer.
   rpc CancelFeePolicyChange(CancelFeePolicyChangeRequest) returns (FeePolicyChange);
 
   // Take responsibility for the holders of a scheduled change who could not be told
-  // (AllocationManage, AND the caller must be the one who requested the change). A change
+  // (AllocationManage, AND the caller must be the one who requested the change; never for a
+  // change the owners decided — PERMISSION_DENIED). A change
   // that TIGHTENS the terms does not bind while a holder's notice is undelivered; for a
   // holder nobody can reach that is forever. This
   // records who acknowledged, when, and exactly which holders' notices had been
@@ -156,8 +168,9 @@ message ScheduleFeePolicyRequest {
   // Unix seconds the change should bind from; 0 = as soon as the notice period allows.
   // An earlier request than the notice allows is lifted to the minimum, not refused.
   int64 effective_from = 7;
-  // Why, in the requester's words. Required and non-empty when the owners must approve
-  // (invest refuses such a change today); optional otherwise. Shown verbatim.
+  // Why, in the requester's words. Required and non-empty when the owners must approve,
+  // and then with no link: the owners read it in concierge's mail. Optional otherwise.
+  // Shown verbatim.
   string reason = 8;
 }
 
@@ -177,7 +190,7 @@ message ListFeePolicyChangesRequest {
 
 // One row of a fund's fee-policy history. `state` is one of awaiting_consilium |
 // scheduled | active | superseded | rejected | cancelled; `requirement` is admin |
-// owner_consilium. invest records only `admin` changes until it can ask the owners.
+// owner_consilium.
 message FeePolicyChange {
   string id = 1;
   string service = 2;
@@ -192,8 +205,10 @@ message FeePolicyChange {
   // the change is scheduled.
   int64 effective_from = 10;
   string requirement = 11;
-  // The owners' approval this change waits on (or waited on); empty for an administrator's
-  // change, which is every change invest records today.
+  // The concierge approval (`invest:fee_policy`) this change waits on, or waited on;
+  // empty for an administrator's change and for an owner change not proposed yet. Rows
+  // imported from banking name their consilium here. Operators only; empty for everyone
+  // else.
   string consilium_id = 12;
   string requested_by = 13;
   int64 requested_at = 14;
@@ -223,6 +238,18 @@ message FeePolicyChange {
   uint32 undelivered_notices = 21;
   uint32 notices_given_up = 22;
   uint32 notices_unacknowledged = 23;
+  // concierge's state of that approval as invest last read it: open | passed (the owners
+  // carried it; a veto is still possible until invest acts) | executed | execution_failed |
+  // rejected | vetoed | expired | cancelled | void. Empty when there is no approval.
+  // Operators only.
+  string approval_state = 24;
+  // How many holders the proposal told the owners would be notified — the count when it
+  // was proposed. Absent on a change invest did not propose. Operators only.
+  optional uint32 approval_holders = 25;
+  // Unix seconds when concierge lets invest carry out the passed approval: until then any
+  // owner may still veto it ("owners can veto until …"). 0 until invest has read it from a
+  // passed proposal, and on a change invest did not propose. Operators only.
+  int64 approval_executable_at = 26;
 }
 
 message FeePolicyChangeList {

@@ -1,15 +1,18 @@
 //! Postgres adapter for the [`FeePolicyChanges`] port — the history of a product's fee terms
 //! and the ONLY writer of `fee_policies`.
 //!
-//! Three transactions here are load-bearing:
+//! Four transactions here are load-bearing:
 //!
-//! - [`FeePolicyChanges::schedule`] writes the change already `scheduled` and one notice
-//!   per holder in the same transaction, so a change never exists without the record of who
-//!   was owed word of it. invest has no channel to deliver a notice yet (concierge's scope
-//!   notifications are a follow-up), so each is recorded as GIVEN UP the moment it is owed:
-//!   a dearer change then binds over its holders only once an operator acknowledges them,
-//!   and a cheaper one binds by itself. A change that needs the owners is refused — their
-//!   approval is concierge's, and invest is not its client yet.
+//! - [`FeePolicyChanges::schedule`] writes an administrator's change already `scheduled`
+//!   and one notice per holder in the same transaction, so a change never exists without the
+//!   record of who was owed word of it. Each notice is recorded undelivered, with the terms
+//!   it replaces on the change; the notice sender (`infrastructure::fee_notices`) delivers it
+//!   through concierge or gives it up. A dearer change binds over a holder only once their
+//!   notice was delivered or an operator acknowledged them, and a cheaper one binds by
+//!   itself. A change the owners decide is written `awaiting_consilium` with no notice.
+//! - [`FeePolicyChanges::schedule_approved`] moves an owner change to `scheduled` and
+//!   records its notices in one transaction, under the product lock, and only while the
+//!   row and the terms in force are still what the owners were shown.
 //! - [`FeePolicyChanges::cancel`] closes the change and, in the same transaction, withdraws
 //!   every holder notice not delivered yet, so no notifier can later tell holders about
 //!   terms that will never bind.
@@ -40,7 +43,10 @@ use crate::{
 		fee_accrual::carry_accrual,
 		fees::{policy_from_row, repo_err},
 	},
-	ports::fees::{FeePolicyChange, FeePolicyChanges, NewFeePolicyChange, NoticeWaiver},
+	ports::{
+		approvals::ApprovalState,
+		fees::{ApprovedTerms, FeePolicyChange, FeePolicyChanges, NewFeePolicyChange, NoticeWaiver},
+	},
 };
 
 /// Postgres' unique-violation SQLSTATE — how `fee_policy_changes_single_pending_idx` answers.
@@ -52,7 +58,9 @@ macro_rules! change_columns {
 		 EXTRACT(EPOCH FROM effective_from)::bigint AS effective_from_unix, requested_by, reason, \
 		 EXTRACT(EPOCH FROM requested_at)::bigint AS requested_at_unix, EXTRACT(EPOCH FROM scheduled_at)::bigint AS scheduled_at_unix, \
 		 EXTRACT(EPOCH FROM applied_at)::bigint AS applied_at_unix, \
-		 notices_waived_by, EXTRACT(EPOCH FROM notices_waived_at)::bigint AS notices_waived_at_unix, notices_waived_users"
+		 notices_waived_by, EXTRACT(EPOCH FROM notices_waived_at)::bigint AS notices_waived_at_unix, notices_waived_users, \
+		 consilium_id, approval_state, approval_holders, \
+		 EXTRACT(EPOCH FROM approval_executable_at)::bigint AS approval_executable_at_unix"
 	};
 }
 
@@ -154,6 +162,18 @@ fn change_from_row(row: &PgRow) -> Result<FeePolicyChange, DomainError> {
 		notices_given_up: 0,
 		notices_unacknowledged: 0,
 		notices_waiver: waiver_from_row(row)?,
+		approval_id: row.try_get("consilium_id").map_err(repo_err)?,
+		approval_state: row
+			.try_get::<Option<String>, _>("approval_state")
+			.map_err(repo_err)?
+			.map(|raw| ApprovalState::parse(&raw).ok_or_else(|| DomainError::Repository(format!("unknown approval state {raw:?}"))))
+			.transpose()?,
+		approval_holders: row
+			.try_get::<Option<i32>, _>("approval_holders")
+			.map_err(repo_err)?
+			.map(|holders| u32::try_from(holders).map_err(|_| DomainError::Repository("negative approval holder count".into())))
+			.transpose()?,
+		approval_executable_at_unix: row.try_get("approval_executable_at_unix").map_err(repo_err)?,
 	})
 }
 
@@ -237,17 +257,26 @@ pub(crate) async fn notice_roster(conn: &mut PgConnection, service: &ServiceId) 
 		.map_err(repo_err)
 }
 
-/// Record one notice per holder, on the caller's transaction; a retried scheduling records
-/// each once. invest has no channel to deliver them yet, so each is given up on as it is
-/// recorded — said on the row, not assumed: the promotion gate and the acknowledgement read
-/// exactly what a notifier will one day write.
-// TODO(concierge scope notifications): record the notice undelivered and have the notifier
-// emit it through concierge's EmitScopeNotification, stamping `delivered_at`/`given_up_at`.
-async fn record_notices(conn: &mut PgConnection, change: FeePolicyChangeId, holders: &[Uuid]) -> Result<(), DomainError> {
+/// Record one notice per holder, undelivered, on the caller's transaction, and the terms the
+/// change replaces — the "from" every notice states, read in the same transaction, since the
+/// live row may be the new terms by the time a notice is sent. A retried scheduling records
+/// each notice once.
+async fn record_notices(conn: &mut PgConnection, change: FeePolicyChangeId, from: Option<&FeePolicy>, holders: &[Uuid]) -> Result<(), DomainError> {
+	let from = from.unwrap_or(&FeePolicy::NONE);
+	sqlx::query("UPDATE fee_policy_changes SET from_management_bps = $2, from_performance_bps = $3, from_hurdle_bps = $4, from_basis = $5, from_crystallization = $6 WHERE id = $1")
+		.bind(change.raw())
+		.bind(bps(from.management_bps()))
+		.bind(bps(from.performance_bps()))
+		.bind(bps(from.hurdle_bps()))
+		.bind(from.basis().as_str())
+		.bind(from.crystallization().as_str())
+		.execute(&mut *conn)
+		.await
+		.map_err(repo_err)?;
 	if holders.is_empty() {
 		return Ok(());
 	}
-	sqlx::query("INSERT INTO fee_policy_notices (change_id, user_id, given_up_at) SELECT $1, holder, now() FROM UNNEST($2::uuid[]) AS holder ON CONFLICT DO NOTHING")
+	sqlx::query("INSERT INTO fee_policy_notices (change_id, user_id) SELECT $1, holder FROM UNNEST($2::uuid[]) AS holder ON CONFLICT DO NOTHING")
 		.bind(change.raw())
 		.bind(holders)
 		.execute(&mut *conn)
@@ -264,15 +293,6 @@ fn bps(value: u32) -> i32 {
 #[async_trait]
 impl FeePolicyChanges for PgFeePolicyChanges {
 	async fn schedule(&self, change: &NewFeePolicyChange) -> Result<FeePolicyChange, DomainError> {
-		// TODO(concierge approvals): a change that needs the owners is proposed as an
-		// `invest:fee_policy` approval in concierge and scheduled when it is carried —
-		// banking's `schedule_approved`. Until invest is concierge's approvals client, it is
-		// refused here rather than scheduled on one administrator's word.
-		if change.requirement == ChangeRequirement::OwnerConsilium {
-			return Err(DomainError::Precondition(
-				"this change tightens the terms beyond the house envelope and needs the owners' approval, which invest cannot ask for yet".into(),
-			));
-		}
 		let mut tx = self.pool.begin().await.map_err(repo_err)?;
 		lock_product(&mut tx, &change.service).await?;
 		let from = current_terms(&mut tx, &change.service).await?;
@@ -284,18 +304,33 @@ impl FeePolicyChanges for PgFeePolicyChanges {
 		if fees::requirement_for(from.as_ref(), &change.policy) != change.requirement {
 			return Err(DomainError::Conflict("the live terms changed while the request was being recorded — re-submit".into()));
 		}
-		let has_holders = holder_count(&mut tx, &change.service).await? > 0;
+		let holders = holder_count(&mut tx, &change.service).await?;
 		let version: i32 = sqlx::query_scalar("SELECT COALESCE(MAX(version), 0) + 1 FROM fee_policy_changes WHERE service = $1")
 			.bind(change.service.as_str())
 			.fetch_one(&mut *tx)
 			.await
 			.map_err(repo_err)?;
-		let effective_from = fees::earliest_effective_from(change.now_unix, change.requested_effective_from_unix, has_holders);
+		let (state, effective_from, scheduled_at, approval_holders) = match change.requirement {
+			ChangeRequirement::Admin => (
+				FeePolicyChangeState::Scheduled,
+				fees::earliest_effective_from(change.now_unix, change.requested_effective_from_unix, holders > 0),
+				Some(change.now_unix),
+				None,
+			),
+			// Provisional: the notice clock starts when the owners carry it. The holder count
+			// is the one the proposal names, kept so the approval can be re-checked.
+			ChangeRequirement::OwnerConsilium => (
+				FeePolicyChangeState::AwaitingConsilium,
+				change.requested_effective_from_unix.max(change.now_unix),
+				None,
+				Some(i32::try_from(holders).unwrap_or(i32::MAX)),
+			),
+		};
 
 		let inserted = sqlx::query(
 			"INSERT INTO fee_policy_changes (id, service, version, management_bps, performance_bps, hurdle_bps, basis, crystallization, \
-			   state, requirement, effective_from, requested_by, requested_at, reason, scheduled_at) \
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, to_timestamp($11), $12, to_timestamp($13), $14, to_timestamp($13))",
+			   state, requirement, effective_from, requested_by, requested_at, reason, scheduled_at, approval_holders) \
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, to_timestamp($11), $12, to_timestamp($13), $14, to_timestamp($15), $16)",
 		)
 		.bind(change.id.raw())
 		.bind(change.service.as_str())
@@ -305,12 +340,14 @@ impl FeePolicyChanges for PgFeePolicyChanges {
 		.bind(bps(change.policy.hurdle_bps()))
 		.bind(change.policy.basis().as_str())
 		.bind(change.policy.crystallization().as_str())
-		.bind(FeePolicyChangeState::Scheduled.as_str())
+		.bind(state.as_str())
 		.bind(change.requirement.as_str())
 		.bind(effective_from as f64)
 		.bind(&change.requested_by)
 		.bind(change.now_unix as f64)
 		.bind(&change.reason)
+		.bind(scheduled_at.map(|at| at as f64))
+		.bind(approval_holders)
 		.execute(&mut *tx)
 		.await;
 		if let Err(sqlx::Error::Database(err)) = &inserted
@@ -324,8 +361,10 @@ impl FeePolicyChanges for PgFeePolicyChanges {
 		}
 		inserted.map_err(repo_err)?;
 
-		let roster = notice_roster(&mut tx, &change.service).await?;
-		record_notices(&mut tx, change.id, &roster).await?;
+		if state == FeePolicyChangeState::Scheduled {
+			let roster = notice_roster(&mut tx, &change.service).await?;
+			record_notices(&mut tx, change.id, from.as_ref(), &roster).await?;
+		}
 		// Read AFTER the notices are recorded: the row handed back states how many holders
 		// are still to be told.
 		let stored = find_on(&mut tx, change.id)
@@ -333,6 +372,152 @@ impl FeePolicyChanges for PgFeePolicyChanges {
 			.ok_or_else(|| DomainError::Repository("fee policy change vanished inside its own transaction".into()))?;
 		tx.commit().await.map_err(repo_err)?;
 		Ok(stored)
+	}
+
+	async fn record_proposal(&self, id: FeePolicyChangeId, approval: Uuid, state: ApprovalState) -> Result<FeePolicyChange, DomainError> {
+		let mut tx = self.pool.begin().await.map_err(repo_err)?;
+		let change = locked(&mut tx, id).await?;
+		if change.requirement != ChangeRequirement::OwnerConsilium {
+			return Err(DomainError::Conflict("an administrator's fee-policy change is not proposed to the owners".into()));
+		}
+		match change.approval_id {
+			Some(known) if known == approval => return Ok(change),
+			Some(known) => {
+				return Err(DomainError::Conflict(format!("the fee-policy change already waits on approval {known}")));
+			}
+			None => {}
+		}
+		sqlx::query("UPDATE fee_policy_changes SET consilium_id = $2, approval_state = $3 WHERE id = $1")
+			.bind(id.raw())
+			.bind(approval)
+			.bind(state.as_str())
+			.execute(&mut *tx)
+			.await
+			.map_err(repo_err)?;
+		let stored = find_on(&mut tx, id)
+			.await?
+			.ok_or_else(|| DomainError::Repository("fee policy change vanished under lock".into()))?;
+		tx.commit().await.map_err(repo_err)?;
+		Ok(stored)
+	}
+
+	async fn schedule_approved(&self, id: FeePolicyChangeId, terms: &ApprovedTerms, now_unix: i64) -> Result<FeePolicyChange, DomainError> {
+		let mut tx = self.pool.begin().await.map_err(repo_err)?;
+		// An unlocked probe for the product, so the PRODUCT lock is taken before the change's —
+		// the order `schedule` and `promote` use. Nothing below trusts the probe.
+		let probe = find_on(&mut tx, id).await?.ok_or_else(|| DomainError::NotFound {
+			entity: "fee policy change",
+			id: id.to_string(),
+		})?;
+		lock_product(&mut tx, &probe.service).await?;
+		let change = locked(&mut tx, id).await?;
+		if change.approval_id != Some(terms.approval_id) || change.requirement != ChangeRequirement::OwnerConsilium {
+			return Err(DomainError::Conflict("this approval does not decide this fee-policy change".into()));
+		}
+		// The row is re-checked against what the owners passed, as banking re-checked it
+		// against its consilium: a change edited underneath its approval cannot spend it.
+		let stale = || DomainError::Conflict("the fee-policy change no longer matches the terms the owners approved".into());
+		if change.policy != terms.policy || change.approval_holders != terms.holders {
+			return Err(stale());
+		}
+		match change.state {
+			// The retry an at-least-once execution path depends on — a second runner arriving
+			// after the first committed. Scheduling rewrote `effective_from`, so it is not
+			// compared here.
+			FeePolicyChangeState::Scheduled => return Ok(change),
+			FeePolicyChangeState::AwaitingConsilium =>
+				if change.effective_from_unix != terms.effective_from_unix {
+					return Err(stale());
+				},
+			state @ (FeePolicyChangeState::Active | FeePolicyChangeState::Superseded | FeePolicyChangeState::Rejected | FeePolicyChangeState::Cancelled) => {
+				return Err(DomainError::Conflict(format!("the fee-policy change is {}, no longer awaiting the owners", state.as_str())));
+			}
+		}
+		let from = current_terms(&mut tx, &change.service).await?;
+		if from != terms.current {
+			// The owners were shown a "from" that is no longer the truth.
+			return Err(DomainError::Conflict("the terms in force changed while the owners decided".into()));
+		}
+		let has_holders = holder_count(&mut tx, &change.service).await? > 0;
+		let effective_from = fees::earliest_effective_from(now_unix, change.effective_from_unix, has_holders);
+		sqlx::query("UPDATE fee_policy_changes SET state = 'scheduled', scheduled_at = to_timestamp($2), effective_from = to_timestamp($3), approval_state = 'passed' WHERE id = $1")
+			.bind(id.raw())
+			.bind(now_unix as f64)
+			.bind(effective_from as f64)
+			.execute(&mut *tx)
+			.await
+			.map_err(repo_err)?;
+		let roster = notice_roster(&mut tx, &change.service).await?;
+		record_notices(&mut tx, id, from.as_ref(), &roster).await?;
+		// Read AFTER the notices are recorded, for the reason `schedule` does.
+		let stored = find_on(&mut tx, id)
+			.await?
+			.ok_or_else(|| DomainError::Repository("fee policy change vanished under lock".into()))?;
+		tx.commit().await.map_err(repo_err)?;
+		Ok(stored)
+	}
+
+	async fn close_unapproved(&self, id: FeePolicyChangeId, approval_state: Option<ApprovalState>, why: &str) -> Result<FeePolicyChange, DomainError> {
+		let mut tx = self.pool.begin().await.map_err(repo_err)?;
+		let change = locked(&mut tx, id).await?;
+		match change.state {
+			FeePolicyChangeState::AwaitingConsilium => {}
+			FeePolicyChangeState::Scheduled | FeePolicyChangeState::Active | FeePolicyChangeState::Superseded | FeePolicyChangeState::Rejected | FeePolicyChangeState::Cancelled =>
+				return Ok(change),
+		}
+		sqlx::query("UPDATE fee_policy_changes SET state = 'rejected', closed_reason = $2, approval_state = COALESCE($3, approval_state) WHERE id = $1")
+			.bind(id.raw())
+			.bind(why)
+			.bind(approval_state.map(ApprovalState::as_str))
+			.execute(&mut *tx)
+			.await
+			.map_err(repo_err)?;
+		let stored = find_on(&mut tx, id)
+			.await?
+			.ok_or_else(|| DomainError::Repository("fee policy change vanished under lock".into()))?;
+		tx.commit().await.map_err(repo_err)?;
+		Ok(stored)
+	}
+
+	async fn note_approval_state(&self, id: FeePolicyChangeId, state: ApprovalState, executable_at_unix: Option<i64>) -> Result<(), DomainError> {
+		// Reads race: a round that read `passed` before another round reported the outcome
+		// must not write it over `executed`. concierge never leaves an ended state, and a
+		// passed proposal never opens again, so neither move is taken from a stale read.
+		sqlx::query(
+			"UPDATE fee_policy_changes SET approval_state = $2, approval_executable_at = COALESCE(to_timestamp($3), approval_executable_at) \
+			 WHERE id = $1 AND consilium_id IS NOT NULL \
+			 AND (approval_state IS NULL OR approval_state = 'open' OR (approval_state = 'passed' AND $2 <> 'open'))",
+		)
+		.bind(id.raw())
+		.bind(state.as_str())
+		.bind(executable_at_unix)
+		.execute(&self.pool)
+		.await
+		.map_err(repo_err)?;
+		Ok(())
+	}
+
+	async fn watched(&self, limit: u32) -> Result<Vec<FeePolicyChange>, DomainError> {
+		let mut conn = self.pool.acquire().await.map_err(repo_err)?;
+		// A cancelled change is watched only if invest proposed it (`approval_holders`): a
+		// change imported from banking names a consilium concierge never knew, and asking
+		// concierge to withdraw it would fail on every round.
+		let rows = sqlx::query(concat!(
+			"SELECT ",
+			change_columns!(),
+			" FROM fee_policy_changes WHERE state = 'awaiting_consilium' \
+			 OR (state = 'cancelled' AND consilium_id IS NOT NULL AND approval_holders IS NOT NULL AND (approval_state IS NULL OR approval_state IN ('open', 'passed'))) \
+			 ORDER BY requested_at, id LIMIT $1"
+		))
+		.bind(i64::from(limit))
+		.fetch_all(&mut *conn)
+		.await
+		.map_err(repo_err)?;
+		let mut changes = Vec::with_capacity(rows.len());
+		for row in &rows {
+			changes.push(hydrate(&mut conn, row).await?);
+		}
+		Ok(changes)
 	}
 
 	async fn cancel(&self, service: &ServiceId, id: FeePolicyChangeId, by: &str, _now_unix: i64) -> Result<FeePolicyChange, DomainError> {
@@ -521,7 +706,8 @@ impl FeePolicyChanges for PgFeePolicyChanges {
 		// A notice that has not reached its holder — still undelivered, or given up on — is a
 		// holder the notice period exists to warn who was never warned. Terms that get DEARER
 		// for them do not bind over them: the change stays `scheduled`, a notice delivered
-		// later lets the next tick promote, a notice given up on needs the operator, and the
+		// later lets the next tick promote, a notice given up on needs the operator (or, for a
+		// change the owners decided, which nobody may waive, its withdrawal), and the
 		// sweeper's failure streak turns the refusal into an error.
 		// The operator's move is the acknowledgement: it names the holders whose notice had
 		// been given up on when it was given (and, on a later call, since), and the terms

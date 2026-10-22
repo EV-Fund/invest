@@ -39,15 +39,18 @@ use uuid::Uuid;
 use crate::{
 	application::{
 		allocations as allocations_app,
+		fee_approvals::{self, FeeApprovalPorts},
 		funds::{account_cash, dealing_nav, refuse_recent_poster},
 	},
 	ports::{
 		allocations::AllocationRegistry,
+		approvals::{Approvals, UserProof},
 		fees::{AssessmentRecord, FeeAssessments, FeePolicies, FeePolicyChange, FeePolicyChanges, FeeSettlements, NewFeePolicyChange, PolicyRecord, PositionAccruals, SettlementRecord},
 		ledger::Ledger,
 		money::MoneyLedger,
 		nav::NavMarks,
 		redemptions::RedemptionRepository,
+		users::UserDirectory,
 	},
 };
 
@@ -215,6 +218,20 @@ pub struct FeePolicyPorts<'a> {
 	pub policies: &'a dyn FeePolicies,
 	pub changes: &'a dyn FeePolicyChanges,
 	pub allocations: &'a dyn AllocationRegistry,
+	/// Where a change the owners decide is proposed, and its proposal withdrawn.
+	pub approvals: &'a dyn Approvals,
+	/// The asker's `auth_subject`, in whose name a proposal is made.
+	pub users: &'a dyn UserDirectory,
+}
+
+impl FeePolicyPorts<'_> {
+	fn approval_ports(&self) -> FeeApprovalPorts<'_> {
+		FeeApprovalPorts {
+			approvals: self.approvals,
+			changes: self.changes,
+			policies: self.policies,
+		}
+	}
 }
 
 /// A change of terms as the operator asks for it.
@@ -225,6 +242,9 @@ pub struct PolicyChangeRequest {
 	pub requested_effective_from_unix: i64,
 	/// Why, in the requester's words. Required when the owners must approve.
 	pub reason: String,
+	/// The requester's own token from a sign-in they just confirmed. Required when the owners
+	/// must approve: it keeps the requester off their roster (D24(1)).
+	pub requester_proof: Option<UserProof>,
 }
 
 /// Propose a change of a fund's fee terms (operator).
@@ -234,9 +254,14 @@ pub struct PolicyChangeRequest {
 /// `AllocationManage` holder otherwise. An administrator's change is scheduled at once and
 /// a notice is recorded for every holder; the terms bind no earlier than the notice period
 /// while anyone holds units, and a dearer change binds over a holder only once they were
-/// told or an operator acknowledged them. A change that needs the owners is refused
-/// ([`DomainError::Precondition`]): their approval is concierge's, and invest is not its
-/// client yet.
+/// told or an operator acknowledged them.
+///
+/// A change the owners decide is recorded `awaiting_consilium` and proposed to them as
+/// concierge's `invest:fee_policy` ([`fee_approvals`]) with the requester's proof; the notice
+/// period starts when they pass it. Without a proof it is refused before anything is written
+/// ([`fee_approvals::reauth_required`]). A proposal concierge refuses, or cannot take now,
+/// closes the change `rejected` and answers why ([`DomainError::Precondition`]). When the
+/// owners pass it, every holder is owed a notice, and [`super::fee_notices`] delivers it.
 pub async fn schedule_policy(ports: &FeePolicyPorts<'_>, requester: UserId, request: PolicyChangeRequest, now: i64) -> Result<FeePolicyChange, DomainError> {
 	// The registry is the same gate subscribe runs through: terms for an unregistered
 	// product are always a typo.
@@ -260,6 +285,22 @@ pub async fn schedule_policy(ports: &FeePolicyPorts<'_>, requester: UserId, requ
 	let current = ports.policies.find(&request.service).await?;
 	let requirement = fees::requirement_for(current.as_ref(), &request.policy);
 	fees::validate_reason(&request.reason, requirement == ChangeRequirement::OwnerConsilium)?;
+	let requester_proof = match requirement {
+		ChangeRequirement::Admin => None,
+		ChangeRequirement::OwnerConsilium => {
+			// concierge takes the proposal only in the name its proof's `sub` carries, which is
+			// the requester's `auth_subject`; without it the proof could not be used.
+			let subject = ports
+				.users
+				.auth_subject(requester)
+				.await?
+				.ok_or_else(|| DomainError::Precondition("your account is not known to invest yet, so the owners cannot be asked in your name — try again shortly".into()))?;
+			let proof = request
+				.requester_proof
+				.ok_or_else(|| fee_approvals::reauth_required("a change the owners decide is put to them in the name of the person who asks; confirm your sign-in and submit it again"))?;
+			Some((subject, proof))
+		}
+	};
 	let change = NewFeePolicyChange {
 		id: FeePolicyChangeId::new(),
 		service: request.service.clone(),
@@ -270,23 +311,32 @@ pub async fn schedule_policy(ports: &FeePolicyPorts<'_>, requester: UserId, requ
 		reason: request.reason.clone(),
 		now_unix: now,
 	};
-	match requirement {
-		ChangeRequirement::Admin => ports.changes.schedule(&change).await,
-		// TODO(concierge approvals): propose `invest:fee_policy` in concierge and schedule
-		// the change when the owners carry it, as banking's consilium did.
-		ChangeRequirement::OwnerConsilium => Err(DomainError::Precondition(
-			"this change tightens the terms beyond the house envelope, so it needs the owners' approval — invest cannot ask for it yet".into(),
-		)),
+	let stored = ports.changes.schedule(&change).await?;
+	match requester_proof {
+		None => Ok(stored),
+		Some((subject, proof)) => fee_approvals::propose(&ports.approval_ports(), stored, &subject, &proof).await,
 	}
 }
 
-/// Withdraw a pending change (operator).
-pub async fn cancel_change(changes: &dyn FeePolicyChanges, service: &ServiceId, id: FeePolicyChangeId, by: UserId, now: i64) -> Result<FeePolicyChange, DomainError> {
-	changes.find(id).await?.filter(|change| &change.service == service).ok_or_else(|| DomainError::NotFound {
+/// Withdraw a pending change (operator). The change is closed here first, so the operator's
+/// word holds at once; the proposal of an owner change is then withdrawn in concierge, or by
+/// the approvals round when concierge does not answer now. A change the owners decide may be
+/// withdrawn only by the one who requested it ([`DomainError::Forbidden`] otherwise).
+pub async fn cancel_change(ports: &FeePolicyPorts<'_>, service: &ServiceId, id: FeePolicyChangeId, by: UserId, now: i64) -> Result<FeePolicyChange, DomainError> {
+	let change = ports.changes.find(id).await?.filter(|change| &change.service == service).ok_or_else(|| DomainError::NotFound {
 		entity: "fee policy change",
 		id: id.to_string(),
 	})?;
-	changes.cancel(service, id, &by.to_string(), now).await
+	// Banking let only the proposer or an owner withdraw a consilium change: any other
+	// `AllocationManage` holder could otherwise kill a change the owners are voting on. invest
+	// does not know the owners; they refuse a change in concierge by vetoing it.
+	if change.requirement == ChangeRequirement::OwnerConsilium && change.requested_by != by.to_string() {
+		return Err(DomainError::Forbidden("a change the owners decide may be withdrawn only by the one who requested it".into()));
+	}
+	let cancelled = ports.changes.cancel(service, id, &by.to_string(), now).await?;
+	fee_approvals::withdraw_cancelled(&ports.approval_ports(), &cancelled).await?;
+	// Re-read: the withdrawal notes concierge's state on the row.
+	Ok(ports.changes.find(id).await?.unwrap_or(cancelled))
 }
 
 /// Take responsibility for the holders of a scheduled tightening who could not be told
@@ -304,6 +354,14 @@ pub async fn acknowledge_undelivered_notices(changes: &dyn FeePolicyChanges, ser
 		entity: "fee policy change",
 		id: id.to_string(),
 	})?;
+	// The owners approved terms the holders were to be told about; one person waiving that
+	// notice would undo the half of their approval that protects the holders. A holder
+	// nobody could reach keeps the change from binding, and the requester withdraws it.
+	if change.requirement == ChangeRequirement::OwnerConsilium {
+		return Err(DomainError::Forbidden(
+			"the holders' notice of a change the owners decided cannot be waived; withdraw the change instead".into(),
+		));
+	}
 	if change.requested_by != by.to_string() {
 		return Err(DomainError::Forbidden("the holders' notice may be waived only by the one who requested the change".into()));
 	}

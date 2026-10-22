@@ -61,6 +61,7 @@ fn requests(state: AppState) -> Router {
 		.route("/auth/login", get(auth::login))
 		.route("/auth/session", get(auth::session))
 		.route("/auth/logout", post(auth::logout))
+		.route("/auth/reauth", get(auth::reauth))
 		.route("/allocations", get(funds::list_allocations))
 		.route("/allocations/detail", get(funds::get_allocation))
 		.route("/funds/nav", get(funds::fund_nav))
@@ -145,12 +146,18 @@ pub async fn require_token(state: &AppState, jar: &Cookies) -> Result<String, Ap
 /// but it keeps an investor out before any privileged call and answers a screen at the
 /// BFF. Answers the access token, so a gated handler resolves the session once.
 pub async fn require_permission(state: &AppState, jar: &Cookies, permission: Permission) -> Result<String, ApiError> {
+	Ok(require_permission_session(state, jar, permission).await?.access_token)
+}
+
+/// [`require_permission`], answering the whole session — for a handler that also takes the
+/// session's confirmed sign-in.
+pub async fn require_permission_session(state: &AppState, jar: &Cookies, permission: Permission) -> Result<Session, ApiError> {
 	let session = require_session(state, jar).await?;
 	let me = state.sessions.me(&session, false).await?;
 	if !me.permissions.iter().any(|held| held == permission.as_str()) {
 		return Err(ApiError::Grpc(Status::permission_denied(format!("requires {}", permission.as_str()))));
 	}
-	Ok(session.access_token)
+	Ok(session)
 }
 
 /// The gate of every mutating route: the request comes from the cabinet's own origin, and
