@@ -220,7 +220,7 @@ pub struct FeePolicyPorts<'a> {
 	pub allocations: &'a dyn AllocationRegistry,
 	/// Where a change the owners decide is proposed, and its proposal withdrawn.
 	pub approvals: &'a dyn Approvals,
-	/// The asker's `auth_subject`, which a proposal names.
+	/// The asker's `auth_subject`, in whose name a proposal is made.
 	pub users: &'a dyn UserDirectory,
 }
 
@@ -230,7 +230,6 @@ impl FeePolicyPorts<'_> {
 			approvals: self.approvals,
 			changes: self.changes,
 			policies: self.policies,
-			users: self.users,
 		}
 	}
 }
@@ -297,14 +296,21 @@ pub async fn schedule_policy(ports: &FeePolicyPorts<'_>, requester: UserId, requ
 			"a change the owners decide is possible only on a fund with no holders until invest can deliver holder notices".into(),
 		));
 	}
-	let proof = match (requirement, request.requester_proof) {
-		(ChangeRequirement::OwnerConsilium, None) => {
-			return Err(fee_approvals::reauth_required(
-				"a change the owners decide is put to them in the name of the person who asks; confirm your sign-in and submit it again",
-			));
+	let requester_proof = match requirement {
+		ChangeRequirement::Admin => None,
+		ChangeRequirement::OwnerConsilium => {
+			// concierge takes the proposal only in the name its proof's `sub` carries, which is
+			// the requester's `auth_subject`; without it the proof could not be used.
+			let subject = ports
+				.users
+				.auth_subject(requester)
+				.await?
+				.ok_or_else(|| DomainError::Precondition("your account is not known to invest yet, so the owners cannot be asked in your name — try again shortly".into()))?;
+			let proof = request
+				.requester_proof
+				.ok_or_else(|| fee_approvals::reauth_required("a change the owners decide is put to them in the name of the person who asks; confirm your sign-in and submit it again"))?;
+			Some((subject, proof))
 		}
-		(ChangeRequirement::OwnerConsilium, Some(proof)) => Some(proof),
-		(ChangeRequirement::Admin, _) => None,
 	};
 	let change = NewFeePolicyChange {
 		id: FeePolicyChangeId::new(),
@@ -317,9 +323,9 @@ pub async fn schedule_policy(ports: &FeePolicyPorts<'_>, requester: UserId, requ
 		now_unix: now,
 	};
 	let stored = ports.changes.schedule(&change).await?;
-	match proof {
+	match requester_proof {
 		None => Ok(stored),
-		Some(proof) => fee_approvals::propose(&ports.approval_ports(), stored, &proof).await,
+		Some((subject, proof)) => fee_approvals::propose(&ports.approval_ports(), stored, &subject, &proof).await,
 	}
 }
 

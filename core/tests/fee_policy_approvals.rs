@@ -63,7 +63,6 @@ fn approval_ports(h: &Harness) -> fee_approvals::FeeApprovalPorts<'_> {
 		approvals: &h.approvals,
 		changes: &h.changes,
 		policies: &h.policies,
-		users: &h.users,
 	}
 }
 
@@ -217,7 +216,7 @@ async fn an_owner_change_without_the_requesters_proof_is_refused_before_it_is_wr
 	let Some(h) = harness().await else { return };
 	let service = open_fund(&h).await;
 
-	let err = schedule_with(&h, UserId::new(), &service, dearer(), None).await.unwrap_err();
+	let err = schedule_with(&h, common::active_user(&h.users).await, &service, dearer(), None).await.unwrap_err();
 
 	assert!(is_reauth_required(&err), "got {err:?}");
 	assert!(err.to_string().contains("reauth_required: "), "{err}");
@@ -228,6 +227,22 @@ async fn an_owner_change_without_the_requesters_proof_is_refused_before_it_is_wr
 	assert_eq!(schedule_with(&h, UserId::new(), &service, cheaper, None).await.unwrap().state, FeePolicyChangeState::Scheduled);
 }
 
+/// concierge takes a proposal only in the name its proof's `sub` carries — the requester's
+/// `auth_subject`, which invest learns from concierge. A requester it has not learned yet is
+/// refused before anything is written, proof or not.
+#[tokio::test]
+async fn an_owner_change_by_a_requester_invest_does_not_know_yet_is_refused_before_it_is_written() {
+	let Some(h) = harness().await else { return };
+	let service = open_fund(&h).await;
+
+	let err = schedule(&h, UserId::new(), &service, dearer()).await.unwrap_err();
+
+	assert!(matches!(err, DomainError::Precondition(ref why) if why.contains("not known to invest")), "got {err:?}");
+	assert!(!is_reauth_required(&err), "a fresh sign-in would not help");
+	assert!(h.changes.pending(&service).await.unwrap().is_none(), "nothing was recorded");
+	assert!(h.approvals.proposals().is_empty() && h.approvals.proofs().is_empty(), "nothing was proposed");
+}
+
 /// concierge did not take the proof (too old, spent, someone else's): the change is closed,
 /// its pending slot is free, and the operator is told to confirm their sign-in again.
 #[tokio::test]
@@ -236,7 +251,7 @@ async fn a_proof_concierge_refuses_closes_the_change_and_asks_for_a_fresh_sign_i
 	let service = open_fund(&h).await;
 	h.approvals.refuse_proofs(Some("the sign-in is 300 s old"));
 
-	let err = schedule(&h, UserId::new(), &service, dearer()).await.unwrap_err();
+	let err = schedule(&h, common::active_user(&h.users).await, &service, dearer()).await.unwrap_err();
 
 	assert!(is_reauth_required(&err), "got {err:?}");
 	let closed = h.changes.list(&service).await.unwrap().into_iter().next().unwrap();
@@ -245,7 +260,7 @@ async fn a_proof_concierge_refuses_closes_the_change_and_asks_for_a_fresh_sign_i
 	assert!(h.changes.pending(&service).await.unwrap().is_none(), "the slot is free for the next try");
 
 	h.approvals.refuse_proofs(None);
-	let again = schedule(&h, UserId::new(), &service, dearer()).await.unwrap();
+	let again = schedule(&h, common::active_user(&h.users).await, &service, dearer()).await.unwrap();
 	assert!(again.approval_id.is_some(), "a fresh proof proposes it");
 }
 
@@ -257,7 +272,7 @@ async fn a_change_concierge_could_not_take_is_closed_not_proposed_later() {
 	let service = open_fund(&h).await;
 
 	h.approvals.outage(true);
-	let err = schedule(&h, UserId::new(), &service, dearer()).await.unwrap_err();
+	let err = schedule(&h, common::active_user(&h.users).await, &service, dearer()).await.unwrap_err();
 	assert!(
 		matches!(err, DomainError::Precondition(ref why) if why.contains("submit it again") && !fee_approvals::is_reauth_required(why)),
 		"got {err:?}"
@@ -541,7 +556,7 @@ async fn an_open_proposal_follows_concierge_and_a_refused_one_closes_at_once() {
 
 	let service = open_fund(&h).await;
 	h.approvals.refuse_proposals(Some("FailedPrecondition: the platform pauses after its owners changed"));
-	let err = schedule(&h, UserId::new(), &service, dearer()).await.unwrap_err();
+	let err = schedule(&h, common::active_user(&h.users).await, &service, dearer()).await.unwrap_err();
 	assert!(matches!(err, DomainError::Precondition(ref why) if why.contains("pauses")), "got {err:?}");
 	let refused = h.changes.list(&service).await.unwrap().into_iter().next().unwrap();
 	assert_eq!(refused.state, FeePolicyChangeState::Rejected, "the history keeps the refused change");

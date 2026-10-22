@@ -163,10 +163,14 @@ who joins while the owners vote cannot be waived: the change does not bind over 
 2. **The requester does not vote on it (D24(1)).** The request carries the requester's own
    `invest` token from a sign-in confirmed seconds ago (`x-ev-user-token`; the cabinet gets it
    with a `max_age=0` sign-in, see the [BFF README](cabinet/backend/README.md)). invest-core
-   relays it on `Propose`, and concierge keeps that person off the owners' roster. Without
-   the token the change is refused before anything is written (FAILED_PRECONDITION,
-   `reauth_required: …`); a token concierge does not take closes the change `rejected` with
-   the same answer. The token is never stored.
+   relays it on `Propose` with `requested_by` = the requester's `auth_subject` from the
+   `users` projection (concierge requires it to equal the token's `sub`), and concierge keeps
+   that person off the owners' roster. Without the token the change is refused before
+   anything is written (FAILED_PRECONDITION, `reauth_required: …`), and so is a requester
+   whose `auth_subject` invest has not learned yet. A token concierge does not take closes
+   the change `rejected` with the same `reauth_required` answer; its other refusals (another
+   person's token, an ended session, too few owners besides the requester) close it with
+   concierge's reason. The token is never stored.
 3. Every 30 s the approvals round pulls the passed proposals (`PullApproved`), reads each
    again, checks its `payload_hash` against the STORED change and its level (PLATFORM),
    schedules the change — the holders' notices and the notice period start now — and

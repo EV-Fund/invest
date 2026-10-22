@@ -27,7 +27,6 @@ use std::time::Duration;
 use invest_domain::{
 	error::DomainError,
 	fees::{FeePolicy, FeePolicyChangeId, FeePolicyChangeState},
-	users::UserId,
 };
 use tracing::{error, info, warn};
 use uuid::Uuid;
@@ -36,7 +35,6 @@ use crate::ports::{
 	approvals::{ApprovalField, ApprovalOutcome, ApprovalState, ApprovalValue, ApprovalView, Approvals, ApprovalsError, Proposal, UserProof, payload_hash},
 	catalog::{KindLevel, fee_policy_fields as field},
 	fees::{ApprovedTerms, FeePolicies, FeePolicyChange, FeePolicyChanges},
-	users::UserDirectory,
 };
 
 pub const FEE_POLICY_KIND: &str = "invest:fee_policy";
@@ -162,16 +160,16 @@ pub struct FeeApprovalPorts<'a> {
 	pub approvals: &'a dyn Approvals,
 	pub changes: &'a dyn FeePolicyChanges,
 	pub policies: &'a dyn FeePolicies,
-	pub users: &'a dyn UserDirectory,
 }
 
-/// Propose `change` to the owners in the name of the person `proof` belongs to. `change` is an
-/// owner change still `awaiting_consilium`, written by this request.
+/// Propose `change` to the owners in the name of the person `proof` belongs to, whose
+/// `auth_subject` is `requested_by`. `change` is an owner change still `awaiting_consilium`,
+/// written by this request.
 ///
 /// Anything short of an opened, matching proposal closes the change `rejected` and answers
 /// why ([`DomainError::Precondition`]; [`reauth_required`] when concierge did not take the
 /// proof). The proof is not kept, so a change that is not proposed here never is.
-pub async fn propose(ports: &FeeApprovalPorts<'_>, change: FeePolicyChange, proof: &UserProof) -> Result<FeePolicyChange, DomainError> {
+pub async fn propose(ports: &FeeApprovalPorts<'_>, change: FeePolicyChange, requested_by: &str, proof: &UserProof) -> Result<FeePolicyChange, DomainError> {
 	let current = ports.policies.find(&change.service).await?;
 	let fields = proposal_fields(&change, current.as_ref())?;
 	let subject = subject_ref(change.id);
@@ -181,7 +179,7 @@ pub async fn propose(ports: &FeeApprovalPorts<'_>, change: FeePolicyChange, proo
 		scope: APPROVAL_SCOPE,
 		dedupe_key: subject.clone(),
 		subject_ref: subject,
-		requested_by: requested_by(ports.users, &change.requested_by).await,
+		requested_by: requested_by.to_owned(),
 		reason: change.reason.clone(),
 		fields,
 	};
@@ -219,21 +217,6 @@ pub async fn propose(ports: &FeeApprovalPorts<'_>, change: FeePolicyChange, proo
 			// change that has ended: the round reports it void if the owners ever pass it.
 			warn!(change_id = %change.id, "fee approvals: could not propose now: {err}");
 			refuse("concierge could not take the proposal now".to_owned()).await
-		}
-	}
-}
-
-/// The asker's `auth_subject`, so concierge mails them the outcome; empty while the
-/// projection has not learned it. Information only (see [`Proposal::requested_by`]).
-async fn requested_by(users: &dyn UserDirectory, requested_by: &str) -> String {
-	let Ok(user) = Uuid::parse_str(requested_by).map(UserId::from_raw) else {
-		return String::new();
-	};
-	match users.auth_subject(user).await {
-		Ok(subject) => subject.unwrap_or_default(),
-		Err(err) => {
-			warn!(%user, "fee approvals: could not read the requester's auth_subject; proposing without it: {err}");
-			String::new()
 		}
 	}
 }

@@ -38,6 +38,10 @@ const USER_TOKEN_HEADER: &str = "x-ev-user-token";
 /// How concierge starts the message of a FAILED_PRECONDITION about the requester's proof.
 const REAUTH_REQUIRED: &str = "reauth_required:";
 
+/// How concierge starts the message of an UNAUTHENTICATED about the requester's token (an
+/// unknown or ended session) — unlike one about invest's own credential.
+const INVALID_USER_TOKEN: &str = "invalid user token";
+
 pub struct ConciergeApprovals {
 	client: ApprovalExecutionServiceClient<Channel>,
 	client_id: AsciiMetadataValue,
@@ -77,6 +81,9 @@ fn classify(rpc: &str, status: &Status) -> ApprovalsError {
 	let message = format!("{rpc}: {:?}: {}", status.code(), status.message());
 	if status.code() == Code::FailedPrecondition && status.message().starts_with(REAUTH_REQUIRED) {
 		return ApprovalsError::ReauthRequired(message);
+	}
+	if status.code() == Code::Unauthenticated && status.message().starts_with(INVALID_USER_TOKEN) {
+		return ApprovalsError::Refused(message);
 	}
 	match status.code() {
 		Code::ResourceExhausted => ApprovalsError::Throttled(message),
@@ -281,5 +288,15 @@ mod tests {
 		assert!(matches!(refused, ApprovalsError::Refused(_)), "{refused:?}");
 		let elsewhere = classify("Propose", &Status::invalid_argument("reauth_required: not this code"));
 		assert!(matches!(elsewhere, ApprovalsError::Refused(_)), "{elsewhere:?}");
+	}
+
+	/// The requester's token refused is a refusal of this request; invest's own credential
+	/// refused stays a configuration fault a deploy fixes.
+	#[test]
+	fn an_ended_user_session_is_a_refusal_not_an_outage() {
+		let user = classify("Propose", &Status::unauthenticated("invalid user token"));
+		assert!(matches!(user, ApprovalsError::Refused(_)), "{user:?}");
+		let ours = classify("Propose", &Status::unauthenticated("unknown client"));
+		assert!(matches!(ours, ApprovalsError::Unavailable(_)), "{ours:?}");
 	}
 }

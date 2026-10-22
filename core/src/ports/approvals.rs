@@ -35,9 +35,8 @@ pub struct Proposal {
 	pub scope: &'static str,
 	/// `<type>:<uuid>`: what invest acts on when the proposal passes.
 	pub subject_ref: String,
-	/// The asker's `auth_subject`, or empty, so concierge can mail them the outcome. It is
-	/// information only: the [`UserProof`] beside the proposal is what keeps them off the
-	/// roster.
+	/// The asker's `auth_subject`. concierge requires it to be the `sub` of the [`UserProof`]
+	/// beside the proposal, keeps that person off the roster, and mails them the outcome.
 	pub requested_by: String,
 	pub reason: String,
 	pub fields: Vec<ApprovalField>,
