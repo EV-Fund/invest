@@ -61,6 +61,10 @@ banking's on purpose.
   until its outcome is reported; invest reads it again by id, acts only on `PASSED` at
   `PLATFORM` level, and recomputes `payload_hash` from the row it STORED. The store re-checks the row under its
   lock. Report the outcome only after the effect has committed.
+- **The requester of an owner change does not vote on it (D24(1)).** `Propose` carries the
+  requester's freshly confirmed `invest` token (`x-ev-user-token`), and concierge keeps them off
+  the roster. The token is used once and never stored, so a change is proposed only in the
+  request that wrote it; nothing proposes it later.
 - **Health stays outside auth.** `grpc.health.v1` is not wrapped in the auth layer.
 - **The browser holds no token.** The cabinet BFF keeps concierge's tokens sealed (key
   derived from the cookie) in `cabinet.sessions`, keyed by the hash of the session cookie. Every mutating route calls

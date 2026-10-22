@@ -22,7 +22,7 @@ use evconcierge_projection::{EventSource, Page, Pulled, ScopeEvent, SourceError,
 use invest_domain::authz::PermissionCatalog;
 
 use crate::ports::{
-	approvals::{ApprovalOutcome, ApprovalState, ApprovalView, Approvals, ApprovalsError, Proposal, payload_hash},
+	approvals::{ApprovalOutcome, ApprovalState, ApprovalView, Approvals, ApprovalsError, Proposal, UserProof, payload_hash},
 	catalog::{CatalogPublisher, KindLevel, PublishError, ScopeCatalog, ScopeCatalogPublisher},
 };
 
@@ -242,8 +242,8 @@ impl ScopeCatalogPublisher for InMemoryScopeCatalogPublisher {
 /// withdrawal while open or passed. A test steers it with [`InMemoryApprovals::set_state`],
 /// [`InMemoryApprovals::tamper_hash`], [`InMemoryApprovals::unreport`],
 /// [`InMemoryApprovals::hold_back`], [`InMemoryApprovals::set_level`],
-/// [`InMemoryApprovals::set_executable_at`], [`InMemoryApprovals::refuse_proposals`] and
-/// [`InMemoryApprovals::outage`].
+/// [`InMemoryApprovals::set_executable_at`], [`InMemoryApprovals::refuse_proposals`],
+/// [`InMemoryApprovals::refuse_proofs`] and [`InMemoryApprovals::outage`].
 #[derive(Clone, Default)]
 pub struct InMemoryApprovals {
 	state: Arc<Mutex<ApprovalsState>>,
@@ -254,7 +254,10 @@ struct ApprovalsState {
 	proposals: Vec<StoredProposal>,
 	reports: Vec<(String, ApprovalOutcome, String)>,
 	withdrawals: Vec<String>,
+	/// The requester's token every `Propose` carried, in order.
+	proofs: Vec<String>,
 	refuse: Option<String>,
+	refuse_proof: Option<String>,
 	down: bool,
 }
 
@@ -284,6 +287,11 @@ impl InMemoryApprovals {
 	/// Every outcome reported, in order: approval id, outcome, detail.
 	pub fn reports(&self) -> Vec<(String, ApprovalOutcome, String)> {
 		self.lock().reports.clone()
+	}
+
+	/// The requester's token each `Propose` carried, in order — deduped calls included.
+	pub fn proofs(&self) -> Vec<String> {
+		self.lock().proofs.clone()
 	}
 
 	/// Every approval id withdrawn, in order.
@@ -341,6 +349,12 @@ impl InMemoryApprovals {
 		self.lock().refuse = why.map(str::to_owned);
 	}
 
+	/// While set, `Propose` refuses the requester's proof with this reason, as concierge
+	/// does for a stale, spent or foreign token.
+	pub fn refuse_proofs(&self, why: Option<&str>) {
+		self.lock().refuse_proof = why.map(str::to_owned);
+	}
+
 	/// While set, every call answers UNAVAILABLE.
 	pub fn outage(&self, down: bool) {
 		self.lock().down = down;
@@ -357,8 +371,12 @@ impl InMemoryApprovals {
 
 #[async_trait]
 impl Approvals for InMemoryApprovals {
-	async fn propose(&self, proposal: &Proposal) -> Result<ApprovalView, ApprovalsError> {
+	async fn propose(&self, proposal: &Proposal, proof: &UserProof) -> Result<ApprovalView, ApprovalsError> {
 		let mut guard = self.up()?;
+		guard.proofs.push(proof.token().to_owned());
+		if let Some(why) = &guard.refuse_proof {
+			return Err(ApprovalsError::ReauthRequired(format!("reauth_required: {why}")));
+		}
 		if let Some(why) = &guard.refuse {
 			return Err(ApprovalsError::Refused(why.clone()));
 		}

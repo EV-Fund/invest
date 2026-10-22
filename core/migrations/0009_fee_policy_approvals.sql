@@ -1,9 +1,9 @@
 -- Fee-policy changes the owners decide through concierge's approvals (invest#37).
 --
 -- A change that leaves the house envelope is recorded `awaiting_consilium` FIRST and proposed
--- to concierge as `invest:fee_policy` right after, so a crash between the two leaves a row the
--- approvals round proposes again (the proposal is idempotent by `fee_policy_change:<id>`),
--- never a proposal with nothing behind it. `consilium_id` keeps its name and now holds the
+-- to concierge as `invest:fee_policy` right after, in the same request, so a crash between the
+-- two leaves a row the approvals round closes `rejected`, never a proposal with nothing behind
+-- it. The round cannot propose it itself: the proposal needs the requester's own token. `consilium_id` keeps its name and now holds the
 -- concierge approval id; until the proposal is open it is NULL, which the old CHECK forbade.
 --
 --   - `approval_state`: concierge's state of the proposal as the round last read it — what the

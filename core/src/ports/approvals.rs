@@ -35,13 +35,38 @@ pub struct Proposal {
 	pub scope: &'static str,
 	/// `<type>:<uuid>`: what invest acts on when the proposal passes.
 	pub subject_ref: String,
-	/// The asker's `auth_subject`, or empty. Information only: without the person's own
-	/// token concierge cannot prove who asked, so it keeps nobody off the roster.
+	/// The asker's `auth_subject`, or empty, so concierge can mail them the outcome. It is
+	/// information only: the [`UserProof`] beside the proposal is what keeps them off the
+	/// roster.
 	pub requested_by: String,
 	pub reason: String,
 	pub fields: Vec<ApprovalField>,
 	/// Makes a retried `Propose` return the proposal the first one opened.
 	pub dedupe_key: String,
+}
+
+/// The proof that a person asked for a proposal (D24(1)): their own `invest` access token
+/// from a sign-in they confirmed seconds ago. With it concierge keeps that person off the
+/// PLATFORM roster, so nobody votes on their own request. concierge takes one confirmation
+/// for one proposal and only for about two minutes, so the proof is never stored or logged.
+#[derive(Clone)]
+pub struct UserProof(String);
+
+impl UserProof {
+	/// `None` for an empty token: no proof at all.
+	pub fn new(token: String) -> Option<Self> {
+		(!token.is_empty()).then_some(Self(token))
+	}
+
+	pub fn token(&self) -> &str {
+		&self.0
+	}
+}
+
+impl std::fmt::Debug for UserProof {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.write_str("UserProof(..)")
+	}
 }
 
 /// Where a proposal stands in concierge (§5.4).
@@ -130,6 +155,10 @@ pub enum ApprovalsError {
 	/// concierge answered and will answer the same to the same request.
 	#[error("concierge refused: {0}")]
 	Refused(String),
+	/// concierge did not take the requester's proof: too old, already used, or not theirs.
+	/// The person confirms their sign-in again; the same request never passes.
+	#[error("concierge wants a fresh sign-in: {0}")]
+	ReauthRequired(String),
 	/// The namespace's cap on live proposals in one scope.
 	#[error("concierge is at its limit: {0}")]
 	Throttled(String),
@@ -140,7 +169,8 @@ pub enum ApprovalsError {
 
 #[async_trait]
 pub trait Approvals: Send + Sync {
-	async fn propose(&self, proposal: &Proposal) -> Result<ApprovalView, ApprovalsError>;
+	/// Open `proposal` in the name of the person `proof` belongs to.
+	async fn propose(&self, proposal: &Proposal, proof: &UserProof) -> Result<ApprovalView, ApprovalsError>;
 	async fn get(&self, approval_id: &str) -> Result<ApprovalView, ApprovalsError>;
 	/// The passed proposals of invest's namespace that are due, oldest first. A pull claims
 	/// nothing: a proposal is served again until its outcome is reported.

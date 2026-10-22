@@ -4,18 +4,20 @@
 //! TigerBeetle replica is reachable, skip otherwise, and fail instead of skipping under `CI`.
 //!
 //! What is pinned: a change beyond the house envelope is recorded `awaiting_consilium` and
-//! proposed once, whatever retries it; a passed proposal is re-read, re-hashed against the
-//! STORED change, scheduled with its notice period starting then, and reported; a proposal
-//! whose hash is not the change's is refused; one that ends any other way closes the change
-//! `rejected`; and a cancel withdraws the proposal, now or on a later round.
+//! proposed in its own request with the requester's proof, or refused before anything is
+//! written when there is none; a change that request could not propose is closed, never
+//! proposed later; a passed proposal is re-read, re-hashed against the STORED change,
+//! scheduled with its notice period starting then, and reported; a proposal whose hash is not
+//! the change's is refused; one that ends any other way closes the change `rejected`; and a
+//! cancel withdraws the proposal, now or on a later round.
 
 use invest_core::{
 	application::{allocations as allocations_app, fee_approvals, fees as fee_app, funds as funds_app},
 	ports::{
 		AllocationRegistry,
-		approvals::{ApprovalOutcome, ApprovalState, ApprovalValue},
+		approvals::{ApprovalOutcome, ApprovalState, ApprovalValue, UserProof},
 		catalog::KindLevel,
-		fees::{ApprovedTerms, FeePolicies, FeePolicyChange, FeePolicyChanges, PositionAccruals},
+		fees::{ApprovedTerms, FeePolicies, FeePolicyChange, FeePolicyChanges, NewFeePolicyChange, PositionAccruals},
 		money::ScopeId,
 	},
 };
@@ -23,7 +25,7 @@ use invest_domain::{
 	allocations::{AllocationAccess, AllocationIcon},
 	balance::ServiceId,
 	error::DomainError,
-	fees::{ChangeRequirement, CrystallizationPeriod, FeePolicy, FeePolicyChangeState, MIN_NOTICE_SECS, ManagementBasis},
+	fees::{ChangeRequirement, CrystallizationPeriod, FeePolicy, FeePolicyChangeId, FeePolicyChangeState, MIN_NOTICE_SECS, ManagementBasis},
 	money::Usdt,
 	users::UserId,
 };
@@ -76,6 +78,10 @@ fn dearer() -> FeePolicy {
 
 const REASON: &str = "the new mandate costs more to run";
 
+/// The requester's freshly confirmed token, as the BFF forwards it. Opaque here: concierge is
+/// the one that verifies it.
+const PROOF: &str = "requester-invest-token";
+
 async fn open_fund(h: &Harness) -> ServiceId {
 	let service = ServiceId::parse(&format!("fpa-{}", Uuid::new_v4())).unwrap();
 	allocations_app::register(&h.allocations, service.clone(), &ScopeId::invest(), "EV Trading", "Systematic crypto", AllocationIcon::default())
@@ -102,6 +108,10 @@ async fn holder(h: &Harness, service: &ServiceId) -> UserId {
 }
 
 async fn schedule(h: &Harness, requester: UserId, service: &ServiceId, policy: FeePolicy) -> Result<FeePolicyChange, DomainError> {
+	schedule_with(h, requester, service, policy, UserProof::new(PROOF.to_owned())).await
+}
+
+async fn schedule_with(h: &Harness, requester: UserId, service: &ServiceId, policy: FeePolicy, requester_proof: Option<UserProof>) -> Result<FeePolicyChange, DomainError> {
 	fee_app::schedule_policy(
 		&policy_ports(h),
 		requester,
@@ -110,10 +120,15 @@ async fn schedule(h: &Harness, requester: UserId, service: &ServiceId, policy: F
 			policy,
 			requested_effective_from_unix: 0,
 			reason: REASON.to_owned(),
+			requester_proof,
 		},
 		now(),
 	)
 	.await
+}
+
+fn is_reauth_required(err: &DomainError) -> bool {
+	matches!(err, DomainError::Precondition(why) if fee_approvals::is_reauth_required(why))
 }
 
 /// A fund nobody holds — the only kind an owner change is taken for until invest can
@@ -180,6 +195,7 @@ async fn a_change_beyond_the_envelope_is_proposed_to_the_owners_with_its_terms()
 	assert_eq!(proposal.dedupe_key, proposal.subject_ref);
 	assert_eq!(proposal.reason, REASON);
 	assert_eq!(proposal.requested_by, common::auth_subject(requester), "concierge mails the asker the outcome");
+	assert_eq!(h.approvals.proofs(), vec![PROOF.to_owned()], "the requester's token rode with the proposal");
 	let value = |key: &str| proposal.fields.iter().find(|f| f.key == key).map(|f| f.value.clone());
 	assert_eq!(value("allocation"), Some(ApprovalValue::Text(service.to_string())));
 	assert_eq!(value("current_management"), Some(ApprovalValue::Bps(200)));
@@ -193,27 +209,98 @@ async fn a_change_beyond_the_envelope_is_proposed_to_the_owners_with_its_terms()
 	assert!(matches!(err, DomainError::Conflict(_)), "got {err:?}");
 }
 
+/// D24(1): without the requester's proof concierge could not keep them off the roster, so an
+/// owner change without one is refused before anything is written or proposed. An
+/// administrator's change needs none.
 #[tokio::test]
-async fn a_proposal_lost_to_an_outage_is_proposed_by_the_round_once() {
+async fn an_owner_change_without_the_requesters_proof_is_refused_before_it_is_written() {
+	let Some(h) = harness().await else { return };
+	let service = open_fund(&h).await;
+
+	let err = schedule_with(&h, UserId::new(), &service, dearer(), None).await.unwrap_err();
+
+	assert!(is_reauth_required(&err), "got {err:?}");
+	assert!(err.to_string().contains("reauth_required: "), "{err}");
+	assert!(h.changes.pending(&service).await.unwrap().is_none(), "nothing was recorded");
+	assert_eq!(h.changes.list(&service).await.unwrap().len(), 1, "only the installed terms are on record");
+	assert!(h.approvals.proposals().is_empty() && h.approvals.proofs().is_empty(), "nothing was proposed");
+	let cheaper = FeePolicy::new(100, 2_000, 0, ManagementBasis::InvestedCapital, CrystallizationPeriod::Annual).unwrap();
+	assert_eq!(schedule_with(&h, UserId::new(), &service, cheaper, None).await.unwrap().state, FeePolicyChangeState::Scheduled);
+}
+
+/// concierge did not take the proof (too old, spent, someone else's): the change is closed,
+/// its pending slot is free, and the operator is told to confirm their sign-in again.
+#[tokio::test]
+async fn a_proof_concierge_refuses_closes_the_change_and_asks_for_a_fresh_sign_in() {
+	let Some(h) = harness().await else { return };
+	let service = open_fund(&h).await;
+	h.approvals.refuse_proofs(Some("the sign-in is 300 s old"));
+
+	let err = schedule(&h, UserId::new(), &service, dearer()).await.unwrap_err();
+
+	assert!(is_reauth_required(&err), "got {err:?}");
+	let closed = h.changes.list(&service).await.unwrap().into_iter().next().unwrap();
+	assert_eq!((closed.state, closed.approval_id), (FeePolicyChangeState::Rejected, None));
+	assert!(closed_reason(&h, &closed).await.is_some_and(|why| why.contains("sign-in")));
+	assert!(h.changes.pending(&service).await.unwrap().is_none(), "the slot is free for the next try");
+
+	h.approvals.refuse_proofs(None);
+	let again = schedule(&h, UserId::new(), &service, dearer()).await.unwrap();
+	assert!(again.approval_id.is_some(), "a fresh proof proposes it");
+}
+
+/// The proof is one token for one request and is not kept, so a change its request could not
+/// propose is closed at once — never left for a round to propose without the proof.
+#[tokio::test]
+async fn a_change_concierge_could_not_take_is_closed_not_proposed_later() {
 	let Some(h) = harness().await else { return };
 	let service = open_fund(&h).await;
 
 	h.approvals.outage(true);
-	let change = schedule(&h, UserId::new(), &service, dearer()).await.unwrap();
-	assert_eq!(change.state, FeePolicyChangeState::AwaitingConsilium, "recorded, and waiting to be proposed");
-	assert_eq!(change.approval_id, None);
-	assert_eq!(round(&h).await, fee_approvals::ApprovalRound::default(), "concierge is still away");
+	let err = schedule(&h, UserId::new(), &service, dearer()).await.unwrap_err();
+	assert!(
+		matches!(err, DomainError::Precondition(ref why) if why.contains("submit it again") && !fee_approvals::is_reauth_required(why)),
+		"got {err:?}"
+	);
+	let closed = h.changes.list(&service).await.unwrap().into_iter().next().unwrap();
+	assert_eq!(closed.state, FeePolicyChangeState::Rejected);
+	assert!(h.changes.pending(&service).await.unwrap().is_none());
 
 	h.approvals.outage(false);
-	assert_eq!(round(&h).await.proposed, 1);
-	let proposed = change_of(&h, &change).await;
-	assert!(proposed.approval_id.is_some());
-	// A retried proposal — two replicas, a request that timed out after concierge opened
-	// it — is deduped by the change: the same approval comes back.
-	let again = fee_approvals::propose(&approval_ports(&h), change_of(&h, &change).await).await.unwrap();
-	assert!(matches!(again, fee_approvals::Proposed::Opened(ref c) if c.approval_id == proposed.approval_id));
-	assert_eq!(h.approvals.proposals().len(), 1, "one proposal per change");
-	assert_eq!(round(&h).await.proposed, 0, "nothing is left unproposed");
+	assert_eq!(round(&h).await, fee_approvals::ApprovalRound::default(), "the round proposes nothing");
+	assert!(h.approvals.proposals().is_empty());
+}
+
+/// A change whose request died between writing it and proposing it: a young one is left to
+/// its request, an old one is closed — and neither is proposed by the round.
+#[tokio::test]
+async fn a_change_its_request_never_proposed_is_closed_by_the_round() {
+	let Some(h) = harness().await else { return };
+	let unproposed = |service: &ServiceId, at: i64| NewFeePolicyChange {
+		id: FeePolicyChangeId::new(),
+		service: service.clone(),
+		policy: dearer(),
+		requirement: ChangeRequirement::OwnerConsilium,
+		requested_effective_from_unix: 0,
+		requested_by: UserId::new().to_string(),
+		reason: REASON.to_owned(),
+		now_unix: at,
+	};
+	let (old_fund, young_fund) = (open_fund(&h).await, open_fund(&h).await);
+	let old = h
+		.changes
+		.schedule(&unproposed(&old_fund, now() - fee_approvals::UNPROPOSED_AFTER_SECS - CLOCK_SLACK))
+		.await
+		.unwrap();
+	let young = h.changes.schedule(&unproposed(&young_fund, now())).await.unwrap();
+
+	let swept = round(&h).await;
+
+	assert_eq!(swept, fee_approvals::ApprovalRound { rejected: 1, ..Default::default() });
+	assert_eq!(change_of(&h, &old).await.state, FeePolicyChangeState::Rejected);
+	assert!(closed_reason(&h, &old).await.is_some_and(|why| why.contains("never put to the owners")));
+	assert_eq!(change_of(&h, &young).await.state, FeePolicyChangeState::AwaitingConsilium, "its request may still propose it");
+	assert!(h.approvals.proposals().is_empty() && h.approvals.proofs().is_empty(), "the round proposes nothing");
 }
 
 #[tokio::test]

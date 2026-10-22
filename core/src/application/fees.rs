@@ -39,12 +39,12 @@ use uuid::Uuid;
 use crate::{
 	application::{
 		allocations as allocations_app,
-		fee_approvals::{self, FeeApprovalPorts, Proposed},
+		fee_approvals::{self, FeeApprovalPorts},
 		funds::{account_cash, dealing_nav, refuse_recent_poster},
 	},
 	ports::{
 		allocations::AllocationRegistry,
-		approvals::Approvals,
+		approvals::{Approvals, UserProof},
 		fees::{AssessmentRecord, FeeAssessments, FeePolicies, FeePolicyChange, FeePolicyChanges, FeeSettlements, NewFeePolicyChange, PolicyRecord, PositionAccruals, SettlementRecord},
 		ledger::Ledger,
 		money::MoneyLedger,
@@ -243,6 +243,9 @@ pub struct PolicyChangeRequest {
 	pub requested_effective_from_unix: i64,
 	/// Why, in the requester's words. Required when the owners must approve.
 	pub reason: String,
+	/// The requester's own token from a sign-in they just confirmed. Required when the owners
+	/// must approve: it keeps the requester off their roster (D24(1)).
+	pub requester_proof: Option<UserProof>,
 }
 
 /// Propose a change of a fund's fee terms (operator).
@@ -255,12 +258,12 @@ pub struct PolicyChangeRequest {
 /// told or an operator acknowledged them.
 ///
 /// A change the owners decide is recorded `awaiting_consilium` and proposed to them as
-/// concierge's `invest:fee_policy` ([`fee_approvals`]); the notice period starts when they
-/// pass it. concierge refusing the proposal closes the change `rejected` and answers
-/// [`DomainError::Precondition`] with concierge's reason. concierge out of reach leaves the
-/// change waiting, and the approvals round proposes it later. Such a change is refused
-/// ([`DomainError::Precondition`]) on a fund anyone holds, until invest can deliver the
-/// holders' notices.
+/// concierge's `invest:fee_policy` ([`fee_approvals`]) with the requester's proof; the notice
+/// period starts when they pass it. Without a proof it is refused before anything is written
+/// ([`fee_approvals::reauth_required`]). A proposal concierge refuses, or cannot take now,
+/// closes the change `rejected` and answers why ([`DomainError::Precondition`]). Such a change
+/// is refused ([`DomainError::Precondition`]) on a fund anyone holds, until invest can
+/// deliver the holders' notices.
 pub async fn schedule_policy(ports: &FeePolicyPorts<'_>, requester: UserId, request: PolicyChangeRequest, now: i64) -> Result<FeePolicyChange, DomainError> {
 	// The registry is the same gate subscribe runs through: terms for an unregistered
 	// product are always a typo.
@@ -294,6 +297,15 @@ pub async fn schedule_policy(ports: &FeePolicyPorts<'_>, requester: UserId, requ
 			"a change the owners decide is possible only on a fund with no holders until invest can deliver holder notices".into(),
 		));
 	}
+	let proof = match (requirement, request.requester_proof) {
+		(ChangeRequirement::OwnerConsilium, None) => {
+			return Err(fee_approvals::reauth_required(
+				"a change the owners decide is put to them in the name of the person who asks; confirm your sign-in and submit it again",
+			));
+		}
+		(ChangeRequirement::OwnerConsilium, Some(proof)) => Some(proof),
+		(ChangeRequirement::Admin, _) => None,
+	};
 	let change = NewFeePolicyChange {
 		id: FeePolicyChangeId::new(),
 		service: request.service.clone(),
@@ -305,12 +317,9 @@ pub async fn schedule_policy(ports: &FeePolicyPorts<'_>, requester: UserId, requ
 		now_unix: now,
 	};
 	let stored = ports.changes.schedule(&change).await?;
-	match requirement {
-		ChangeRequirement::Admin => Ok(stored),
-		ChangeRequirement::OwnerConsilium => match fee_approvals::propose(&ports.approval_ports(), stored).await? {
-			Proposed::Opened(change) | Proposed::Later(change) => Ok(change),
-			Proposed::Refused { why, .. } => Err(DomainError::Precondition(why)),
-		},
+	match proof {
+		None => Ok(stored),
+		Some(proof) => fee_approvals::propose(&ports.approval_ports(), stored, &proof).await,
 	}
 }
 

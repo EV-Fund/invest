@@ -1,17 +1,21 @@
 //! The owners' approval of a fee-policy change, through concierge (`invest:fee_policy`).
 //!
 //! A change that leaves the house envelope ([`invest_domain::fees::requirement_for`]) is the owners' to
-//! carry. It is recorded `awaiting_consilium` first and proposed right after ([`propose`]);
-//! the request that wrote it proposes it in the same breath, and [`round`] proposes again
-//! whatever a lost request left behind. The proposal is idempotent by its
-//! `fee_policy_change:<id>`, so a second attempt returns the first one's proposal.
+//! carry. It is recorded `awaiting_consilium` first and proposed right after ([`propose`]) by
+//! the request that wrote it, WITH THE PROOF of who asked (D24(1)): the requester's own token
+//! from a sign-in they confirmed seconds ago. With it concierge keeps the requester off the
+//! owners' roster, so nobody votes on their own change. The proof is one token for one request
+//! and is never kept, so nothing proposes a change later: a change that could not be proposed
+//! in its own request is closed `rejected`, and the operator submits it again. The proposal is
+//! idempotent by its `fee_policy_change:<id>`.
 //!
 //! [`round`] runs every [`ROUND_INTERVAL`] (`infrastructure::fee_approvals`). It carries out
 //! the proposals that passed: re-reads each by its id, re-computes the payload hash from the
 //! STORED change and refuses on a mismatch, schedules the change (the notice period starts
 //! now, as it did under banking's consilium) and reports the outcome. It closes a change
-//! whose proposal ended any other way as `rejected`, and withdraws the proposal of a change
-//! the operator cancelled when the cancel could not reach concierge.
+//! whose proposal ended any other way as `rejected`, closes one whose request died before it
+//! proposed ([`UNPROPOSED_AFTER_SECS`]), and withdraws the proposal of a change the operator
+//! cancelled when the cancel could not reach concierge.
 //!
 //! Every step is idempotent, so two replicas, a crash between scheduling and reporting, or
 //! a proposal served twice cost nothing: a change already scheduled by its approval is
@@ -29,7 +33,7 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::ports::{
-	approvals::{ApprovalField, ApprovalOutcome, ApprovalState, ApprovalValue, ApprovalView, Approvals, ApprovalsError, Proposal, payload_hash},
+	approvals::{ApprovalField, ApprovalOutcome, ApprovalState, ApprovalValue, ApprovalView, Approvals, ApprovalsError, Proposal, UserProof, payload_hash},
 	catalog::{KindLevel, fee_policy_fields as field},
 	fees::{ApprovedTerms, FeePolicies, FeePolicyChange, FeePolicyChanges},
 	users::UserDirectory,
@@ -46,6 +50,25 @@ pub const ROUND_INTERVAL: Duration = Duration::from_secs(30);
 
 /// Proposals pulled, and changes watched, per round.
 const BATCH: u32 = 50;
+
+/// How long an owner change may stand without its proposal before the round closes it. The
+/// request that records it proposes in the same breath, within concierge's call timeout; a
+/// change still unproposed this much later belongs to a request that died.
+pub const UNPROPOSED_AFTER_SECS: i64 = 300;
+
+/// How invest-core starts the message of a refusal that only a fresh sign-in of the requester
+/// cures. The cabinet's BFF reads it and answers its own `reauth_required`.
+pub const REAUTH_REQUIRED: &str = "reauth_required";
+
+/// A refusal the requester cures by confirming their sign-in and asking again.
+pub fn reauth_required(why: &str) -> DomainError {
+	DomainError::Precondition(format!("{REAUTH_REQUIRED}: {why}"))
+}
+
+/// Whether a [`DomainError::Precondition`] message is [`reauth_required`]'s.
+pub fn is_reauth_required(message: &str) -> bool {
+	message.strip_prefix(REAUTH_REQUIRED).is_some_and(|rest| rest.starts_with(':'))
+}
 
 /// What the change asks the owners for, as concierge's `subject_ref` and `dedupe_key`.
 pub fn subject_ref(id: FeePolicyChangeId) -> String {
@@ -142,18 +165,13 @@ pub struct FeeApprovalPorts<'a> {
 	pub users: &'a dyn UserDirectory,
 }
 
-/// What came of [`propose`].
-pub enum Proposed {
-	/// concierge holds the proposal; the change carries its id.
-	Opened(FeePolicyChange),
-	/// concierge refused it, and will refuse it again: the change is closed `rejected`.
-	Refused { change: FeePolicyChange, why: String },
-	/// concierge could not be asked now. The change waits unproposed; [`round`] retries.
-	Later(FeePolicyChange),
-}
-
-/// Propose `change` to the owners. `change` is an owner change still `awaiting_consilium`.
-pub async fn propose(ports: &FeeApprovalPorts<'_>, change: FeePolicyChange) -> Result<Proposed, DomainError> {
+/// Propose `change` to the owners in the name of the person `proof` belongs to. `change` is an
+/// owner change still `awaiting_consilium`, written by this request.
+///
+/// Anything short of an opened, matching proposal closes the change `rejected` and answers
+/// why ([`DomainError::Precondition`]; [`reauth_required`] when concierge did not take the
+/// proof). The proof is not kept, so a change that is not proposed here never is.
+pub async fn propose(ports: &FeeApprovalPorts<'_>, change: FeePolicyChange, proof: &UserProof) -> Result<FeePolicyChange, DomainError> {
 	let current = ports.policies.find(&change.service).await?;
 	let fields = proposal_fields(&change, current.as_ref())?;
 	let subject = subject_ref(change.id);
@@ -167,7 +185,11 @@ pub async fn propose(ports: &FeeApprovalPorts<'_>, change: FeePolicyChange) -> R
 		reason: change.reason.clone(),
 		fields,
 	};
-	match ports.approvals.propose(&proposal).await {
+	let refuse = |why: String| async move {
+		ports.changes.close_unapproved(change.id, None, &why).await?;
+		Err::<FeePolicyChange, _>(DomainError::Precondition(format!("the change was not put to the owners: {why}; submit it again")))
+	};
+	match ports.approvals.propose(&proposal, proof).await {
 		Ok(opened) if opened.payload_hash != ours => {
 			// The two planes disagree on what is being approved: nothing that passes under
 			// this proposal could ever be executed.
@@ -175,25 +197,28 @@ pub async fn propose(ports: &FeeApprovalPorts<'_>, change: FeePolicyChange) -> R
 			if let Err(err) = ports.approvals.withdraw(&opened.id, "the proposal does not match the fee-policy change").await {
 				warn!(change_id = %change.id, approval_id = %opened.id, "fee approvals: could not withdraw the mismatched proposal: {err}");
 			}
-			let why = "concierge and invest disagree about what is being approved".to_owned();
-			let change = ports.changes.close_unapproved(change.id, None, &why).await?;
-			Ok(Proposed::Refused { change, why })
+			refuse("concierge and invest disagree about what is being approved".to_owned()).await
 		}
 		Ok(opened) => {
 			let id = approval_uuid(&opened)?;
 			let change = ports.changes.record_proposal(change.id, id, opened.state).await?;
 			info!(change_id = %change.id, approval_id = %id, state = opened.state.as_str(), "fee approvals: proposed to the owners");
-			Ok(Proposed::Opened(change))
+			Ok(change)
+		}
+		Err(ApprovalsError::ReauthRequired(why)) => {
+			info!(change_id = %change.id, "fee approvals: concierge did not take the requester's proof: {why}");
+			ports.changes.close_unapproved(change.id, None, "the requester's confirmed sign-in was not accepted").await?;
+			Err(reauth_required("confirm your sign-in again and submit the change again"))
 		}
 		Err(ApprovalsError::Refused(why)) => {
 			error!(change_id = %change.id, "fee approvals: concierge refused the proposal: {why}");
-			let why = format!("concierge refused the proposal: {why}");
-			let change = ports.changes.close_unapproved(change.id, None, &why).await?;
-			Ok(Proposed::Refused { change, why })
+			refuse(format!("concierge refused the proposal: {why}")).await
 		}
 		Err(err @ (ApprovalsError::Throttled(_) | ApprovalsError::Unavailable(_))) => {
-			warn!(change_id = %change.id, "fee approvals: could not propose now, the next round retries: {err}");
-			Ok(Proposed::Later(change))
+			// Concierge may still have opened it after the timeout. Such a proposal names a
+			// change that has ended: the round reports it void if the owners ever pass it.
+			warn!(change_id = %change.id, "fee approvals: could not propose now: {err}");
+			refuse("concierge could not take the proposal now".to_owned()).await
 		}
 	}
 }
@@ -236,9 +261,9 @@ pub async fn withdraw_cancelled(ports: &FeeApprovalPorts<'_>, change: &FeePolicy
 /// One round's outcome, as counts — for the tests and the log.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct ApprovalRound {
-	pub proposed: usize,
 	pub scheduled: usize,
-	/// Changes closed `rejected` because their proposal ended otherwise, or did not match.
+	/// Changes closed `rejected` because their proposal ended otherwise, did not match, or
+	/// was never opened.
 	pub rejected: usize,
 	/// Outcomes concierge recorded.
 	pub reported: usize,
@@ -249,7 +274,7 @@ pub struct ApprovalRound {
 pub async fn round(ports: &FeeApprovalPorts<'_>, now: i64) -> Result<ApprovalRound, DomainError> {
 	let mut round = ApprovalRound::default();
 	execute_approved(ports, &mut round, now).await?;
-	watch(ports, &mut round).await?;
+	watch(ports, &mut round, now).await?;
 	Ok(round)
 }
 
@@ -310,7 +335,7 @@ async fn report(
 				ports.changes.note_approval_state(change, state, None).await?;
 			}
 		}
-		Err(ApprovalsError::Refused(why)) => {
+		Err(ApprovalsError::Refused(why) | ApprovalsError::ReauthRequired(why)) => {
 			error!(%approval_id, ?outcome, "fee approvals: concierge refused the outcome, so it holds none for this proposal: {why}");
 		}
 		Err(err @ (ApprovalsError::Unavailable(_) | ApprovalsError::Throttled(_))) => {
@@ -430,22 +455,20 @@ enum Flow {
 	Stop,
 }
 
-/// The changes still waiting on concierge: propose the unproposed, follow the open ones to
-/// their end, and withdraw what the operator cancelled while concierge was away.
-async fn watch(ports: &FeeApprovalPorts<'_>, round: &mut ApprovalRound) -> Result<(), DomainError> {
+/// The changes still waiting on concierge: close the ones their request never proposed,
+/// follow the open ones to their end, and withdraw what the operator cancelled while
+/// concierge was away.
+async fn watch(ports: &FeeApprovalPorts<'_>, round: &mut ApprovalRound, now: i64) -> Result<(), DomainError> {
 	for change in ports.changes.watched(BATCH).await? {
 		let flow = match (change.state, change.approval_id) {
-			(FeePolicyChangeState::AwaitingConsilium, None) => match propose(ports, change).await? {
-				Proposed::Opened(_) => {
-					round.proposed += 1;
-					Flow::Next
-				}
-				Proposed::Refused { .. } => {
-					round.rejected += 1;
-					Flow::Next
-				}
-				Proposed::Later(_) => Flow::Stop,
-			},
+			// Younger than that, its request may still be proposing it.
+			(FeePolicyChangeState::AwaitingConsilium, None) if change.requested_at_unix > now - UNPROPOSED_AFTER_SECS => Flow::Next,
+			(FeePolicyChangeState::AwaitingConsilium, None) => {
+				warn!(change_id = %change.id, "fee approvals: an owner change was never proposed; closing it");
+				ports.changes.close_unapproved(change.id, None, "the change was never put to the owners; submit it again").await?;
+				round.rejected += 1;
+				Flow::Next
+			}
 			(FeePolicyChangeState::AwaitingConsilium, Some(approval)) => follow(ports, round, &change, approval).await?,
 			(FeePolicyChangeState::Cancelled, Some(approval)) => withdraw(ports, round, &change, approval).await?,
 			// `watched` lists none of these; one that turns up is left alone.

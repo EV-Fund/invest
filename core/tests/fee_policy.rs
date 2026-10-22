@@ -150,6 +150,7 @@ async fn install_policy(h: &Harness, service: &ServiceId, policy: FeePolicy) {
 		policy,
 		requested_effective_from_unix: 0,
 		reason: String::new(),
+		requester_proof: None,
 	};
 	let change = fee_app::schedule_policy(&ports, UserId::new(), request, now_unix()).await.unwrap();
 	assert!(h.changes.promote(change.id, now_unix()).await.unwrap(), "a fund with no holders takes new terms at once");

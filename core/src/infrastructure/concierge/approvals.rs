@@ -21,7 +21,7 @@ use tonic::{
 
 use super::ConciergeStreamsConfig;
 use crate::ports::{
-	approvals::{ApprovalField, ApprovalOutcome, ApprovalState, ApprovalValue, ApprovalView, Approvals, ApprovalsError, Proposal},
+	approvals::{ApprovalField, ApprovalOutcome, ApprovalState, ApprovalValue, ApprovalView, Approvals, ApprovalsError, Proposal, UserProof},
 	catalog::KindLevel,
 };
 
@@ -31,6 +31,12 @@ const CALL_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// The metadata key naming the relying party; its secret rides in `authorization`.
 const CLIENT_ID_HEADER: &str = "x-ev-client-id";
+
+/// Where the requester's own token rides on `Propose` (D24(1)), raw, without `Bearer`.
+const USER_TOKEN_HEADER: &str = "x-ev-user-token";
+
+/// How concierge starts the message of a FAILED_PRECONDITION about the requester's proof.
+const REAUTH_REQUIRED: &str = "reauth_required:";
 
 pub struct ConciergeApprovals {
 	client: ApprovalExecutionServiceClient<Channel>,
@@ -65,9 +71,13 @@ impl ConciergeApprovals {
 /// Which failures a retry of the same call can cure. A refusal of the request itself is for
 /// good; RESOURCE_EXHAUSTED is concierge's cap on live proposals in one scope.
 /// UNAUTHENTICATED and UNIMPLEMENTED are configuration (a wrong secret, a concierge without
-/// approvals): retried, because the fix is a deploy, not another request.
+/// approvals): retried, because the fix is a deploy, not another request. A refused proof of
+/// the requester is apart from both: only the person can cure it, by confirming again.
 fn classify(rpc: &str, status: &Status) -> ApprovalsError {
 	let message = format!("{rpc}: {:?}: {}", status.code(), status.message());
+	if status.code() == Code::FailedPrecondition && status.message().starts_with(REAUTH_REQUIRED) {
+		return ApprovalsError::ReauthRequired(message);
+	}
 	match status.code() {
 		Code::ResourceExhausted => ApprovalsError::Throttled(message),
 		Code::InvalidArgument | Code::NotFound | Code::AlreadyExists | Code::PermissionDenied | Code::FailedPrecondition | Code::OutOfRange => ApprovalsError::Refused(message),
@@ -144,8 +154,8 @@ fn view(approval: Approval) -> Result<ApprovalView, ApprovalsError> {
 
 #[async_trait]
 impl Approvals for ConciergeApprovals {
-	async fn propose(&self, proposal: &Proposal) -> Result<ApprovalView, ApprovalsError> {
-		let request = self.request(ProposeRequest {
+	async fn propose(&self, proposal: &Proposal, proof: &UserProof) -> Result<ApprovalView, ApprovalsError> {
+		let mut request = self.request(ProposeRequest {
 			kind: proposal.kind.to_owned(),
 			scope: proposal.scope.to_owned(),
 			subject_ref: proposal.subject_ref.clone(),
@@ -154,6 +164,10 @@ impl Approvals for ConciergeApprovals {
 			fields: proposal.fields.iter().map(field).collect(),
 			dedupe_key: proposal.dedupe_key.clone(),
 		});
+		// A token that is no header value cannot be presented; concierge would refuse it the same.
+		let mut token = MetadataValue::try_from(proof.token()).map_err(|_| ApprovalsError::ReauthRequired("the requester's token is not a valid header value".into()))?;
+		token.set_sensitive(true);
+		request.metadata_mut().insert(USER_TOKEN_HEADER, token);
 		let approval = self.client.clone().propose(request).await.map_err(|status| classify("Propose", &status))?.into_inner();
 		view(approval)
 	}
@@ -212,7 +226,7 @@ const UNCONFIGURED: &str = "no concierge is configured (CONCIERGE_GRPC_ADDR unse
 
 #[async_trait]
 impl Approvals for UnconfiguredApprovals {
-	async fn propose(&self, _: &Proposal) -> Result<ApprovalView, ApprovalsError> {
+	async fn propose(&self, _: &Proposal, _: &UserProof) -> Result<ApprovalView, ApprovalsError> {
 		Err(ApprovalsError::Refused(UNCONFIGURED.into()))
 	}
 
@@ -255,5 +269,17 @@ mod tests {
 			};
 			assert_eq!(view(approval).unwrap().level, level, "wire level {wire}");
 		}
+	}
+
+	/// Only concierge's refusal of the requester's proof asks the person to sign in again;
+	/// any other FAILED_PRECONDITION stays a refusal of the request.
+	#[test]
+	fn a_refused_proof_is_told_apart_from_a_refused_request() {
+		let reauth = classify("Propose", &Status::failed_precondition("reauth_required: the sign-in is 300 s old"));
+		assert!(matches!(reauth, ApprovalsError::ReauthRequired(ref why) if why.contains("300 s old")), "{reauth:?}");
+		let refused = classify("Propose", &Status::failed_precondition("the platform pauses after its owners changed"));
+		assert!(matches!(refused, ApprovalsError::Refused(_)), "{refused:?}");
+		let elsewhere = classify("Propose", &Status::invalid_argument("reauth_required: not this code"));
+		assert!(matches!(elsewhere, ApprovalsError::Refused(_)), "{elsewhere:?}");
 	}
 }
