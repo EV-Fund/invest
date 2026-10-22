@@ -316,12 +316,19 @@ pub async fn schedule_policy(ports: &FeePolicyPorts<'_>, requester: UserId, requ
 
 /// Withdraw a pending change (operator). The change is closed here first, so the operator's
 /// word holds at once; the proposal of an owner change is then withdrawn in concierge, or by
-/// the approvals round when concierge does not answer now.
+/// the approvals round when concierge does not answer now. A change the owners decide may be
+/// withdrawn only by the one who requested it ([`DomainError::Forbidden`] otherwise).
 pub async fn cancel_change(ports: &FeePolicyPorts<'_>, service: &ServiceId, id: FeePolicyChangeId, by: UserId, now: i64) -> Result<FeePolicyChange, DomainError> {
-	ports.changes.find(id).await?.filter(|change| &change.service == service).ok_or_else(|| DomainError::NotFound {
+	let change = ports.changes.find(id).await?.filter(|change| &change.service == service).ok_or_else(|| DomainError::NotFound {
 		entity: "fee policy change",
 		id: id.to_string(),
 	})?;
+	// Banking let only the proposer or an owner withdraw a consilium change: any other
+	// `AllocationManage` holder could otherwise kill a change the owners are voting on. invest
+	// does not know the owners; they refuse a change in concierge by vetoing it.
+	if change.requirement == ChangeRequirement::OwnerConsilium && change.requested_by != by.to_string() {
+		return Err(DomainError::Forbidden("a change the owners decide may be withdrawn only by the one who requested it".into()));
+	}
 	let cancelled = ports.changes.cancel(service, id, &by.to_string(), now).await?;
 	fee_approvals::withdraw_cancelled(&ports.approval_ports(), &cancelled).await?;
 	// Re-read: the withdrawal notes concierge's state on the row.

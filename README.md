@@ -165,7 +165,8 @@ who joins while the owners vote cannot be waived: the change does not bind over 
    holders' notices and the notice period start now — and reports `EXECUTED`. A hash that
    does not match rejects the change and reports `VOID`.
 3. A proposal that is rejected, vetoed, expired, withdrawn in concierge or voided closes the
-   change as `rejected`. `CancelFeePolicyChange` withdraws the proposal.
+   change as `rejected`. `CancelFeePolicyChange` withdraws the proposal; only the one who
+   requested the change may call it, as in banking.
 
 The round runs only when `CONCIERGE_GRPC_ADDR` is set; without concierge such a change is
 refused. A step concierge does not answer is retried on the next round.

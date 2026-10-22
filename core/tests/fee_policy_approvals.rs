@@ -404,9 +404,9 @@ async fn an_open_proposal_follows_concierge_and_a_refused_one_closes_at_once() {
 #[tokio::test]
 async fn cancelling_a_proposed_change_withdraws_its_proposal() {
 	let Some(h) = harness().await else { return };
-	let (service, change, approval) = proposed(&h).await;
+	let (service, change, approval, requester) = proposed_by(&h).await;
 
-	let cancelled = fee_app::cancel_change(&policy_ports(&h), &service, change.id, UserId::new(), now()).await.unwrap();
+	let cancelled = fee_app::cancel_change(&policy_ports(&h), &service, change.id, requester, now()).await.unwrap();
 
 	assert_eq!(cancelled.state, FeePolicyChangeState::Cancelled);
 	assert_eq!(h.approvals.withdrawals(), vec![approval.clone()]);
@@ -414,13 +414,30 @@ async fn cancelling_a_proposed_change_withdraws_its_proposal() {
 	assert_eq!(round(&h).await, fee_approvals::ApprovalRound::default(), "nothing is left to withdraw");
 }
 
+/// Banking let only the proposer (or an owner) withdraw a consilium change. Any other
+/// operator is refused, and the proposal stays open in concierge.
+#[tokio::test]
+async fn only_the_requester_may_withdraw_a_change_the_owners_decide() {
+	let Some(h) = harness().await else { return };
+	let (service, change, approval) = proposed(&h).await;
+	let other = common::active_user(&h.users).await;
+
+	let err = fee_app::cancel_change(&policy_ports(&h), &service, change.id, other, now()).await.unwrap_err();
+
+	assert!(matches!(err, DomainError::Forbidden(ref why) if why.contains("only by the one who requested it")), "got {err:?}");
+	let kept = change_of(&h, &change).await;
+	assert_eq!(kept.state, FeePolicyChangeState::AwaitingConsilium);
+	assert_eq!(kept.approval_id.map(|id| id.to_string()), Some(approval));
+	assert!(h.approvals.withdrawals().is_empty());
+}
+
 #[tokio::test]
 async fn a_withdrawal_concierge_missed_is_made_by_the_round_and_a_late_pass_is_reported_void() {
 	let Some(h) = harness().await else { return };
-	let (service, change, approval) = proposed(&h).await;
+	let (service, change, approval, requester) = proposed_by(&h).await;
 
 	h.approvals.outage(true);
-	let cancelled = fee_app::cancel_change(&policy_ports(&h), &service, change.id, UserId::new(), now()).await.unwrap();
+	let cancelled = fee_app::cancel_change(&policy_ports(&h), &service, change.id, requester, now()).await.unwrap();
 	assert_eq!(cancelled.state, FeePolicyChangeState::Cancelled, "the operator's word ends it here at once");
 	assert!(h.approvals.withdrawals().is_empty());
 	h.approvals.outage(false);
@@ -429,10 +446,10 @@ async fn a_withdrawal_concierge_missed_is_made_by_the_round_and_a_late_pass_is_r
 
 	// Past its delay a passed proposal cannot be withdrawn; the pull serves it and the round
 	// reports it void rather than scheduling a change the operator cancelled.
-	let (service, change, approval) = proposed(&h).await;
+	let (service, change, approval, requester) = proposed_by(&h).await;
 	h.approvals.set_state(&approval, ApprovalState::Passed, "");
 	h.approvals.outage(true);
-	fee_app::cancel_change(&policy_ports(&h), &service, change.id, UserId::new(), now()).await.unwrap();
+	fee_app::cancel_change(&policy_ports(&h), &service, change.id, requester, now()).await.unwrap();
 	h.approvals.outage(false);
 	round(&h).await;
 	assert_eq!(change_of(&h, &change).await.state, FeePolicyChangeState::Cancelled);
