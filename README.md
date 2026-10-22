@@ -102,7 +102,7 @@ invest-core reads the environment only; `core/.env.example` documents every vari
 | `AUTH_JWKS_GRPC_ENDPOINT` | — | concierge gRPC, for its JWKS |
 | `SCOPE_LEDGER_ADDR` | unset | banking's scope ledger (`https://…:50054`); unset ⇒ cash reads are unavailable |
 | `SCOPE_LEDGER_TLS_CA_PEM_FILE`, `SCOPE_LEDGER_TLS_CERT_PEM_FILE`, `SCOPE_LEDGER_TLS_KEY_PEM_FILE`, `SCOPE_LEDGER_TLS_DOMAIN` | unset | mTLS to banking; the three files are required with the address. The `typ=service` bearer is not configured: banking mints it for the certificate (`ScopeAuthService/MintServiceToken`, ~300 s) and invest renews it before it lapses |
-| `CONCIERGE_GRPC_ADDR` | unset | concierge's gRPC (`http://…:55670`, or its TLS listener `https://…:55672`), pulled for the `users` projection; unset ⇒ the projection does not run and nobody is known to invest |
+| `CONCIERGE_GRPC_ADDR` | unset | concierge's gRPC (`http://…:55670`, or its TLS listener `https://…:55672`), pulled for the `users` projection and used for the owners' approvals; unset ⇒ the projection does not run and nobody is known to invest. With `APP_ENV=production` only `https://` starts |
 | `CONCIERGE_CLIENT_ID` | `invest` | the relying-party client invest reads the streams as |
 | `CONCIERGE_CLIENT_SECRET` | unset | secret; concierge's `RP_CLIENT_SECRET_INVEST`; required with the address |
 | `CONCIERGE_TLS_CA_PEM_FILE`, `CONCIERGE_TLS_DOMAIN` | unset | the CA (required for `https://`) and the name of concierge's TLS listener |

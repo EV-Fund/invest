@@ -96,8 +96,9 @@ pub mod fee_policy_fields {
 	pub const PROPOSED_BASIS: &str = "proposed_basis";
 	pub const CURRENT_CRYSTALLIZATION: &str = "current_crystallization";
 	pub const PROPOSED_CRYSTALLIZATION: &str = "proposed_crystallization";
-	/// The proposed terms leave the house envelope. The name is concierge's floor field
-	/// (`invest:fee_policy` escalates on it at scope level); at PLATFORM it only informs.
+	/// The proposed terms leave the house envelope. The flag only informs the owners:
+	/// concierge holds `invest:fee_policy` at PLATFORM, so there is no scope level for it to
+	/// escalate from. The key is hashed with the other fields, so it is not renamed.
 	pub const RAISES_CEILING: &str = "raises_ceiling";
 	pub const EFFECTIVE_FROM: &str = "effective_from";
 	pub const HOLDERS_NOTIFIED: &str = "holders_notified";

@@ -154,16 +154,13 @@ async fn run(
 		// them. Every cash read answers UNAVAILABLE until they are — loud, not wrong.
 		tracing::warn!("no scope ledger configured (SCOPE_LEDGER_ADDR unset) — the reserved allocations' NAV is unavailable until it is");
 	}
-	match &concierge_streams {
-		// Not refused: invest-core serves the registry without anyone known to it, and every
-		// check that needs a person fails closed — loud, not wrong.
-		None => tracing::warn!(
+	// Not refused: invest-core serves the registry without anyone known to it, and every
+	// check that needs a person fails closed — loud, not wrong. A cleartext address in
+	// production is refused by `concierge_streams` itself.
+	if concierge_streams.is_none() {
+		tracing::warn!(
 			"no concierge streams configured (CONCIERGE_GRPC_ADDR unset) — the users projection does not run and the permission catalog is not published: nobody is known to invest, so every permission check and every mint is refused"
-		),
-		Some(streams) if streams.ca_pem.is_none() && config.app_env == "production" => {
-			tracing::warn!("CONCIERGE_GRPC_ADDR is cleartext in production — the client secret crosses the cluster network unencrypted; point it at concierge's TLS listener");
-		}
-		Some(_) => {}
+		);
 	}
 	let verifier_config = VerifierConfig {
 		issuer: config.auth_issuer.clone(),

@@ -342,6 +342,24 @@ async fn scheduling_an_approved_change_twice_returns_the_scheduled_change() {
 	assert!(matches!(h.changes.schedule_approved(change.id, &other, now()).await, Err(DomainError::Conflict(_))));
 }
 
+/// A round that read the proposal before another reported its outcome writes what it read
+/// late. The noted state never moves back: not from an ended state, not from passed to open.
+#[tokio::test]
+async fn a_stale_approval_state_never_overwrites_a_later_one() {
+	let Some(h) = harness().await else { return };
+	let (_, change, _) = proposed(&h).await;
+
+	h.changes.note_approval_state(change.id, ApprovalState::Passed).await.unwrap();
+	h.changes.note_approval_state(change.id, ApprovalState::Open).await.unwrap();
+	assert_eq!(change_of(&h, &change).await.approval_state, Some(ApprovalState::Passed));
+
+	h.changes.note_approval_state(change.id, ApprovalState::Executed).await.unwrap();
+	for stale in [ApprovalState::Passed, ApprovalState::Open, ApprovalState::Void] {
+		h.changes.note_approval_state(change.id, stale).await.unwrap();
+	}
+	assert_eq!(change_of(&h, &change).await.approval_state, Some(ApprovalState::Executed));
+}
+
 #[tokio::test]
 async fn a_passed_proposal_whose_hash_is_not_the_changes_is_refused() {
 	let Some(h) = harness().await else { return };

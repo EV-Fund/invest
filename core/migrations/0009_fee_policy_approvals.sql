@@ -15,15 +15,11 @@
 -- neither new column, and every row it writes (an administrator's: no approval) passes the new
 -- CHECK. An image rollback leaves this schema in place, and the old binary runs on it.
 --
--- Rollback of the schema (by hand, only while no owner change lacks a `consilium_id` —
--- cancel those first), then `DELETE FROM _sqlx_migrations WHERE version = 9`:
---   ALTER TABLE fee_policy_changes
---       DROP CONSTRAINT fee_policy_change_approval_state_names_one,
---       DROP CONSTRAINT fee_policy_change_approval_matches_requirement,
---       DROP COLUMN approval_state,
---       DROP COLUMN approval_holders,
---       ADD CONSTRAINT fee_policy_change_consilium_matches_requirement CHECK ((requirement = 'owner_consilium') = (consilium_id IS NOT NULL));
---   COMMENT ON COLUMN fee_policy_changes.consilium_id IS 'The owners'' approval a tightening change waits on. No foreign key: the approval lives in concierge, not in this database.';
+-- Rollback: roll back the image only; this schema stays. Do not revert it by hand. The old
+-- CHECK needs a `consilium_id` on EVERY owner row, and an owner change that closed before it
+-- was proposed (`rejected` or `cancelled`, `consilium_id` NULL) is history that must not be
+-- deleted to satisfy it. Undoing the schema is a restore from the backup taken before the
+-- rollout, not a migration.
 
 SET lock_timeout = '3s';
 SET statement_timeout = '30s';

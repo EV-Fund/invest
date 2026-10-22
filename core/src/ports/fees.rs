@@ -162,7 +162,8 @@ pub trait FeePolicyChanges: Send + Sync {
 	async fn close_unapproved(&self, id: FeePolicyChangeId, approval_state: Option<ApprovalState>, why: &str) -> Result<FeePolicyChange, DomainError>;
 
 	/// Note concierge's state of the change's approval. A change with no approval is left
-	/// alone.
+	/// alone, and so is one whose noted state has ended (a stale read never overwrites
+	/// `executed`) or is `passed` and would go back to `open`.
 	async fn note_approval_state(&self, id: FeePolicyChangeId, state: ApprovalState) -> Result<(), DomainError>;
 
 	/// The owner changes still waiting on concierge, oldest first: every `awaiting_consilium`

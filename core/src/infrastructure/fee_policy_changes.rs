@@ -469,12 +469,18 @@ impl FeePolicyChanges for PgFeePolicyChanges {
 	}
 
 	async fn note_approval_state(&self, id: FeePolicyChangeId, state: ApprovalState) -> Result<(), DomainError> {
-		sqlx::query("UPDATE fee_policy_changes SET approval_state = $2 WHERE id = $1 AND consilium_id IS NOT NULL")
-			.bind(id.raw())
-			.bind(state.as_str())
-			.execute(&self.pool)
-			.await
-			.map_err(repo_err)?;
+		// Reads race: a round that read `passed` before another round reported the outcome
+		// must not write it over `executed`. concierge never leaves an ended state, and a
+		// passed proposal never opens again, so neither move is taken from a stale read.
+		sqlx::query(
+			"UPDATE fee_policy_changes SET approval_state = $2 WHERE id = $1 AND consilium_id IS NOT NULL \
+			 AND (approval_state IS NULL OR approval_state = 'open' OR (approval_state = 'passed' AND $2 <> 'open'))",
+		)
+		.bind(id.raw())
+		.bind(state.as_str())
+		.execute(&self.pool)
+		.await
+		.map_err(repo_err)?;
 		Ok(())
 	}
 
