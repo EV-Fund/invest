@@ -10,14 +10,14 @@ use std::{future::Future, time::Duration};
 use async_trait::async_trait;
 use evconcierge_client::{
 	Catalog, ConciergeClient, ConciergeError, ScopeCatalog as WireScopeCatalog,
-	proto::{CatalogAlias, NotificationTopicSpec},
+	proto::{ApprovalFieldSpec, ApprovalFieldType, ApprovalKindSpec, ApprovalLevel as WireLevel, CatalogAlias, NotificationTopicSpec},
 };
 use invest_domain::authz::PermissionCatalog;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
 
 use super::ConciergeStreamsConfig;
-use crate::ports::catalog::{CatalogPublisher, PublishError, ScopeCatalog, ScopeCatalogPublisher};
+use crate::ports::catalog::{CatalogPublisher, FieldType, KindLevel, KindSpec, PublishError, ScopeCatalog, ScopeCatalogPublisher};
 
 pub struct ClientCatalogPublisher {
 	client: ConciergeClient,
@@ -86,7 +86,7 @@ impl ScopeCatalogPublisher for ClientScopeCatalogPublisher {
 	async fn publish(&self, catalog: &ScopeCatalog, version: u64) -> Result<(), PublishError> {
 		let wire = WireScopeCatalog {
 			version,
-			approval_kinds: Vec::new(),
+			approval_kinds: catalog.kinds.iter().map(kind_spec).collect(),
 			notification_topics: catalog
 				.topics
 				.iter()
@@ -99,6 +99,38 @@ impl ScopeCatalogPublisher for ClientScopeCatalogPublisher {
 				.collect(),
 		};
 		self.client.publish_scope_catalog(wire).await.map_err(publish_error)
+	}
+}
+
+fn kind_spec(spec: &KindSpec) -> ApprovalKindSpec {
+	ApprovalKindSpec {
+		name: spec.name.to_owned(),
+		label: spec.label.to_owned(),
+		description: spec.description.to_owned(),
+		level: match spec.level {
+			KindLevel::Platform => WireLevel::Platform,
+			KindLevel::Scope => WireLevel::Scope,
+		} as i32,
+		fields: spec
+			.fields
+			.iter()
+			.map(|field| ApprovalFieldSpec {
+				key: field.key.to_owned(),
+				label: field.label.to_owned(),
+				r#type: match field.field_type {
+					FieldType::Text => ApprovalFieldType::Text,
+					FieldType::Bps => ApprovalFieldType::Bps,
+					FieldType::Flag => ApprovalFieldType::Flag,
+					FieldType::Timestamp => ApprovalFieldType::Timestamp,
+					FieldType::Count => ApprovalFieldType::Count,
+				} as i32,
+				required: field.required,
+			})
+			.collect(),
+		// A PLATFORM kind escalates nowhere (concierge refuses one that declares any).
+		escalations: Vec::new(),
+		// Filled by concierge on read; ignored on publish.
+		proposer: String::new(),
 	}
 }
 
@@ -253,15 +285,60 @@ mod tests {
 	fn the_published_scope_catalog_is_pinned_to_its_version() {
 		// Same rule as the permission catalog: other content under the same version is
 		// refused by concierge, so change the catalog, the version and this pin together.
-		let pinned = ScopeCatalog {
-			topics: vec![TopicSpec {
-				topic: "invest:fund:quy-nhon",
-				label: "Quy Nhon fund",
-				description: "News and notices about the Quy Nhon fund.",
-				default_subscribed: false,
-			}],
-		};
-		assert_eq!((SCOPE_CATALOG_VERSION, ScopeCatalog::invest()), (1_792_195_200, pinned));
+		let catalog = ScopeCatalog::invest();
+		let topics = vec![TopicSpec {
+			topic: "invest:fund:quy-nhon",
+			label: "Quy Nhon fund",
+			description: "News and notices about the Quy Nhon fund.",
+			default_subscribed: false,
+		}];
+		let kinds: Vec<(&str, KindLevel, Vec<&str>)> = catalog.kinds.iter().map(|k| (k.name, k.level, k.fields.iter().map(|f| f.key).collect())).collect();
+		let pinned_kinds = vec![(
+			"invest:fee_policy",
+			KindLevel::Platform,
+			vec![
+				"allocation",
+				"current_management",
+				"proposed_management",
+				"current_performance",
+				"proposed_performance",
+				"current_hurdle",
+				"proposed_hurdle",
+				"current_basis",
+				"proposed_basis",
+				"current_crystallization",
+				"proposed_crystallization",
+				"raises_ceiling",
+				"effective_from",
+				"holders_notified",
+			],
+		)];
+		assert_eq!((SCOPE_CATALOG_VERSION, catalog.topics, kinds), (1_792_627_200, topics, pinned_kinds));
+	}
+
+	#[test]
+	fn the_approval_kinds_are_ones_concierge_accepts() {
+		// concierge's rules on kinds (`domain::scope_catalog`, `domain::floors`), checked
+		// here so a bad constant fails a test and not the boot-time publication.
+		let catalog = ScopeCatalog::invest();
+		let key_ok = |s: &str| s.len() <= 32 && s.bytes().next().is_some_and(|b| b.is_ascii_lowercase()) && s.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_');
+		let text_ok = |s: &str, max: usize| !s.is_empty() && s.len() <= max && !s.chars().any(char::is_control) && !s.contains("://") && !s.contains("www.");
+		for kind in &catalog.kinds {
+			let rest = kind.name.strip_prefix("invest:").unwrap_or_else(|| panic!("{} is outside the invest namespace", kind.name));
+			assert!(key_ok(rest), "{}", kind.name);
+			assert!(text_ok(kind.label, 80) && text_ok(kind.description, 500), "{}", kind.name);
+			assert!(kind.fields.len() <= 16, "{}", kind.name);
+			let mut seen = std::collections::BTreeSet::new();
+			for field in &kind.fields {
+				assert!(key_ok(field.key) && seen.insert(field.key), "{} field {}", kind.name, field.key);
+				assert!(text_ok(field.label, 60), "{} field {}", kind.name, field.key);
+			}
+			// The owners decide every kind invest publishes (2026-10-22): a SCOPE kind would
+			// need concierge's floor fields, a PLATFORM one needs nothing more.
+			assert_eq!(kind.level, KindLevel::Platform, "{}", kind.name);
+			let wire = kind_spec(kind);
+			assert!(wire.escalations.is_empty() && wire.level == WireLevel::Platform as i32, "{}", kind.name);
+		}
 	}
 
 	#[test]
