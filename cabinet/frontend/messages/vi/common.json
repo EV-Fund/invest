@@ -1083,13 +1083,13 @@
     "en": "Seating a person on the fee allocation is the owners' decision. Propose it there; the units appear here once their vote carries.",
     "t": "Việc đưa một người vào phân bổ phí do các chủ sở hữu quyết định. Hãy đề xuất ở đó; đơn vị sẽ hiện ở đây khi biểu quyết thông qua."
   },
+  "admin.revenue.toHeldThrough": {
+    "en": "The fee allocation beside every other allocation: its cash, units, NAV and holders. The bank's own treasury stays in the central admin.",
+    "t": "Phân bổ phí bên cạnh mọi phân bổ khác: tiền mặt, đơn vị, NAV và người nắm giữ. Kho bạc riêng của ngân hàng vẫn ở trang quản trị trung tâm."
+  },
   "admin.revenue.toPayments": {
     "en": "Moving the platform's earnings — into a product, or to an investor — is a payment order the owners authorise. Open one there. Cash reaches the chain only through a holder's redemption and their own withdrawal.",
     "t": "Chuyển lợi nhuận của nền tảng — vào một sản phẩm hoặc cho một nhà đầu tư — là lệnh thanh toán do các chủ sở hữu duyệt. Hãy mở lệnh ở đó. Tiền chỉ ra chuỗi qua việc người nắm giữ rút vốn và tự rút tiền."
-  },
-  "admin.revenue.toTreasury": {
-    "en": "The fee allocation beside the platform's other balances: custody per rail, user claims, every allocation and its holders.",
-    "t": "Phân bổ phí bên cạnh các số dư khác của nền tảng: lưu ký theo mạng, quyền của người dùng, mọi phân bổ và người nắm giữ."
   },
   "admin.revenue.unitsHint": {
     "en": "units of the fee allocation, held by people",
@@ -2066,10 +2066,6 @@
   "nav.support": {
     "en": "Support",
     "t": "Hỗ trợ"
-  },
-  "nav.treasury": {
-    "en": "Treasury",
-    "t": "Ngân quỹ"
   },
   "nav.users": {
     "en": "Users",

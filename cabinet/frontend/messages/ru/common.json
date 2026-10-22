@@ -1083,13 +1083,13 @@
     "en": "Seating a person on the fee allocation is the owners' decision. Propose it there; the units appear here once their vote carries.",
     "t": "Включить человека в комиссионную аллокацию решают владельцы. Предложите это там; паи появятся здесь, когда голосование пройдёт."
   },
+  "admin.revenue.toHeldThrough": {
+    "en": "The fee allocation beside every other allocation: its cash, units, NAV and holders. The bank's own treasury stays in the central admin.",
+    "t": "Аллокация комиссий рядом со всеми остальными: её деньги, юниты, NAV и держатели. Собственная казна банка остаётся в центральной админке."
+  },
   "admin.revenue.toPayments": {
     "en": "Moving the platform's earnings — into a product, or to an investor — is a payment order the owners authorise. Open one there. Cash reaches the chain only through a holder's redemption and their own withdrawal.",
     "t": "Перемещение заработанного платформой — в продукт или инвестору — это платёжное поручение, которое одобряют владельцы. Открывайте его там. В сеть деньги уходят только через погашение держателем и его собственный вывод."
-  },
-  "admin.revenue.toTreasury": {
-    "en": "The fee allocation beside the platform's other balances: custody per rail, user claims, every allocation and its holders.",
-    "t": "Аллокация комиссий рядом с остальными балансами платформы: кастодия по сетям, требования пользователей, каждая аллокация и её держатели."
   },
   "admin.revenue.unitsHint": {
     "en": "units of the fee allocation, held by people",
@@ -2066,10 +2066,6 @@
   "nav.support": {
     "en": "Support",
     "t": "Поддержка"
-  },
-  "nav.treasury": {
-    "en": "Treasury",
-    "t": "Казна"
   },
   "nav.users": {
     "en": "Users",

@@ -429,8 +429,8 @@
       "admin.revenue.ownMoneyNote",
       "admin.revenue.subtitle",
       "admin.revenue.toApprovals",
+      "admin.revenue.toHeldThrough",
       "admin.revenue.toPayments",
-      "admin.revenue.toTreasury",
       "admin.revenue.unitsHint",
       "admin.revenue.whereNext",
       "admin.role.admin",
@@ -458,8 +458,7 @@
       "admin.treasury.allocations.unmarked",
       "admin.users.kycLevelShort",
       "nav.approvals",
-      "nav.payments",
-      "nav.treasury"
+      "nav.payments"
     ],
     "app/[locale]/(app)/admin/treasury/page.tsx": [
       "admin.ago.days",

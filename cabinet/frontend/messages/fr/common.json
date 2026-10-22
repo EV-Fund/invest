@@ -1083,13 +1083,13 @@
     "en": "Seating a person on the fee allocation is the owners' decision. Propose it there; the units appear here once their vote carries.",
     "t": "Inscrire une personne sur l’allocation des frais relève des propriétaires. Proposez-le là-bas ; les parts apparaissent ici une fois leur vote acquis."
   },
+  "admin.revenue.toHeldThrough": {
+    "en": "The fee allocation beside every other allocation: its cash, units, NAV and holders. The bank's own treasury stays in the central admin.",
+    "t": "L'allocation des frais à côté de toutes les autres : sa trésorerie, ses parts, sa NAV et ses détenteurs. La trésorerie propre de la banque reste dans l'administration centrale."
+  },
   "admin.revenue.toPayments": {
     "en": "Moving the platform's earnings — into a product, or to an investor — is a payment order the owners authorise. Open one there. Cash reaches the chain only through a holder's redemption and their own withdrawal.",
     "t": "Déplacer les gains de la plateforme — vers un produit ou vers un investisseur — est un ordre de paiement que les propriétaires autorisent. Ouvrez-en un là-bas. L'argent n'atteint la chaîne que par le rachat d'un détenteur et son propre retrait."
-  },
-  "admin.revenue.toTreasury": {
-    "en": "The fee allocation beside the platform's other balances: custody per rail, user claims, every allocation and its holders.",
-    "t": "L'allocation des frais à côté des autres soldes de la plateforme : conservation par réseau, créances utilisateurs, chaque allocation et ses détenteurs."
   },
   "admin.revenue.unitsHint": {
     "en": "units of the fee allocation, held by people",
@@ -2066,10 +2066,6 @@
   "nav.support": {
     "en": "Support",
     "t": "Assistance"
-  },
-  "nav.treasury": {
-    "en": "Treasury",
-    "t": "Trésorerie"
   },
   "nav.users": {
     "en": "Users",
