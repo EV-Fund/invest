@@ -25,9 +25,11 @@ import { adminAllocationsResource, feePoliciesResource } from "@/entities/admin/
 import type { FeePolicyChange } from "@/shared/contracts/admin";
 import { RequestError } from "@/shared/lib/api-client";
 import { useResource } from "@/shared/lib/resource";
+import { useHydrated } from "@/shared/lib/use-hydrated";
 import { StaggerItem } from "@/shared/ui/motion";
 import { ResourceError } from "@/shared/ui/resource-error";
 import { isPendingChange } from "@/views/admin/fees/lib/format";
+import { clearReauthDraft, reauthDraftService } from "@/views/admin/fees/model/reauth-draft";
 import { AssessmentsCard } from "@/views/admin/fees/ui/assessments-card";
 import { ChangeHistory } from "@/views/admin/fees/ui/change-history";
 import { CollectCard } from "@/views/admin/fees/ui/collect-card";
@@ -54,10 +56,15 @@ export function FeesView() {
    *  re-read has removed the pending card, whose button the focus was on. */
   const [cancelledIn, setCancelledIn] = useState<string | null>(null);
   const onTermsFocused = useCallback(() => setCancelledIn(null), []);
+  // Back from the sign-in confirmation: open on the fund whose draft waits. The selection
+  // is not in the URL, and sessionStorage is read only once the browser has hydrated, so
+  // the server's HTML and the hydrating render agree.
+  const hydrated = useHydrated();
+  const waiting = useMemo(() => (hydrated ? reauthDraftService() : null), [hydrated]);
 
   const funds = catalog.data?.allocations ?? [];
   // The first fund is the default so the screen is useful without a click.
-  const selected = service || funds[0]?.service || "";
+  const selected = service || (waiting && funds.some((f) => f.service === waiting) ? waiting : "") || funds[0]?.service || "";
   const byService = useMemo(() => new Map((policies.data?.policies ?? []).map((p) => [p.service, p])), [policies.data]);
   const policy = byService.get(selected) ?? null;
   const pending = policy?.pending && isPendingChange(policy.pending.state) ? policy.pending : null;
@@ -122,7 +129,9 @@ export function FeesView() {
                 <PendingCard
                   key={pending.id}
                   change={pending}
+                  current={policy?.configured ? policy : null}
                   onCancelled={() => {
+                    clearReauthDraft(selected);
                     setReceipt(null);
                     setCancelledIn(selected);
                   }}

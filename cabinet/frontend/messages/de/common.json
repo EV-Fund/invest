@@ -559,13 +559,121 @@
     "en": "Superseded",
     "t": "Abgelöst"
   },
+  "admin.fees.approval.historyNote": {
+    "en": "Owners: {state}",
+    "t": "Eigentümer: {state}"
+  },
+  "admin.fees.approval.holders": {
+    "en": "The proposal tells the owners that {count, plural, one {# holder} other {# holders}} will be notified.",
+    "t": "Der Vorschlag teilt den Eigentümern mit, dass {count, plural, one {# Inhaber benachrichtigt wird} other {# Inhaber benachrichtigt werden}}."
+  },
+  "admin.fees.approval.id": {
+    "en": "Approval id",
+    "t": "Freigabe-ID"
+  },
+  "admin.fees.approval.line.cancelled": {
+    "en": "The proposal was withdrawn, so the votes given on it no longer count.",
+    "t": "Der Vorschlag wurde zurückgezogen, die abgegebenen Stimmen zählen nicht mehr."
+  },
+  "admin.fees.approval.line.executed": {
+    "en": "The owners carried the change, and invest scheduled it.",
+    "t": "Die Eigentümer haben die Änderung angenommen, und invest hat sie eingeplant."
+  },
+  "admin.fees.approval.line.execution_failed": {
+    "en": "The owners carried the change, but invest could not schedule it. The change is closed.",
+    "t": "Die Eigentümer haben die Änderung angenommen, aber invest konnte sie nicht einplanen. Die Änderung ist geschlossen."
+  },
+  "admin.fees.approval.line.expired": {
+    "en": "The owners did not decide within 72 hours, so the proposal expired.",
+    "t": "Die Eigentümer haben nicht innerhalb von 72 Stunden entschieden, daher ist der Vorschlag abgelaufen."
+  },
+  "admin.fees.approval.line.openRoster": {
+    "en": "The owners are voting. The change passes when more than half of the owners on its vote approve it. The person who asked for it is not on that vote.",
+    "t": "Die Eigentümer stimmen ab. Die Änderung ist angenommen, wenn mehr als die Hälfte der stimmberechtigten Eigentümer zustimmt. Wer sie beantragt hat, stimmt nicht mit ab."
+  },
+  "admin.fees.approval.line.passed": {
+    "en": "The owners carried the change, and invest scheduled it.",
+    "t": "Die Eigentümer haben die Änderung angenommen, und invest hat sie daraufhin eingeplant."
+  },
+  "admin.fees.approval.line.passedAwaiting": {
+    "en": "The owners carried the change. Any owner can still veto it during the 24-hour delay that follows; after that, invest schedules it.",
+    "t": "Die Eigentümer haben die Änderung angenommen. Jeder Eigentümer kann in der folgenden 24-Stunden-Frist noch ein Veto einlegen; danach plant invest sie ein."
+  },
+  "admin.fees.approval.line.passedUntil": {
+    "en": "The owners carried the change. Owners can veto it until {at}; after that, invest schedules it.",
+    "t": "Die Eigentümer haben die Änderung angenommen. Eigentümer können bis {at} ein Veto einlegen; danach plant invest sie ein."
+  },
+  "admin.fees.approval.line.rejected": {
+    "en": "The owners rejected the change. The fund keeps its current terms.",
+    "t": "Die Eigentümer haben die Änderung abgelehnt. Der Fonds behält seine aktuellen Konditionen."
+  },
+  "admin.fees.approval.line.unproposed": {
+    "en": "concierge could not be reached when you asked. invest proposes the change to the owners again within a minute.",
+    "t": "concierge war bei Ihrer Anfrage nicht erreichbar. invest schlägt die Änderung den Eigentümern innerhalb einer Minute erneut vor."
+  },
+  "admin.fees.approval.line.vetoed": {
+    "en": "An owner vetoed the change. The fund keeps its current terms.",
+    "t": "Ein Eigentümer hat ein Veto eingelegt. Der Fonds behält seine aktuellen Konditionen."
+  },
+  "admin.fees.approval.line.void": {
+    "en": "concierge voided the proposal, so the votes given on it no longer count.",
+    "t": "concierge hat den Vorschlag für ungültig erklärt, die abgegebenen Stimmen zählen nicht mehr."
+  },
+  "admin.fees.approval.state.cancelled": {
+    "en": "Withdrawn",
+    "t": "Zurückgezogen"
+  },
+  "admin.fees.approval.state.executed": {
+    "en": "Carried out",
+    "t": "Ausgeführt"
+  },
+  "admin.fees.approval.state.execution_failed": {
+    "en": "Could not be carried out",
+    "t": "Nicht ausführbar"
+  },
+  "admin.fees.approval.state.expired": {
+    "en": "Expired",
+    "t": "Abgelaufen"
+  },
+  "admin.fees.approval.state.open": {
+    "en": "Voting",
+    "t": "Abstimmung läuft"
+  },
+  "admin.fees.approval.state.passed": {
+    "en": "Carried",
+    "t": "Angenommen"
+  },
+  "admin.fees.approval.state.rejected": {
+    "en": "Rejected",
+    "t": "Abgelehnt"
+  },
+  "admin.fees.approval.state.unknown": {
+    "en": "State not known",
+    "t": "Status unbekannt"
+  },
+  "admin.fees.approval.state.unproposed": {
+    "en": "Not proposed yet",
+    "t": "Noch nicht vorgeschlagen"
+  },
+  "admin.fees.approval.state.vetoed": {
+    "en": "Vetoed",
+    "t": "Veto eingelegt"
+  },
+  "admin.fees.approval.state.void": {
+    "en": "Voided",
+    "t": "Ungültig"
+  },
+  "admin.fees.approval.title": {
+    "en": "Owners' approval",
+    "t": "Freigabe der Eigentümer"
+  },
   "admin.fees.askOwners": {
     "en": "Ask the owners",
     "t": "Die Eigentümer fragen"
   },
-  "admin.fees.awaitingBody": {
-    "en": "The owners have each been emailed a link. Version {version} is scheduled only once more than half of them approve, and binds 24 hours after that while anyone holds units. The live tally is in the consilium.",
-    "t": "Jeder Eigentümer hat per E-Mail einen Link erhalten. Version {version} wird erst geplant, wenn mehr als die Hälfte zustimmt, und gilt 24 Stunden danach, solange jemand Anteile hält. Der aktuelle Stand steht im Konsilium."
+  "admin.fees.awaitingRosterBody": {
+    "en": "Version {version} went to the owners' approvals. It is scheduled only once more than half of the owners on its vote approve it and no owner vetoes it within 24 hours. You asked for it, so you are not on that vote. The owners vote in the central admin.",
+    "t": "Version {version} ging an die Freigaben der Eigentümer. Sie wird erst eingeplant, wenn mehr als die Hälfte der stimmberechtigten Eigentümer zustimmt und niemand innerhalb von 24 Stunden ein Veto einlegt. Sie haben sie beantragt und stimmen daher nicht mit ab. Die Eigentümer stimmen in der zentralen Verwaltung ab."
   },
   "admin.fees.awaitingTitle": {
     "en": "Sent to the owners — nothing has changed yet",
@@ -591,13 +699,21 @@
     "en": "Cancel the change",
     "t": "Änderung abbrechen"
   },
+  "admin.fees.cancelRequesterOnly": {
+    "en": "Only the person who requested this change can cancel it, because the owners decide it.",
+    "t": "Nur die Person, die diese Änderung beantragt hat, kann sie abbrechen, weil die Eigentümer darüber entscheiden."
+  },
   "admin.fees.cancelWarning": {
     "en": "Cancelling withdraws the change. The fund keeps its current terms, and the holders who were notified will not see the new ones.",
     "t": "Der Abbruch zieht die Änderung zurück. Der Fonds behält seine aktuellen Konditionen, und die benachrichtigten Anteilsinhaber sehen die neuen nicht."
   },
-  "admin.fees.cancelWarningAwaiting": {
-    "en": "Cancelling withdraws the change and takes its consilium down with it, voiding every approval collected so far. The owners who have already answered would each have to answer again.",
-    "t": "Der Abbruch zieht die Änderung zurück und beendet ihr Konsilium; alle bisher gesammelten Zustimmungen verfallen. Eigentümer, die bereits geantwortet haben, müssten erneut antworten."
+  "admin.fees.cancelWarningWithdraws": {
+    "en": "Cancelling withdraws the change and its proposal from the owners' approvals. The votes given so far stop counting, and a new request starts a new vote.",
+    "t": "Das Abbrechen zieht die Änderung und ihren Vorschlag aus den Freigaben der Eigentümer zurück. Bisherige Stimmen zählen nicht mehr, und eine neue Anfrage startet eine neue Abstimmung."
+  },
+  "admin.fees.cancelWithdraw": {
+    "en": "Cancel and withdraw the proposal",
+    "t": "Abbrechen und Vorschlag zurückziehen"
   },
   "admin.fees.chargedOn": {
     "en": "Charged on",
@@ -671,6 +787,10 @@
     "en": "Earlier than the notice allows: this binds no earlier than 24 hours after the owners approve.",
     "t": "Früher, als die Ankündigungsfrist erlaubt: dies gilt frühestens 24 Stunden nach der Zustimmung der Eigentümer."
   },
+  "admin.fees.err.accountUnknown": {
+    "en": "Your account has not reached invest's list of users yet, so the owners cannot be asked in your name. Try again in a few minutes.",
+    "t": "Ihr Konto ist noch nicht in der Benutzerliste von invest, daher können die Eigentümer nicht in Ihrem Namen gefragt werden. Versuchen Sie es in einigen Minuten erneut."
+  },
   "admin.fees.err.notPercent": {
     "en": "{field} must be a percentage — 2, or 2.5 / 2,5 for a half.",
     "t": "{field} muss ein Prozentsatz sein — 2, oder 2.5 / 2,5 für ein halbes Prozent."
@@ -678,6 +798,14 @@
   "admin.fees.err.overCeiling": {
     "en": "{field} cannot be more than {ceiling}.",
     "t": "{field} darf nicht mehr als {ceiling} betragen."
+  },
+  "admin.fees.err.ownersNoWaiver": {
+    "en": "The owners decided this change, so its holders' notices cannot be waived. Withdraw the change instead.",
+    "t": "Die Eigentümer haben über diese Änderung entschieden, daher kann auf die Hinweise an die Inhaber nicht verzichtet werden. Ziehen Sie die Änderung stattdessen zurück."
+  },
+  "admin.fees.err.ownersRequesterOnly": {
+    "en": "Only the person who requested this change can withdraw it, because the owners decide it.",
+    "t": "Nur die Person, die diese Änderung beantragt hat, kann sie zurückziehen, weil die Eigentümer darüber entscheiden."
   },
   "admin.fees.err.reasonRequired": {
     "en": "A reason is required when the owners must approve.",
@@ -690,6 +818,10 @@
   "admin.fees.err.tooFarAhead": {
     "en": "The moment can be at most {days} days ahead.",
     "t": "Der Zeitpunkt darf höchstens {days} Tage in der Zukunft liegen."
+  },
+  "admin.fees.err.tooFewOwners": {
+    "en": "This change cannot be put to the owners. With only two owners, the person who asks cannot be kept off the vote, so the change cannot be proposed.",
+    "t": "Diese Änderung kann den Eigentümern nicht vorgelegt werden. Bei nur zwei Eigentümern kann die beantragende Person nicht von der Abstimmung ausgeschlossen werden, daher kann die Änderung nicht vorgeschlagen werden."
   },
   "admin.fees.field.hurdle": {
     "en": "Hurdle",
@@ -800,20 +932,20 @@
     "t": "Die Bedingungen werden für {n, plural, one {diesen Anleger} other {diese # Anleger}} ohne Benachrichtigung wirksam — strengere Bedingungen, von denen sie nie erfahren haben. Ihr Name und der Zeitpunkt ersetzen die frühere Bestätigung auf der Änderung, die dann {total, plural, one {# Anleger} other {alle # Anleger}} abdeckt, und bleiben in ihrer Historie."
   },
   "admin.fees.notices.alreadyWaived": {
-    "en": "{by} already took responsibility on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.",
-    "t": "{by} hat am {at} bereits die Verantwortung für {n, plural, one {# Anleger} other {# Anleger}} übernommen, bei denen der Versand bis dahin aufgegeben hatte. Seitdem hat er bei weiteren aufgegeben; dieser Schritt fügt sie demselben Eintrag hinzu."
+    "en": "{by} already took responsibility on {at} for {n, plural, one {# holder} other {# holders}} who could not be told by then. More could not be told since; this act adds them to that record.",
+    "t": "{by} hat am {at} bereits die Verantwortung für {n, plural, one {# Inhaber} other {# Inhaber}} übernommen, die bis dahin nicht benachrichtigt werden konnten. Seitdem konnten weitere nicht benachrichtigt werden; dieser Schritt fügt sie diesem Eintrag hinzu."
   },
   "admin.fees.notices.alreadyWaivedAnon": {
-    "en": "Responsibility was already taken on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.",
-    "t": "Die Verantwortung für {n, plural, one {# Anleger} other {# Anleger}}, bei denen der Versand bis dahin aufgegeben hatte, wurde am {at} bereits übernommen. Seitdem hat er bei weiteren aufgegeben; dieser Schritt fügt sie demselben Eintrag hinzu."
+    "en": "Responsibility was already taken on {at} for {n, plural, one {# holder} other {# holders}} who could not be told by then. More could not be told since; this act adds them to that record.",
+    "t": "Die Verantwortung wurde am {at} bereits für {n, plural, one {# Inhaber} other {# Inhaber}} übernommen, die bis dahin nicht benachrichtigt werden konnten. Seitdem konnten weitere nicht benachrichtigt werden; dieser Schritt fügt sie diesem Eintrag hinzu."
   },
   "admin.fees.notices.err.forbidden": {
-    "en": "Only the requester of this change or an owner can take responsibility for it.",
-    "t": "Nur wer diese Änderung beantragt hat oder ein Eigentümer kann die Verantwortung dafür übernehmen."
+    "en": "Only the person who requested this change can take responsibility for it.",
+    "t": "Nur die Person, die diese Änderung beantragt hat, kann die Verantwortung dafür übernehmen."
   },
   "admin.fees.notices.givenUpBody": {
-    "en": "The mailer has given up on {n, plural, one {this holder's notice} other {these # notices}}. A change that tightens the terms does not bind over a holder who was never told, so it is held up until somebody takes responsibility for them.",
-    "t": "Der Versand hat bei {n, plural, one {der Benachrichtigung dieses Anlegers} other {diesen # Benachrichtigungen}} aufgegeben. Eine Änderung, die die Bedingungen verschärft, wird für einen nie benachrichtigten Anleger nicht wirksam und bleibt aufgehalten, bis jemand die Verantwortung für sie übernimmt."
+    "en": "{n, plural, one {This holder is no longer an active member} other {These # holders are no longer active members}} of invest's scope, so invest could not tell them. A change that tightens the terms does not bind over a holder who was never told, so it is held up until its requester takes responsibility for them or the change is withdrawn.",
+    "t": "{n, plural, one {Dieser Inhaber ist kein aktives Mitglied mehr} other {Diese # Inhaber sind keine aktiven Mitglieder mehr}} im Bereich von invest, daher konnte invest sie nicht benachrichtigen. Eine Änderung, die die Konditionen verschärft, gilt nicht für einen Inhaber, der nie benachrichtigt wurde. Sie wartet, bis der Antragsteller die Verantwortung übernimmt oder die Änderung zurückgezogen wird."
   },
   "admin.fees.notices.givenUpTitle": {
     "en": "{n, plural, one {# holder} other {# holders}} could not be told",
@@ -824,12 +956,16 @@
     "t": "{n, plural, one {# weitere Benachrichtigung wird} other {# weitere Benachrichtigungen werden}} noch zugestellt und davon nicht erfasst."
   },
   "admin.fees.notices.queued": {
-    "en": "{n, plural, one {# notice is} other {# notices are}} still being delivered. A change that tightens the terms waits for every holder to be told; there is nothing to do unless the mailer gives up on one.",
-    "t": "{n, plural, one {# Benachrichtigung wird} other {# Benachrichtigungen werden}} noch zugestellt. Eine Änderung, die die Bedingungen verschärft, wartet, bis jeder Anleger benachrichtigt ist; es gibt nichts zu tun, solange der Versand bei keiner aufgibt."
+    "en": "{n, plural, one {# notice is} other {# notices are}} still being delivered. A change that tightens the terms waits for every holder to be told; there is nothing to do unless one could not be told.",
+    "t": "{n, plural, one {# Hinweis wird noch zugestellt} other {# Hinweise werden noch zugestellt}}. Eine Änderung, die die Konditionen verschärft, wartet, bis jeder Inhaber benachrichtigt ist; zu tun ist nichts, außer jemand kann nicht benachrichtigt werden."
   },
-  "admin.fees.pending.awaiting": {
-    "en": "Version {version} awaits the owners' approval. It binds 24 hours after they carry it, while anyone holds units.",
-    "t": "Version {version} wartet auf die Zustimmung der Eigentümer. Sie gilt 24 Stunden nach deren Beschluss, solange jemand Anteile hält."
+  "admin.fees.openApprovals": {
+    "en": "Open the owners' approvals",
+    "t": "Freigaben der Eigentümer öffnen"
+  },
+  "admin.fees.pending.awaitingProvisional": {
+    "en": "Version {version} awaits the owners' approval. Provisional start: {at}. While anyone holds units, it binds no earlier than 24 hours after they carry it, so the date can move later.",
+    "t": "Version {version} wartet auf die Freigabe der Eigentümer. Vorläufiger Beginn: {at}. Solange jemand Anteile hält, gilt sie frühestens 24 Stunden nach der Annahme, das Datum kann sich also nach hinten verschieben."
   },
   "admin.fees.pending.immediate": {
     "en": "Version {version} takes effect now and is applied within a minute. Nobody holds units, so no notice was sent.",
@@ -871,6 +1007,10 @@
     "en": "Every 6 months",
     "t": "Alle 6 Monate"
   },
+  "admin.fees.provisional": {
+    "en": "provisional",
+    "t": "vorläufig"
+  },
   "admin.fees.reason": {
     "en": "Reason",
     "t": "Grund"
@@ -887,21 +1027,33 @@
     "en": "Reason (required)",
     "t": "Grund (erforderlich)"
   },
-  "admin.fees.requirement.admin": {
-    "en": "No vote needed: one administrator may make this change. Holders are mailed the notice when it is scheduled.",
-    "t": "Keine Abstimmung nötig: ein Administrator kann diese Änderung vornehmen. Die Anteilsinhaber erhalten die Mitteilung per E-Mail, sobald sie geplant ist."
+  "admin.fees.reauth.confirm": {
+    "en": "Confirm it's me",
+    "t": "Bestätigen, dass ich es bin"
   },
-  "admin.fees.requirement.consilium": {
-    "en": "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. You must be an owner to open the request.",
-    "t": "Braucht die Zustimmung der Eigentümer: diese Konditionen verschärfen die aktuellen über die hauseigenen 2 und 20 hinaus oder senken die Hürde. Nur ein Eigentümer kann den Antrag stellen."
+  "admin.fees.reauth.confirmed": {
+    "en": "Confirmed. Submit within about a minute and a half.",
+    "t": "Bestätigt. Senden Sie innerhalb von etwa anderthalb Minuten."
+  },
+  "admin.fees.reauth.why": {
+    "en": "The owners decide this change. Confirm it's you so you are not counted as a voter.",
+    "t": "Über diese Änderung entscheiden die Eigentümer. Bestätigen Sie, dass Sie es sind, damit Sie nicht als Abstimmende gezählt werden."
+  },
+  "admin.fees.requirement.admin": {
+    "en": "No vote needed: one administrator may make this change. When it is scheduled, every holder gets an in-app notice, and a mail when their address is verified. Holders cannot switch these notices off.",
+    "t": "Keine Abstimmung nötig: Ein Administrator kann diese Änderung vornehmen. Sobald sie eingeplant ist, erhält jeder Inhaber einen Hinweis in der App und eine E-Mail, wenn seine Adresse bestätigt ist. Inhaber können diese Hinweise nicht abschalten."
+  },
+  "admin.fees.requirement.ownersReauth": {
+    "en": "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. You confirm your sign-in before it is sent, and you are not counted as a voter.",
+    "t": "Freigabe der Eigentümer nötig: Diese Konditionen verschärfen die aktuellen über das hauseigene 2 und 20 hinaus oder senken die Hürde. Sie bestätigen Ihre Anmeldung vor dem Senden und werden nicht als Abstimmende gezählt."
   },
   "admin.fees.scheduleChange": {
     "en": "Schedule the change",
     "t": "Änderung planen"
   },
   "admin.fees.scheduledBody": {
-    "en": "Version {version} takes effect on {at}. Every holder is being emailed the notice; until then the fund charges its current terms.",
-    "t": "Version {version} tritt am {at} in Kraft. Jeder Anteilsinhaber erhält die Mitteilung per E-Mail; bis dahin gelten die aktuellen Konditionen."
+    "en": "Version {version} takes effect on {at}. Every holder is being sent an in-app notice, and a mail when their address is verified; until then the fund charges its current terms.",
+    "t": "Version {version} gilt ab {at}. Jeder Inhaber erhält einen Hinweis in der App und eine E-Mail, wenn seine Adresse bestätigt ist; bis dahin berechnet der Fonds seine aktuellen Konditionen."
   },
   "admin.fees.scheduledTitle": {
     "en": "Scheduled — nothing has changed yet",
@@ -1026,10 +1178,6 @@
   "admin.kyc.verified": {
     "en": "Verified",
     "t": "Verifiziert"
-  },
-  "admin.payments.openConsilium": {
-    "en": "Open the consilium",
-    "t": "Konsilium öffnen"
   },
   "admin.rail.bep20": {
     "en": "BEP20 · BNB Chain",
@@ -1598,6 +1746,18 @@
   "err.verificationRequired": {
     "en": "Verify your identity to continue.",
     "t": "Bestätigen Sie Ihre Identität, um fortzufahren."
+  },
+  "fund.feeDiff.nothingCharged": {
+    "en": "Nothing charged",
+    "t": "Keine Gebühr"
+  },
+  "fund.feeDiff.now": {
+    "en": "Now",
+    "t": "Aktuell"
+  },
+  "fund.feeDiff.proposed": {
+    "en": "Proposed",
+    "t": "Vorgeschlagen"
   },
   "invest.about.risk": {
     "en": "Units can fall in value as well as rise. The NAV is set by a posted valuation, not by a market price, and past marks are no guide to future ones. Cash comes back only when a redemption settles or a buyer takes your units on the book. Invest only what you can afford to leave in.",

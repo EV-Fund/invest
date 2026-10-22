@@ -5,7 +5,7 @@
 // The operator has clicked a button on a pricing surface, and the natural reading of any
 // receipt is "it is done". This one says in plain words that the fund still charges its
 // current terms, and names what has to happen first — a moment that has to arrive, or
-// the owners who have to agree (with the room linked, where the live tally is). The one
+// the owners who have to agree (with their approvals page linked, where the vote is). The one
 // exception is a product nobody holds: no notice was due, the plane set the moment to the
 // request itself, and "every holder is being emailed" would be a lie about people who do
 // not exist — so that answer is told apart (`lib/receipt.ts`) and said as what it is. The
@@ -32,8 +32,8 @@ const titles = (t: Translate): Record<ReceiptKind, string> => ({
   immediate: t("admin.fees.immediateTitle", "In force within a minute — nobody to notify"),
 });
 const bodies = (t: Translate, args: ReceiptArgs): Record<ReceiptKind, string> => ({
-  awaiting: t("admin.fees.awaitingBody", "The owners have each been emailed a link. Version {version} is scheduled only once more than half of them approve, and binds 24 hours after that while anyone holds units. The live tally is in the consilium.", args),
-  scheduled: t("admin.fees.scheduledBody", "Version {version} takes effect on {at}. Every holder is being emailed the notice; until then the fund charges its current terms.", args),
+  awaiting: t("admin.fees.awaitingRosterBody", "Version {version} went to the owners' approvals. It is scheduled only once more than half of the owners on its vote approve it and no owner vetoes it within 24 hours. You asked for it, so you are not on that vote. The owners vote in the central admin.", args),
+  scheduled: t("admin.fees.scheduledBody", "Version {version} takes effect on {at}. Every holder is being sent an in-app notice, and a mail when their address is verified; until then the fund charges its current terms.", args),
   immediate: t("admin.fees.immediateBody", "Nobody holds units in this product, so no notice was due: version {version} takes effect now and is applied within a minute. Until it is, it can still be cancelled below. The first investor to subscribe reads these terms.", args),
 });
 const ICON = { awaiting: Users, scheduled: CalendarClock, immediate: Zap } as const;
@@ -55,7 +55,7 @@ export function ScheduledReceipt({ change, onDismiss }: { change: FeePolicyChang
         <div className="flex flex-wrap gap-2 text-ink">
           {awaiting && (
             <Button asChild size="sm" variant="outline">
-              <a href={PLATFORM_APPROVALS_URL}>{t("admin.payments.openConsilium", "Open the consilium")}</a>
+              <a href={PLATFORM_APPROVALS_URL}>{t("admin.fees.openApprovals", "Open the owners' approvals")}</a>
             </Button>
           )}
           <Button type="button" size="sm" variant="ghost" onClick={onDismiss}>

@@ -559,13 +559,121 @@
     "en": "Superseded",
     "t": "Заменено"
   },
+  "admin.fees.approval.historyNote": {
+    "en": "Owners: {state}",
+    "t": "Владельцы: {state}"
+  },
+  "admin.fees.approval.holders": {
+    "en": "The proposal tells the owners that {count, plural, one {# holder} other {# holders}} will be notified.",
+    "t": "Предложение сообщает владельцам, что уведомление получат {count, plural, one {# держатель} few {# держателя} many {# держателей} other {# держателя}}."
+  },
+  "admin.fees.approval.id": {
+    "en": "Approval id",
+    "t": "Идентификатор согласования"
+  },
+  "admin.fees.approval.line.cancelled": {
+    "en": "The proposal was withdrawn, so the votes given on it no longer count.",
+    "t": "Предложение отозвано, поэтому поданные по нему голоса больше не учитываются."
+  },
+  "admin.fees.approval.line.executed": {
+    "en": "The owners carried the change, and invest scheduled it.",
+    "t": "Владельцы одобрили изменение, и invest его запланировал."
+  },
+  "admin.fees.approval.line.execution_failed": {
+    "en": "The owners carried the change, but invest could not schedule it. The change is closed.",
+    "t": "Владельцы одобрили изменение, но invest не смог его запланировать. Изменение закрыто."
+  },
+  "admin.fees.approval.line.expired": {
+    "en": "The owners did not decide within 72 hours, so the proposal expired.",
+    "t": "Владельцы не приняли решение за 72 часа, поэтому срок предложения истёк."
+  },
+  "admin.fees.approval.line.openRoster": {
+    "en": "The owners are voting. The change passes when more than half of the owners on its vote approve it. The person who asked for it is not on that vote.",
+    "t": "Владельцы голосуют. Изменение принимается, когда его одобряют больше половины владельцев, участвующих в голосовании. Тот, кто запросил изменение, в голосовании не участвует."
+  },
+  "admin.fees.approval.line.passed": {
+    "en": "The owners carried the change, and invest scheduled it.",
+    "t": "Владельцы одобрили изменение, и invest запланировал его."
+  },
+  "admin.fees.approval.line.passedAwaiting": {
+    "en": "The owners carried the change. Any owner can still veto it during the 24-hour delay that follows; after that, invest schedules it.",
+    "t": "Владельцы одобрили изменение. Любой владелец ещё может наложить вето в течение следующих 24 часов; после этого invest его запланирует."
+  },
+  "admin.fees.approval.line.passedUntil": {
+    "en": "The owners carried the change. Owners can veto it until {at}; after that, invest schedules it.",
+    "t": "Владельцы одобрили изменение. Владельцы могут наложить вето до {at}; после этого invest его запланирует."
+  },
+  "admin.fees.approval.line.rejected": {
+    "en": "The owners rejected the change. The fund keeps its current terms.",
+    "t": "Владельцы отклонили изменение. Фонд сохраняет текущие условия."
+  },
+  "admin.fees.approval.line.unproposed": {
+    "en": "concierge could not be reached when you asked. invest proposes the change to the owners again within a minute.",
+    "t": "Когда вы отправили запрос, concierge был недоступен. invest снова предложит изменение владельцам в течение минуты."
+  },
+  "admin.fees.approval.line.vetoed": {
+    "en": "An owner vetoed the change. The fund keeps its current terms.",
+    "t": "Один из владельцев наложил вето. Фонд сохраняет текущие условия."
+  },
+  "admin.fees.approval.line.void": {
+    "en": "concierge voided the proposal, so the votes given on it no longer count.",
+    "t": "concierge аннулировал предложение, поэтому поданные по нему голоса больше не учитываются."
+  },
+  "admin.fees.approval.state.cancelled": {
+    "en": "Withdrawn",
+    "t": "Отозвано"
+  },
+  "admin.fees.approval.state.executed": {
+    "en": "Carried out",
+    "t": "Исполнено"
+  },
+  "admin.fees.approval.state.execution_failed": {
+    "en": "Could not be carried out",
+    "t": "Не удалось исполнить"
+  },
+  "admin.fees.approval.state.expired": {
+    "en": "Expired",
+    "t": "Истекло"
+  },
+  "admin.fees.approval.state.open": {
+    "en": "Voting",
+    "t": "Идёт голосование"
+  },
+  "admin.fees.approval.state.passed": {
+    "en": "Carried",
+    "t": "Одобрено"
+  },
+  "admin.fees.approval.state.rejected": {
+    "en": "Rejected",
+    "t": "Отклонено"
+  },
+  "admin.fees.approval.state.unknown": {
+    "en": "State not known",
+    "t": "Состояние неизвестно"
+  },
+  "admin.fees.approval.state.unproposed": {
+    "en": "Not proposed yet",
+    "t": "Ещё не предложено"
+  },
+  "admin.fees.approval.state.vetoed": {
+    "en": "Vetoed",
+    "t": "Вето"
+  },
+  "admin.fees.approval.state.void": {
+    "en": "Voided",
+    "t": "Аннулировано"
+  },
+  "admin.fees.approval.title": {
+    "en": "Owners' approval",
+    "t": "Согласование владельцев"
+  },
   "admin.fees.askOwners": {
     "en": "Ask the owners",
     "t": "Запросить владельцев"
   },
-  "admin.fees.awaitingBody": {
-    "en": "The owners have each been emailed a link. Version {version} is scheduled only once more than half of them approve, and binds 24 hours after that while anyone holds units. The live tally is in the consilium.",
-    "t": "Каждому владельцу отправлена ссылка. Версия {version} будет назначена, только когда одобрит больше половины из них, и вступит в силу через 24 часа после этого, пока у кого-то есть юниты. Текущий подсчёт — в консилиуме."
+  "admin.fees.awaitingRosterBody": {
+    "en": "Version {version} went to the owners' approvals. It is scheduled only once more than half of the owners on its vote approve it and no owner vetoes it within 24 hours. You asked for it, so you are not on that vote. The owners vote in the central admin.",
+    "t": "Версия {version} отправлена на согласование владельцам. Её запланируют, только если больше половины владельцев, участвующих в голосовании, одобрят её и никто не наложит вето в течение 24 часов. Вы её запросили, поэтому не голосуете. Владельцы голосуют в центральной админке."
   },
   "admin.fees.awaitingTitle": {
     "en": "Sent to the owners — nothing has changed yet",
@@ -591,13 +699,21 @@
     "en": "Cancel the change",
     "t": "Отменить изменение"
   },
+  "admin.fees.cancelRequesterOnly": {
+    "en": "Only the person who requested this change can cancel it, because the owners decide it.",
+    "t": "Отменить это изменение может только тот, кто его запросил, потому что решают владельцы."
+  },
   "admin.fees.cancelWarning": {
     "en": "Cancelling withdraws the change. The fund keeps its current terms, and the holders who were notified will not see the new ones.",
     "t": "Отмена отзывает изменение. Фонд сохраняет текущие условия, и уведомлённые держатели новых не увидят."
   },
-  "admin.fees.cancelWarningAwaiting": {
-    "en": "Cancelling withdraws the change and takes its consilium down with it, voiding every approval collected so far. The owners who have already answered would each have to answer again.",
-    "t": "Отмена отзывает изменение и закрывает его консилиум, аннулируя все собранные одобрения. Владельцам, которые уже ответили, придётся отвечать заново."
+  "admin.fees.cancelWarningWithdraws": {
+    "en": "Cancelling withdraws the change and its proposal from the owners' approvals. The votes given so far stop counting, and a new request starts a new vote.",
+    "t": "Отмена отзывает изменение и его предложение из согласований владельцев. Уже поданные голоса перестают учитываться, а новый запрос начнёт новое голосование."
+  },
+  "admin.fees.cancelWithdraw": {
+    "en": "Cancel and withdraw the proposal",
+    "t": "Отменить и отозвать предложение"
   },
   "admin.fees.chargedOn": {
     "en": "Charged on",
@@ -671,6 +787,10 @@
     "en": "Earlier than the notice allows: this binds no earlier than 24 hours after the owners approve.",
     "t": "Раньше, чем позволяет уведомление: изменение вступит в силу не раньше чем через 24 часа после одобрения владельцами."
   },
+  "admin.fees.err.accountUnknown": {
+    "en": "Your account has not reached invest's list of users yet, so the owners cannot be asked in your name. Try again in a few minutes.",
+    "t": "Ваш аккаунт ещё не попал в список пользователей invest, поэтому владельцев нельзя спросить от вашего имени. Попробуйте снова через несколько минут."
+  },
   "admin.fees.err.notPercent": {
     "en": "{field} must be a percentage — 2, or 2.5 / 2,5 for a half.",
     "t": "{field}: нужны проценты — 2 или 2.5 / 2,5 для половины."
@@ -678,6 +798,14 @@
   "admin.fees.err.overCeiling": {
     "en": "{field} cannot be more than {ceiling}.",
     "t": "{field} не может быть больше {ceiling}."
+  },
+  "admin.fees.err.ownersNoWaiver": {
+    "en": "The owners decided this change, so its holders' notices cannot be waived. Withdraw the change instead.",
+    "t": "Это изменение решали владельцы, поэтому от уведомлений держателей нельзя отказаться. Вместо этого отмените изменение."
+  },
+  "admin.fees.err.ownersRequesterOnly": {
+    "en": "Only the person who requested this change can withdraw it, because the owners decide it.",
+    "t": "Отозвать это изменение может только тот, кто его запросил, потому что решают владельцы."
   },
   "admin.fees.err.reasonRequired": {
     "en": "A reason is required when the owners must approve.",
@@ -690,6 +818,10 @@
   "admin.fees.err.tooFarAhead": {
     "en": "The moment can be at most {days} days ahead.",
     "t": "Момент может быть не дальше чем через {days} дней."
+  },
+  "admin.fees.err.tooFewOwners": {
+    "en": "This change cannot be put to the owners. With only two owners, the person who asks cannot be kept off the vote, so the change cannot be proposed.",
+    "t": "Это изменение нельзя передать владельцам. Когда владельцев только двое, запросившего нельзя исключить из голосования, поэтому изменение нельзя предложить."
   },
   "admin.fees.field.hurdle": {
     "en": "Hurdle",
@@ -800,20 +932,20 @@
     "t": "Условия вступят в силу для {n, plural, one {этого держателя} few {этих # держателей} many {этих # держателей} other {этих # держателей}} без уведомления — более жёсткие условия, о которых им не сообщили. Ваше имя и момент заменят в изменении прежнее подтверждение, которое после этого будет покрывать {total, plural, one {# держателя} few {всех # держателей} many {всех # держателей} other {всех # держателя}}, и останутся в его истории."
   },
   "admin.fees.notices.alreadyWaived": {
-    "en": "{by} already took responsibility on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.",
-    "t": "Ответственность уже взята {at} ({by}) за {n, plural, one {# держателя} few {# держателей} many {# держателей} other {# держателя}}, от которых рассылка отказалась к тому моменту. С тех пор она отказалась ещё от нескольких; этот акт добавит их в ту же запись."
+    "en": "{by} already took responsibility on {at} for {n, plural, one {# holder} other {# holders}} who could not be told by then. More could not be told since; this act adds them to that record.",
+    "t": "{by} уже взял(а) ответственность {at} за {n, plural, one {# держателя} few {# держателей} many {# держателей} other {# держателя}}, которым к тому моменту не удалось сообщить. С тех пор не удалось сообщить ещё кому-то; это действие добавит их в ту же запись."
   },
   "admin.fees.notices.alreadyWaivedAnon": {
-    "en": "Responsibility was already taken on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.",
-    "t": "Ответственность уже взята {at} за {n, plural, one {# держателя} few {# держателей} many {# держателей} other {# держателя}}, от которых рассылка отказалась к тому моменту. С тех пор она отказалась ещё от нескольких; этот акт добавит их в ту же запись."
+    "en": "Responsibility was already taken on {at} for {n, plural, one {# holder} other {# holders}} who could not be told by then. More could not be told since; this act adds them to that record.",
+    "t": "Ответственность уже взята {at} за {n, plural, one {# держателя} few {# держателей} many {# держателей} other {# держателя}}, которым к тому моменту не удалось сообщить. С тех пор не удалось сообщить ещё кому-то; это действие добавит их в ту же запись."
   },
   "admin.fees.notices.err.forbidden": {
-    "en": "Only the requester of this change or an owner can take responsibility for it.",
-    "t": "Взять ответственность может только запросивший это изменение или владелец."
+    "en": "Only the person who requested this change can take responsibility for it.",
+    "t": "Взять ответственность за это изменение может только тот, кто его запросил."
   },
   "admin.fees.notices.givenUpBody": {
-    "en": "The mailer has given up on {n, plural, one {this holder's notice} other {these # notices}}. A change that tightens the terms does not bind over a holder who was never told, so it is held up until somebody takes responsibility for them.",
-    "t": "Рассылка отказалась от попыток доставить {n, plural, one {уведомление этому держателю} few {эти # уведомления} many {эти # уведомлений} other {эти # уведомления}}. Изменение, ужесточающее условия, не вступает в силу для держателя, которого не уведомили, поэтому оно задерживается, пока кто-то не возьмёт за них ответственность."
+    "en": "{n, plural, one {This holder is no longer an active member} other {These # holders are no longer active members}} of invest's scope, so invest could not tell them. A change that tightens the terms does not bind over a holder who was never told, so it is held up until its requester takes responsibility for them or the change is withdrawn.",
+    "t": "{n, plural, one {Этот держатель больше не является активным участником} few {Эти # держателя больше не являются активными участниками} many {Эти # держателей больше не являются активными участниками} other {Эти # держателя больше не являются активными участниками}} scope invest, поэтому invest не смог им сообщить. Изменение, ужесточающее условия, не действует для держателя, которому не сообщили, поэтому оно ждёт, пока запросивший не возьмёт за них ответственность или изменение не отзовут."
   },
   "admin.fees.notices.givenUpTitle": {
     "en": "{n, plural, one {# holder} other {# holders}} could not be told",
@@ -824,12 +956,16 @@
     "t": "Ещё {n, plural, one {# уведомление в процессе доставки — оно сюда не входит} few {# уведомления в процессе доставки — они сюда не входят} many {# уведомлений в процессе доставки — они сюда не входят} other {# уведомления в процессе доставки — они сюда не входят}}."
   },
   "admin.fees.notices.queued": {
-    "en": "{n, plural, one {# notice is} other {# notices are}} still being delivered. A change that tightens the terms waits for every holder to be told; there is nothing to do unless the mailer gives up on one.",
-    "t": "{n, plural, one {# уведомление ещё доставляется} few {# уведомления ещё доставляются} many {# уведомлений ещё доставляются} other {# уведомления ещё доставляются}}. Изменение, ужесточающее условия, ждёт, пока будут уведомлены все держатели; делать ничего не нужно, пока рассылка не откажется от попыток."
+    "en": "{n, plural, one {# notice is} other {# notices are}} still being delivered. A change that tightens the terms waits for every holder to be told; there is nothing to do unless one could not be told.",
+    "t": "{n, plural, one {# уведомление ещё доставляется} few {# уведомления ещё доставляются} many {# уведомлений ещё доставляются} other {# уведомления ещё доставляются}}. Изменение, ужесточающее условия, ждёт, пока сообщат каждому держателю; делать ничего не нужно, если только кому-то не удастся сообщить."
   },
-  "admin.fees.pending.awaiting": {
-    "en": "Version {version} awaits the owners' approval. It binds 24 hours after they carry it, while anyone holds units.",
-    "t": "Версия {version} ждёт одобрения владельцев. Она вступит в силу через 24 часа после их решения, пока у кого-то есть юниты."
+  "admin.fees.openApprovals": {
+    "en": "Open the owners' approvals",
+    "t": "Открыть согласования владельцев"
+  },
+  "admin.fees.pending.awaitingProvisional": {
+    "en": "Version {version} awaits the owners' approval. Provisional start: {at}. While anyone holds units, it binds no earlier than 24 hours after they carry it, so the date can move later.",
+    "t": "Версия {version} ждёт одобрения владельцев. Предварительная дата начала: {at}. Пока кто-то держит паи, она вступит в силу не раньше чем через 24 часа после одобрения, поэтому дата может сдвинуться позже."
   },
   "admin.fees.pending.immediate": {
     "en": "Version {version} takes effect now and is applied within a minute. Nobody holds units, so no notice was sent.",
@@ -871,6 +1007,10 @@
     "en": "Every 6 months",
     "t": "Раз в полгода"
   },
+  "admin.fees.provisional": {
+    "en": "provisional",
+    "t": "предварительно"
+  },
   "admin.fees.reason": {
     "en": "Reason",
     "t": "Причина"
@@ -887,21 +1027,33 @@
     "en": "Reason (required)",
     "t": "Причина (обязательно)"
   },
-  "admin.fees.requirement.admin": {
-    "en": "No vote needed: one administrator may make this change. Holders are mailed the notice when it is scheduled.",
-    "t": "Голосование не нужно: это изменение может внести один администратор. Держателям отправят уведомление, когда оно будет назначено."
+  "admin.fees.reauth.confirm": {
+    "en": "Confirm it's me",
+    "t": "Подтвердить, что это я"
   },
-  "admin.fees.requirement.consilium": {
-    "en": "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. You must be an owner to open the request.",
-    "t": "Требуется одобрение владельцев: эти условия ужесточают текущие сверх домашних 2 и 20 либо снижают барьер. Открыть запрос может только владелец."
+  "admin.fees.reauth.confirmed": {
+    "en": "Confirmed. Submit within about a minute and a half.",
+    "t": "Подтверждено. Отправьте в течение примерно полутора минут."
+  },
+  "admin.fees.reauth.why": {
+    "en": "The owners decide this change. Confirm it's you so you are not counted as a voter.",
+    "t": "Это изменение решают владельцы. Подтвердите, что это вы, чтобы вас не засчитали как голосующего."
+  },
+  "admin.fees.requirement.admin": {
+    "en": "No vote needed: one administrator may make this change. When it is scheduled, every holder gets an in-app notice, and a mail when their address is verified. Holders cannot switch these notices off.",
+    "t": "Голосование не нужно: это изменение может внести один администратор. Когда оно запланировано, каждый держатель получает уведомление в приложении, а если его адрес подтверждён — ещё и письмо. Держатели не могут отключить эти уведомления."
+  },
+  "admin.fees.requirement.ownersReauth": {
+    "en": "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. You confirm your sign-in before it is sent, and you are not counted as a voter.",
+    "t": "Нужно одобрение владельцев: эти условия ужесточают текущие сверх принятых 2 и 20 или снижают барьерную доходность. Перед отправкой вы подтвердите вход, и вас не засчитают как голосующего."
   },
   "admin.fees.scheduleChange": {
     "en": "Schedule the change",
     "t": "Запланировать изменение"
   },
   "admin.fees.scheduledBody": {
-    "en": "Version {version} takes effect on {at}. Every holder is being emailed the notice; until then the fund charges its current terms.",
-    "t": "Версия {version} вступает в силу {at}. Каждому держателю отправляется уведомление; до тех пор фонд взимает текущие условия."
+    "en": "Version {version} takes effect on {at}. Every holder is being sent an in-app notice, and a mail when their address is verified; until then the fund charges its current terms.",
+    "t": "Версия {version} вступает в силу {at}. Каждому держателю отправляется уведомление в приложении, а если адрес подтверждён — ещё и письмо; до тех пор фонд берёт комиссии по текущим условиям."
   },
   "admin.fees.scheduledTitle": {
     "en": "Scheduled — nothing has changed yet",
@@ -1026,10 +1178,6 @@
   "admin.kyc.verified": {
     "en": "Verified",
     "t": "Верификация"
-  },
-  "admin.payments.openConsilium": {
-    "en": "Open the consilium",
-    "t": "Открыть консилиум"
   },
   "admin.rail.bep20": {
     "en": "BEP20 · BNB Chain",
@@ -1598,6 +1746,18 @@
   "err.verificationRequired": {
     "en": "Verify your identity to continue.",
     "t": "Подтвердите личность, чтобы продолжить."
+  },
+  "fund.feeDiff.nothingCharged": {
+    "en": "Nothing charged",
+    "t": "Без комиссии"
+  },
+  "fund.feeDiff.now": {
+    "en": "Now",
+    "t": "Сейчас"
+  },
+  "fund.feeDiff.proposed": {
+    "en": "Proposed",
+    "t": "Предложено"
   },
   "invest.about.risk": {
     "en": "Units can fall in value as well as rise. The NAV is set by a posted valuation, not by a market price, and past marks are no guide to future ones. Cash comes back only when a redemption settles or a buyer takes your units on the book. Invest only what you can afford to leave in.",

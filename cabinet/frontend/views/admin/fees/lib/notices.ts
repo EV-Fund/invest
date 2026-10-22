@@ -4,10 +4,10 @@
 // matter. The hub counts the given-up notices its acknowledgement does NOT cover
 // (`notices_unacknowledged` — all of them while there is none), and that figure, not the
 // waiver, decides whether the act is offered: an acknowledgement covers exactly the
-// holders given up on by its moment, and a holder the mailer gives up on afterwards is
+// holders given up on by its moment, and a holder the notice sender gives up on afterwards is
 // as untold as the first ones were. A later act adds them to the record and puts its
 // caller's name on the whole list. Only once nothing is left uncovered does the waiver
-// stand alone as history. And a notice still in the mailer's queue is not one the holder
+// stand alone as history. And a notice still in the notice sender's queue is not one the holder
 // "could not be told" — right after scheduling every notice is undelivered for the
 // half-minute before the first attempt, and the hub refuses an acknowledgement until it
 // has given up on at least one.
@@ -34,9 +34,9 @@ export function waiverName(waiver: Pick<Waiver, "by" | "email">): string | null 
 export type NoticeSummary =
   /** Nothing to say: every notice delivered, or a state in which none are counted. */
   | { kind: "none" }
-  /** Notices the mailer is still trying to deliver, none given up on: nothing to do yet. */
+  /** Notices the notice sender is still trying to deliver, none given up on: nothing to do yet. */
   | { kind: "queued"; queued: number }
-  /** Holders the mailer has given up on that no acknowledgement covers — the ones the act
+  /** Holders the notice sender has given up on that no acknowledgement covers — the ones the act
    *  would name — how many notices beside theirs are still being tried, and the record an
    *  act would extend (`null` for a first one). */
   | { kind: "givenUp"; givenUp: number; queued: number; waiver: Waiver | null }

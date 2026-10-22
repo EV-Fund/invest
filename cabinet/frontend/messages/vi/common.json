@@ -559,13 +559,121 @@
     "en": "Superseded",
     "t": "Đã bị thay thế"
   },
+  "admin.fees.approval.historyNote": {
+    "en": "Owners: {state}",
+    "t": "Chủ sở hữu: {state}"
+  },
+  "admin.fees.approval.holders": {
+    "en": "The proposal tells the owners that {count, plural, one {# holder} other {# holders}} will be notified.",
+    "t": "Đề xuất cho chủ sở hữu biết rằng {count, plural, other {# người nắm giữ}} sẽ được thông báo."
+  },
+  "admin.fees.approval.id": {
+    "en": "Approval id",
+    "t": "Mã phê duyệt"
+  },
+  "admin.fees.approval.line.cancelled": {
+    "en": "The proposal was withdrawn, so the votes given on it no longer count.",
+    "t": "Đề xuất đã bị rút lại, nên các phiếu đã bỏ cho nó không còn được tính."
+  },
+  "admin.fees.approval.line.executed": {
+    "en": "The owners carried the change, and invest scheduled it.",
+    "t": "Các chủ sở hữu đã thông qua thay đổi và invest đã lên lịch cho nó."
+  },
+  "admin.fees.approval.line.execution_failed": {
+    "en": "The owners carried the change, but invest could not schedule it. The change is closed.",
+    "t": "Các chủ sở hữu đã thông qua thay đổi, nhưng invest không thể lên lịch cho nó. Thay đổi đã đóng."
+  },
+  "admin.fees.approval.line.expired": {
+    "en": "The owners did not decide within 72 hours, so the proposal expired.",
+    "t": "Các chủ sở hữu không quyết định trong vòng 72 giờ, nên đề xuất đã hết hạn."
+  },
+  "admin.fees.approval.line.openRoster": {
+    "en": "The owners are voting. The change passes when more than half of the owners on its vote approve it. The person who asked for it is not on that vote.",
+    "t": "Các chủ sở hữu đang bỏ phiếu. Thay đổi được thông qua khi hơn một nửa số chủ sở hữu trong cuộc bỏ phiếu chấp thuận. Người yêu cầu thay đổi không tham gia bỏ phiếu."
+  },
+  "admin.fees.approval.line.passed": {
+    "en": "The owners carried the change, and invest scheduled it.",
+    "t": "Các chủ sở hữu đã thông qua thay đổi, và invest đã lên lịch nó."
+  },
+  "admin.fees.approval.line.passedAwaiting": {
+    "en": "The owners carried the change. Any owner can still veto it during the 24-hour delay that follows; after that, invest schedules it.",
+    "t": "Các chủ sở hữu đã thông qua thay đổi. Bất kỳ chủ sở hữu nào vẫn có thể phủ quyết trong 24 giờ chờ tiếp theo; sau đó invest sẽ lên lịch cho nó."
+  },
+  "admin.fees.approval.line.passedUntil": {
+    "en": "The owners carried the change. Owners can veto it until {at}; after that, invest schedules it.",
+    "t": "Các chủ sở hữu đã thông qua thay đổi. Chủ sở hữu có thể phủ quyết đến {at}; sau đó invest sẽ lên lịch cho nó."
+  },
+  "admin.fees.approval.line.rejected": {
+    "en": "The owners rejected the change. The fund keeps its current terms.",
+    "t": "Các chủ sở hữu đã từ chối thay đổi. Quỹ giữ nguyên điều khoản hiện tại."
+  },
+  "admin.fees.approval.line.unproposed": {
+    "en": "concierge could not be reached when you asked. invest proposes the change to the owners again within a minute.",
+    "t": "Không kết nối được concierge khi bạn gửi yêu cầu. invest sẽ đề xuất lại thay đổi cho các chủ sở hữu trong vòng một phút."
+  },
+  "admin.fees.approval.line.vetoed": {
+    "en": "An owner vetoed the change. The fund keeps its current terms.",
+    "t": "Một chủ sở hữu đã phủ quyết thay đổi. Quỹ giữ nguyên điều khoản hiện tại."
+  },
+  "admin.fees.approval.line.void": {
+    "en": "concierge voided the proposal, so the votes given on it no longer count.",
+    "t": "concierge đã vô hiệu hóa đề xuất, nên các phiếu đã bỏ cho nó không còn được tính."
+  },
+  "admin.fees.approval.state.cancelled": {
+    "en": "Withdrawn",
+    "t": "Đã rút lại"
+  },
+  "admin.fees.approval.state.executed": {
+    "en": "Carried out",
+    "t": "Đã thực hiện"
+  },
+  "admin.fees.approval.state.execution_failed": {
+    "en": "Could not be carried out",
+    "t": "Không thể thực hiện"
+  },
+  "admin.fees.approval.state.expired": {
+    "en": "Expired",
+    "t": "Đã hết hạn"
+  },
+  "admin.fees.approval.state.open": {
+    "en": "Voting",
+    "t": "Đang bỏ phiếu"
+  },
+  "admin.fees.approval.state.passed": {
+    "en": "Carried",
+    "t": "Đã thông qua"
+  },
+  "admin.fees.approval.state.rejected": {
+    "en": "Rejected",
+    "t": "Bị từ chối"
+  },
+  "admin.fees.approval.state.unknown": {
+    "en": "State not known",
+    "t": "Chưa rõ trạng thái"
+  },
+  "admin.fees.approval.state.unproposed": {
+    "en": "Not proposed yet",
+    "t": "Chưa được đề xuất"
+  },
+  "admin.fees.approval.state.vetoed": {
+    "en": "Vetoed",
+    "t": "Bị phủ quyết"
+  },
+  "admin.fees.approval.state.void": {
+    "en": "Voided",
+    "t": "Đã vô hiệu"
+  },
+  "admin.fees.approval.title": {
+    "en": "Owners' approval",
+    "t": "Phê duyệt của chủ sở hữu"
+  },
   "admin.fees.askOwners": {
     "en": "Ask the owners",
     "t": "Hỏi các chủ sở hữu"
   },
-  "admin.fees.awaitingBody": {
-    "en": "The owners have each been emailed a link. Version {version} is scheduled only once more than half of them approve, and binds 24 hours after that while anyone holds units. The live tally is in the consilium.",
-    "t": "Mỗi chủ sở hữu đã được gửi một liên kết qua email. Phiên bản {version} chỉ được lên lịch khi hơn một nửa trong số họ chấp thuận, và có hiệu lực 24 giờ sau đó khi còn người nắm giữ đơn vị. Kết quả kiểm phiếu trực tiếp nằm trong consilium."
+  "admin.fees.awaitingRosterBody": {
+    "en": "Version {version} went to the owners' approvals. It is scheduled only once more than half of the owners on its vote approve it and no owner vetoes it within 24 hours. You asked for it, so you are not on that vote. The owners vote in the central admin.",
+    "t": "Phiên bản {version} đã được gửi tới mục phê duyệt của chủ sở hữu. Nó chỉ được lên lịch khi hơn một nửa số chủ sở hữu trong cuộc bỏ phiếu chấp thuận và không ai phủ quyết trong 24 giờ. Bạn là người yêu cầu nên bạn không tham gia bỏ phiếu. Các chủ sở hữu bỏ phiếu trong trang quản trị trung tâm."
   },
   "admin.fees.awaitingTitle": {
     "en": "Sent to the owners — nothing has changed yet",
@@ -591,13 +699,21 @@
     "en": "Cancel the change",
     "t": "Hủy thay đổi"
   },
+  "admin.fees.cancelRequesterOnly": {
+    "en": "Only the person who requested this change can cancel it, because the owners decide it.",
+    "t": "Chỉ người đã yêu cầu thay đổi này mới có thể hủy nó, vì các chủ sở hữu quyết định thay đổi."
+  },
   "admin.fees.cancelWarning": {
     "en": "Cancelling withdraws the change. The fund keeps its current terms, and the holders who were notified will not see the new ones.",
     "t": "Hủy sẽ rút lại thay đổi. Quỹ giữ nguyên điều khoản hiện tại, và những người nắm giữ đã được thông báo sẽ không thấy điều khoản mới."
   },
-  "admin.fees.cancelWarningAwaiting": {
-    "en": "Cancelling withdraws the change and takes its consilium down with it, voiding every approval collected so far. The owners who have already answered would each have to answer again.",
-    "t": "Hủy sẽ rút lại thay đổi và đóng consilium của nó, vô hiệu mọi chấp thuận đã thu được. Các chủ sở hữu đã trả lời sẽ phải trả lời lại."
+  "admin.fees.cancelWarningWithdraws": {
+    "en": "Cancelling withdraws the change and its proposal from the owners' approvals. The votes given so far stop counting, and a new request starts a new vote.",
+    "t": "Hủy sẽ rút lại thay đổi và đề xuất của nó khỏi mục phê duyệt của chủ sở hữu. Các phiếu đã bỏ không còn được tính, và một yêu cầu mới sẽ bắt đầu một cuộc bỏ phiếu mới."
+  },
+  "admin.fees.cancelWithdraw": {
+    "en": "Cancel and withdraw the proposal",
+    "t": "Hủy và rút lại đề xuất"
   },
   "admin.fees.chargedOn": {
     "en": "Charged on",
@@ -671,6 +787,10 @@
     "en": "Earlier than the notice allows: this binds no earlier than 24 hours after the owners approve.",
     "t": "Sớm hơn thời hạn thông báo cho phép: thay đổi này có hiệu lực không sớm hơn 24 giờ sau khi các chủ sở hữu chấp thuận."
   },
+  "admin.fees.err.accountUnknown": {
+    "en": "Your account has not reached invest's list of users yet, so the owners cannot be asked in your name. Try again in a few minutes.",
+    "t": "Tài khoản của bạn chưa có trong danh sách người dùng của invest, nên chưa thể hỏi các chủ sở hữu nhân danh bạn. Hãy thử lại sau vài phút."
+  },
   "admin.fees.err.notPercent": {
     "en": "{field} must be a percentage — 2, or 2.5 / 2,5 for a half.",
     "t": "{field} phải là phần trăm — 2, hoặc 2.5 / 2,5 cho nửa phần trăm."
@@ -678,6 +798,14 @@
   "admin.fees.err.overCeiling": {
     "en": "{field} cannot be more than {ceiling}.",
     "t": "{field} không thể vượt quá {ceiling}."
+  },
+  "admin.fees.err.ownersNoWaiver": {
+    "en": "The owners decided this change, so its holders' notices cannot be waived. Withdraw the change instead.",
+    "t": "Các chủ sở hữu đã quyết định thay đổi này, nên không thể bỏ qua thông báo cho người nắm giữ. Thay vào đó, hãy rút lại thay đổi."
+  },
+  "admin.fees.err.ownersRequesterOnly": {
+    "en": "Only the person who requested this change can withdraw it, because the owners decide it.",
+    "t": "Chỉ người đã yêu cầu thay đổi này mới có thể rút lại nó, vì các chủ sở hữu quyết định thay đổi."
   },
   "admin.fees.err.reasonRequired": {
     "en": "A reason is required when the owners must approve.",
@@ -690,6 +818,10 @@
   "admin.fees.err.tooFarAhead": {
     "en": "The moment can be at most {days} days ahead.",
     "t": "Thời điểm không được cách quá {days} ngày."
+  },
+  "admin.fees.err.tooFewOwners": {
+    "en": "This change cannot be put to the owners. With only two owners, the person who asks cannot be kept off the vote, so the change cannot be proposed.",
+    "t": "Không thể gửi thay đổi này tới các chủ sở hữu. Khi chỉ có hai chủ sở hữu, không thể loại người yêu cầu ra khỏi cuộc bỏ phiếu, nên không thể đề xuất thay đổi."
   },
   "admin.fees.field.hurdle": {
     "en": "Hurdle",
@@ -800,20 +932,20 @@
     "t": "Điều khoản sẽ có hiệu lực với {n, plural, other {# người nắm giữ này}} mà không có thông báo — những điều khoản chặt hơn mà họ chưa từng được biết. Tên của bạn và thời điểm sẽ thay thế xác nhận trước đó trên thay đổi, khi đó nó bao trùm {total, plural, other {tất cả # người nắm giữ}}, và được lưu trong lịch sử của nó."
   },
   "admin.fees.notices.alreadyWaived": {
-    "en": "{by} already took responsibility on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.",
-    "t": "{by} đã nhận trách nhiệm vào {at} cho {n, plural, other {# người nắm giữ}} mà việc gửi thư đã bỏ cuộc tính đến lúc đó. Từ đó nó đã bỏ cuộc thêm với những người khác; hành động này thêm họ vào cùng bản ghi đó."
+    "en": "{by} already took responsibility on {at} for {n, plural, one {# holder} other {# holders}} who could not be told by then. More could not be told since; this act adds them to that record.",
+    "t": "{by} đã nhận trách nhiệm vào {at} cho {n, plural, other {# người nắm giữ}} không thể được thông báo tính đến lúc đó. Từ đó có thêm người không thể được thông báo; hành động này thêm họ vào bản ghi đó."
   },
   "admin.fees.notices.alreadyWaivedAnon": {
-    "en": "Responsibility was already taken on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.",
-    "t": "Trách nhiệm đã được nhận vào {at} cho {n, plural, other {# người nắm giữ}} mà việc gửi thư đã bỏ cuộc tính đến lúc đó. Từ đó nó đã bỏ cuộc thêm với những người khác; hành động này thêm họ vào cùng bản ghi đó."
+    "en": "Responsibility was already taken on {at} for {n, plural, one {# holder} other {# holders}} who could not be told by then. More could not be told since; this act adds them to that record.",
+    "t": "Trách nhiệm đã được nhận vào {at} cho {n, plural, other {# người nắm giữ}} không thể được thông báo tính đến lúc đó. Từ đó có thêm người không thể được thông báo; hành động này thêm họ vào bản ghi đó."
   },
   "admin.fees.notices.err.forbidden": {
-    "en": "Only the requester of this change or an owner can take responsibility for it.",
-    "t": "Chỉ người yêu cầu thay đổi này hoặc chủ sở hữu mới có thể nhận trách nhiệm."
+    "en": "Only the person who requested this change can take responsibility for it.",
+    "t": "Chỉ người đã yêu cầu thay đổi này mới có thể nhận trách nhiệm cho nó."
   },
   "admin.fees.notices.givenUpBody": {
-    "en": "The mailer has given up on {n, plural, one {this holder's notice} other {these # notices}}. A change that tightens the terms does not bind over a holder who was never told, so it is held up until somebody takes responsibility for them.",
-    "t": "Hệ thống gửi thư đã bỏ cuộc với {n, plural, other {# thông báo này}}. Thay đổi siết chặt điều khoản không có hiệu lực với người nắm giữ chưa từng được thông báo, nên nó bị giữ lại cho đến khi có người nhận trách nhiệm về họ."
+    "en": "{n, plural, one {This holder is no longer an active member} other {These # holders are no longer active members}} of invest's scope, so invest could not tell them. A change that tightens the terms does not bind over a holder who was never told, so it is held up until its requester takes responsibility for them or the change is withdrawn.",
+    "t": "{n, plural, other {# người nắm giữ này không còn là thành viên đang hoạt động}} trong phạm vi của invest, nên invest không thể thông báo cho họ. Thay đổi làm điều khoản chặt hơn không ràng buộc người nắm giữ chưa được thông báo, nên nó bị tạm giữ cho đến khi người yêu cầu nhận trách nhiệm cho họ hoặc thay đổi bị rút lại."
   },
   "admin.fees.notices.givenUpTitle": {
     "en": "{n, plural, one {# holder} other {# holders}} could not be told",
@@ -824,12 +956,16 @@
     "t": "{n, plural, other {# thông báo khác}} vẫn đang được gửi và không thuộc phạm vi này."
   },
   "admin.fees.notices.queued": {
-    "en": "{n, plural, one {# notice is} other {# notices are}} still being delivered. A change that tightens the terms waits for every holder to be told; there is nothing to do unless the mailer gives up on one.",
-    "t": "{n, plural, other {# thông báo}} vẫn đang được gửi. Thay đổi siết chặt điều khoản chờ đến khi mọi người nắm giữ được thông báo; không cần làm gì trừ khi hệ thống gửi thư bỏ cuộc với một người."
+    "en": "{n, plural, one {# notice is} other {# notices are}} still being delivered. A change that tightens the terms waits for every holder to be told; there is nothing to do unless one could not be told.",
+    "t": "{n, plural, other {# thông báo vẫn đang được gửi}}. Thay đổi làm điều khoản chặt hơn chờ đến khi mọi người nắm giữ được thông báo; không cần làm gì trừ khi có người không thể được thông báo."
   },
-  "admin.fees.pending.awaiting": {
-    "en": "Version {version} awaits the owners' approval. It binds 24 hours after they carry it, while anyone holds units.",
-    "t": "Phiên bản {version} đang chờ các chủ sở hữu chấp thuận. Nó có hiệu lực 24 giờ sau khi họ thông qua, khi còn người nắm giữ đơn vị."
+  "admin.fees.openApprovals": {
+    "en": "Open the owners' approvals",
+    "t": "Mở mục phê duyệt của chủ sở hữu"
+  },
+  "admin.fees.pending.awaitingProvisional": {
+    "en": "Version {version} awaits the owners' approval. Provisional start: {at}. While anyone holds units, it binds no earlier than 24 hours after they carry it, so the date can move later.",
+    "t": "Phiên bản {version} đang chờ chủ sở hữu phê duyệt. Ngày bắt đầu tạm tính: {at}. Khi còn người nắm giữ đơn vị, nó có hiệu lực không sớm hơn 24 giờ sau khi được thông qua, nên ngày này có thể lùi lại."
   },
   "admin.fees.pending.immediate": {
     "en": "Version {version} takes effect now and is applied within a minute. Nobody holds units, so no notice was sent.",
@@ -871,6 +1007,10 @@
     "en": "Every 6 months",
     "t": "Mỗi 6 tháng"
   },
+  "admin.fees.provisional": {
+    "en": "provisional",
+    "t": "tạm tính"
+  },
   "admin.fees.reason": {
     "en": "Reason",
     "t": "Lý do"
@@ -887,21 +1027,33 @@
     "en": "Reason (required)",
     "t": "Lý do (bắt buộc)"
   },
-  "admin.fees.requirement.admin": {
-    "en": "No vote needed: one administrator may make this change. Holders are mailed the notice when it is scheduled.",
-    "t": "Không cần bỏ phiếu: một quản trị viên có thể thực hiện thay đổi này. Người nắm giữ sẽ nhận thông báo qua email khi thay đổi được lên lịch."
+  "admin.fees.reauth.confirm": {
+    "en": "Confirm it's me",
+    "t": "Xác nhận đây là tôi"
   },
-  "admin.fees.requirement.consilium": {
-    "en": "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. You must be an owner to open the request.",
-    "t": "Cần các chủ sở hữu chấp thuận: các điều khoản này siết chặt hơn mức 2 và 20 mặc định, hoặc hạ ngưỡng vượt. Chỉ chủ sở hữu mới có thể mở yêu cầu."
+  "admin.fees.reauth.confirmed": {
+    "en": "Confirmed. Submit within about a minute and a half.",
+    "t": "Đã xác nhận. Hãy gửi trong khoảng một phút rưỡi."
+  },
+  "admin.fees.reauth.why": {
+    "en": "The owners decide this change. Confirm it's you so you are not counted as a voter.",
+    "t": "Các chủ sở hữu quyết định thay đổi này. Hãy xác nhận đó là bạn để bạn không bị tính là người bỏ phiếu."
+  },
+  "admin.fees.requirement.admin": {
+    "en": "No vote needed: one administrator may make this change. When it is scheduled, every holder gets an in-app notice, and a mail when their address is verified. Holders cannot switch these notices off.",
+    "t": "Không cần bỏ phiếu: một quản trị viên có thể thực hiện thay đổi này. Khi được lên lịch, mỗi người nắm giữ nhận thông báo trong ứng dụng, và email nếu địa chỉ của họ đã được xác minh. Người nắm giữ không thể tắt các thông báo này."
+  },
+  "admin.fees.requirement.ownersReauth": {
+    "en": "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. You confirm your sign-in before it is sent, and you are not counted as a voter.",
+    "t": "Cần chủ sở hữu phê duyệt: các điều khoản này chặt hơn mức 2 và 20 của quỹ, hoặc hạ ngưỡng lợi nhuận. Bạn xác nhận đăng nhập trước khi gửi, và bạn không được tính là người bỏ phiếu."
   },
   "admin.fees.scheduleChange": {
     "en": "Schedule the change",
     "t": "Lên lịch thay đổi"
   },
   "admin.fees.scheduledBody": {
-    "en": "Version {version} takes effect on {at}. Every holder is being emailed the notice; until then the fund charges its current terms.",
-    "t": "Phiên bản {version} có hiệu lực vào {at}. Mọi người nắm giữ đang được gửi thông báo; cho đến lúc đó quỹ vẫn thu theo điều khoản hiện tại."
+    "en": "Version {version} takes effect on {at}. Every holder is being sent an in-app notice, and a mail when their address is verified; until then the fund charges its current terms.",
+    "t": "Phiên bản {version} có hiệu lực vào {at}. Mỗi người nắm giữ đang được gửi thông báo trong ứng dụng, và email nếu địa chỉ đã được xác minh; cho đến lúc đó quỹ vẫn tính phí theo điều khoản hiện tại."
   },
   "admin.fees.scheduledTitle": {
     "en": "Scheduled — nothing has changed yet",
@@ -1026,10 +1178,6 @@
   "admin.kyc.verified": {
     "en": "Verified",
     "t": "Đã xác minh"
-  },
-  "admin.payments.openConsilium": {
-    "en": "Open the consilium",
-    "t": "Mở hội đồng"
   },
   "admin.rail.bep20": {
     "en": "BEP20 · BNB Chain",
@@ -1598,6 +1746,18 @@
   "err.verificationRequired": {
     "en": "Verify your identity to continue.",
     "t": "Xác minh danh tính để tiếp tục."
+  },
+  "fund.feeDiff.nothingCharged": {
+    "en": "Nothing charged",
+    "t": "Không thu phí"
+  },
+  "fund.feeDiff.now": {
+    "en": "Now",
+    "t": "Hiện tại"
+  },
+  "fund.feeDiff.proposed": {
+    "en": "Proposed",
+    "t": "Đề xuất"
   },
   "invest.about.risk": {
     "en": "Units can fall in value as well as rise. The NAV is set by a posted valuation, not by a market price, and past marks are no guide to future ones. Cash comes back only when a redemption settles or a buyer takes your units on the book. Invest only what you can afford to leave in.",
