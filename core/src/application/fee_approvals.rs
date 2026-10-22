@@ -396,6 +396,15 @@ async fn carry_out(ports: &FeeApprovalPorts<'_>, pulled: &ApprovalView, round: &
 		}
 		Err(err @ DomainError::Repository(_)) => Err(err),
 		Err(err) => {
+			// A refusal is not proof the approval did not land (banking's rule): another
+			// runner may have scheduled this change under this approval meanwhile. Re-read and
+			// report what is true.
+			let landed = ports.changes.find(change.id).await?.is_some_and(|now| {
+				now.approval_id == change.approval_id && matches!(now.state, FeePolicyChangeState::Scheduled | FeePolicyChangeState::Active | FeePolicyChangeState::Superseded)
+			});
+			if landed {
+				return report(ports, round, Some(change.id), &approval.id, ApprovalOutcome::Executed, "").await;
+			}
 			// The row moved under the approval (cancelled meanwhile, edited): concierge is
 			// told it failed, and the change does not wait on a decision that cannot run.
 			let why = format!("could not schedule the approved change: {err}");

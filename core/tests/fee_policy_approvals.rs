@@ -14,7 +14,7 @@ use invest_core::{
 	ports::{
 		AllocationRegistry,
 		approvals::{ApprovalOutcome, ApprovalState, ApprovalValue},
-		fees::{FeePolicies, FeePolicyChange, FeePolicyChanges, PositionAccruals},
+		fees::{ApprovedTerms, FeePolicies, FeePolicyChange, FeePolicyChanges, PositionAccruals},
 		money::ScopeId,
 	},
 };
@@ -289,6 +289,56 @@ async fn a_holder_who_joins_while_the_owners_vote_keeps_the_owner_change_from_bi
 		.unwrap();
 	assert!(h.changes.promote(change.id, now()).await.is_err(), "dearer terms do not bind over an untold holder");
 	assert_eq!(h.policies.find(&service).await.unwrap(), Some(FeePolicy::HOUSE));
+}
+
+/// Two runners (two replicas, or a round overlapping the next) carry out the same passed
+/// proposal. The one that loses the product lock finds the change already scheduled under
+/// this approval and reports EXECUTED too — never EXECUTION_FAILED over a change that landed.
+#[tokio::test]
+async fn two_rounds_carrying_out_one_approval_both_report_it_executed() {
+	let Some(h) = harness().await else { return };
+	let (_, change, approval) = proposed(&h).await;
+	h.approvals.set_state(&approval, ApprovalState::Passed, "");
+	// Later than the proposal's provisional moment, so scheduling rewrites `effective_from`.
+	let later = now() + 10;
+
+	let (one, two) = (approval_ports(&h), approval_ports(&h));
+	let (first, second) = tokio::join!(fee_approvals::round(&one, later), fee_approvals::round(&two, later));
+	let (first, second) = (first.unwrap(), second.unwrap());
+
+	assert!(first.scheduled + second.scheduled >= 1);
+	let scheduled = change_of(&h, &change).await;
+	assert_eq!(scheduled.state, FeePolicyChangeState::Scheduled);
+	assert_eq!(scheduled.approval_state, Some(ApprovalState::Executed));
+	let reports = h.approvals.reports();
+	assert!(!reports.is_empty());
+	assert!(reports.iter().all(|(id, outcome, _)| id == &approval && *outcome == ApprovalOutcome::Executed), "{reports:?}");
+}
+
+/// The store half of the same race, in a fixed order: the second scheduling under the same
+/// approval arrives after the first rewrote `effective_from`, and is answered with the
+/// scheduled change rather than a conflict.
+#[tokio::test]
+async fn scheduling_an_approved_change_twice_returns_the_scheduled_change() {
+	let Some(h) = harness().await else { return };
+	let (_, change, _) = proposed(&h).await;
+	let terms = ApprovedTerms {
+		approval_id: change.approval_id.unwrap(),
+		policy: change.policy,
+		current: Some(FeePolicy::HOUSE),
+		effective_from_unix: change.effective_from_unix,
+		holders: change.approval_holders,
+	};
+
+	let first = h.changes.schedule_approved(change.id, &terms, now() + 10).await.unwrap();
+	assert_ne!(first.effective_from_unix, change.effective_from_unix, "scheduling fixed the moment anew");
+	let second = h.changes.schedule_approved(change.id, &terms, now() + 20).await.unwrap();
+
+	assert_eq!(second.state, FeePolicyChangeState::Scheduled);
+	assert_eq!((second.scheduled_at_unix, second.effective_from_unix), (first.scheduled_at_unix, first.effective_from_unix));
+	// Terms the owners did not pass are still refused.
+	let other = ApprovedTerms { policy: FeePolicy::HOUSE, ..terms };
+	assert!(matches!(h.changes.schedule_approved(change.id, &other, now()).await, Err(DomainError::Conflict(_))));
 }
 
 #[tokio::test]

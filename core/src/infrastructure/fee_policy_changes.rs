@@ -405,13 +405,19 @@ impl FeePolicyChanges for PgFeePolicyChanges {
 		}
 		// The row is re-checked against what the owners passed, as banking re-checked it
 		// against its consilium: a change edited underneath its approval cannot spend it.
-		if change.policy != terms.policy || change.effective_from_unix != terms.effective_from_unix || change.approval_holders != terms.holders {
-			return Err(DomainError::Conflict("the fee-policy change no longer matches the terms the owners approved".into()));
+		let stale = || DomainError::Conflict("the fee-policy change no longer matches the terms the owners approved".into());
+		if change.policy != terms.policy || change.approval_holders != terms.holders {
+			return Err(stale());
 		}
 		match change.state {
-			// The retry an at-least-once execution path depends on.
+			// The retry an at-least-once execution path depends on — a second runner arriving
+			// after the first committed. Scheduling rewrote `effective_from`, so it is not
+			// compared here.
 			FeePolicyChangeState::Scheduled => return Ok(change),
-			FeePolicyChangeState::AwaitingConsilium => {}
+			FeePolicyChangeState::AwaitingConsilium =>
+				if change.effective_from_unix != terms.effective_from_unix {
+					return Err(stale());
+				},
 			state @ (FeePolicyChangeState::Active | FeePolicyChangeState::Superseded | FeePolicyChangeState::Rejected | FeePolicyChangeState::Cancelled) => {
 				return Err(DomainError::Conflict(format!("the fee-policy change is {}, no longer awaiting the owners", state.as_str())));
 			}
