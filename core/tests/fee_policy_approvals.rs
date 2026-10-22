@@ -14,6 +14,7 @@ use invest_core::{
 	ports::{
 		AllocationRegistry,
 		approvals::{ApprovalOutcome, ApprovalState, ApprovalValue},
+		catalog::KindLevel,
 		fees::{ApprovedTerms, FeePolicies, FeePolicyChange, FeePolicyChanges, PositionAccruals},
 		money::ScopeId,
 	},
@@ -358,6 +359,26 @@ async fn a_passed_proposal_whose_hash_is_not_the_changes_is_refused() {
 	let reports = h.approvals.reports();
 	assert_eq!(reports.len(), 1);
 	assert_eq!((reports[0].0.as_str(), reports[0].1), (approval.as_str(), ApprovalOutcome::Void));
+}
+
+/// A pass at SCOPE level is the scope admins', not the owners': the change is rejected and
+/// the proposal reported void, as for a hash mismatch. An unreadable level is refused too.
+#[tokio::test]
+async fn a_pass_not_decided_by_the_platform_owners_is_refused() {
+	let Some(h) = harness().await else { return };
+	for level in [Some(KindLevel::Scope), None] {
+		let (service, change, approval) = proposed(&h).await;
+		h.approvals.set_state(&approval, ApprovalState::Passed, "");
+		h.approvals.set_level(&approval, level);
+
+		let round = round(&h).await;
+
+		assert_eq!((round.scheduled, round.rejected), (0, 1), "{level:?}");
+		assert_eq!(change_of(&h, &change).await.state, FeePolicyChangeState::Rejected);
+		assert!(closed_reason(&h, &change).await.is_some_and(|why| why.contains("not decided by the platform owners")));
+		assert_eq!(h.policies.find(&service).await.unwrap(), Some(FeePolicy::HOUSE), "the terms did not move");
+		assert!(h.approvals.reports().iter().any(|(id, outcome, _)| id == &approval && *outcome == ApprovalOutcome::Void));
+	}
 }
 
 #[tokio::test]

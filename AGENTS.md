@@ -58,8 +58,8 @@ banking's on purpose.
 - **A buy's hold may outlive its order only for a minute.** The hold reaper (`infrastructure/hold_reaper.rs`) voids `book_order:` holds with no order row once banking's `created_at` is older than `HOLD_REAPER_AFTER_SECS` (default 900, at least 60). Never age a hold by this process's clock.
 - **A passed approval is re-read and re-hashed before invest acts on it.** concierge's
   approvals (`invest:fee_policy`, `application/fee_approvals.rs`) serve a passed proposal
-  until its outcome is reported; invest reads it again by id, acts only on `PASSED`, and
-  recomputes `payload_hash` from the row it STORED. The store re-checks the row under its
+  until its outcome is reported; invest reads it again by id, acts only on `PASSED` at
+  `PLATFORM` level, and recomputes `payload_hash` from the row it STORED. The store re-checks the row under its
   lock. Report the outcome only after the effect has committed.
 - **Health stays outside auth.** `grpc.health.v1` is not wrapped in the auth layer.
 - **The browser holds no token.** The cabinet BFF keeps concierge's tokens sealed (key

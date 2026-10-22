@@ -30,7 +30,7 @@ use uuid::Uuid;
 
 use crate::ports::{
 	approvals::{ApprovalField, ApprovalOutcome, ApprovalState, ApprovalValue, ApprovalView, Approvals, ApprovalsError, Proposal, payload_hash},
-	catalog::fee_policy_fields as field,
+	catalog::{KindLevel, fee_policy_fields as field},
 	fees::{ApprovedTerms, FeePolicies, FeePolicyChange, FeePolicyChanges},
 	users::UserDirectory,
 };
@@ -372,9 +372,17 @@ async fn carry_out(ports: &FeeApprovalPorts<'_>, pulled: &ApprovalView, round: &
 		&& approval.scope == APPROVAL_SCOPE
 		&& approval.subject_ref == subject_ref(change.id)
 		&& expected_hash(&change, current.as_ref()).is_ok_and(|ours| ours == approval.payload_hash);
-	if !matches {
-		error!(change_id = %change.id, approval_id = %approval.id, "fee approvals: the passed proposal does not match the stored change; refusing to schedule it");
-		let why = "the approved terms do not match the stored fee-policy change";
+	// The owners decide this kind. concierge's floor and the catalog both say PLATFORM, but
+	// the executor does not take a scope admins' pass for the owners' (banking's check too).
+	let why = if !matches {
+		Some("the approved terms do not match the stored fee-policy change")
+	} else if approval.level != Some(KindLevel::Platform) {
+		Some("the fee-policy change was not decided by the platform owners")
+	} else {
+		None
+	};
+	if let Some(why) = why {
+		error!(change_id = %change.id, approval_id = %approval.id, level = ?approval.level, "fee approvals: the passed proposal is not the owners' approval of the stored change; refusing to schedule it: {why}");
 		ports.changes.close_unapproved(change.id, None, why).await?;
 		round.rejected += 1;
 		return report(ports, round, Some(change.id), &approval.id, ApprovalOutcome::Void, why).await;

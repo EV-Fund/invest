@@ -10,8 +10,8 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use evconcierge_client::proto::{
-	Approval, ApprovalFieldValue, ApprovalOutcome as WireOutcome, ApprovalState as WireState, GetProposalRequest, ProposeRequest, PullApprovedRequest, ReportOutcomeRequest,
-	WithdrawProposalRequest, approval_execution_service_client::ApprovalExecutionServiceClient, approval_field_value::Value,
+	Approval, ApprovalFieldValue, ApprovalLevel as WireLevel, ApprovalOutcome as WireOutcome, ApprovalState as WireState, GetProposalRequest, ProposeRequest, PullApprovedRequest,
+	ReportOutcomeRequest, WithdrawProposalRequest, approval_execution_service_client::ApprovalExecutionServiceClient, approval_field_value::Value,
 };
 use tonic::{
 	Code, Request, Status,
@@ -20,7 +20,10 @@ use tonic::{
 };
 
 use super::ConciergeStreamsConfig;
-use crate::ports::approvals::{ApprovalField, ApprovalOutcome, ApprovalState, ApprovalValue, ApprovalView, Approvals, ApprovalsError, Proposal};
+use crate::ports::{
+	approvals::{ApprovalField, ApprovalOutcome, ApprovalState, ApprovalValue, ApprovalView, Approvals, ApprovalsError, Proposal},
+	catalog::KindLevel,
+};
 
 /// A call that has not answered by then counts as concierge being unavailable; the round
 /// retries.
@@ -119,12 +122,19 @@ fn view(approval: Approval) -> Result<ApprovalView, ApprovalsError> {
 		ApprovalState::Void | ApprovalState::Executed | ApprovalState::ExecutionFailed => approval.outcome_detail,
 		ApprovalState::Open | ApprovalState::Passed | ApprovalState::Rejected | ApprovalState::Expired | ApprovalState::Cancelled => String::new(),
 	};
+	// An unreadable level is kept as unknown, not guessed: the executor refuses to act on it.
+	let level = match WireLevel::try_from(approval.level) {
+		Ok(WireLevel::Platform) => Some(KindLevel::Platform),
+		Ok(WireLevel::Scope) => Some(KindLevel::Scope),
+		Ok(WireLevel::Unspecified) | Err(_) => None,
+	};
 	Ok(ApprovalView {
 		id: approval.id,
 		kind: approval.kind,
 		scope: approval.scope,
 		subject_ref: approval.subject_ref,
 		state,
+		level,
 		payload_hash: approval.payload_hash,
 		note,
 	})
@@ -218,5 +228,30 @@ impl Approvals for UnconfiguredApprovals {
 
 	async fn withdraw(&self, _: &str, _: &str) -> Result<ApprovalView, ApprovalsError> {
 		Err(ApprovalsError::Unavailable(UNCONFIGURED.into()))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	/// The executor acts only on `Some(Platform)`, so a level this build cannot name must
+	/// map to `None`, never to a guess.
+	#[test]
+	fn the_level_is_read_from_the_wire_and_an_unknown_one_stays_unknown() {
+		for (wire, level) in [
+			(WireLevel::Platform as i32, Some(KindLevel::Platform)),
+			(WireLevel::Scope as i32, Some(KindLevel::Scope)),
+			(WireLevel::Unspecified as i32, None),
+			(99, None),
+		] {
+			let approval = Approval {
+				id: "a".into(),
+				state: WireState::Passed as i32,
+				level: wire,
+				..Approval::default()
+			};
+			assert_eq!(view(approval).unwrap().level, level, "wire level {wire}");
+		}
 	}
 }

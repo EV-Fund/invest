@@ -23,7 +23,7 @@ use invest_domain::authz::PermissionCatalog;
 
 use crate::ports::{
 	approvals::{ApprovalOutcome, ApprovalState, ApprovalView, Approvals, ApprovalsError, Proposal, payload_hash},
-	catalog::{CatalogPublisher, PublishError, ScopeCatalog, ScopeCatalogPublisher},
+	catalog::{CatalogPublisher, KindLevel, PublishError, ScopeCatalog, ScopeCatalogPublisher},
 };
 
 #[derive(Clone, Default)]
@@ -298,6 +298,13 @@ impl InMemoryApprovals {
 		stored.view.note = note.to_owned();
 	}
 
+	/// Make concierge hold the proposal at another level than the one it resolved.
+	pub fn set_level(&self, approval_id: &str, level: Option<KindLevel>) {
+		let mut guard = self.lock();
+		let stored = guard.proposals.iter_mut().find(|p| p.view.id == approval_id).expect("no such proposal");
+		stored.view.level = level;
+	}
+
 	/// Make concierge hold another payload hash than the one it computed — a proposal whose
 	/// terms are not the change's.
 	pub fn tamper_hash(&self, approval_id: &str) {
@@ -356,6 +363,8 @@ impl Approvals for InMemoryApprovals {
 			scope: proposal.scope.to_owned(),
 			subject_ref: proposal.subject_ref.clone(),
 			state: ApprovalState::Open,
+			// What concierge resolves `invest:fee_policy` to; a test moves it with `set_level`.
+			level: Some(KindLevel::Platform),
 			payload_hash: payload_hash(proposal.kind, proposal.scope, &proposal.subject_ref, &proposal.fields),
 			note: String::new(),
 		};

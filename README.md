@@ -161,9 +161,10 @@ who joins while the owners vote cannot be waived: the change does not bind over 
    concierge's `invest:fee_policy` (PLATFORM level), deduped by `fee_policy_change:<id>`.
    `consilium_id` on the change is the concierge approval id.
 2. Every 30 s the approvals round pulls the passed proposals (`PullApproved`), reads each
-   again, checks its `payload_hash` against the STORED change, schedules the change — the
-   holders' notices and the notice period start now — and reports `EXECUTED`. A hash that
-   does not match rejects the change and reports `VOID`.
+   again, checks its `payload_hash` against the STORED change and its level (PLATFORM),
+   schedules the change — the holders' notices and the notice period start now — and
+   reports `EXECUTED`. A hash that does not match, or a pass at any other level, rejects
+   the change and reports `VOID`.
 3. A proposal that is rejected, vetoed, expired, withdrawn in concierge or voided closes the
    change as `rejected`. `CancelFeePolicyChange` withdraws the proposal; only the one who
    requested the change may call it, as in banking.
