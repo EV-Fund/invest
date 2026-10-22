@@ -910,8 +910,10 @@ impl From<iv::BookEvent> for BookEvent {
 	}
 }
 
-/// An allocation's cash claim: `posted` is settled, `reserved` is spoken for, `available`
-/// is the difference. The shape banking's treasury used, kept for the Revenue screen.
+/// An allocation's cash claim, kept in the shape banking's treasury used so the Revenue
+/// screen reads it unchanged. invest sees one balance per account, so `posted` and
+/// `available` are both that balance and `reserved` is always `"0"`: invest holds no
+/// approvals over an allocation's cash (§3.9).
 #[derive(Default, Serialize)]
 pub struct AllocationClaim {
 	pub posted: String,
@@ -919,50 +921,73 @@ pub struct AllocationClaim {
 	pub reserved: String,
 }
 
-/// One allocation as the Revenue screen reads it (#245): name, cash, supply, price and who
-/// holds it. Banking served this as `GetFundRevenue`; invest-core has no such RPC, so the
-/// route assembles it from `GetAllocation`, `GetFundNav` and `ListUnitHolders` of the
-/// reserved `fee` allocation ([`Self::revenue`]). `nav_posted_at` is `"0"` while nothing
-/// under it has been marked (a reserved allocation's price is computed, never posted).
+impl AllocationClaim {
+	fn of_cash(cash: String) -> Self {
+		Self {
+			posted: cash.clone(),
+			available: cash,
+			reserved: "0".into(),
+		}
+	}
+}
+
+/// One allocation's line of the treasury table (#36), and the Revenue screen's answer for
+/// the reserved `fee` allocation (#245): name, cash, supply, price and its largest holders,
+/// as invest-core's `ListAllocationTreasury` answers them. Decimal strings throughout;
+/// `nav_posted_at` is unix seconds as a string, `"0"` while nothing under it has been
+/// marked.
 #[derive(Serialize)]
 pub struct AllocationTreasury {
 	pub service: String,
 	pub title: String,
-	/// `hidden` | `view` | `invest`.
+	/// `draft` | `open` | `closed`.
+	pub state: String,
+	/// The default level: `hidden` | `view` | `invest`.
 	pub access: String,
+	/// The concierge scope the cash lives in (`invest`, `sa`, …).
+	pub scope: String,
+	/// The USDT balance of `(<scope>, alloc:<service>)` in banking.
 	pub claim: AllocationClaim,
 	pub units_outstanding: String,
+	/// USDT per unit.
 	pub nav: String,
 	pub nav_posted_at: String,
+	/// The price is older than invest-core deals on (24 h).
+	pub nav_stale: bool,
+	/// The largest holders, largest first — at most the route's limit.
 	pub holders: Vec<UnitHolding>,
+	/// Every holder with units, the ones `holders` folds away included.
+	pub holder_count: u32,
 	/// banking's own treasury (D17). Never set here: it is banking's figure and lives in the
 	/// central admin; the field stays so the cabinet's type is unchanged.
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub banking_treasury: Option<AllocationClaim>,
 }
 
-impl AllocationTreasury {
-	/// The reserved allocation's line. Its cash is what invest-core prices it from — the
-	/// `alloc:<slug>` balance banking reports, which `GetFundNav` answers as `aum` — and
-	/// none of it is reserved: invest holds no approvals over it (§3.9).
-	pub fn revenue(allocation: iv::Allocation, nav: iv::FundNav, holders: iv::UnitHolders) -> Self {
-		let cash = if nav.aum.is_empty() { "0".to_owned() } else { nav.aum };
+impl From<iv::AllocationTreasury> for AllocationTreasury {
+	fn from(t: iv::AllocationTreasury) -> Self {
 		Self {
-			service: allocation.service,
-			title: allocation.title,
-			access: allocation.access,
-			claim: AllocationClaim {
-				posted: cash.clone(),
-				available: cash,
-				reserved: "0".into(),
-			},
-			units_outstanding: holders.units_outstanding,
-			nav: nav.nav,
-			nav_posted_at: nav.posted_at.to_string(),
-			holders: holders.holders.into_iter().filter_map(UnitHolding::from_wire).collect(),
+			service: t.service,
+			title: t.title,
+			state: t.state,
+			access: t.access,
+			scope: t.scope,
+			claim: AllocationClaim::of_cash(t.cash),
+			units_outstanding: t.units_outstanding,
+			nav: t.nav,
+			nav_posted_at: t.nav_posted_at.to_string(),
+			nav_stale: t.nav_stale,
+			holders: t.top_holders.into_iter().filter_map(UnitHolding::from_wire).collect(),
+			holder_count: t.holder_count,
 			banking_treasury: None,
 		}
 	}
+}
+
+list_dto! {
+	/// The treasury table: every allocation, the hidden `fee` and `fund` included, ordered
+	/// by `service`.
+	AllocationTreasuryList from iv::AllocationTreasuryList { allocations: Vec<AllocationTreasury> }
 }
 
 /// One queued redemption in the Valuation screen's queue.

@@ -584,20 +584,38 @@ pub async fn fail_redemption(State(st): State<AppState>, jar: Cookies, headers: 
 	Ok(Json(st.grpc.fail_redemption(&token, &id).await?.into()))
 }
 
+/// The most holders the Revenue screen asks for: invest-core's ceiling, so its holders
+/// table is the whole cap table of `fee` for any roster the owners seat.
+const REVENUE_HOLDERS: u32 = 1000;
+
+/// `GET /cabinet/api/admin/allocations/treasury` — the "held through allocations" table
+/// (#36): one line per allocation, the hidden `fee` and `fund` included, each with its cash
+/// in banking, its supply, its price and its largest holders (invest-core's default count;
+/// `holder_count` says how many there are). Banking's own treasury is not invest's to show.
+pub async fn allocation_treasury(State(st): State<AppState>, jar: Cookies) -> Result<Json<dto::AllocationTreasuryList>, ApiError> {
+	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
+	let table = st
+		.grpc
+		.allocation_treasury(&token, "", 0)
+		.await
+		.map_err(|s| ApiError::read(s, "allocation treasury unavailable"))?;
+	Ok(Json(table.into()))
+}
+
 /// `GET /cabinet/api/admin/revenue` — what the platform has earned: the reserved `fee`
-/// allocation in the treasury's shape — cash, supply, price and holders (#245). banking
-/// answered it with one RPC; invest-core has none, so it is read as the three reads it is
-/// made of, side by side. Nothing pays it out from here.
+/// allocation's line of the treasury table (#245). Nothing pays it out from here.
 pub async fn fund_revenue(State(st): State<AppState>, jar: Cookies) -> Result<Json<dto::AllocationTreasury>, ApiError> {
 	let token = require_permission(&st, &jar, Permission::AllocationManage).await?;
 	let unavailable = |s| ApiError::read(s, "fund revenue unavailable");
-	let (allocation, nav, holders) = tokio::try_join!(
-		st.grpc.get_allocation(&token, FEE_ALLOCATION),
-		st.grpc.fund_nav(&token, FEE_ALLOCATION),
-		st.grpc.list_unit_holders(&token, FEE_ALLOCATION),
-	)
-	.map_err(unavailable)?;
-	Ok(Json(dto::AllocationTreasury::revenue(allocation, nav, holders)))
+	let table = st.grpc.allocation_treasury(&token, FEE_ALLOCATION, REVENUE_HOLDERS).await.map_err(unavailable)?;
+	// invest-core answers the named allocation or NOT_FOUND; an empty answer breaks that
+	// contract, and the screen is told the read failed rather than shown a blank line.
+	let fee = table
+		.allocations
+		.into_iter()
+		.find(|line| line.service == FEE_ALLOCATION)
+		.ok_or_else(|| unavailable(tonic::Status::internal("no fee line")))?;
+	Ok(Json(fee.into()))
 }
 
 #[cfg(test)]
@@ -634,6 +652,7 @@ mod admin_route_tests {
 		settle_fees: Option<iv::SettleFeeSharesRequest>,
 		valuation: Option<iv::PostFundValuationRequest>,
 		subscribe: Option<iv::SubscribeRequest>,
+		treasury: Option<iv::ListAllocationTreasuryRequest>,
 		calls: usize,
 	}
 
@@ -804,8 +823,43 @@ mod admin_route_tests {
 			}))
 		}
 
-		async fn list_allocation_treasury(&self, _: GrpcRequest<iv::ListAllocationTreasuryRequest>) -> Result<GrpcResponse<iv::AllocationTreasuryList>, Status> {
-			Err(Status::unimplemented(NOT_REACHED))
+		/// The hidden `fee` allocation and a product, or the one the request names.
+		async fn list_allocation_treasury(&self, request: GrpcRequest<iv::ListAllocationTreasuryRequest>) -> Result<GrpcResponse<iv::AllocationTreasuryList>, Status> {
+			self.guard(&request)?;
+			let req = request.into_inner();
+			self.seen.lock().unwrap().treasury = Some(req.clone());
+			let fee = iv::AllocationTreasury {
+				service: "fee".into(),
+				title: "Fees".into(),
+				state: "open".into(),
+				access: "hidden".into(),
+				scope: "invest".into(),
+				cash: "14575.00".into(),
+				units_outstanding: "13250".into(),
+				nav: "1.10".into(),
+				nav_posted_at: 0,
+				nav_stale: false,
+				top_holders: vec![holding("user", HOLDER, "13000"), holding("user", "6f1c2a3e-0b4d-4c5e-8f9a-1b2c3d4e5f61", "250")],
+				holder_count: 2,
+			};
+			let product = iv::AllocationTreasury {
+				service: SERVICE.into(),
+				title: "Quy Nhon".into(),
+				access: "invest".into(),
+				scope: "sa".into(),
+				cash: "500".into(),
+				nav_posted_at: 1_750_000_700,
+				nav_stale: true,
+				top_holders: vec![holding("allocation", "fee", "250")],
+				holder_count: 7,
+				..fee.clone()
+			};
+			let allocations = match req.service.as_str() {
+				"" => vec![fee, product],
+				"fee" => vec![fee],
+				_ => vec![product],
+			};
+			Ok(GrpcResponse::new(iv::AllocationTreasuryList { allocations }))
 		}
 	}
 
@@ -1017,6 +1071,7 @@ mod admin_route_tests {
 			("GET", "/cabinet/api/admin/allocations", None),
 			("GET", "/cabinet/api/admin/fees/policies", None),
 			("GET", "/cabinet/api/admin/revenue", None),
+			("GET", "/cabinet/api/admin/allocations/treasury", None),
 			("POST", "/cabinet/api/admin/fees/policy", Some(SCHEDULE)),
 			("POST", "/cabinet/api/admin/valuation/post", Some(r#"{"service":"quy-nhon","aum":"1"}"#)),
 		] {
@@ -1039,6 +1094,7 @@ mod admin_route_tests {
 			("GET", "/cabinet/api/admin/allocations", None),
 			("GET", "/cabinet/api/admin/fees/policies", None),
 			("GET", "/cabinet/api/admin/revenue", None),
+			("GET", "/cabinet/api/admin/allocations/treasury", None),
 			("POST", "/cabinet/api/admin/fees/policy", Some(SCHEDULE)),
 			("POST", "/cabinet/api/admin/valuation/post", Some(r#"{"service":"quy-nhon","aum":"1"}"#)),
 		] {
@@ -1060,6 +1116,9 @@ mod admin_route_tests {
 		assert_eq!(f.seen().valuation.as_ref().map(|r| (r.service.as_str(), r.aum.as_str())), Some((SERVICE, "16250")));
 		let (status, _) = f.send("GET", "/cabinet/api/admin/allocations", None, false).await;
 		assert_eq!(status, StatusCode::FORBIDDEN);
+		let (status, _) = f.send("GET", "/cabinet/api/admin/allocations/treasury", None, false).await;
+		assert_eq!(status, StatusCode::FORBIDDEN, "the platform's money is the manager's to read");
+		assert!(f.seen().treasury.is_none());
 	}
 
 	#[tokio::test]
@@ -1263,13 +1322,14 @@ mod admin_route_tests {
 		assert_eq!(body["holders"][1]["holder"], serde_json::json!({ "kind": "allocation", "id": "fee" }));
 	}
 
-	/// banking answered Revenue with one RPC; here it is the `fee` allocation read three
-	/// ways, and the answer keeps the treasury shape the screen reads.
+	/// Revenue is the `fee` line of the treasury table, asked with every holder, in the
+	/// shape the screen reads; the cash is the account's, not the value the price counts.
 	#[tokio::test]
 	async fn revenue_is_the_fee_allocation_in_the_treasury_shape() {
 		let Some(f) = fixture(Core::default(), MANAGER).await else { return };
 		let (status, body) = f.send("GET", "/cabinet/api/admin/revenue", None, false).await;
 		assert_eq!(status, StatusCode::OK);
+		assert_eq!(f.seen().treasury.as_ref().map(|r| (r.service.as_str(), r.holder_limit)), Some(("fee", REVENUE_HOLDERS)));
 		assert_eq!(
 			(body["service"].as_str(), body["title"].as_str(), body["access"].as_str()),
 			(Some("fee"), Some("Fees"), Some("hidden"))
@@ -1281,6 +1341,43 @@ mod admin_route_tests {
 		);
 		assert_eq!(body["holders"].as_array().map(Vec::len), Some(2));
 		assert!(body.get("banking_treasury").is_none(), "banking's own figure is not invest's to show");
+	}
+
+	/// The table carries every line invest-core answers, the hidden `fee` one first, each
+	/// in the treasury shape, and asks for invest-core's default number of holders.
+	#[tokio::test]
+	async fn the_treasury_table_relays_every_allocation_line() {
+		let Some(f) = fixture(Core::default(), MANAGER).await else { return };
+		let (status, body) = f.send("GET", "/cabinet/api/admin/allocations/treasury", None, false).await;
+		assert_eq!(status, StatusCode::OK);
+		assert_eq!(f.seen().treasury.as_ref().map(|r| (r.service.as_str(), r.holder_limit)), Some(("", 0)));
+		let lines = body["allocations"].as_array().expect("a list");
+		assert_eq!(lines.len(), 2);
+		assert_eq!((lines[0]["service"].as_str(), lines[0]["access"].as_str()), (Some("fee"), Some("hidden")));
+		let product = &lines[1];
+		assert_eq!(
+			(
+				product["scope"].as_str(),
+				product["state"].as_str(),
+				product["nav_posted_at"].as_str(),
+				product["nav_stale"].as_bool()
+			),
+			(Some("sa"), Some("open"), Some("1750000700"), Some(true))
+		);
+		assert_eq!(product["claim"], serde_json::json!({ "posted": "500", "available": "500", "reserved": "0" }));
+		assert_eq!((product["holder_count"].as_u64(), product["holders"].as_array().map(Vec::len)), (Some(7), Some(1)));
+		assert_eq!(product["holders"][0]["holder"], serde_json::json!({ "kind": "allocation", "id": "fee" }));
+	}
+
+	#[tokio::test]
+	async fn a_failing_treasury_read_maps_the_code_but_hides_the_detail() {
+		let core = Core {
+			fail_with: Some(Code::Unavailable),
+			..Core::default()
+		};
+		let Some(f) = fixture(core, MANAGER).await else { return };
+		let (status, body) = f.send("GET", "/cabinet/api/admin/allocations/treasury", None, false).await;
+		assert_eq!((status, body["error"].as_str()), (StatusCode::SERVICE_UNAVAILABLE, Some("allocation treasury unavailable")));
 	}
 
 	#[tokio::test]
