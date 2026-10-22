@@ -118,6 +118,7 @@ async fn schedule(h: &Harness, requester: UserId, service: &ServiceId, policy: F
 			policy,
 			requested_effective_from_unix: effective_from,
 			reason: reason.to_owned(),
+			requester_proof: None,
 		},
 		now(),
 	)
@@ -1140,6 +1141,7 @@ async fn the_horizon_is_inclusive_at_366_days_and_refuses_the_next_second() {
 		policy: FeePolicy::HOUSE,
 		requested_effective_from_unix: effective_from,
 		reason: String::new(),
+		requester_proof: None,
 	};
 
 	let err = fee_app::schedule_policy(&policy_ports(&h), UserId::new(), request(at + MAX_EFFECTIVE_FROM_HORIZON_SECS + 1), at)

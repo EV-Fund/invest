@@ -109,6 +109,9 @@ struct Fake {
 	/// The challenge the authorize URL carried; an exchange whose verifier does not answer
 	/// it is refused, as concierge does.
 	challenge: Option<String>,
+	/// How the next exchanges answer a confirmation (`max_age=0`): whose token, and the
+	/// `auth_time` in it. `None` issues the opaque tokens of an ordinary sign-in.
+	confirmation: Option<(Uuid, Option<i64>)>,
 	exchanges: usize,
 	refreshes: usize,
 	me_calls: usize,
@@ -139,6 +142,12 @@ impl FakeConcierge {
 
 	pub fn refuse_me(&self) {
 		self.with(|f| f.me_refused = true);
+	}
+
+	/// The next exchanges issue a JWT-shaped token for `user` stating `auth_time` (or no
+	/// `auth_time` at all), as concierge does for a confirmed sign-in.
+	pub fn confirm_as(&self, user: Uuid, auth_time: Option<i64>) {
+		self.with(|f| f.confirmation = Some((user, auth_time)));
 	}
 
 	pub fn expect_challenge(&self, challenge: &str) {
@@ -184,6 +193,12 @@ impl IdentityPlane for FakeConcierge {
 		if code == "spent" {
 			return Err(ConciergeError::Refused { code: Code::Unauthenticated });
 		}
+		if let Some((user, auth_time)) = self.with(|f| f.confirmation) {
+			return Ok(ClientTokens {
+				user_id: user,
+				..issued(confirmed_token(user, auth_time, &format!("exchanged-{n}")))
+			});
+		}
 		Ok(issued(format!("{ACCESS_TOKEN}-exchanged-{n}")))
 	}
 
@@ -217,6 +232,28 @@ impl IdentityPlane for FakeConcierge {
 			})
 		})
 	}
+}
+
+/// A JWT-shaped token whose payload names `user` and, when given, `auth_time` — what the BFF
+/// reads of a confirmed sign-in. The signature part is `tag`, so two tokens differ.
+pub fn confirmed_token(user: Uuid, auth_time: Option<i64>, tag: &str) -> String {
+	let mut claims = serde_json::json!({ "sub": user.to_string(), "aud": "invest" });
+	if let Some(at) = auth_time {
+		claims["auth_time"] = at.into();
+	}
+	format!("h.{}.{tag}", base64url(claims.to_string().as_bytes()))
+}
+
+fn base64url(bytes: &[u8]) -> String {
+	const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+	let mut out = String::new();
+	for chunk in bytes.chunks(3) {
+		let n = chunk.iter().enumerate().fold(0u32, |n, (i, b)| n | u32::from(*b) << (16 - 8 * i));
+		for i in 0..=chunk.len() {
+			out.push(char::from(ALPHABET[(n >> (18 - 6 * i) & 63) as usize]));
+		}
+	}
+	out
 }
 
 // ── Postgres ────────────────────────────────────────────────────────────────────
@@ -322,6 +359,18 @@ impl Harness {
 			cookie: format!("invest_session={}; invest_csrf={CSRF}", opened.cookie),
 			session: opened.cookie,
 		}
+	}
+
+	/// Keep a sign-in [`USER`] confirmed just now as `signed`'s proof, as the callback of a
+	/// confirmation does. Answers the token kept.
+	pub async fn confirm(&self, signed: &Signed) -> String {
+		let token = confirmed_token(USER, Some(now_secs()), &format!("proof-{}", Uuid::new_v4()));
+		let tokens = ClientTokens {
+			access_token: token.clone(),
+			..issued(String::new())
+		};
+		self.state.sessions.keep_proof(&signed.session, &tokens, now_secs()).await.expect("keep the confirmation");
+		token
 	}
 
 	/// Send a request through the router; the status, the JSON body (`Null` when there is

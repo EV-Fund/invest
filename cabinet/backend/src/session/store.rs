@@ -1,4 +1,4 @@
-//! The `cabinet` schema's two tables, as runtime queries (`migrations/` holds the DDL).
+//! The `cabinet` schema's tables, as runtime queries (`migrations/` holds the DDL).
 //! Every timestamp is unix seconds, the unit concierge states token expiries in.
 
 use color_eyre::eyre::{Context, Result};
@@ -8,6 +8,8 @@ use uuid::Uuid;
 pub struct SignInRow {
 	pub verifier: String,
 	pub return_to: String,
+	/// The hash of the session a confirmed sign-in is for; `None` for an ordinary sign-in.
+	pub reauth_for: Option<Vec<u8>>,
 }
 
 pub struct SessionRow {
@@ -25,11 +27,12 @@ pub struct NewTokens<'a> {
 	pub expires_at: i64,
 }
 
-pub async fn insert_sign_in(pool: &PgPool, state_hash: &[u8], verifier: &str, return_to: &str, expires_at: i64) -> Result<()> {
-	sqlx::query("INSERT INTO cabinet.sign_ins (state_hash, verifier, return_to, expires_at) VALUES ($1, $2, $3, $4)")
+pub async fn insert_sign_in(pool: &PgPool, state_hash: &[u8], verifier: &str, return_to: &str, reauth_for: Option<&[u8]>, expires_at: i64) -> Result<()> {
+	sqlx::query("INSERT INTO cabinet.sign_ins (state_hash, verifier, return_to, reauth_for, expires_at) VALUES ($1, $2, $3, $4, $5)")
 		.bind(state_hash)
 		.bind(verifier)
 		.bind(return_to)
+		.bind(reauth_for)
 		.bind(expires_at)
 		.execute(pool)
 		.await
@@ -41,7 +44,7 @@ pub async fn insert_sign_in(pool: &PgPool, state_hash: &[u8], verifier: &str, re
 /// replicas, since the row is the only copy. `None` for a state never issued, already
 /// redeemed, or past `now`.
 pub async fn take_sign_in(pool: &PgPool, state_hash: &[u8], now: i64) -> Result<Option<SignInRow>> {
-	let row = sqlx::query("DELETE FROM cabinet.sign_ins WHERE state_hash = $1 RETURNING verifier, return_to, expires_at")
+	let row = sqlx::query("DELETE FROM cabinet.sign_ins WHERE state_hash = $1 RETURNING verifier, return_to, reauth_for, expires_at")
 		.bind(state_hash)
 		.fetch_optional(pool)
 		.await
@@ -53,12 +56,14 @@ pub async fn take_sign_in(pool: &PgPool, state_hash: &[u8], now: i64) -> Result<
 	Ok(Some(SignInRow {
 		verifier: row.try_get("verifier")?,
 		return_to: row.try_get("return_to")?,
+		reauth_for: row.try_get("reauth_for")?,
 	}))
 }
 
-/// Drop what can no longer be used: sign-ins and sessions past their deadline. Run on each
-/// new sign-in, so the tables stay as small as the live set without a sweeper.
+/// Drop what can no longer be used: sign-ins, sessions and proofs past their deadline. Run on
+/// each new sign-in, so the tables stay as small as the live set without a sweeper.
 pub async fn prune(pool: &PgPool, now: i64) -> Result<u64> {
+	let proofs = prune_proofs(pool, now).await?;
 	let sign_ins = sqlx::query("DELETE FROM cabinet.sign_ins WHERE expires_at <= $1")
 		.bind(now)
 		.execute(pool)
@@ -71,7 +76,49 @@ pub async fn prune(pool: &PgPool, now: i64) -> Result<u64> {
 		.await
 		.wrap_err("prune sessions")?
 		.rows_affected();
-	Ok(sign_ins + sessions)
+	Ok(proofs + sign_ins + sessions)
+}
+
+pub async fn prune_proofs(pool: &PgPool, now: i64) -> Result<u64> {
+	Ok(sqlx::query("DELETE FROM cabinet.reauth_proofs WHERE expires_at <= $1")
+		.bind(now)
+		.execute(pool)
+		.await
+		.wrap_err("prune confirmed sign-ins")?
+		.rows_affected())
+}
+
+/// Keep a session's confirmed sign-in, over any earlier one it did not use. `false` when the
+/// session is gone: the proof has nothing to belong to.
+pub async fn put_proof(pool: &PgPool, session_hash: &[u8], proof_sealed: &[u8], expires_at: i64) -> Result<bool> {
+	let written = sqlx::query(
+		"INSERT INTO cabinet.reauth_proofs (session_hash, proof_sealed, expires_at)
+		 SELECT id_hash, $2, $3 FROM cabinet.sessions WHERE id_hash = $1
+		 ON CONFLICT (session_hash) DO UPDATE SET proof_sealed = EXCLUDED.proof_sealed, expires_at = EXCLUDED.expires_at",
+	)
+	.bind(session_hash)
+	.bind(proof_sealed)
+	.bind(expires_at)
+	.execute(pool)
+	.await
+	.wrap_err("keep a confirmed sign-in")?
+	.rows_affected();
+	Ok(written == 1)
+}
+
+/// Take a session's confirmed sign-in: deleted as it is read, so it is used once, across
+/// replicas. `None` when there is none, or it is past `now`.
+pub async fn take_proof(pool: &PgPool, session_hash: &[u8], now: i64) -> Result<Option<Vec<u8>>> {
+	let row = sqlx::query("DELETE FROM cabinet.reauth_proofs WHERE session_hash = $1 RETURNING proof_sealed, expires_at")
+		.bind(session_hash)
+		.fetch_optional(pool)
+		.await
+		.wrap_err("take a confirmed sign-in")?;
+	let Some(row) = row else { return Ok(None) };
+	if row.try_get::<i64, _>("expires_at")? <= now {
+		return Ok(None);
+	}
+	Ok(Some(row.try_get("proof_sealed")?))
 }
 
 pub async fn insert_session(pool: &PgPool, id_hash: &[u8], user_id: Uuid, tokens: &NewTokens<'_>, now: i64) -> Result<()> {

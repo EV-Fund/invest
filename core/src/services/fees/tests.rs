@@ -10,9 +10,9 @@ use invest_domain::{
 };
 use uuid::Uuid;
 
-use super::{Audience, change_to_proto, policy_to_proto};
+use super::{Audience, change_to_proto, policy_to_proto, schedule_err};
 use crate::{
-	application::fees::PolicyView,
+	application::{fee_approvals, fees::PolicyView},
 	ports::{
 		approvals::ApprovalState,
 		fees::{FeePolicyChange, NoticeWaiver, PolicyRecord},
@@ -188,4 +188,18 @@ fn the_redaction_follows_the_pending_change_onto_the_policy_view() {
 	let operator = policy_to_proto(&service, &view, Audience::Operator);
 	let pending = operator.pending.expect("the change on its way is shown to everyone");
 	assert_ne!(pending.requested_by, "");
+}
+
+/// The BFF turns exactly this into its 403 `reauth_required`: the message must START with the
+/// word, so the usual "precondition failed: " prefix stays off it — and only off it.
+#[test]
+fn a_refusal_only_a_fresh_sign_in_cures_reaches_the_bff_bare() {
+	let status = schedule_err(fee_approvals::reauth_required("confirm your sign-in"));
+	assert_eq!(status.code(), tonic::Code::FailedPrecondition);
+	assert_eq!(status.message(), "reauth_required: confirm your sign-in");
+
+	let other = schedule_err(invest_domain::error::DomainError::Precondition("a fund with no holders".into()));
+	assert_eq!(other.code(), tonic::Code::FailedPrecondition);
+	assert!(!other.message().starts_with(fee_approvals::REAUTH_REQUIRED), "{}", other.message());
+	assert!(!fee_approvals::is_reauth_required("reauth_requiredness: no"));
 }

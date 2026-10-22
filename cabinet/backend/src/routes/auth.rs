@@ -17,7 +17,7 @@ use crate::{
 	error::ApiError,
 	now_secs,
 	routes::{ct_str_eq, verify_csrf},
-	session::{SIGN_IN_TTL_SECS, SessionError, SessionKey, SignInTarget},
+	session::{Pending, ProofError, SIGN_IN_TTL_SECS, SessionError, SessionKey, SignInTarget},
 	state::AppState,
 };
 
@@ -96,13 +96,46 @@ pub async fn login(State(st): State<AppState>, Query(q): Query<LoginQuery>) -> R
 	let Some(return_to) = return_target(q.return_to.as_deref()) else {
 		return private(failed(StatusCode::BAD_REQUEST, "That page is not part of the cabinet."));
 	};
+	start(&st, &return_to, None).await
+}
+
+/// `GET /cabinet/api/auth/reauth?return_to=` — the signed-in person confirms their sign-in for
+/// one owner-level act (D24(1)): the same round trip as the login, but concierge is asked with
+/// `max_age=0` to make them sign in again, and the callback keeps what it brings back as this
+/// session's proof instead of opening a session. Started by the cabinet when an act answers
+/// 403 `reauth_required`.
+pub async fn reauth(State(st): State<AppState>, jar: Cookies, Query(q): Query<LoginQuery>) -> Response {
+	let Some(return_to) = return_target(q.return_to.as_deref()) else {
+		return private(failed(StatusCode::BAD_REQUEST, "That page is not part of the cabinet."));
+	};
+	let Some(cookie) = jar.get(&st.cookies.session) else {
+		return private(page(StatusCode::UNAUTHORIZED, "Signed out", "Your session has ended. Sign in again."));
+	};
+	// Read, and its tokens rotated if due, so a confirmation is started only for a live session.
+	match st.sessions.resolve(cookie, now_secs()).await {
+		Ok(session) => start(&st, &return_to, Some(&session.key)).await,
+		Err(SessionError::Missing | SessionError::Rejected) => private(page(StatusCode::UNAUTHORIZED, "Signed out", "Your session has ended. Sign in again.")),
+		Err(SessionError::Unavailable) => private(page(
+			StatusCode::SERVICE_UNAVAILABLE,
+			"Sign-in unavailable",
+			"Signing in is unavailable right now. Try again in a minute.",
+		)),
+		Err(SessionError::Internal(err)) => {
+			report(&err, "reading the session a confirmation is for");
+			private(failed(StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong on our side. Try again."))
+		}
+	}
+}
+
+/// Record a sign-in and send the browser to concierge's `authorize`.
+async fn start(st: &AppState, return_to: &str, reauth_for: Option<&SessionKey>) -> Response {
 	let redirect_uri = st.config.redirect_uri();
 	let target = SignInTarget {
 		concierge_origin: st.config.concierge_public_origin.trim_end_matches('/'),
 		client_id: &st.config.concierge_client_id,
 		redirect_uri: &redirect_uri,
 	};
-	let begun = match st.sessions.begin(target, &return_to, now_secs()).await {
+	let begun = match st.sessions.begin(target, return_to, reauth_for, now_secs()).await {
 		Ok(begun) => begun,
 		Err(err) => {
 			report(&err, "starting a sign-in");
@@ -136,6 +169,15 @@ pub async fn callback(State(st): State<AppState>, jar: Cookies, Query(q): Query<
 		res
 	};
 	if let Some(error) = q.error.as_deref() {
+		// concierge answers a confirmation the person dismissed, or came back to too late, with
+		// `access_denied` too. That is "not confirmed", not "no access": the row says which.
+		if error == "access_denied" && was_confirmation(&st, &jar, q.state.as_deref()).await {
+			return with_clear(page(
+				StatusCode::FORBIDDEN,
+				"Not confirmed",
+				"Your sign-in was not confirmed, so the change was not sent. Go back and try again.",
+			));
+		}
 		// Fixed pages: concierge's error word picks one, and is not shown.
 		return with_clear(match error {
 			"access_denied" => page(StatusCode::FORBIDDEN, "No access", "Your account has no access to EV Invest."),
@@ -166,6 +208,17 @@ pub async fn callback(State(st): State<AppState>, jar: Cookies, Query(q): Query<
 			return with_clear(failed(StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong on our side. Try again."));
 		}
 	};
+	// A confirmation belongs to the session that started it: in any other browser its code is
+	// not presented.
+	if let Some(for_session) = pending.reauth_for
+		&& !jar
+			.get(&st.cookies.session)
+			.and_then(SessionKey::of_cookie)
+			.is_some_and(|key| ct_str_eq_bytes(key.as_bytes(), for_session.as_bytes()))
+	{
+		tracing::info!("a confirmation came back to a browser without its session; the code is not presented");
+		return with_clear(failed(StatusCode::BAD_REQUEST, "This confirmation was started in another session. Start again."));
+	}
 	let tokens = match st.sessions.concierge().exchange_code(code, &st.config.redirect_uri(), &pending.verifier).await {
 		Ok(tokens) => tokens,
 		Err(ConciergeError::Refused { code: Code::PermissionDenied }) => return with_clear(page(StatusCode::FORBIDDEN, "No access", "Your account has no access to EV Invest.")),
@@ -186,6 +239,9 @@ pub async fn callback(State(st): State<AppState>, jar: Cookies, Query(q): Query<
 			return with_clear(failed(StatusCode::BAD_GATEWAY, "Something went wrong. Try again."));
 		}
 	};
+	if pending.reauth_for.is_some() {
+		return with_clear(confirmed(&st, &jar, &pending, &tokens, now).await);
+	}
 	// Signing in again from a browser with a session: the old one is closed, not orphaned.
 	if let Some(old) = jar.get(&st.cookies.session).and_then(SessionKey::of_cookie)
 		&& let Err(err) = st.sessions.close(&old).await
@@ -211,6 +267,61 @@ pub async fn callback(State(st): State<AppState>, jar: Cookies, Query(q): Query<
 	h.append(header::SET_COOKIE, st.cookies.set(&st.cookies.session, &opened.cookie, max_age, true));
 	h.append(header::SET_COOKIE, st.cookies.set(&st.cookies.csrf, &opened.csrf, max_age, false));
 	res
+}
+
+/// The end of a confirmation: the token concierge issued becomes the session's proof, and the
+/// browser goes back to the page that asked. The session itself and its cookies stay as they
+/// were.
+async fn confirmed(st: &AppState, jar: &Cookies, pending: &Pending, tokens: &evconcierge_client::ClientTokens, now: i64) -> Response {
+	// The callback compared this cookie with the confirmation's session before the code went out.
+	let Some(cookie) = jar.get(&st.cookies.session) else {
+		return page(StatusCode::UNAUTHORIZED, "Signed out", "Your session has ended. Sign in again.");
+	};
+	match st.sessions.keep_proof(cookie, tokens, now).await {
+		Ok(()) => {}
+		Err(ProofError::SessionGone) => return page(StatusCode::UNAUTHORIZED, "Signed out", "Your session has ended. Sign in again."),
+		Err(ProofError::OtherUser) => {
+			tracing::warn!(user_id = %tokens.user_id, "a confirmation signed in another user than the session's; not kept");
+			return page(
+				StatusCode::FORBIDDEN,
+				"Another account",
+				"You confirmed with another account than the one signed in here. Confirm with your own account.",
+			);
+		}
+		Err(ProofError::NotFresh) => {
+			tracing::warn!(user_id = %tokens.user_id, "concierge answered a confirmation without a fresh sign-in; not kept");
+			return page(StatusCode::BAD_GATEWAY, "Not confirmed", "Your sign-in could not be confirmed just now. Try again.");
+		}
+		Err(ProofError::Internal(err)) => {
+			report(&err, "keeping a confirmed sign-in");
+			return failed(StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong on our side. Try again.");
+		}
+	}
+	let Ok(location) = HeaderValue::from_str(&pending.return_to) else {
+		return failed(StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong on our side. Try again.");
+	};
+	tracing::info!(user_id = %tokens.user_id, "sign-in confirmed for an owner-level act");
+	(StatusCode::SEE_OTHER, [(header::LOCATION, location)]).into_response()
+}
+
+/// Whether an error callback ends a confirmation this browser started. Its sign-in row is
+/// redeemed on the way, so a confirmation that ended is not redeemed again.
+async fn was_confirmation(st: &AppState, jar: &Cookies, state: Option<&str>) -> bool {
+	let Some(state) = state.filter(|s| !s.is_empty() && jar.get(&st.cookies.sign_in).is_some_and(|cookie| ct_str_eq(cookie, s))) else {
+		return false;
+	};
+	match st.sessions.redeem(state, now_secs()).await {
+		Ok(pending) => pending.is_some_and(|pending| pending.reauth_for.is_some()),
+		Err(err) => {
+			report(&err, "redeeming a sign-in that ended with an error");
+			false
+		}
+	}
+}
+
+fn ct_str_eq_bytes(a: &[u8], b: &[u8]) -> bool {
+	use subtle::ConstantTimeEq;
+	a.len() == b.len() && a.ct_eq(b).into()
 }
 
 /// `POST /cabinet/api/auth/logout` — CSRF- and Origin-checked: this browser's session is
@@ -376,7 +487,7 @@ mod flow_tests {
 
 	use crate::{
 		now_secs,
-		routes::test_support::{CSRF, Harness, INVESTOR, Refresh, USER, request, set_cookies},
+		routes::test_support::{CSRF, Harness, INVESTOR, MANAGER, Refresh, Signed, USER, request, set_cookies},
 	};
 
 	fn location(headers: &axum::http::HeaderMap) -> String {
@@ -751,5 +862,203 @@ mod flow_tests {
 		req.headers_mut().insert(header::ORIGIN, "https://evil.test".parse().unwrap());
 		let (status, body, _) = h.send(req).await;
 		assert_eq!((status, body["error"].as_str()), (StatusCode::FORBIDDEN, Some("csrf")));
+	}
+
+	// ── a confirmed sign-in for an owner-level act (D24(1)) ─────────────────────
+
+	const FEES_PAGE: &str = "/cabinet/ru/admin/fees";
+
+	/// `auth/reauth` from a signed-in browser: answers the state it issued.
+	async fn start_confirmation(h: &Harness, signed: &Signed) -> String {
+		let (status, _, headers) = h
+			.send(request("GET", &format!("/cabinet/api/auth/reauth?return_to={FEES_PAGE}"), Some(signed), None, false))
+			.await;
+		assert_eq!(status, StatusCode::FOUND);
+		h.concierge.expect_challenge(&query_param(&location(&headers), "code_challenge"));
+		set_cookies(&headers).remove("invest_sign_in").expect("the sign-in cookie")
+	}
+
+	/// The callback of a confirmation, from a browser carrying `session_cookie` (or none).
+	async fn confirmation_callback(h: &Harness, state: &str, session_cookie: Option<&str>) -> (StatusCode, axum::http::HeaderMap) {
+		let cookie = match session_cookie {
+			Some(session) => format!("invest_sign_in={state}; invest_session={session}; invest_csrf={CSRF}"),
+			None => format!("invest_sign_in={state}"),
+		};
+		let callback = axum::http::Request::builder()
+			.uri(format!("/cabinet/auth/callback?code=the-code&state={state}"))
+			.header(header::COOKIE, cookie)
+			.body(axum::body::Body::empty())
+			.unwrap();
+		let (status, _, headers) = h.send(callback).await;
+		(status, headers)
+	}
+
+	async fn take_proof(h: &Harness, signed: &Signed) -> Option<String> {
+		let session = h.state.sessions.resolve(&signed.session, now_secs()).await.unwrap();
+		h.state.sessions.take_proof(&signed.session, &session, now_secs()).await.unwrap()
+	}
+
+	#[tokio::test]
+	async fn a_confirmation_asks_concierge_for_a_fresh_sign_in() {
+		let Some(h) = Harness::new(None).await else { return };
+		let signed = h.sign_in(MANAGER).await;
+		let (status, _, headers) = h
+			.send(request("GET", &format!("/cabinet/api/auth/reauth?return_to={FEES_PAGE}"), Some(&signed), None, false))
+			.await;
+		assert_eq!(status, StatusCode::FOUND);
+		let authorize = location(&headers);
+		assert!(authorize.starts_with("https://concierge.test/api/auth/authorize?"), "{authorize}");
+		assert_eq!(query_param(&authorize, "max_age"), "0");
+		assert_eq!(query_param(&authorize, "client_id"), "invest");
+		assert_eq!(
+			query_param(&authorize, "redirect_uri"),
+			"http%3A%2F%2Finvest.test%2Fcabinet%2Fauth%2Fcallback",
+			"the one registered callback"
+		);
+		assert!(set_cookies(&headers).contains_key("invest_sign_in"));
+		let (_, _, login) = h.send(request("GET", "/cabinet/api/auth/login", None, None, false)).await;
+		assert!(!location(&login).contains("max_age"), "an ordinary sign-in stays silent");
+	}
+
+	#[tokio::test]
+	async fn a_confirmation_needs_a_session_and_a_page_inside_the_cabinet() {
+		let Some(h) = Harness::new(None).await else { return };
+		let (status, _, headers) = h.send(request("GET", &format!("/cabinet/api/auth/reauth?return_to={FEES_PAGE}"), None, None, false)).await;
+		assert_eq!(status, StatusCode::UNAUTHORIZED);
+		assert!(set_cookies(&headers).is_empty(), "nothing is started");
+		let signed = h.sign_in(MANAGER).await;
+		let (status, _, headers) = h
+			.send(request("GET", "/cabinet/api/auth/reauth?return_to=https://evil.test/cabinet", Some(&signed), None, false))
+			.await;
+		assert_eq!(status, StatusCode::BAD_REQUEST);
+		assert!(set_cookies(&headers).is_empty());
+	}
+
+	/// The round trip: the token concierge issues is kept beside the session, not in its place,
+	/// and it is used once.
+	#[tokio::test]
+	async fn a_confirmation_keeps_a_proof_beside_the_session_for_one_use() {
+		let Some(h) = Harness::new(None).await else { return };
+		let signed = h.sign_in(MANAGER).await;
+		let state = start_confirmation(&h, &signed).await;
+		h.concierge.confirm_as(USER, Some(now_secs()));
+
+		let (status, headers) = confirmation_callback(&h, &state, Some(&signed.session)).await;
+
+		assert_eq!(status, StatusCode::SEE_OTHER);
+		assert_eq!(location(&headers), FEES_PAGE);
+		let cookies = set_cookies(&headers);
+		assert_eq!(cookies.get("invest_sign_in").map(String::as_str), Some(""), "the sign-in cookie is spent");
+		assert!(!cookies.contains_key("invest_session") && !cookies.contains_key("invest_csrf"), "the session's cookies stay");
+		assert_eq!(h.session_rows(&signed.session).await, 1);
+		let session = h.state.sessions.resolve(&signed.session, now_secs()).await.unwrap();
+		assert_eq!(session.access_token, crate::routes::test_support::ACCESS_TOKEN, "the session's own token is untouched");
+		let proof = take_proof(&h, &signed).await.expect("the confirmation is kept");
+		assert!(proof.ends_with(".exchanged-1"), "{proof}");
+		assert_eq!(take_proof(&h, &signed).await, None, "used once");
+	}
+
+	/// A confirmation dies with its session: closing the session drops the proof.
+	#[tokio::test]
+	async fn a_proof_ends_with_its_session() {
+		let Some(h) = Harness::new(None).await else { return };
+		let signed = h.sign_in(MANAGER).await;
+		h.confirm(&signed).await;
+		let key = crate::session::SessionKey::of_cookie(&signed.session).unwrap();
+		let proofs = || {
+			sqlx::query_scalar::<_, i64>("SELECT count(*) FROM cabinet.reauth_proofs WHERE session_hash = $1")
+				.bind(key.as_bytes())
+				.fetch_one(h.state.sessions.pool())
+		};
+		assert_eq!(proofs().await.unwrap(), 1);
+		h.state.sessions.close(&key).await.unwrap();
+		assert_eq!(proofs().await.unwrap(), 0);
+	}
+
+	/// concierge answered without making the person sign in again — no `auth_time`, or an old
+	/// one — so nothing shows the request is theirs right now: nothing is kept.
+	#[tokio::test]
+	async fn a_confirmation_without_a_fresh_sign_in_is_not_kept() {
+		let Some(h) = Harness::new(None).await else { return };
+		let signed = h.sign_in(MANAGER).await;
+		for auth_time in [None, Some(now_secs() - 600), Some(now_secs() - 110), Some(now_secs() + 120)] {
+			let state = start_confirmation(&h, &signed).await;
+			h.concierge.confirm_as(USER, auth_time);
+			let (status, headers) = confirmation_callback(&h, &state, Some(&signed.session)).await;
+			assert_eq!(status, StatusCode::BAD_GATEWAY, "{auth_time:?}");
+			assert!(headers.get(header::LOCATION).is_none());
+			assert_eq!(take_proof(&h, &signed).await, None, "{auth_time:?}");
+		}
+		assert_eq!(h.session_rows(&signed.session).await, 1, "the session itself is fine");
+	}
+
+	#[tokio::test]
+	async fn a_confirmation_by_another_account_is_not_kept() {
+		let Some(h) = Harness::new(None).await else { return };
+		let signed = h.sign_in(MANAGER).await;
+		let state = start_confirmation(&h, &signed).await;
+		h.concierge.confirm_as(uuid::Uuid::from_u128(0xbad), Some(now_secs()));
+		let (status, _) = confirmation_callback(&h, &state, Some(&signed.session)).await;
+		assert_eq!(status, StatusCode::FORBIDDEN);
+		assert_eq!(take_proof(&h, &signed).await, None);
+	}
+
+	/// A confirmation belongs to the session that started it: a browser without that session
+	/// (another one, or one signed out meanwhile) never presents its code.
+	#[tokio::test]
+	async fn a_confirmation_in_another_session_never_presents_its_code() {
+		let Some(h) = Harness::new(None).await else { return };
+		let signed = h.sign_in(MANAGER).await;
+		let other = h.sign_in(MANAGER).await;
+		for cookie in [None, Some(other.session.as_str())] {
+			let state = start_confirmation(&h, &signed).await;
+			let (status, headers) = confirmation_callback(&h, &state, cookie).await;
+			assert_eq!(status, StatusCode::BAD_REQUEST, "{cookie:?}");
+			assert!(!set_cookies(&headers).contains_key("invest_session"));
+		}
+		assert_eq!(h.concierge.exchanges(), 0, "the code was never presented");
+		assert_eq!(take_proof(&h, &other).await, None);
+	}
+
+	/// concierge answers a dismissed (or too late) confirmation with `access_denied`. For a
+	/// confirmation that reads "not confirmed"; for an ordinary sign-in it stays "no access".
+	#[tokio::test]
+	async fn a_dismissed_confirmation_reads_not_confirmed_not_no_access() {
+		use tower::ServiceExt;
+		let Some(h) = Harness::new(None).await else { return };
+		let signed = h.sign_in(MANAGER).await;
+		let page_of = |state: String, session: Option<String>| {
+			let app = h.app.clone();
+			async move {
+				let cookie = match session {
+					Some(session) => format!("invest_sign_in={state}; invest_session={session}"),
+					None => format!("invest_sign_in={state}"),
+				};
+				let req = axum::http::Request::builder()
+					.uri(format!("/cabinet/auth/callback?error=access_denied&state={state}"))
+					.header(header::COOKIE, cookie)
+					.body(axum::body::Body::empty())
+					.unwrap();
+				let res = app.oneshot(req).await.unwrap();
+				let status = res.status();
+				let body = axum::body::to_bytes(res.into_body(), 1 << 16).await.unwrap();
+				(status, String::from_utf8(body.to_vec()).unwrap())
+			}
+		};
+
+		let state = start_confirmation(&h, &signed).await;
+		let (status, body) = page_of(state.clone(), Some(signed.session.clone())).await;
+		assert_eq!(status, StatusCode::FORBIDDEN);
+		assert!(body.contains("Not confirmed"), "{body}");
+		assert!(h.state.sessions.redeem(&state, now_secs()).await.unwrap().is_none(), "the confirmation is spent");
+		assert_eq!(h.session_rows(&signed.session).await, 1, "the session stays");
+		assert_eq!(take_proof(&h, &signed).await, None);
+
+		let (_, _, headers) = h.send(request("GET", "/cabinet/api/auth/login", None, None, false)).await;
+		let login = set_cookies(&headers).remove("invest_sign_in").unwrap();
+		let (status, body) = page_of(login, None).await;
+		assert_eq!(status, StatusCode::FORBIDDEN);
+		assert!(body.contains("No access"), "{body}");
+		assert_eq!(h.concierge.exchanges(), 0);
 	}
 }

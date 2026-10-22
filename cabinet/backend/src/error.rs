@@ -21,6 +21,9 @@ pub enum ApiError {
 	BadRequest(String),
 	/// The caller holds as many of a bounded resource as one session may — book sockets (429).
 	TooMany,
+	/// The act needs the person to confirm their sign-in first (403 `reauth_required`): the
+	/// cabinet starts `/cabinet/api/auth/reauth` and submits again.
+	ReauthRequired,
 	/// The session needs concierge and concierge cannot be reached (503). Nothing was
 	/// closed: the next request may succeed.
 	SessionUnavailable,
@@ -84,8 +87,15 @@ impl From<SessionError> for ApiError {
 	}
 }
 
+/// How invest-core starts the message of a refusal only a confirmed sign-in cures
+/// (`fee_approvals::REAUTH_REQUIRED` in invest-core).
+const REAUTH_REQUIRED: &str = "reauth_required:";
+
 impl From<Status> for ApiError {
 	fn from(s: Status) -> Self {
+		if s.code() == Code::FailedPrecondition && s.message().starts_with(REAUTH_REQUIRED) {
+			return ApiError::ReauthRequired;
+		}
 		ApiError::Grpc(s)
 	}
 }
@@ -97,6 +107,7 @@ impl IntoResponse for ApiError {
 			ApiError::Csrf => (StatusCode::FORBIDDEN, "csrf".to_string()),
 			ApiError::BadRequest(m) => (StatusCode::BAD_REQUEST, m),
 			ApiError::TooMany => (StatusCode::TOO_MANY_REQUESTS, "too many open book feeds".to_string()),
+			ApiError::ReauthRequired => (StatusCode::FORBIDDEN, "reauth_required".to_string()),
 			ApiError::SessionUnavailable => (StatusCode::SERVICE_UNAVAILABLE, "sign-in is unavailable, try again".to_string()),
 			ApiError::Internal(report) => {
 				tracing::error!(error = ?report, "internal error behind a cabinet request");
@@ -150,6 +161,15 @@ mod tests {
 		let (status, message) = render(ApiError::Grpc(Status::invalid_argument("insufficient available balance"))).await;
 		assert_eq!(status, StatusCode::BAD_REQUEST);
 		assert_eq!(message, "insufficient available balance");
+	}
+
+	/// The one word the cabinet acts on, whatever invest-core said after it.
+	#[tokio::test]
+	async fn a_refusal_only_a_fresh_sign_in_cures_is_reauth_required() {
+		let (status, message) = render(ApiError::from(Status::failed_precondition("reauth_required: confirm your sign-in"))).await;
+		assert_eq!((status, message.as_str()), (StatusCode::FORBIDDEN, "reauth_required"));
+		let (status, message) = render(ApiError::from(Status::failed_precondition("precondition failed: a fund with no holders"))).await;
+		assert_eq!((status, message.as_str()), (StatusCode::PRECONDITION_FAILED, "precondition failed: a fund with no holders"));
 	}
 
 	#[tokio::test]

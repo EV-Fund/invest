@@ -19,6 +19,26 @@ banking or moves to concierge and the central admin (plan §6).
 | Requests | `/cabinet/api/*` | The session is read by the SHA-256 of its cookie; an access token within 30 s of expiry is rotated first (`RefreshClientToken`), one rotation per session across replicas (a lease on the row). |
 | Session | `GET /cabinet/api/auth/session` | The principal (`SessionInfo`, camelCase) or a guest — always 200 unless the answer is unknown (503). Rotates the tokens when they are about to lapse; `GetMe` through the same one-minute cache as the console. |
 | Logout | `POST /cabinet/api/auth/logout` | CSRF + `Origin`; the session row deleted, the cookies cleared. concierge's confirm page ends the evinvest.ltd session. |
+| Confirm | `GET /cabinet/api/auth/reauth?return_to=/cabinet/…` | Only with a live session (401 page otherwise). The login's round trip with `max_age=0`, so concierge makes the person sign in again; the `cabinet.sign_ins` row names the session. The callback presents the code only from that session's browser, and keeps the token it brings back as the session's **proof** (`cabinet.reauth_proofs`, sealed like the session's tokens) when it is the session's user and its `auth_time` is fresh; the session's own tokens and cookies stay. 303 to `return_to`. A confirmation the person dismissed, or came back to too late, returns as `error=access_denied`: a 403 page "Not confirmed", nothing kept. |
+
+### Who asks does not vote (D24(1))
+
+A fee change the owners decide is proposed to them in the requester's name, and concierge
+keeps the requester off the roster only with their own token from a sign-in confirmed in the
+last 120 s. `POST /cabinet/api/admin/fees/policy` takes the session's proof (once: it is
+deleted as it is read, and only after the body is valid) and forwards it to invest-core as
+`x-ev-user-token`. Without one, invest-core refuses such a change before writing it, and the
+BFF answers:
+
+```http
+HTTP/1.1 403 Forbidden
+{"error":"reauth_required"}
+```
+
+The cabinet then navigates to `auth/reauth?return_to=<the page>` and submits the change again
+when the browser is back. The same answer comes when concierge did not take the proof (too old,
+already used); the change is then closed `rejected`. A proof is usable for 100 s after the
+sign-in (concierge's 120 s, less a margin for the way there), and ends with its session.
 
 The callback is **`/cabinet/auth/callback`, without `/api`**: that is the redirect URI
 concierge registered for the client (`runner/migrations/0031_scopes.up.sql`), and the
@@ -33,8 +53,9 @@ Cookies (`__Host-` prefixed and `Secure` in production, bare in dev):
 | `invest_csrf` | no | The double-submit token, echoed in `x-ev-csrf` on every mutation. |
 | `invest_sign_in` | yes | The state of a sign-in in flight; ten minutes, cleared by the callback. |
 
-**The login and the callback must be rate-limited at the ingress** (devops
-`ingress.rateLimitPathPrefixes`: `/cabinet/api/auth/login`, `/cabinet/auth/callback`).
+**The login, the confirmation and the callback must be rate-limited at the ingress** (devops
+`ingress.rateLimitPathPrefixes`: `/cabinet/api/auth/login`, `/cabinet/api/auth/reauth`,
+`/cabinet/auth/callback`).
 The login is anonymous and writes a `cabinet.sign_ins` row; without a limit a flood fills
 the table and drains the pool (`DB_MAX_CONNECTIONS`, 3 s acquire timeout). Expired
 sign-ins are pruned when a session opens, not by the login.
@@ -57,7 +78,7 @@ its own projection. `SessionInfo.user.isAdmin` is `invest:allocation:manage` or
 
 | Group | Routes | invest-core |
 | ----- | ------ | ----------- |
-| auth | `auth/login`, `auth/session`, `auth/logout`; `/cabinet/auth/callback` | — (concierge) |
+| auth | `auth/login`, `auth/session`, `auth/logout`, `auth/reauth`; `/cabinet/auth/callback` | — (concierge) |
 | catalog | `allocations`, `allocations/detail` | `AllocationsService` |
 | funds | `funds/nav`, `funds/nav/history`, `funds/positions`, `funds/fee-policy`, `funds/accrued-fees`, `funds/redemptions`, `funds/redemptions/cancel`, `funds/subscribe`, `funds/redeem` | `FundsService`, `FeesService` |
 | book | `book`, `book/trades`, `book/candles`, `book/policy`, `book/orders` (GET, POST), `book/orders/cancel`, `book/orders/history`, `book/fills`, `book/ws` | `BookService` |

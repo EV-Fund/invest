@@ -268,7 +268,7 @@ async fn run(
 	// Without concierge nothing is proposed, so there is nothing to follow: the branch idles.
 	let fee_approvals = concierge_streams
 		.is_some()
-		.then(|| FeeApprovalsExecutor::new(approvals, fees.changes.clone(), fees.policies.clone(), users.clone()));
+		.then(|| FeeApprovalsExecutor::new(approvals, fees.changes.clone(), fees.policies.clone()));
 	let state = AppState {
 		pool: pool.clone(),
 		ledger: ledger.clone(),

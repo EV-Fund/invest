@@ -185,9 +185,16 @@ impl Grpc {
 
 	/// Propose a change of a fund's terms. Never an in-place write: the hub records a
 	/// versioned change that binds after the holders' notice period — and after the owners'
-	/// quorum when it tightens the terms beyond the house envelope.
-	pub async fn schedule_fee_policy(&self, token: &str, req: iv::ScheduleFeePolicyRequest) -> Result<iv::FeePolicyChange, Status> {
-		Ok(self.fees().schedule_fee_policy(bearer(token, req)?).await?.into_inner())
+	/// quorum when it tightens the terms beyond the house envelope. `proof` is the requester's
+	/// freshly confirmed token, which a change the owners decide needs (D24(1)).
+	pub async fn schedule_fee_policy(&self, token: &str, proof: Option<&str>, req: iv::ScheduleFeePolicyRequest) -> Result<iv::FeePolicyChange, Status> {
+		let mut request = bearer(token, req)?;
+		if let Some(proof) = proof {
+			let mut value: tonic::metadata::AsciiMetadataValue = proof.parse().map_err(|_| Status::internal("the confirmed sign-in is not a valid header value"))?;
+			value.set_sensitive(true);
+			request.metadata_mut().insert("x-ev-user-token", value);
+		}
+		Ok(self.fees().schedule_fee_policy(request).await?.into_inner())
 	}
 
 	/// Withdraw a pending change of terms.

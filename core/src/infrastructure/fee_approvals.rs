@@ -15,7 +15,6 @@ use crate::{
 	ports::{
 		approvals::Approvals,
 		fees::{FeePolicies, FeePolicyChanges},
-		users::UserDirectory,
 	},
 };
 
@@ -23,17 +22,11 @@ pub struct FeeApprovalsExecutor {
 	approvals: Arc<dyn Approvals>,
 	changes: Arc<dyn FeePolicyChanges>,
 	policies: Arc<dyn FeePolicies>,
-	users: Arc<dyn UserDirectory>,
 }
 
 impl FeeApprovalsExecutor {
-	pub fn new(approvals: Arc<dyn Approvals>, changes: Arc<dyn FeePolicyChanges>, policies: Arc<dyn FeePolicies>, users: Arc<dyn UserDirectory>) -> Self {
-		Self {
-			approvals,
-			changes,
-			policies,
-			users,
-		}
+	pub fn new(approvals: Arc<dyn Approvals>, changes: Arc<dyn FeePolicyChanges>, policies: Arc<dyn FeePolicies>) -> Self {
+		Self { approvals, changes, policies }
 	}
 
 	pub async fn run(self, shutdown: CancellationToken) {
@@ -49,7 +42,6 @@ impl FeeApprovalsExecutor {
 				approvals: self.approvals.as_ref(),
 				changes: self.changes.as_ref(),
 				policies: self.policies.as_ref(),
-				users: self.users.as_ref(),
 			};
 			match fee_approvals::round(&ports, now_unix()).await {
 				Ok(round) if round == ApprovalRound::default() => {}

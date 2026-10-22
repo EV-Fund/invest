@@ -9,7 +9,9 @@
 //! `invest:allocation:manage` — the same trust seam as registering the product or
 //! posting its valuation, because a fee policy is part of what the product *is* — and a
 //! change that tightens the terms beyond the house envelope needs the owners besides,
-//! whom invest asks through concierge's approvals.
+//! whom invest asks through concierge's approvals. Such a change carries the requester's
+//! freshly confirmed token in `x-ev-user-token`, which concierge needs to keep the requester
+//! off the owners' roster (D24(1)).
 //!
 //! Only [`SettleFeeShares`](FeesService::settle_fee_shares) moves money, and it
 //! notifies the relay. Charging happens on the sweeper, not on this surface: a fee is
@@ -24,6 +26,7 @@ use invest_contracts::invest::v1::{self as pb, fees_service_server::FeesService}
 use invest_domain::{
 	authz::Permission,
 	balance::ServiceId,
+	error::DomainError,
 	fees::{CrystallizationPeriod, FeePolicy, FeePolicyChangeId, ManagementBasis},
 	issuance::IdempotencyKey,
 	money::Shares,
@@ -34,10 +37,13 @@ use uuid::Uuid;
 use crate::{
 	AppState,
 	application::{
-		allocations as allocations_app,
+		allocations as allocations_app, fee_approvals,
 		fees::{self as fee_app, FeePolicyPorts, PolicyChangeRequest, PolicyReader, PolicyView},
 	},
-	ports::fees::{AssessmentRecord, FeePolicyChange},
+	ports::{
+		approvals::UserProof,
+		fees::{AssessmentRecord, FeePolicyChange},
+	},
 	services::support::{caller_id, holds_permission, map_err, require_permission, unix_now},
 };
 
@@ -61,6 +67,18 @@ impl AppState {
 			approvals: self.fees.approvals.as_ref(),
 			users: self.users.as_ref(),
 		}
+	}
+}
+
+/// Where the cabinet's BFF puts the requester's freshly confirmed `invest` token.
+const USER_TOKEN_HEADER: &str = "x-ev-user-token";
+
+/// [`map_err`], except that a refusal only a fresh sign-in cures keeps its message bare, so
+/// it starts with [`fee_approvals::REAUTH_REQUIRED`] — the word the BFF acts on.
+fn schedule_err(err: DomainError) -> Status {
+	match err {
+		DomainError::Precondition(why) if fee_approvals::is_reauth_required(&why) => Status::failed_precondition(why),
+		other => map_err(other),
 	}
 }
 
@@ -110,6 +128,12 @@ impl FeesService for FeesSvc {
 		// The requester is the trust seam on the terms, exactly as `posted_by` is on a
 		// valuation.
 		let requester = caller_id(&request)?;
+		// Relayed to concierge as it came, never logged: concierge verifies it and spends it.
+		let requester_proof = request
+			.metadata()
+			.get(USER_TOKEN_HEADER)
+			.and_then(|value| value.to_str().ok())
+			.and_then(|token| UserProof::new(token.to_owned()));
 		let req = request.into_inner();
 		let service = ServiceId::parse(&req.service).map_err(map_err)?;
 		let policy = parse_policy(req.management_bps, req.performance_bps, req.hurdle_bps, &req.basis, &req.crystallization)?;
@@ -121,11 +145,12 @@ impl FeesService for FeesSvc {
 				policy,
 				requested_effective_from_unix: req.effective_from,
 				reason: req.reason,
+				requester_proof,
 			},
 			unix_now(),
 		)
 		.await
-		.map_err(map_err)?;
+		.map_err(schedule_err)?;
 		// WARN on success on purpose: a change of the terms investors are charged on is worth
 		// an audit line that stands out, whichever path it took.
 		tracing::warn!(
