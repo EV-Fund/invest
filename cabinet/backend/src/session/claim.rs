@@ -1,5 +1,6 @@
-//! The `token_version` an access token was issued with, read for the session's revocation
-//! check.
+//! Claims of an access token the BFF reads for itself: the `token_version` it was issued with,
+//! for the session's revocation check, and the `auth_time` of the sign-in behind it, to tell a
+//! freshly confirmed sign-in apart.
 //!
 //! Read, not verified: the token came from concierge's token endpoint over the BFF's own
 //! authenticated call and is stored sealed, so nothing here decides whether to *trust* it —
@@ -13,12 +14,25 @@ use serde_json::Value;
 /// own reading of a missing claim), `None` for a string that is not a JWT at all — then
 /// there is nothing to compare, and the check stands down.
 pub fn token_version(access_token: &str) -> Option<u64> {
-	let payload = access_token.split('.').nth(1)?;
-	let json: Value = serde_json::from_slice(&base64url(payload)?).ok()?;
-	let claims = json.as_object()?;
+	let claims = claims(access_token)?;
 	match claims.get("token_version") {
 		None => Some(0),
 		Some(v) => v.as_u64(),
+	}
+}
+
+/// When the person last proved who they are at concierge (unix seconds): the token's
+/// `auth_time` claim. `None` when the token carries none — a concierge that does not state it
+/// cannot show the sign-in was fresh, so nothing is taken as fresh.
+pub fn auth_time(access_token: &str) -> Option<i64> {
+	claims(access_token)?.get("auth_time")?.as_i64()
+}
+
+fn claims(access_token: &str) -> Option<serde_json::Map<String, Value>> {
+	let payload = access_token.split('.').nth(1)?;
+	match serde_json::from_slice(&base64url(payload)?).ok()? {
+		Value::Object(claims) => Some(claims),
+		_ => None,
 	}
 }
 
@@ -57,6 +71,14 @@ mod tests {
 	fn the_claim_is_read_from_the_payload() {
 		assert_eq!(token_version(V2), Some(2));
 		assert_eq!(token_version(NONE), Some(0), "a missing claim is version 0, as concierge reads it");
+	}
+
+	#[test]
+	fn the_sign_in_moment_is_read_only_when_stated() {
+		// {"sub":"u","auth_time":1760000000}
+		assert_eq!(auth_time("h.eyJzdWIiOiJ1IiwiYXV0aF90aW1lIjoxNzYwMDAwMDAwfQ.s"), Some(1_760_000_000));
+		assert_eq!(auth_time(NONE), None, "no claim, no fresh sign-in");
+		assert_eq!(auth_time("not-a-jwt"), None);
 	}
 
 	#[test]

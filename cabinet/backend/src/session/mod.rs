@@ -10,6 +10,10 @@
 //! *    /cabinet/api/*              the session read by the hash of its cookie; its access
 //!                                  token rotated when it is about to lapse
 //! POST /cabinet/api/auth/logout    CSRF + Origin; the session closed, the cookies cleared
+//! GET  /cabinet/api/auth/reauth    a signed-in browser confirms its sign-in for one owner-level
+//!                                  act: a sign-in row bound to the session → 302 concierge
+//!                                  authorize with `max_age=0`; the callback keeps the token it
+//!                                  brings back as the session's proof (D24(1)), used once
 //! ```
 //!
 //! The browser holds a random session id and nothing else: the database holds its hash and
@@ -50,6 +54,17 @@ const ROTATION_LEASE_SECS: i64 = 15;
 /// How long a request waits for another replica's rotation before answering 503.
 const ROTATION_WAIT: Duration = Duration::from_secs(6);
 const ROTATION_POLL: Duration = Duration::from_millis(100);
+
+/// How long after the person confirmed their sign-in concierge takes the token as proof of who
+/// asked for an owner-level act (concierge's rule, D24(1)).
+const PROOF_WINDOW_SECS: i64 = 120;
+
+/// How much of [`PROOF_WINDOW_SECS`] the BFF leaves for the proof's way through invest-core to
+/// concierge: a proof used later than this would be refused there anyway.
+const PROOF_MARGIN_SECS: i64 = 20;
+
+/// How far ahead of this clock concierge's `auth_time` may be (concierge's own allowance).
+const PROOF_SKEW_SECS: i64 = 30;
 
 /// How long `GetMe` is trusted for the console gates: a grant revoked at concierge closes
 /// the console at most this much later. invest-core re-checks every act against its own
@@ -128,6 +143,25 @@ pub struct Begun {
 pub struct Pending {
 	pub verifier: PkceVerifier,
 	pub return_to: String,
+	/// The session a confirmed sign-in is for; `None` for an ordinary sign-in.
+	pub reauth_for: Option<SessionKey>,
+}
+
+/// Why a confirmed sign-in was not kept as the session's proof.
+#[derive(Debug, thiserror::Error)]
+pub enum ProofError {
+	/// The session it was for has ended or expired.
+	#[error("the session is gone")]
+	SessionGone,
+	/// concierge signed in another person than the session's.
+	#[error("the confirmation is another user's")]
+	OtherUser,
+	/// The token does not show a sign-in confirmed just now (no `auth_time`, or an old one):
+	/// concierge did not make the person sign in again.
+	#[error("the sign-in was not confirmed just now")]
+	NotFresh,
+	#[error(transparent)]
+	Internal(#[from] Report),
 }
 
 /// Why a request carries no usable session.
@@ -217,12 +251,15 @@ impl Sessions {
 		self.concierge.as_ref()
 	}
 
-	/// A fresh state and PKCE verifier, recorded for the callback, and the authorize URL.
-	pub async fn begin(&self, authorize: SignInTarget<'_>, return_to: &str, now: i64) -> Result<Begun, Report> {
+	/// A fresh state and PKCE verifier, recorded for the callback, and the authorize URL. With
+	/// `reauth_for`, the sign-in confirms that session's person again: concierge is asked to
+	/// make them sign in again (`max_age=0`) even when the evinvest.ltd session exists.
+	pub async fn begin(&self, authorize: SignInTarget<'_>, return_to: &str, reauth_for: Option<&SessionKey>, now: i64) -> Result<Begun, Report> {
 		let verifier = PkceVerifier::generate()?;
 		let state = random_state()?;
-		store::insert_sign_in(&self.pool, &state_hash(&state), verifier.as_str(), return_to, now + SIGN_IN_TTL_SECS).await?;
-		let authorize_url = Authorize {
+		let session_hash = reauth_for.map(SessionKey::as_bytes);
+		store::insert_sign_in(&self.pool, &state_hash(&state), verifier.as_str(), return_to, session_hash, now + SIGN_IN_TTL_SECS).await?;
+		let mut authorize_url = Authorize {
 			concierge_origin: authorize.concierge_origin,
 			client_id: authorize.client_id,
 			redirect_uri: authorize.redirect_uri,
@@ -231,16 +268,70 @@ impl Sessions {
 			prompt: None,
 		}
 		.url();
+		// `evconcierge_client` 0.3 has no `max_age`; the parameter is OIDC's, appended as is.
+		if reauth_for.is_some() {
+			authorize_url.push_str("&max_age=0");
+		}
 		Ok(Begun { state, authorize_url })
 	}
 
 	/// Redeem the sign-in `state` names, once. The caller has already compared it with the
 	/// browser's cookie; this is the half that holds across replicas and replays.
 	pub async fn redeem(&self, state: &str, now: i64) -> Result<Option<Pending>, Report> {
-		Ok(store::take_sign_in(&self.pool, &state_hash(state), now).await?.map(|row| Pending {
+		let Some(row) = store::take_sign_in(&self.pool, &state_hash(state), now).await? else {
+			return Ok(None);
+		};
+		let reauth_for = match row.reauth_for {
+			None => None,
+			Some(hash) => Some(SessionKey(hash.try_into().map_err(|_| eyre!("a stored confirmation names no session hash"))?)),
+		};
+		Ok(Some(Pending {
 			verifier: PkceVerifier::from_stored(row.verifier),
 			return_to: row.return_to,
+			reauth_for,
 		}))
+	}
+
+	/// Keep the access token of a sign-in the session's person just confirmed as the session's
+	/// proof of who asks for the next owner-level act. The session's own tokens are not touched.
+	/// The refresh token of the confirmation is not kept: the proof is good for two minutes, and
+	/// the session rotates on its own pair.
+	pub async fn keep_proof(&self, cookie: &str, tokens: &ClientTokens, now: i64) -> Result<(), ProofError> {
+		let key = SessionKey::of_cookie(cookie).ok_or(ProofError::SessionGone)?;
+		let row = store::get_session(&self.pool, key.as_bytes())
+			.await?
+			.filter(|row| row.expires_at > now)
+			.ok_or(ProofError::SessionGone)?;
+		if tokens.user_id != row.user_id {
+			return Err(ProofError::OtherUser);
+		}
+		let confirmed_at = claim::auth_time(&tokens.access_token).ok_or(ProofError::NotFresh)?;
+		let use_by = confirmed_at + PROOF_WINDOW_SECS - PROOF_MARGIN_SECS;
+		if use_by <= now || confirmed_at > now + PROOF_SKEW_SECS {
+			return Err(ProofError::NotFresh);
+		}
+		let sealed = TokenKey::of_cookie(cookie)?.seal(Which::Proof, key.as_bytes(), &tokens.access_token)?;
+		store::prune_proofs(&self.pool, now).await?;
+		if !store::put_proof(&self.pool, key.as_bytes(), &sealed, use_by.min(tokens.access_expires_at)).await? {
+			return Err(ProofError::SessionGone);
+		}
+		Ok(())
+	}
+
+	/// The session's confirmed sign-in, taken once: `None` when there is none, or it is too old
+	/// for concierge to take. A proof that does not open under the session's cookie was not
+	/// sealed for it, and is dropped like a missing one.
+	pub async fn take_proof(&self, cookie: &str, session: &Session, now: i64) -> Result<Option<String>, Report> {
+		let Some(sealed) = store::take_proof(&self.pool, session.key.as_bytes(), now).await? else {
+			return Ok(None);
+		};
+		match TokenKey::of_cookie(cookie)?.open(Which::Proof, session.key.as_bytes(), &sealed) {
+			Ok(proof) => Ok(Some(proof)),
+			Err(err) => {
+				tracing::error!(error = ?err, user_id = %session.user_id, "a confirmed sign-in does not open under its session's cookie; dropped");
+				Ok(None)
+			}
+		}
 	}
 
 	/// Open a session for the pair concierge just issued. Whatever is past its deadline —
