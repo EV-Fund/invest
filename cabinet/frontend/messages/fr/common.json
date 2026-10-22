@@ -2039,6 +2039,110 @@
     "en": "Wallet",
     "t": "Wallet"
   },
+  "payment.landing.aborted.body": {
+    "en": "Open it again when you are ready.",
+    "t": "Rouvrez-la quand vous serez prêt."
+  },
+  "payment.landing.aborted.title": {
+    "en": "The payment window was closed by this page",
+    "t": "Cette page a fermé la fenêtre de paiement"
+  },
+  "payment.landing.blocked.body": {
+    "en": "Allow pop-ups for this site, then try again.",
+    "t": "Autorisez les fenêtres contextuelles pour ce site, puis réessayez."
+  },
+  "payment.landing.blocked.title": {
+    "en": "Your browser blocked the payment window",
+    "t": "Votre navigateur a bloqué la fenêtre de paiement"
+  },
+  "payment.landing.busy.body": {
+    "en": "We brought it to the front. Finish there first.",
+    "t": "Nous l'avons mise au premier plan. Terminez d'abord là-bas."
+  },
+  "payment.landing.busy.title": {
+    "en": "A payment window is already open",
+    "t": "Une fenêtre de paiement est déjà ouverte"
+  },
+  "payment.landing.cancelled.body": {
+    "en": "The payment page reported that you declined it. {check}",
+    "t": "La page de paiement indique que vous l'avez refusé. {check}"
+  },
+  "payment.landing.cancelled.title": {
+    "en": "You declined the payment",
+    "t": "Vous avez refusé le paiement"
+  },
+  "payment.landing.checkWallet": {
+    "en": "Check the payment in your wallet to be sure.",
+    "t": "Vérifiez le paiement dans votre portefeuille pour en être sûr."
+  },
+  "payment.landing.closed.body": {
+    "en": "We cannot tell whether you answered before you closed it. {check}",
+    "t": "Nous ne savons pas si vous avez répondu avant de fermer la fenêtre. {check}"
+  },
+  "payment.landing.closed.title": {
+    "en": "The payment window was closed",
+    "t": "La fenêtre de paiement a été fermée"
+  },
+  "payment.landing.done.body": {
+    "en": "The payment page reported that you approved it. This is only a hint, because the payment is settled on evinvest.ltd. {check}",
+    "t": "La page de paiement indique que vous l'avez approuvé. Ce n'est qu'un indice, car le paiement est réglé sur evinvest.ltd. {check}"
+  },
+  "payment.landing.done.title": {
+    "en": "Your answer was sent",
+    "t": "Votre réponse a été envoyée"
+  },
+  "payment.landing.failed.body": {
+    "en": "Your answer may not have been recorded. {check} Then you can try again.",
+    "t": "Votre réponse n'a peut-être pas été enregistrée. {check} Vous pourrez ensuite réessayer."
+  },
+  "payment.landing.failed.title": {
+    "en": "The payment page reported an error",
+    "t": "La page de paiement a signalé une erreur"
+  },
+  "payment.landing.invalid.body": {
+    "en": "Open the link from your notice again, or find the payment in your wallet.",
+    "t": "Rouvrez le lien de votre notification, ou retrouvez le paiement dans votre portefeuille."
+  },
+  "payment.landing.invalid.title": {
+    "en": "This payment link is not valid",
+    "t": "Ce lien de paiement n'est pas valide"
+  },
+  "payment.landing.openWallet": {
+    "en": "Open wallet",
+    "t": "Ouvrir le portefeuille"
+  },
+  "payment.landing.review": {
+    "en": "Review the payment",
+    "t": "Examiner le paiement"
+  },
+  "payment.landing.subtitle": {
+    "en": "A payment from your account is waiting for your answer.",
+    "t": "Un paiement depuis votre compte attend votre réponse."
+  },
+  "payment.landing.timeout.body": {
+    "en": "We closed it after a long wait, and we cannot tell whether you answered. {check}",
+    "t": "Nous avons fermé la fenêtre après une longue attente et nous ne savons pas si vous avez répondu. {check}"
+  },
+  "payment.landing.timeout.title": {
+    "en": "The payment window timed out",
+    "t": "La fenêtre de paiement a expiré"
+  },
+  "payment.landing.title": {
+    "en": "Payment to review",
+    "t": "Paiement à examiner"
+  },
+  "payment.landing.unsupported.body": {
+    "en": "Open this link in an up-to-date browser.",
+    "t": "Ouvrez ce lien dans un navigateur à jour."
+  },
+  "payment.landing.unsupported.title": {
+    "en": "This browser cannot open the payment window",
+    "t": "Ce navigateur ne peut pas ouvrir la fenêtre de paiement"
+  },
+  "payment.landing.waiting": {
+    "en": "Waiting for the payment window…",
+    "t": "En attente de la fenêtre de paiement…"
+  },
   "profile.kyc.contact": {
     "en": "Contact {contact}",
     "t": "Contacter {contact}"
