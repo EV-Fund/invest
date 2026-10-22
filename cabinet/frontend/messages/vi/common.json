@@ -799,10 +799,6 @@
     "en": "{field} cannot be more than {ceiling}.",
     "t": "{field} không thể vượt quá {ceiling}."
   },
-  "admin.fees.err.ownersNeedNoHolders": {
-    "en": "These terms need the owners' approval, and someone holds units in this fund. For now, the owners can decide a change only for a fund nobody holds, because invest cannot deliver notices to holders yet.",
-    "t": "Các điều khoản này cần chủ sở hữu phê duyệt, nhưng quỹ này đang có người nắm giữ đơn vị. Hiện tại, chủ sở hữu chỉ có thể quyết định thay đổi cho quỹ không có ai nắm giữ, vì invest chưa thể gửi thông báo đến người nắm giữ."
-  },
   "admin.fees.err.ownersNoWaiver": {
     "en": "The owners decided this change, so its holders' notices cannot be waived. Withdraw the change instead.",
     "t": "Các chủ sở hữu đã quyết định thay đổi này, nên không thể bỏ qua thông báo cho người nắm giữ. Thay vào đó, hãy rút lại thay đổi."
@@ -936,20 +932,20 @@
     "t": "Điều khoản sẽ có hiệu lực với {n, plural, other {# người nắm giữ này}} mà không có thông báo — những điều khoản chặt hơn mà họ chưa từng được biết. Tên của bạn và thời điểm sẽ thay thế xác nhận trước đó trên thay đổi, khi đó nó bao trùm {total, plural, other {tất cả # người nắm giữ}}, và được lưu trong lịch sử của nó."
   },
   "admin.fees.notices.alreadyWaived": {
-    "en": "{by} already took responsibility on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.",
-    "t": "{by} đã nhận trách nhiệm vào {at} cho {n, plural, other {# người nắm giữ}} mà việc gửi thư đã bỏ cuộc tính đến lúc đó. Từ đó nó đã bỏ cuộc thêm với những người khác; hành động này thêm họ vào cùng bản ghi đó."
+    "en": "{by} already took responsibility on {at} for {n, plural, one {# holder} other {# holders}} who could not be told by then. More could not be told since; this act adds them to that record.",
+    "t": "{by} đã nhận trách nhiệm vào {at} cho {n, plural, other {# người nắm giữ}} không thể được thông báo tính đến lúc đó. Từ đó có thêm người không thể được thông báo; hành động này thêm họ vào bản ghi đó."
   },
   "admin.fees.notices.alreadyWaivedAnon": {
-    "en": "Responsibility was already taken on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.",
-    "t": "Trách nhiệm đã được nhận vào {at} cho {n, plural, other {# người nắm giữ}} mà việc gửi thư đã bỏ cuộc tính đến lúc đó. Từ đó nó đã bỏ cuộc thêm với những người khác; hành động này thêm họ vào cùng bản ghi đó."
+    "en": "Responsibility was already taken on {at} for {n, plural, one {# holder} other {# holders}} who could not be told by then. More could not be told since; this act adds them to that record.",
+    "t": "Trách nhiệm đã được nhận vào {at} cho {n, plural, other {# người nắm giữ}} không thể được thông báo tính đến lúc đó. Từ đó có thêm người không thể được thông báo; hành động này thêm họ vào bản ghi đó."
   },
   "admin.fees.notices.err.forbidden": {
-    "en": "Only the requester of this change or an owner can take responsibility for it.",
-    "t": "Chỉ người yêu cầu thay đổi này hoặc chủ sở hữu mới có thể nhận trách nhiệm."
+    "en": "Only the person who requested this change can take responsibility for it.",
+    "t": "Chỉ người đã yêu cầu thay đổi này mới có thể nhận trách nhiệm cho nó."
   },
   "admin.fees.notices.givenUpBody": {
-    "en": "The mailer has given up on {n, plural, one {this holder's notice} other {these # notices}}. A change that tightens the terms does not bind over a holder who was never told, so it is held up until somebody takes responsibility for them.",
-    "t": "Hệ thống gửi thư đã bỏ cuộc với {n, plural, other {# thông báo này}}. Thay đổi siết chặt điều khoản không có hiệu lực với người nắm giữ chưa từng được thông báo, nên nó bị giữ lại cho đến khi có người nhận trách nhiệm về họ."
+    "en": "invest could not tell {n, plural, one {this holder} other {these # holders}}: they switched these notices off, are not in invest's scope, or could not be reached after repeated tries. A change that tightens the terms does not bind over a holder who was never told, so it is held up until its requester takes responsibility for them or the change is withdrawn.",
+    "t": "invest không thể thông báo cho {n, plural, other {# người nắm giữ này}}: họ đã tắt các thông báo này, không thuộc phạm vi của invest, hoặc không liên lạc được sau nhiều lần thử. Thay đổi làm điều khoản chặt hơn không ràng buộc người nắm giữ chưa được thông báo, nên nó bị tạm giữ cho đến khi người yêu cầu nhận trách nhiệm cho họ hoặc thay đổi bị rút lại."
   },
   "admin.fees.notices.givenUpTitle": {
     "en": "{n, plural, one {# holder} other {# holders}} could not be told",
@@ -960,8 +956,8 @@
     "t": "{n, plural, other {# thông báo khác}} vẫn đang được gửi và không thuộc phạm vi này."
   },
   "admin.fees.notices.queued": {
-    "en": "{n, plural, one {# notice is} other {# notices are}} still being delivered. A change that tightens the terms waits for every holder to be told; there is nothing to do unless the mailer gives up on one.",
-    "t": "{n, plural, other {# thông báo}} vẫn đang được gửi. Thay đổi siết chặt điều khoản chờ đến khi mọi người nắm giữ được thông báo; không cần làm gì trừ khi hệ thống gửi thư bỏ cuộc với một người."
+    "en": "{n, plural, one {# notice is} other {# notices are}} still being delivered. A change that tightens the terms waits for every holder to be told; there is nothing to do unless one could not be told.",
+    "t": "{n, plural, other {# thông báo vẫn đang được gửi}}. Thay đổi làm điều khoản chặt hơn chờ đến khi mọi người nắm giữ được thông báo; không cần làm gì trừ khi có người không thể được thông báo."
   },
   "admin.fees.openApprovals": {
     "en": "Open the owners' approvals",
@@ -1044,8 +1040,8 @@
     "t": "Các chủ sở hữu quyết định thay đổi này. Hãy xác nhận đó là bạn để bạn không bị tính là người bỏ phiếu."
   },
   "admin.fees.requirement.admin": {
-    "en": "No vote needed: one administrator may make this change. Holders are mailed the notice when it is scheduled.",
-    "t": "Không cần bỏ phiếu: một quản trị viên có thể thực hiện thay đổi này. Người nắm giữ sẽ nhận thông báo qua email khi thay đổi được lên lịch."
+    "en": "No vote needed: one administrator may make this change. When it is scheduled, each holder gets the notice in their invest inbox and by mail, unless they switched these notices off.",
+    "t": "Không cần bỏ phiếu: một quản trị viên có thể thực hiện thay đổi này. Khi được lên lịch, mỗi người nắm giữ nhận thông báo trong hộp thư invest và qua email, trừ khi họ đã tắt các thông báo này."
   },
   "admin.fees.requirement.ownersReauth": {
     "en": "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. You confirm your sign-in before it is sent, and you are not counted as a voter.",
@@ -1056,8 +1052,8 @@
     "t": "Lên lịch thay đổi"
   },
   "admin.fees.scheduledBody": {
-    "en": "Version {version} takes effect on {at}. Every holder is being emailed the notice; until then the fund charges its current terms.",
-    "t": "Phiên bản {version} có hiệu lực vào {at}. Mọi người nắm giữ đang được gửi thông báo; cho đến lúc đó quỹ vẫn thu theo điều khoản hiện tại."
+    "en": "Version {version} takes effect on {at}. Each holder is being sent the notice in their invest inbox and by mail; until then the fund charges its current terms.",
+    "t": "Phiên bản {version} có hiệu lực vào {at}. Mỗi người nắm giữ đang được gửi thông báo vào hộp thư invest và qua email; cho đến lúc đó quỹ vẫn tính phí theo điều khoản hiện tại."
   },
   "admin.fees.scheduledTitle": {
     "en": "Scheduled — nothing has changed yet",

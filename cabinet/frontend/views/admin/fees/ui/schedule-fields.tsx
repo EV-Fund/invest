@@ -135,7 +135,7 @@ export function ScheduleFields({
           name a decision nobody can send. */}
       {requirement && (
         <p className={cn("text-xs", consilium ? "text-accent-warn" : "text-ink-soft")}>
-          {(consilium ? t("admin.fees.requirement.ownersReauth", "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. You confirm your sign-in before it is sent, and you are not counted as a voter.") : t("admin.fees.requirement.admin", "No vote needed: one administrator may make this change. Holders are mailed the notice when it is scheduled."))}
+          {(consilium ? t("admin.fees.requirement.ownersReauth", "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. You confirm your sign-in before it is sent, and you are not counted as a voter.") : t("admin.fees.requirement.admin", "No vote needed: one administrator may make this change. When it is scheduled, each holder gets the notice in their invest inbox and by mail, unless they switched these notices off."))}
         </p>
       )}
     </>

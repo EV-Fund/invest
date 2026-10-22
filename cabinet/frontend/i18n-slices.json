@@ -302,7 +302,6 @@
       "admin.fees.err.accountUnknown",
       "admin.fees.err.notPercent",
       "admin.fees.err.overCeiling",
-      "admin.fees.err.ownersNeedNoHolders",
       "admin.fees.err.ownersNoWaiver",
       "admin.fees.err.ownersRequesterOnly",
       "admin.fees.err.reasonRequired",

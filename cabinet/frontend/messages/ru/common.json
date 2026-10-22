@@ -799,10 +799,6 @@
     "en": "{field} cannot be more than {ceiling}.",
     "t": "{field} не может быть больше {ceiling}."
   },
-  "admin.fees.err.ownersNeedNoHolders": {
-    "en": "These terms need the owners' approval, and someone holds units in this fund. For now, the owners can decide a change only for a fund nobody holds, because invest cannot deliver notices to holders yet.",
-    "t": "Эти условия требуют одобрения владельцев, а в этом фонде кто-то держит паи. Пока владельцы могут решать изменение только для фонда без держателей, потому что invest ещё не умеет доставлять уведомления держателям."
-  },
   "admin.fees.err.ownersNoWaiver": {
     "en": "The owners decided this change, so its holders' notices cannot be waived. Withdraw the change instead.",
     "t": "Это изменение решали владельцы, поэтому от уведомлений держателей нельзя отказаться. Вместо этого отмените изменение."
@@ -936,20 +932,20 @@
     "t": "Условия вступят в силу для {n, plural, one {этого держателя} few {этих # держателей} many {этих # держателей} other {этих # держателей}} без уведомления — более жёсткие условия, о которых им не сообщили. Ваше имя и момент заменят в изменении прежнее подтверждение, которое после этого будет покрывать {total, plural, one {# держателя} few {всех # держателей} many {всех # держателей} other {всех # держателя}}, и останутся в его истории."
   },
   "admin.fees.notices.alreadyWaived": {
-    "en": "{by} already took responsibility on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.",
-    "t": "Ответственность уже взята {at} ({by}) за {n, plural, one {# держателя} few {# держателей} many {# держателей} other {# держателя}}, от которых рассылка отказалась к тому моменту. С тех пор она отказалась ещё от нескольких; этот акт добавит их в ту же запись."
+    "en": "{by} already took responsibility on {at} for {n, plural, one {# holder} other {# holders}} who could not be told by then. More could not be told since; this act adds them to that record.",
+    "t": "{by} уже взял(а) ответственность {at} за {n, plural, one {# держателя} few {# держателей} many {# держателей} other {# держателя}}, которым к тому моменту не удалось сообщить. С тех пор не удалось сообщить ещё кому-то; это действие добавит их в ту же запись."
   },
   "admin.fees.notices.alreadyWaivedAnon": {
-    "en": "Responsibility was already taken on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.",
-    "t": "Ответственность уже взята {at} за {n, plural, one {# держателя} few {# держателей} many {# держателей} other {# держателя}}, от которых рассылка отказалась к тому моменту. С тех пор она отказалась ещё от нескольких; этот акт добавит их в ту же запись."
+    "en": "Responsibility was already taken on {at} for {n, plural, one {# holder} other {# holders}} who could not be told by then. More could not be told since; this act adds them to that record.",
+    "t": "Ответственность уже взята {at} за {n, plural, one {# держателя} few {# держателей} many {# держателей} other {# держателя}}, которым к тому моменту не удалось сообщить. С тех пор не удалось сообщить ещё кому-то; это действие добавит их в ту же запись."
   },
   "admin.fees.notices.err.forbidden": {
-    "en": "Only the requester of this change or an owner can take responsibility for it.",
-    "t": "Взять ответственность может только запросивший это изменение или владелец."
+    "en": "Only the person who requested this change can take responsibility for it.",
+    "t": "Взять ответственность за это изменение может только тот, кто его запросил."
   },
   "admin.fees.notices.givenUpBody": {
-    "en": "The mailer has given up on {n, plural, one {this holder's notice} other {these # notices}}. A change that tightens the terms does not bind over a holder who was never told, so it is held up until somebody takes responsibility for them.",
-    "t": "Рассылка отказалась от попыток доставить {n, plural, one {уведомление этому держателю} few {эти # уведомления} many {эти # уведомлений} other {эти # уведомления}}. Изменение, ужесточающее условия, не вступает в силу для держателя, которого не уведомили, поэтому оно задерживается, пока кто-то не возьмёт за них ответственность."
+    "en": "invest could not tell {n, plural, one {this holder} other {these # holders}}: they switched these notices off, are not in invest's scope, or could not be reached after repeated tries. A change that tightens the terms does not bind over a holder who was never told, so it is held up until its requester takes responsibility for them or the change is withdrawn.",
+    "t": "invest не смог сообщить {n, plural, one {этому держателю} few {этим # держателям} many {этим # держателям} other {этим # держателям}}: уведомления отключены, держатель не входит в scope invest или до него не удалось достучаться после нескольких попыток. Изменение, ужесточающее условия, не действует для держателя, которому не сообщили, поэтому оно ждёт, пока запросивший не возьмёт за них ответственность или изменение не отзовут."
   },
   "admin.fees.notices.givenUpTitle": {
     "en": "{n, plural, one {# holder} other {# holders}} could not be told",
@@ -960,8 +956,8 @@
     "t": "Ещё {n, plural, one {# уведомление в процессе доставки — оно сюда не входит} few {# уведомления в процессе доставки — они сюда не входят} many {# уведомлений в процессе доставки — они сюда не входят} other {# уведомления в процессе доставки — они сюда не входят}}."
   },
   "admin.fees.notices.queued": {
-    "en": "{n, plural, one {# notice is} other {# notices are}} still being delivered. A change that tightens the terms waits for every holder to be told; there is nothing to do unless the mailer gives up on one.",
-    "t": "{n, plural, one {# уведомление ещё доставляется} few {# уведомления ещё доставляются} many {# уведомлений ещё доставляются} other {# уведомления ещё доставляются}}. Изменение, ужесточающее условия, ждёт, пока будут уведомлены все держатели; делать ничего не нужно, пока рассылка не откажется от попыток."
+    "en": "{n, plural, one {# notice is} other {# notices are}} still being delivered. A change that tightens the terms waits for every holder to be told; there is nothing to do unless one could not be told.",
+    "t": "{n, plural, one {# уведомление ещё доставляется} few {# уведомления ещё доставляются} many {# уведомлений ещё доставляются} other {# уведомления ещё доставляются}}. Изменение, ужесточающее условия, ждёт, пока сообщат каждому держателю; делать ничего не нужно, если только кому-то не удастся сообщить."
   },
   "admin.fees.openApprovals": {
     "en": "Open the owners' approvals",
@@ -1044,8 +1040,8 @@
     "t": "Это изменение решают владельцы. Подтвердите, что это вы, чтобы вас не засчитали как голосующего."
   },
   "admin.fees.requirement.admin": {
-    "en": "No vote needed: one administrator may make this change. Holders are mailed the notice when it is scheduled.",
-    "t": "Голосование не нужно: это изменение может внести один администратор. Держателям отправят уведомление, когда оно будет назначено."
+    "en": "No vote needed: one administrator may make this change. When it is scheduled, each holder gets the notice in their invest inbox and by mail, unless they switched these notices off.",
+    "t": "Голосование не нужно: это изменение может внести один администратор. Когда оно запланировано, каждый держатель получает уведомление во входящие invest и по почте, если не отключил такие уведомления."
   },
   "admin.fees.requirement.ownersReauth": {
     "en": "Needs the owners' approval: these terms tighten the current ones beyond the house 2 and 20, or lower the hurdle. You confirm your sign-in before it is sent, and you are not counted as a voter.",
@@ -1056,8 +1052,8 @@
     "t": "Запланировать изменение"
   },
   "admin.fees.scheduledBody": {
-    "en": "Version {version} takes effect on {at}. Every holder is being emailed the notice; until then the fund charges its current terms.",
-    "t": "Версия {version} вступает в силу {at}. Каждому держателю отправляется уведомление; до тех пор фонд взимает текущие условия."
+    "en": "Version {version} takes effect on {at}. Each holder is being sent the notice in their invest inbox and by mail; until then the fund charges its current terms.",
+    "t": "Версия {version} вступает в силу {at}. Каждому держателю отправляется уведомление во входящие invest и по почте; до тех пор фонд берёт комиссии по текущим условиям."
   },
   "admin.fees.scheduledTitle": {
     "en": "Scheduled — nothing has changed yet",

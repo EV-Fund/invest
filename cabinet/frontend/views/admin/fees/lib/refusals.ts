@@ -8,13 +8,12 @@ import type { Translate } from "@evinvest/i18n";
 import { RequestError } from "@/shared/lib/api-client";
 import { stripTransportPrefix } from "@/shared/lib/hub-refusal";
 
-type Refusal = "ownersNeedNoHolders" | "ownersNoWaiver" | "ownersRequesterOnly" | "accountUnknown" | "tooFewOwners";
+type Refusal = "ownersNoWaiver" | "ownersRequesterOnly" | "accountUnknown" | "tooFewOwners";
 
 // Lowercase fragments of `core/src/application/fees.rs` and `core/src/services/support.rs`,
 // and concierge's refusal code, which invest relays inside its own sentence. A reworded
 // sentence falls back to the hub's own words, never to a wrong translation.
 const FRAGMENTS: readonly (readonly [string, Refusal])[] = [
-  ["possible only on a fund with no holders", "ownersNeedNoHolders"],
   ["cannot be waived; withdraw the change instead", "ownersNoWaiver"],
   ["may be withdrawn only by the one who requested it", "ownersRequesterOnly"],
   ["your account is not known to invest yet", "accountUnknown"],
@@ -36,8 +35,6 @@ function refusalOf(error: unknown): Refusal | null {
 /** The plain-language sentence for a known refusal, or `null`. */
 export function feeRefusal(error: unknown, t: Translate): string | null {
   switch (refusalOf(error)) {
-    case "ownersNeedNoHolders":
-      return t("admin.fees.err.ownersNeedNoHolders", "These terms need the owners' approval, and someone holds units in this fund. For now, the owners can decide a change only for a fund nobody holds, because invest cannot deliver notices to holders yet.");
     case "ownersNoWaiver":
       return t("admin.fees.err.ownersNoWaiver", "The owners decided this change, so its holders' notices cannot be waived. Withdraw the change instead.");
     case "ownersRequesterOnly":

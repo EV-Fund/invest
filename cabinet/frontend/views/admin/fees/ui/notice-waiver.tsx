@@ -2,16 +2,16 @@
 
 // The holders a scheduled change could not reach, and the one act that binds it over them.
 //
-// Taking responsibility is not a retry of the mailer: the terms bind over holders who were
+// Taking responsibility is not a retry of the notice sender: the terms bind over holders who were
 // never told, and the operator's name goes on the change for good. So the button opens a
 // second step in place, the same way cancelling does (`./pending-card.tsx`) — no
 // `window.confirm`, and focus lands on the safe answer.
 //
-// The act is offered only over notices the mailer has GIVEN UP on — the hub refuses it
+// The act is offered only over notices the notice sender has GIVEN UP on — the hub refuses it
 // otherwise — so a notice still in the queue is reported as exactly that, with nothing to
 // press: the half-minute after scheduling, when every notice is undelivered because none
 // has been tried yet, must not read as holders who could not be told. And it is offered
-// again when the mailer gives up on more holders after an acknowledgement: the record
+// again when the notice sender gives up on more holders after an acknowledgement: the record
 // covers exactly the holders it was given over, so the later ones need an act of their
 // own — one that extends the list and puts the extender's name on all of it.
 
@@ -44,7 +44,7 @@ export function NoticeWaiver({ change }: { change: FeePolicyChange }) {
     case "none":
       return null;
     case "queued":
-      return <p className="text-xs text-ink-soft">{t("admin.fees.notices.queued", "{n, plural, one {# notice is} other {# notices are}} still being delivered. A change that tightens the terms waits for every holder to be told; there is nothing to do unless the mailer gives up on one.", { n: summary.queued })}</p>;
+      return <p className="text-xs text-ink-soft">{t("admin.fees.notices.queued", "{n, plural, one {# notice is} other {# notices are}} still being delivered. A change that tightens the terms waits for every holder to be told; there is nothing to do unless one could not be told.", { n: summary.queued })}</p>;
     case "waived": {
       const at = formatMoment(summary.at, locale);
       const by = waiverName(summary);
@@ -91,7 +91,7 @@ function GivenUpNotices({ change, givenUp, queued, waiver }: { change: FeePolicy
       revalidateTag(TAG.adminFees);
       setConfirming(false);
     } catch (e) {
-      // A 409 means the figures moved under us — the notices arrived, the mailer gave up
+      // A 409 means the figures moved under us — the notices arrived, the notice sender gave up
       // on none after all, the change is no longer scheduled — or the change only loosens
       // the terms and needs no act. The hub says which in a sentence of its own; the same
       // reread that answers a success brings in the figures it refused on.
@@ -110,14 +110,14 @@ function GivenUpNotices({ change, givenUp, queued, waiver }: { change: FeePolicy
       <AlertTitle className="text-ink">{t("admin.fees.notices.givenUpTitle", "{n, plural, one {# holder} other {# holders}} could not be told", { n: givenUp })}</AlertTitle>
       <AlertDescription className="gap-3 text-ink">
         <p className="text-sm leading-relaxed">
-          {t("admin.fees.notices.givenUpBody", "The mailer has given up on {n, plural, one {this holder's notice} other {these # notices}}. A change that tightens the terms does not bind over a holder who was never told, so it is held up until somebody takes responsibility for them.", { n: givenUp })}
+          {t("admin.fees.notices.givenUpBody", "invest could not tell {n, plural, one {this holder} other {these # holders}}: they switched these notices off, are not in invest's scope, or could not be reached after repeated tries. A change that tightens the terms does not bind over a holder who was never told, so it is held up until its requester takes responsibility for them or the change is withdrawn.", { n: givenUp })}
           {queued > 0 && <> {t("admin.fees.notices.moreQueued", "{n, plural, one {# more notice is still being delivered and is not covered by this act.} other {# more notices are still being delivered and are not covered by this act.}}", { n: queued })}</>}
         </p>
         {waiver && (
           <p className="text-sm leading-relaxed" title={idTooltip(waiver)}>
             {waiverBy
-              ? t("admin.fees.notices.alreadyWaived", "{by} already took responsibility on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.", { by: waiverBy, at: formatMoment(waiver.at, locale), n: waiver.holders })
-              : t("admin.fees.notices.alreadyWaivedAnon", "Responsibility was already taken on {at} for {n, plural, one {# holder} other {# holders}} the mailer had given up on by then. It has given up on more since; this act adds them to that record.", { at: formatMoment(waiver.at, locale), n: waiver.holders })}
+              ? t("admin.fees.notices.alreadyWaived", "{by} already took responsibility on {at} for {n, plural, one {# holder} other {# holders}} who could not be told by then. More could not be told since; this act adds them to that record.", { by: waiverBy, at: formatMoment(waiver.at, locale), n: waiver.holders })
+              : t("admin.fees.notices.alreadyWaivedAnon", "Responsibility was already taken on {at} for {n, plural, one {# holder} other {# holders}} who could not be told by then. More could not be told since; this act adds them to that record.", { at: formatMoment(waiver.at, locale), n: waiver.holders })}
           </p>
         )}
         {problem && <p className="text-xs text-accent-error">{problem}</p>}
@@ -158,7 +158,7 @@ function GivenUpNotices({ change, givenUp, queued, waiver }: { change: FeePolicy
 function waiverProblem(e: unknown, t: Translate): string {
   const known = feeRefusal(e, t);
   if (known) return known;
-  if (e instanceof RequestError && e.status === 403 && !e.code) return t("admin.fees.notices.err.forbidden", "Only the requester of this change or an owner can take responsibility for it.");
+  if (e instanceof RequestError && e.status === 403 && !e.code) return t("admin.fees.notices.err.forbidden", "Only the person who requested this change can take responsibility for it.");
   return stripTransportPrefix(errorMessage(e, t));
 }
 
