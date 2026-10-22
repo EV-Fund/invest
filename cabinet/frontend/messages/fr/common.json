@@ -1191,9 +1191,49 @@
     "en": "Staged",
     "t": "Préparé"
   },
+  "admin.treasury.allocations.col.allocation": {
+    "en": "Allocation",
+    "t": "Allocation"
+  },
+  "admin.treasury.allocations.col.cash": {
+    "en": "Cash, USDT",
+    "t": "Trésorerie, USDT"
+  },
+  "admin.treasury.allocations.empty": {
+    "en": "No allocations yet",
+    "t": "Aucune allocation pour l'instant"
+  },
+  "admin.treasury.allocations.emptyHint": {
+    "en": "Every allocation appears here with its cash, units and holders — the products, and the hidden fee and fund allocations once they exist.",
+    "t": "Chaque allocation apparaît ici avec sa trésorerie, ses parts et ses détenteurs — les produits, et les allocations cachées des frais et du fonds dès qu'elles existent."
+  },
+  "admin.treasury.allocations.moreHolders": {
+    "en": "+{n} more",
+    "t": "+{n} autres"
+  },
+  "admin.treasury.allocations.noHolders": {
+    "en": "no holders",
+    "t": "aucun détenteur"
+  },
+  "admin.treasury.allocations.stale": {
+    "en": "stale · marked {ago}",
+    "t": "périmée · évaluée {ago}"
+  },
+  "admin.treasury.allocations.staleHint": {
+    "en": "The last mark is more than 24 h old: deals and issuances are refused until a new one",
+    "t": "La dernière évaluation date de plus de 24 h : opérations et émissions sont refusées jusqu'à la prochaine"
+  },
   "admin.treasury.allocations.unmarked": {
     "en": "not yet marked",
     "t": "pas encore évalué"
+  },
+  "admin.treasury.allocations.unmarkedHint": {
+    "en": "No mark posted yet: priced at the seed NAV",
+    "t": "Aucune évaluation publiée : valorisée à la NAV initiale"
+  },
+  "admin.treasury.subtitle": {
+    "en": "Every allocation's cash, units, price and largest holders — the hidden fee and fund allocations included",
+    "t": "La trésorerie, les parts, le prix et les principaux détenteurs de chaque allocation — allocations cachées des frais et du fonds comprises"
   },
   "admin.users.kycLevelShort": {
     "en": "L{n}",
@@ -2002,6 +2042,10 @@
   "nav.group.fund": {
     "en": "Your account",
     "t": "Votre compte"
+  },
+  "nav.heldThrough": {
+    "en": "Held through allocations",
+    "t": "Détenu via les allocations"
   },
   "nav.invest": {
     "en": "Invest",

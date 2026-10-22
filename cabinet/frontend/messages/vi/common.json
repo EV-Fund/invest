@@ -1191,9 +1191,49 @@
     "en": "Staged",
     "t": "Thử nghiệm"
   },
+  "admin.treasury.allocations.col.allocation": {
+    "en": "Allocation",
+    "t": "Phân bổ"
+  },
+  "admin.treasury.allocations.col.cash": {
+    "en": "Cash, USDT",
+    "t": "Tiền mặt, USDT"
+  },
+  "admin.treasury.allocations.empty": {
+    "en": "No allocations yet",
+    "t": "Chưa có phân bổ nào"
+  },
+  "admin.treasury.allocations.emptyHint": {
+    "en": "Every allocation appears here with its cash, units and holders — the products, and the hidden fee and fund allocations once they exist.",
+    "t": "Mọi phân bổ sẽ hiện ở đây cùng tiền mặt, đơn vị và người nắm giữ — các sản phẩm, và các phân bổ phí và quỹ ẩn khi chúng tồn tại."
+  },
+  "admin.treasury.allocations.moreHolders": {
+    "en": "+{n} more",
+    "t": "+{n} nữa"
+  },
+  "admin.treasury.allocations.noHolders": {
+    "en": "no holders",
+    "t": "chưa có người nắm giữ"
+  },
+  "admin.treasury.allocations.stale": {
+    "en": "stale · marked {ago}",
+    "t": "đã cũ · định giá {ago}"
+  },
+  "admin.treasury.allocations.staleHint": {
+    "en": "The last mark is more than 24 h old: deals and issuances are refused until a new one",
+    "t": "Lần định giá gần nhất đã quá 24 giờ: giao dịch và phát hành bị từ chối cho đến lần định giá mới"
+  },
   "admin.treasury.allocations.unmarked": {
     "en": "not yet marked",
     "t": "chưa định giá"
+  },
+  "admin.treasury.allocations.unmarkedHint": {
+    "en": "No mark posted yet: priced at the seed NAV",
+    "t": "Chưa có lần định giá nào: tính theo NAV khởi điểm"
+  },
+  "admin.treasury.subtitle": {
+    "en": "Every allocation's cash, units, price and largest holders — the hidden fee and fund allocations included",
+    "t": "Tiền mặt, đơn vị, giá và những người nắm giữ lớn nhất của mọi phân bổ — kể cả các phân bổ phí và quỹ ẩn"
   },
   "admin.users.kycLevelShort": {
     "en": "L{n}",
@@ -2002,6 +2042,10 @@
   "nav.group.fund": {
     "en": "Your account",
     "t": "Tài khoản của bạn"
+  },
+  "nav.heldThrough": {
+    "en": "Held through allocations",
+    "t": "Nắm giữ qua các phân bổ"
   },
   "nav.invest": {
     "en": "Invest",

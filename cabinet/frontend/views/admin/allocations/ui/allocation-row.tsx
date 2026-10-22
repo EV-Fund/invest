@@ -14,7 +14,7 @@ import type { AllocationPanelKind } from "@/views/admin/allocations/lib/panel";
 import { AllocationAccessCell } from "@/views/admin/allocations/ui/allocation-access-cell";
 import { AllocationEditor } from "@/views/admin/allocations/ui/allocation-editor";
 import { AllocationRowActions } from "@/views/admin/allocations/ui/allocation-row-actions";
-import { AllocationStateCell } from "@/views/admin/allocations/ui/allocation-state-cell";
+import { AllocationStateCell } from "@/views/admin/ui/allocation-state-cell";
 import { BackingBadge } from "@/views/admin/allocations/ui/backing-badge";
 
 /** One registry row's worth of data and callbacks — the same contract under both of its

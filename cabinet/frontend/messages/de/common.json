@@ -1191,9 +1191,49 @@
     "en": "Staged",
     "t": "Vorbereitet"
   },
+  "admin.treasury.allocations.col.allocation": {
+    "en": "Allocation",
+    "t": "Allokation"
+  },
+  "admin.treasury.allocations.col.cash": {
+    "en": "Cash, USDT",
+    "t": "Barmittel, USDT"
+  },
+  "admin.treasury.allocations.empty": {
+    "en": "No allocations yet",
+    "t": "Noch keine Allokationen"
+  },
+  "admin.treasury.allocations.emptyHint": {
+    "en": "Every allocation appears here with its cash, units and holders — the products, and the hidden fee and fund allocations once they exist.",
+    "t": "Jede Allokation erscheint hier mit Barmitteln, Anteilen und Haltern — die Produkte sowie die verborgenen Gebühren- und Fonds-Allokationen, sobald sie existieren."
+  },
+  "admin.treasury.allocations.moreHolders": {
+    "en": "+{n} more",
+    "t": "+{n} weitere"
+  },
+  "admin.treasury.allocations.noHolders": {
+    "en": "no holders",
+    "t": "keine Halter"
+  },
+  "admin.treasury.allocations.stale": {
+    "en": "stale · marked {ago}",
+    "t": "veraltet · bewertet {ago}"
+  },
+  "admin.treasury.allocations.staleHint": {
+    "en": "The last mark is more than 24 h old: deals and issuances are refused until a new one",
+    "t": "Die letzte Bewertung ist älter als 24 h: Geschäfte und Ausgaben werden bis zur nächsten abgelehnt"
+  },
   "admin.treasury.allocations.unmarked": {
     "en": "not yet marked",
     "t": "noch nicht bewertet"
+  },
+  "admin.treasury.allocations.unmarkedHint": {
+    "en": "No mark posted yet: priced at the seed NAV",
+    "t": "Noch keine Bewertung: bewertet zum Anfangs-NAV"
+  },
+  "admin.treasury.subtitle": {
+    "en": "Every allocation's cash, units, price and largest holders — the hidden fee and fund allocations included",
+    "t": "Barmittel, Anteile, Preis und größte Halter jeder Allokation — einschließlich der verborgenen Gebühren- und Fonds-Allokationen"
   },
   "admin.users.kycLevelShort": {
     "en": "L{n}",
@@ -2002,6 +2042,10 @@
   "nav.group.fund": {
     "en": "Your account",
     "t": "Ihr Konto"
+  },
+  "nav.heldThrough": {
+    "en": "Held through allocations",
+    "t": "Über Allokationen gehalten"
   },
   "nav.invest": {
     "en": "Invest",

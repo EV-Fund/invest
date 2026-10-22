@@ -1191,9 +1191,49 @@
     "en": "Staged",
     "t": "Подготовлен"
   },
+  "admin.treasury.allocations.col.allocation": {
+    "en": "Allocation",
+    "t": "Аллокация"
+  },
+  "admin.treasury.allocations.col.cash": {
+    "en": "Cash, USDT",
+    "t": "Деньги, USDT"
+  },
+  "admin.treasury.allocations.empty": {
+    "en": "No allocations yet",
+    "t": "Аллокаций пока нет"
+  },
+  "admin.treasury.allocations.emptyHint": {
+    "en": "Every allocation appears here with its cash, units and holders — the products, and the hidden fee and fund allocations once they exist.",
+    "t": "Здесь появится каждая аллокация с её деньгами, юнитами и держателями — продукты и скрытые аллокации комиссий и фонда, как только они появятся."
+  },
+  "admin.treasury.allocations.moreHolders": {
+    "en": "+{n} more",
+    "t": "ещё {n}"
+  },
+  "admin.treasury.allocations.noHolders": {
+    "en": "no holders",
+    "t": "держателей нет"
+  },
+  "admin.treasury.allocations.stale": {
+    "en": "stale · marked {ago}",
+    "t": "устарела · оценка {ago}"
+  },
+  "admin.treasury.allocations.staleHint": {
+    "en": "The last mark is more than 24 h old: deals and issuances are refused until a new one",
+    "t": "Последней оценке больше 24 ч: сделки и выпуски отклоняются до новой"
+  },
   "admin.treasury.allocations.unmarked": {
     "en": "not yet marked",
     "t": "ещё не оценено"
+  },
+  "admin.treasury.allocations.unmarkedHint": {
+    "en": "No mark posted yet: priced at the seed NAV",
+    "t": "Оценок ещё не было: цена — начальный NAV"
+  },
+  "admin.treasury.subtitle": {
+    "en": "Every allocation's cash, units, price and largest holders — the hidden fee and fund allocations included",
+    "t": "Деньги, юниты, цена и крупнейшие держатели каждой аллокации — включая скрытые аллокации комиссий и фонда"
   },
   "admin.users.kycLevelShort": {
     "en": "L{n}",
@@ -2002,6 +2042,10 @@
   "nav.group.fund": {
     "en": "Your account",
     "t": "Ваш счёт"
+  },
+  "nav.heldThrough": {
+    "en": "Held through allocations",
+    "t": "Через аллокации"
   },
   "nav.invest": {
     "en": "Invest",
