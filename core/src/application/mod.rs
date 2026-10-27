@@ -35,4 +35,3 @@ pub mod import;
 pub mod issuance;
 pub mod ownership;
 pub mod treasury;
-pub mod window_import;

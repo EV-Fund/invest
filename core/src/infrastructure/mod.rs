@@ -48,7 +48,6 @@ pub mod singleton;
 pub mod subscriptions;
 pub mod tigerbeetle;
 pub mod users;
-pub mod window_import;
 
 /// Unix seconds now, by the host clock — for the background workers and the relay's
 /// projections, which stamp the moment they act. The request path takes its `now` from the
