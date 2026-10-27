@@ -24,10 +24,13 @@ import { ResourceError } from "@/shared/ui/resource-error";
  * returns to the host's `/`, which is the landing on this host, while concierge takes a
  * `return_to` only when its path is byte for byte one of the `invest` scope's
  * `return_paths` — `/cabinet`.
+ *
+ * The element itself navigates to the confirm page right after its `signout` event, so the
+ * page may unload before this POST returns; `keepalive` lets the request finish anyway.
  */
 async function signOut(): Promise<void> {
   clearResources();
-  await fetch(apiPath("/api/auth/logout"), { method: "POST", headers: csrfHeader() }).catch(() => undefined);
+  await fetch(apiPath("/api/auth/logout"), { method: "POST", headers: csrfHeader(), keepalive: true }).catch(() => undefined);
   window.location.assign(platformSignOutHref(`${window.location.origin}${BASE_PATH}`));
 }
 
