@@ -21,7 +21,6 @@ banking's on purpose.
 | `contracts/` (`invest_contracts`) | `proto/invest/v1/*.proto` → tonic stubs. The wire is banking's `banking.v1` shape under `invest.v1`. |
 | `core/` (`invest-core`) | `services` (gRPC) → `application` (use cases) → `ports` → `infrastructure` (Postgres, TigerBeetle, banking). |
 | `core` — `import` | `invest-core import --file …` is the one-shot data-wave importer (`application/import`, `infrastructure/import.rs`, `import_cmd.rs`); format and runbook notes in [`docs/MIGRATION-IMPORT.md`](docs/MIGRATION-IMPORT.md). Not part of `serve`. |
-| `core` — `window-import` | `invest-core window-import --file … [--dry-run \| --apply]` loads banking's `window-export` file (`application/window_import`, `infrastructure/window_import.rs`, `window_import_cmd.rs`); it reads it with banking's own `domain::window_export` structs (`banking_domain`, git-pinned). Runbook and refusals in [`docs/WINDOW-IMPORT.md`](docs/WINDOW-IMPORT.md). Not part of `serve`. |
 | `cabinet/backend/` (`invest-cabinet-backend`) | The cabinet's BFF (HTTP): concierge sign-in, sessions in the `cabinet` schema, routes → invest-core. Cut from banking's `cabinet/backend` at `9ffafce3`. |
 | `cabinet/frontend/` | The cabinet (Next.js, `basePath: /cabinet`, its own npm package). Talks to the BFF alone; its wire types in `shared/contracts` are hand-written against `cabinet/backend/src/dto.rs` — change both in one PR. Gate: `nix run .#check-frontend`. |
 

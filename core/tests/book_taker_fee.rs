@@ -32,6 +32,10 @@ use uuid::Uuid;
 const DELAY: i64 = 3_600;
 const CEILING: u32 = 25;
 const T0: i64 = 1_800_000_000;
+// A sweep binds every due rise in the shared database: a sweeping test is dated early enough
+// that its sweep binds no later-dated test's rise.
+const T_RESTART: i64 = T0 - 20 * DELAY;
+const T_SWEEP: i64 = T0 - 10 * DELAY;
 
 /// Postgres only: a rise never touches the unit ledger, so these tests do not need a
 /// TigerBeetle replica (the suites that move units do, and skip without one).
@@ -140,17 +144,17 @@ async fn a_rise_binds_after_the_delay_on_the_sweepers_promotion() {
 	let Some(h) = harness().await else { return };
 	let service = product_at(&h, 10).await;
 	holder(&h, &service).await;
-	let pending = change(&h, &h.book, &service, policy(30), T0, true).await.unwrap().pending_rise.unwrap();
+	let pending = change(&h, &h.book, &service, policy(30), T_SWEEP, true).await.unwrap().pending_rise.unwrap();
 
-	assert!(h.book.due_taker_fee_rises(T0 + DELAY - 1).await.unwrap().iter().all(|id| *id != pending.id));
-	assert!(h.book.due_taker_fee_rises(T0 + DELAY).await.unwrap().contains(&pending.id));
+	assert!(h.book.due_taker_fee_rises(T_SWEEP + DELAY - 1).await.unwrap().iter().all(|id| *id != pending.id));
+	assert!(h.book.due_taker_fee_rises(T_SWEEP + DELAY).await.unwrap().contains(&pending.id));
 	let mut failures = std::collections::HashMap::new();
-	book_app::promote_due_rises(&h.book, T0 + DELAY, &mut failures).await.unwrap();
+	book_app::promote_due_rises(&h.book, T_SWEEP + DELAY, &mut failures).await.unwrap();
 
 	assert_eq!(live_fee(&h, &service).await, 30);
 	assert_eq!(book_app::policy(&h.book, &service).await.unwrap().pending_rise, None);
 	assert_eq!(change_state(&h, pending.id).await, "applied");
-	assert!(!h.book.promote_taker_fee_rise(pending.id, T0 + DELAY).await.unwrap(), "a bound rise is not bound twice");
+	assert!(!h.book.promote_taker_fee_rise(pending.id, T_SWEEP + DELAY).await.unwrap(), "a bound rise is not bound twice");
 }
 
 #[tokio::test]
@@ -276,13 +280,13 @@ async fn a_pending_rise_survives_a_restart() {
 	let Some(h) = harness().await else { return };
 	let service = product_at(&h, 10).await;
 	holder(&h, &service).await;
-	let pending = change(&h, &h.book, &service, policy(30), T0, true).await.unwrap().pending_rise.unwrap();
+	let pending = change(&h, &h.book, &service, policy(30), T_RESTART, true).await.unwrap().pending_rise.unwrap();
 
 	// A new process is a new adapter over the same database: nothing is held in memory.
 	let restarted = PgBook::new(h.pool.clone());
 	assert_eq!(book_app::policy(&restarted, &service).await.unwrap().pending_rise, Some(pending.clone()));
 	let mut failures = std::collections::HashMap::new();
-	book_app::promote_due_rises(&restarted, T0 + DELAY, &mut failures).await.unwrap();
+	book_app::promote_due_rises(&restarted, T_RESTART + DELAY, &mut failures).await.unwrap();
 	assert_eq!(book_app::policy(&restarted, &service).await.unwrap().policy.taker_fee_bps(), 30);
 }
 
@@ -312,10 +316,7 @@ async fn a_holder_the_acknowledgement_does_not_cover_holds_the_rise() {
 		.execute(&h.pool)
 		.await
 		.unwrap();
-	// Not asserted on the return value: the tests share one database and another test's
-	// sweep of every due rise can bind this change between the update above and this call,
-	// making this call a no-op (false). The outcome is the same either way.
-	h.book.promote_taker_fee_rise(pending.id, T0 + DELAY).await.unwrap();
+	assert!(h.book.promote_taker_fee_rise(pending.id, T0 + DELAY).await.unwrap());
 	assert_eq!(live_fee(&h, &service).await, 30);
 	assert_eq!(change_state(&h, pending.id).await, "applied");
 }
