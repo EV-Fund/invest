@@ -50,7 +50,7 @@
           inherit pkgs pname rs;
           enable = true;
           lastSupportedVersion = "nightly-2026-05-12";
-          containerRelease = { registry = "ghcr.io/ev-fund"; };
+          containerRelease = { registry = "ghcr.io/ev-estate"; };
           gitignore.extra = ''
             ## Local TigerBeetle
             .tb/
